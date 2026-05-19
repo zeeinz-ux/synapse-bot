@@ -470,7 +470,7 @@ git pull origin main
 
 ## 👨‍💻 Developer
 
-- **Discord**: `!zeenz`
+- **Discord**: `zeeeinz`
 - **GitHub**: [github.com/zeeinz-ux](https://github.com/zeeinz-ux)
 - **Replit**: [replit.com/@zeezeeinz](https://replit.com/@zeezeeinz)
 
