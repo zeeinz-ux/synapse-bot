@@ -97,6 +97,7 @@ my-discord-bot/
 ├── cogs/                       # Discord bot cogs
 │   ├── __init__.py
 │   ├── music.py                # Music Player (YouTube + Spotify + Playlist)
+│   ├── spotify_down.py         # SpotifyDown API resolver + fallback
 │   ├── general.py              # Ping, stats, help commands
 │   ├── boost.py                # Boost Tracker
 │   ├── donation.py             # Donation Tracker
@@ -158,10 +159,12 @@ Edit `.env`:
 # WAJIB
 TOKEN_BOT=your_discord_bot_token_here
 
-# OPSIONAL (untuk Spotify)
+# OPSIONAL (untuk Spotify fallback ke Official API)
 SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 ```
+
+> **Note:** `SPOTIFY_CLIENT_ID` & `SECRET` opsional — bot tetap jalan pakai SpotifyDown API atau oEmbed fallback.
 
 ### 4. Jalankan Bot
 
@@ -172,7 +175,7 @@ python main.py
 Output yang diharapkan:
 
 ```
-[LAVALINK] ✅ Node 1 tersambung: https://lava-v4.ajieblogs.eu.org:443
+[LAVALINK] ✅ Node 1 tersambung: https://lavalink.jirayu.net:13592
 [STATUS] 🤖 Hidden Hamlet SEKARANG SUDAH ONLINE!
 [STATUS] Terhubung ke 1 server Discord.
 [COG] ✅ Total 4 cogs loaded!
@@ -283,33 +286,62 @@ git push origin main
 
 ```markdown
 # Play dari search query
-
 /play query:alan walker faded
 
 # Play dari YouTube URL
-
 /play query:https://youtube.com/watch?v=...
 
-# Play dari Spotify URL
+# Play dari Spotify URL (track)
+/play query:https://open.spotify.com/track/11dFghVXANMlKmJXsNCbNl
 
-/play query:https://open.spotify.com/track/...
+# Play dari Spotify URL (playlist)
+/play query:https://open.spotify.com/playlist/1OdeBqfZNHjcS3PgbXhqZc
 
 # Atur volume
-
 /volume level:75
 
 # Lihat queue
-
 /queue
 
 # Skip lagu
-
 /skip
 
 # Simpan playlist
-
 /playlist save name:Rock Favorites
 ```
+
+---
+
+## 🔥 Spotify Integration
+
+Bot menggunakan **multi-strategy resolver** untuk Spotify URLs:
+
+| Source | Kecepatan | Reliability | Auth |
+|--------|-----------|-------------|------|
+| **SpotifyDown API** | ⚡ Fastest | ⚠️ Bisa down | ❌ No auth |
+| **Spotify Official API** | ⚡ Fast | ✅ Stable | ✅ Client ID + Secret |
+| **oEmbed** | 🐢 Medium | ✅ Always works | ❌ No auth |
+| **HTML Scrape** | 🐢 Slow | ⚠️ Fragile | ❌ No auth |
+
+**Fallback chain:**
+```
+SpotifyDown API → Spotify Official → oEmbed → HTML Scrape → ytsearch
+```
+
+### SpotifyDown API
+- **Endpoint**: `api.spotifydown.com`
+- **Features**: Track list, album list, YouTube ID mapping
+- **Limitation**: Unofficial, bisa mati sewaktu-waktu
+
+### Spotify Official API (Fallback)
+- **Butuh**: `SPOTIFY_CLIENT_ID` & `SPOTIFY_CLIENT_SECRET`
+- **Features**: Full metadata, track list, album tracks
+- **Rate limit**: 1 request/second
+
+### oEmbed / HTML Scrape (Last Resort)
+- **No auth required**
+- **Returns**: Title, artist, thumbnail only
+- **Limitation**: Single track per URL (no playlist track list)
 
 ---
 
@@ -400,20 +432,22 @@ git push origin main
 | `/play hang/stuck`           | Search timeout             | Cek koneksi internet, coba query lain                        |
 | `Dashboard 404`              | Route tidak terdaftar      | Cek `web/web_app.py`, pastikan `/dashboard` route ada        |
 | `CSS tidak load`             | Path static salah          | Cek `static_folder` di Flask app                             |
+| `SpotifyDown API down`       | API tidak tersedia         | Fallback ke oEmbed/HTML scrape otomatis                      |
+| `YouTube 403`                | Lavalink node ke-block     | Ganti node di `utils/constants.py`                           |
 
 ---
 
 ## 📦 Dependencies
 
-| Package        | Versi    | Fungsi                         |
-| -------------- | -------- | ------------------------------ |
-| discord.py     | >=2.3.0  | Library Discord bot            |
-| wavelink       | >=3.0.0  | Lavalink client untuk music    |
-| firebase-admin | >=6.2.0  | Firebase Firestore integration |
-| flask          | >=2.3.0  | Web server untuk dashboard     |
-| python-dotenv  | >=1.0.0  | Load environment variables     |
-| spotipy        | >=2.23.0 | Spotify API integration        |
-| PyNaCl         | >=1.5.0  | Voice encryption               |
+| Package        | Versi      | Fungsi                              |
+| -------------- | ---------- | ----------------------------------- |
+| discord.py     | >=2.3.0    | Library Discord bot                 |
+| wavelink       | >=3.0.0    | Lavalink client untuk music         |
+| firebase-admin | >=6.2.0    | Firebase Firestore integration      |
+| flask          | >=2.3.0    | Web server untuk dashboard          |
+| python-dotenv  | >=1.0.0    | Load environment variables          |
+| aiohttp        | >=3.9.0    | Async HTTP untuk SpotifyDown API    |
+| PyNaCl         | >=1.5.0    | Voice encryption                    |
 
 ---
 
@@ -434,7 +468,6 @@ git push origin main
 
 ```bash
 # Update
-
 git add .
 git commit -m "Update: deskripsi perubahan"
 git push origin main
@@ -456,6 +489,9 @@ git pull origin main
 | v2.3  | Fix skip spam embed, add search timeout, auto-disconnect when alone  |
 | v3.0  | **+ Web Dashboard** — Real-time status, active players, progress bar |
 | v3.1  | Refactor: extract utils (formatters, constants), separate web folder |
+| v3.2  | **+ SpotifyDown API** integration with triple fallback               |
+| v3.3  | Async oEmbed/HTML scrape fallback, fix blocking I/O in `/lyrics`     |
+| v3.4  | Playlist embed + auto-play first track, update Lavalink nodes        |
 
 ---
 
