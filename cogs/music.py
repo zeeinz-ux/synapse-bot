@@ -36,7 +36,7 @@ class Music(commands.Cog):
         self.bot = bot
         self.players = {}
         self._spotify_enabled = True
-        print("[SPOTIFY] Using oEmbed + Embed Page scraping + Smart Fallback (no API key)")
+        print("[SPOTIFY] Using multi-strategy scraping (no API key required)")
 
     def get_player(self, guild_id: int) -> MusicPlayer:
         if guild_id not in self.players:
@@ -44,7 +44,7 @@ class Music(commands.Cog):
         return self.players[guild_id]
 
     # ==========================================================
-    # [NEW] SPOTIFY SCRAPING HELPERS (No API Key)
+    # SPOTIFY SCRAPING HELPERS (No API Key)
     # ==========================================================
     def _is_spotify_url(self, query: str) -> bool:
         return "open.spotify.com" in query or "spotify.com" in query
@@ -64,37 +64,14 @@ class Music(commands.Cog):
                 return (type_, match.group(1))
         return None
 
-    def _smart_fallback_query(self, url: str, spotify_type: str) -> str:
-        """
-        [SMART FALLBACK] Extract readable query dari URL path.
-        Contoh: https://open.spotify.com/track/xxx?si=... 
-        Kalau tidak ada metadata, coba ekstrak dari path segments.
-        """
-        # Coba ekstrak dari path yang mungkin mengandung judul
-        # Spotify URL biasanya: /track/ID atau /playlist/ID
-        # Tidak mengandung judul, tapi kita bisa coba
-
-        # Untuk track: tidak ada info di URL, return generic
-        if spotify_type == 'track':
-            return ""
-
-        # Untuk playlist/album: coba ekstrak dari URL yang mungkin punya slug
-        # Format: /playlist/ID atau /user/xxx/playlist/ID
-        return ""
-
-    def _title_case_from_slug(self, slug: str) -> str:
-        """Convert slug ke title case."""
-        return ' '.join(word.capitalize() for word in slug.replace('-', ' ').replace('_', ' ').split())
-
     def _get_spotify_metadata_oembed(self, url: str) -> dict | None:
-        """Gunakan Spotify oEmbed API (gratis, tidak perlu auth)."""
+        """Spotify oEmbed API (gratis, tidak perlu auth)."""
         try:
             oembed_url = f"https://open.spotify.com/oembed?url={requests.utils.quote(url)}"
             resp = requests.get(oembed_url, timeout=10, headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             })
             if resp.status_code != 200:
-                print(f"[SPOTIFY OEMBED] Status {resp.status_code}")
                 return None
             data = resp.json()
             return {
@@ -107,7 +84,7 @@ class Music(commands.Cog):
             return None
 
     def _get_spotify_metadata_html(self, url: str) -> dict | None:
-        """Fallback: scrape metadata dari HTML Spotify page."""
+        """Scrape metadata dari HTML Spotify page."""
         try:
             resp = requests.get(url, timeout=10, headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -153,7 +130,10 @@ class Music(commands.Cog):
             return None
 
     def _get_spotify_embed_page_tracks(self, playlist_id: str) -> list[dict]:
-        """Scrape track list dari Spotify embed page."""
+        """
+        [NEW] Scrape track list dari Spotify embed page dengan multiple strategies.
+        Spotify embed page kadang render track list dalam berbagai format.
+        """
         tracks = []
         try:
             embed_url = f"https://open.spotify.com/embed/playlist/{playlist_id}"
@@ -161,6 +141,7 @@ class Music(commands.Cog):
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://open.spotify.com/',
             })
             if resp.status_code != 200:
                 print(f"[SPOTIFY EMBED] Status {resp.status_code}")
@@ -168,59 +149,139 @@ class Music(commands.Cog):
 
             html = resp.text
 
-            # [STRATEGY 1] Cari JSON data di dalam <script> tags
-            json_matches = re.findall(r'window\.__INITIAL_PROPS__\s*=\s*(\{.*?\});', html, re.DOTALL)
-            if not json_matches:
-                json_matches = re.findall(r'"tracks":\s*(\[.*?\])', html, re.DOTALL)
+            # [STRATEGY 1] Cari window.__INITIAL_PROPS__ atau __INITIAL_STATE__
+            props_patterns = [
+                r'window\.__INITIAL_PROPS__\s*=\s*(\{.*?\});',
+                r'window\.__INITIAL_STATE__\s*=\s*(\{.*?\});',
+                r'window\.__data\s*=\s*(\{.*?\});',
+            ]
+            for pattern in props_patterns:
+                match = re.search(pattern, html, re.DOTALL)
+                if match:
+                    try:
+                        import json
+                        data = json.loads(match.group(1))
+                        # Navigate through nested structure to find tracks
+                        # Structure bisa: data.playlist.tracks atau data.tracks
+                        tracks_data = None
+                        if isinstance(data, dict):
+                            if 'playlist' in data and isinstance(data['playlist'], dict):
+                                tracks_data = data['playlist'].get('tracks', [])
+                            elif 'tracks' in data:
+                                tracks_data = data['tracks']
+                            elif 'items' in data:
+                                tracks_data = data['items']
 
-            if json_matches:
-                try:
-                    import json
-                    data = json.loads(json_matches[0])
-                    if isinstance(data, list):
-                        for track in data:
-                            if isinstance(track, dict):
-                                name = track.get('name', '')
-                                artists = track.get('artists', '')
-                                if name:
-                                    tracks.append({
-                                        'name': name,
-                                        'artists': artists if isinstance(artists, str) else ', '.join(a.get('name', '') for a in artists) if isinstance(artists, list) else '',
-                                        'artwork': ''
-                                    })
-                except Exception as e:
-                    print(f"[SPOTIFY EMBED JSON PARSE] {e}")
+                        if isinstance(tracks_data, list):
+                            for track in tracks_data:
+                                if isinstance(track, dict):
+                                    name = track.get('name', '')
+                                    artists = track.get('artists', [])
+                                    if name:
+                                        artist_str = ', '.join(a.get('name', '') for a in artists) if isinstance(artists, list) else str(artists)
+                                        tracks.append({
+                                            'name': name,
+                                            'artists': artist_str,
+                                            'artwork': ''
+                                        })
+                            if tracks:
+                                print(f"[SPOTIFY EMBED] Strategy 1 found {len(tracks)} tracks")
+                                return tracks
+                    except Exception as e:
+                        print(f"[SPOTIFY EMBED JSON PARSE] {e}")
 
-            # [STRATEGY 2] Parse HTML structure langsung
+            # [STRATEGY 2] Parse dari HTML yang sudah di-render (SSR)
+            # Format modern: <div data-testid="tracklist-row"> dengan child elements
+            # Cari semua elemen yang punya track info
             if not tracks:
-                track_sections = re.findall(
-                    r'###\s*([^\n]+)\s*\n\s*####\s*([^\n]+)',
+                # Cari pattern: "name":"Track","artists":[{"name":"Artist"}]
+                track_blocks = re.findall(
+                    r'"name":"([^"]{2,100})","artists":(\[[^\]]*\])',
                     html
                 )
-                for track_name, artist_name in track_sections:
-                    tracks.append({
-                        'name': track_name.strip(),
-                        'artists': artist_name.strip(),
-                        'artwork': ''
-                    })
-
-            # [STRATEGY 3] Cari pattern JSON-like di dalam HTML
-            if not tracks:
-                track_jsons = re.findall(
-                    r'"name":"([^"]{2,100})","uri":"spotify:track:[a-zA-Z0-9]+"',
-                    html
-                )
-                seen = set()
-                for name in track_jsons:
-                    if name not in seen:
-                        seen.add(name)
+                for name, artists_json in track_blocks:
+                    try:
+                        import json
+                        artists_list = json.loads(artists_json)
+                        artist_names = [a.get('name', '') for a in artists_list if isinstance(a, dict)]
+                        artist_str = ', '.join(filter(None, artist_names))
+                        tracks.append({
+                            'name': name,
+                            'artists': artist_str,
+                            'artwork': ''
+                        })
+                    except:
                         tracks.append({
                             'name': name,
                             'artists': '',
                             'artwork': ''
                         })
+                if tracks:
+                    print(f"[SPOTIFY EMBED] Strategy 2 found {len(tracks)} tracks")
+                    return tracks
 
-            print(f"[SPOTIFY EMBED] Found {len(tracks)} tracks from embed page")
+            # [STRATEGY 3] Cari dari <script id="__NEXT_DATA__"> (Next.js app)
+            next_data = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+            if next_data:
+                try:
+                    import json
+                    data = json.loads(next_data.group(1))
+                    # Navigate Next.js data structure
+                    if isinstance(data, dict):
+                        # Cari di props.pageProps atau similar
+                        page_props = data.get('props', {}).get('pageProps', {})
+                        if not page_props:
+                            page_props = data
+
+                        # Cari tracks di berbagai path
+                        tracks_data = None
+                        if 'playlist' in page_props:
+                            tracks_data = page_props['playlist'].get('tracks', [])
+                        elif 'tracks' in page_props:
+                            tracks_data = page_props['tracks']
+
+                        if isinstance(tracks_data, list):
+                            for track in tracks_data:
+                                if isinstance(track, dict):
+                                    name = track.get('name', '')
+                                    artists = track.get('artists', [])
+                                    if name:
+                                        artist_str = ', '.join(a.get('name', '') for a in artists) if isinstance(artists, list) else str(artists)
+                                        tracks.append({
+                                            'name': name,
+                                            'artists': artist_str,
+                                            'artwork': ''
+                                        })
+                            if tracks:
+                                print(f"[SPOTIFY EMBED] Strategy 3 (Next.js) found {len(tracks)} tracks")
+                                return tracks
+                except Exception as e:
+                    print(f"[SPOTIFY EMBED NEXT_DATA] {e}")
+
+            # [STRATEGY 4] Cari dari HTML yang di-render dengan class/css selectors
+            # Format: <div class="...">Track Name</div><div class="...">Artist Name</div>
+            if not tracks:
+                # Cari pattern di text content
+                # Kadang Spotify embed render sebagai text murni
+                track_sections = re.findall(
+                    r'>([^<]{2,100})</[^>]*>\s*<[^>]*>([^<]{2,100})</',
+                    html
+                )
+                # Filter yang kemungkinan track (bukan CSS/JS)
+                for text1, text2 in track_sections:
+                    if any(keyword in text1.lower() for keyword in ['spotify', 'cookie', 'privacy', 'login']):
+                        continue
+                    if len(text1) > 2 and len(text2) > 2:
+                        tracks.append({
+                            'name': text1.strip(),
+                            'artists': text2.strip(),
+                            'artwork': ''
+                        })
+                if tracks:
+                    print(f"[SPOTIFY EMBED] Strategy 4 found {len(tracks)} tracks")
+                    return tracks
+
+            print(f"[SPOTIFY EMBED] No tracks found with any strategy")
             return tracks
 
         except Exception as e:
@@ -248,7 +309,10 @@ class Music(commands.Cog):
         return None
 
     async def _get_spotify_playlist_tracks(self, playlist_id: str) -> list[dict]:
-        """Untuk playlist, coba scrape embed page dulu untuk track list lengkap."""
+        """
+        [IMPROVED] Untuk playlist, coba scrape embed page untuk track list.
+        Kalau gagal, fallback ke oEmbed (cuma dapat nama playlist).
+        """
         # Coba embed page scraping untuk track list lengkap
         tracks = self._get_spotify_embed_page_tracks(playlist_id)
         if tracks:
@@ -256,10 +320,11 @@ class Music(commands.Cog):
             meta = self._get_spotify_metadata_oembed(url)
             thumbnail = meta.get('thumbnail', '') if meta else ''
             for t in tracks:
-                t['artwork'] = thumbnail
+                if not t.get('artwork'):
+                    t['artwork'] = thumbnail
             return tracks
 
-        # Fallback: oEmbed saja (cuma dapat nama playlist + thumbnail)
+        # Fallback: oEmbed saja
         url = f"https://open.spotify.com/playlist/{playlist_id}"
         meta = self._get_spotify_metadata_oembed(url)
         if meta and meta.get('title'):
@@ -348,7 +413,6 @@ class Music(commands.Cog):
                     return True
                 return False
 
-        # Jalankan semua search secara concurrent
         tasks = [search_and_queue(t) for t in tracks]
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -561,7 +625,6 @@ class Music(commands.Cog):
             # [SMART FALLBACK] Kalau semua metode gagal
             if not spotify_tracks:
                 print("[SPOTIFY] All methods failed, trying smart fallback...")
-                # Coba oEmbed sekali lagi dengan URL bersih
                 clean_url = f"https://open.spotify.com/{spotify_type}/{spotify_id}"
                 meta = self._get_spotify_metadata_oembed(clean_url)
                 if meta and meta.get('title'):
@@ -571,7 +634,6 @@ class Music(commands.Cog):
                         'artwork': meta['thumbnail']
                     }]
                 else:
-                    # Last resort: coba HTML scrape lagi
                     meta = self._get_spotify_metadata_html(clean_url)
                     if meta and meta.get('title'):
                         spotify_tracks = [{
@@ -624,7 +686,6 @@ class Music(commands.Cog):
                 total_tracks = len(spotify_tracks)
                 await loading_msg.edit(content=f"🎵 Memuat {total_tracks} lagu dari Spotify {spotify_type}...")
 
-                # [SPEED UP] Gunakan concurrent search
                 added = await self._search_youtube_for_tracks_concurrent(spotify_tracks, player, max_concurrent=5)
 
                 if not player.current and not player.queue.is_empty:
