@@ -35,9 +35,8 @@ class Music(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.players = {}
-        # [SPOTIFY SCRAPE] Tidak perlu token API lagi
         self._spotify_enabled = True
-        print("[SPOTIFY] Using oEmbed + HTML scraping (no API key required)")
+        print("[SPOTIFY] Using oEmbed + Embed Page scraping (no API key required)")
 
     def get_player(self, guild_id: int) -> MusicPlayer:
         if guild_id not in self.players:
@@ -79,7 +78,6 @@ class Music(commands.Cog):
                 print(f"[SPOTIFY OEMBED] Status {resp.status_code}")
                 return None
             data = resp.json()
-            # oEmbed return: title, author_name, thumbnail_url
             return {
                 'title': data.get('title', ''),
                 'artist': data.get('author_name', ''),
@@ -104,21 +102,15 @@ class Music(commands.Cog):
                 return None
             html = resp.text
 
-            # Extract og:title
             title_match = re.search(r'<meta[^>]*property="og:title"[^>]*content="([^"]*)"', html)
             title = title_match.group(1) if title_match else ''
 
-            # Extract og:description (biasanya format: "Artis - Album" atau "Artis · Album")
             desc_match = re.search(r'<meta[^>]*property="og:description"[^>]*content="([^"]*)"', html)
             description = desc_match.group(1) if desc_match else ''
 
-            # Extract og:image (cover art)
             image_match = re.search(r'<meta[^>]*property="og:image"[^>]*content="([^"]*)"', html)
             image = image_match.group(1) if image_match else ''
 
-            # Parse artist dari description
-            # Format umum: "Listen to Artis on Spotify. Artis · Album · 2024 · 10 songs."
-            # Atau: "Artis - Track Name"
             artist = ''
             if ' · ' in description:
                 parts = description.split(' · ')
@@ -128,7 +120,6 @@ class Music(commands.Cog):
                 artist = description.split(' - ')[0].strip()
 
             if not artist and title:
-                # Coba ekstrak dari title: "Track Name - Artis" atau "Track Name — Artis"
                 if ' - ' in title:
                     artist = title.split(' - ')[-1].strip()
                     title = title.split(' - ')[0].strip()
@@ -145,12 +136,97 @@ class Music(commands.Cog):
             print(f"[SPOTIFY HTML SCRAPE ERROR] {e}")
             return None
 
+    def _get_spotify_embed_page_tracks(self, playlist_id: str) -> list[dict]:
+        """
+        [NEW] Scrape track list dari Spotify embed page.
+        Spotify embed page (open.spotify.com/embed/playlist/xxx) mengandung
+        track list dalam format HTML yang bisa di-parse.
+        """
+        tracks = []
+        try:
+            embed_url = f"https://open.spotify.com/embed/playlist/{playlist_id}"
+            resp = requests.get(embed_url, timeout=15, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+            })
+            if resp.status_code != 200:
+                print(f"[SPOTIFY EMBED] Status {resp.status_code}")
+                return tracks
+
+            html = resp.text
+
+            # [STRATEGY 1] Cari JSON data di dalam <script> tags
+            # Spotify embed menyimpan data track di window.__INITIAL_PROPS__ atau similar
+            json_matches = re.findall(r'window\.__INITIAL_PROPS__\s*=\s*(\{.*?\});', html, re.DOTALL)
+            if not json_matches:
+                # Coba pattern lain
+                json_matches = re.findall(r'"tracks":\s*(\[.*?\])', html, re.DOTALL)
+
+            if json_matches:
+                try:
+                    import json
+                    data = json.loads(json_matches[0])
+                    if isinstance(data, list):
+                        for track in data:
+                            if isinstance(track, dict):
+                                name = track.get('name', '')
+                                artists = track.get('artists', '')
+                                if name:
+                                    tracks.append({
+                                        'name': name,
+                                        'artists': artists if isinstance(artists, str) else ', '.join(a.get('name', '') for a in artists) if isinstance(artists, list) else '',
+                                        'artwork': ''
+                                    })
+                except Exception as e:
+                    print(f"[SPOTIFY EMBED JSON PARSE] {e}")
+
+            # [STRATEGY 2] Parse HTML structure langsung
+            # Format: <li> dengan class tertentu, berisi <a> atau <div> dengan track info
+            if not tracks:
+                # Cari semua track rows
+                # Pattern: ### Track Name \n #### Artist Name
+                track_sections = re.findall(
+                    r'###\s*([^\n]+)\s*\n\s*####\s*([^\n]+)',
+                    html
+                )
+                for track_name, artist_name in track_sections:
+                    tracks.append({
+                        'name': track_name.strip(),
+                        'artists': artist_name.strip(),
+                        'artwork': ''
+                    })
+
+            # [STRATEGY 3] Cari pattern JSON-like di dalam HTML
+            if not tracks:
+                # Cari pattern: {"name":"Track Name","uri":"spotify:track:..."}
+                track_jsons = re.findall(
+                    r'"name":"([^"]{2,100})","uri":"spotify:track:[a-zA-Z0-9]+"',
+                    html
+                )
+                # Deduplicate
+                seen = set()
+                for name in track_jsons:
+                    if name not in seen:
+                        seen.add(name)
+                        tracks.append({
+                            'name': name,
+                            'artists': '',
+                            'artwork': ''
+                        })
+
+            print(f"[SPOTIFY EMBED] Found {len(tracks)} tracks from embed page")
+            return tracks
+
+        except Exception as e:
+            print(f"[SPOTIFY EMBED SCRAPE ERROR] {e}")
+            return tracks
+
     async def _get_spotify_track_info(self, url: str) -> dict | None:
         """
         Coba oEmbed dulu, kalau gagal fallback ke HTML scraping.
         Return dict dengan 'name', 'artists', 'artwork' atau None.
         """
-        # Coba oEmbed
         meta = self._get_spotify_metadata_oembed(url)
         if meta and meta.get('title'):
             return {
@@ -159,7 +235,6 @@ class Music(commands.Cog):
                 'artwork': meta['thumbnail']
             }
 
-        # Fallback HTML
         meta = self._get_spotify_metadata_html(url)
         if meta and meta.get('title'):
             return {
@@ -172,10 +247,21 @@ class Music(commands.Cog):
 
     async def _get_spotify_playlist_tracks(self, playlist_id: str) -> list[dict]:
         """
-        Untuk playlist, kita scrape halaman playlist Spotify.
-        Sayangnya Spotify tidak expose track list via oEmbed.
-        Strategy: ambil nama playlist dari oEmbed, lalu search YouTube.
+        [IMPROVED] Untuk playlist, coba scrape embed page dulu untuk track list.
+        Kalau gagal, fallback ke oEmbed (cuma dapat nama playlist).
         """
+        # Coba embed page scraping untuk track list lengkap
+        tracks = self._get_spotify_embed_page_tracks(playlist_id)
+        if tracks:
+            # Ambil thumbnail playlist dari oEmbed
+            url = f"https://open.spotify.com/playlist/{playlist_id}"
+            meta = self._get_spotify_metadata_oembed(url)
+            thumbnail = meta.get('thumbnail', '') if meta else ''
+            for t in tracks:
+                t['artwork'] = thumbnail
+            return tracks
+
+        # Fallback: oEmbed saja (cuma dapat nama playlist + thumbnail)
         url = f"https://open.spotify.com/playlist/{playlist_id}"
         meta = self._get_spotify_metadata_oembed(url)
         if meta and meta.get('title'):
@@ -184,6 +270,7 @@ class Music(commands.Cog):
                 'artists': meta['artist'],
                 'artwork': meta['thumbnail']
             }]
+
         # Fallback HTML
         meta = self._get_spotify_metadata_html(url)
         if meta and meta.get('title'):
@@ -199,9 +286,9 @@ class Music(commands.Cog):
         Untuk album, scrape halaman album Spotify.
         """
         url = f"https://open.spotify.com/album/{album_id}"
-        # Coba ambil cover art dan nama album dari oEmbed
+        # Ambil cover album dulu untuk dipakai di semua track
         meta = self._get_spotify_metadata_oembed(url)
-        artwork = meta.get('thumbnail', '') if meta else ''
+        album_artwork = meta.get('thumbnail', '') if meta else ''
         album_name = meta.get('title', '') if meta else ''
         album_artist = meta.get('artist', '') if meta else ''
 
@@ -213,34 +300,44 @@ class Music(commands.Cog):
             if resp.status_code == 200:
                 html = resp.text
                 # Cari track names di JSON data yang ada di HTML
-                # Spotify embed data di window.__INITIAL_SPROPS__ atau similar
-                # Pattern: "name":"Track Name" dalam context track
-                tracks = []
-                # Coba ekstrak semua track names dari JSON-like structures
                 track_matches = re.findall(r'"name":"([^"]{2,100})","uri":"spotify:track:[a-zA-Z0-9]+"', html)
-                # Filter yang kemungkinan track (bukan album/artist name)
                 seen = set()
+                tracks = []
                 for name in track_matches:
-                    if name not in seen and name != album_name and len(name) > 1:
+                    if name not in seen and name != album_name:
                         seen.add(name)
                         tracks.append({
                             'name': name,
                             'artists': album_artist,
-                            'artwork': artwork
+                            'artwork': album_artwork
                         })
                 if tracks:
                     return tracks
         except Exception as e:
             print(f"[SPOTIFY ALBUM SCRAPE ERROR] {e}")
 
-        # Kalau tidak bisa scrape track list, fallback ke search album name
+        # Fallback ke search album name
         if album_name:
             return [{
                 'name': album_name,
                 'artists': album_artist,
-                'artwork': artwork
+                'artwork': album_artwork
             }]
         return []
+
+    async def _search_youtube_for_tracks(self, tracks: list[dict], player: wavelink.Player) -> int:
+        added = 0
+        for track_info in tracks:
+            try:
+                query = f"ytsearch:{track_info['name']} {track_info['artists']}"
+                results = await wavelink.Playable.search(query)
+                if results and len(results) > 0:
+                    await player.queue.put_wait(results[0])
+                    added += 1
+            except Exception as e:
+                print(f"[YOUTUBE SEARCH ERROR] {track_info['name']}: {e}")
+                await asyncio.sleep(0.5)
+        return added
 
     # ==========================================================
     # [POLISH] HELPERS
@@ -477,7 +574,6 @@ class Music(commands.Cog):
                     description=f"[{track.title}]({track.uri})",
                     color=discord.Color.green()
                 )
-                # [ARTWORK] Pakai artwork Spotify kalau ada
                 if track_info.get('artwork'):
                     embed.set_thumbnail(url=track_info['artwork'])
                 elif track.artwork:
@@ -491,21 +587,7 @@ class Music(commands.Cog):
                 total_tracks = len(spotify_tracks)
                 await loading_msg.edit(content=f"🎵 Memuat {total_tracks} lagu dari Spotify {spotify_type}...")
 
-                added = 0
-                failed = 0
-                for track_info in spotify_tracks:
-                    try:
-                        yt_query = f"ytsearch:{track_info['name']} {track_info['artists']}"
-                        results = await wavelink.Playable.search(yt_query)
-                        if results and len(results) > 0:
-                            await player.queue.put_wait(results[0])
-                            added += 1
-                        else:
-                            failed += 1
-                    except Exception as e:
-                        print(f"[YOUTUBE SEARCH ERROR] {track_info['name']}: {e}")
-                        failed += 1
-                        await asyncio.sleep(0.5)
+                added = await self._search_youtube_for_tracks(spotify_tracks, player)
 
                 if not player.current and not player.queue.is_empty:
                     await player.set_volume(100)
@@ -513,8 +595,8 @@ class Music(commands.Cog):
                     await player.play(player.queue.get())
 
                 msg = f"✅ Spotify {spotify_type.title()} ditambahkan! ({added}/{total_tracks} lagu)"
-                if failed:
-                    msg += f" | {failed} lagu gagal dimuat"
+                if added < total_tracks:
+                    msg += f" | {total_tracks - added} lagu gagal dimuat"
                 await loading_msg.edit(content=msg)
                 return
 
