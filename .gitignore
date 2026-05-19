@@ -48,3 +48,7 @@ Thumbs.db
 *.m4a
 *.webm
 *.part
+ 
+# Lavalink 
+lavalink/logs/ 
+lavalink/plugins/ 
