@@ -24,7 +24,7 @@ intents.voice_states = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 start_time = time.time()
 
-# Flask keep-alive server
+# Flask keep-alive server (pindah ke 5000 agar tidak bentrok dengan Lavalink)
 app = Flask(__name__)
 
 @app.route("/")
@@ -38,40 +38,20 @@ def run_flask():
 flask_thread = threading.Thread(target=run_flask, daemon=True)
 flask_thread.start()
 
-# ===== PUBLIC LAVALINK NODES (FREE) =====
-# Kalau node utama down, bot otomatis coba node lain
-PUBLIC_NODES = [
-    {
-        "uri": "wss://lavalink-v3.ajieblogs.eu.org:443",
-        "password": "https://dsc.gg/ajidevserver"
-    },
-    {
-        "uri": "wss://lavalink.oryxgaming.com:443",
-        "password": "oryx.me"
-    },
-    {
-        "uri": "wss://lavalink-v2.dyum.ml:443",
-        "password": "dyum"
-    }
-]
-
+# ===== LAVALINK NODE CONNECTION =====
 @bot.event
 async def setup_hook():
-    """Connect ke Lavalink public node."""
-    for i, node_config in enumerate(PUBLIC_NODES):
-        try:
-            node = wavelink.Node(
-                uri=node_config["uri"],
-                password=node_config["password"]
-            )
-            await wavelink.Pool.connect(nodes=[node], client=bot)
-            print(f"[LAVALINK] ✅ Connected to node {i+1}: {node_config['uri']}")
-            return  # Berhasil, keluar dari loop
-        except Exception as e:
-            print(f"[LAVALINK] ❌ Node {i+1} failed: {e}")
-    
-    print("[LAVALINK] ⚠️ All public nodes failed! Music commands won't work.")
-    print("[LAVALINK] ℹ️ Check https://github.com/DarrenOfficial/lavalink-list for new nodes.")
+    """Dipanggil sekali saat bot startup (sebelum on_ready)."""
+    try:
+        node = wavelink.Node(
+            uri="http://localhost:2333",
+            password="youshallnotpass"
+        )
+        await wavelink.Pool.connect(nodes=[node], client=bot)
+        print("[LAVALINK] ✅ Node connected successfully!")
+    except Exception as e:
+        print(f"[LAVALINK] ❌ Failed to connect node: {e}")
+        print("[LAVALINK] ℹ️ Pastikan Lavalink sudah dijalankan dan application.yml bersih.")
 # ======================================
 
 @bot.event
