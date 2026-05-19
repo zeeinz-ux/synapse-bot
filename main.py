@@ -6,13 +6,12 @@ import time
 import threading
 from flask import Flask
 from dotenv import load_dotenv
+import wavelink
 
 # Load environment variables
 load_dotenv()
 
 # ===== INIT FIREBASE SEBELUM LOAD COGS =====
-# Firebase harus di-init DULU sebelum cog lain di-load
-# karena boost.py & donation.py butuh firebase_admin sudah ter-init
 from cogs import firebase_setup
 # ============================================
 
@@ -25,7 +24,7 @@ intents.voice_states = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 start_time = time.time()
 
-# Flask keep-alive server
+# Flask keep-alive server (pindah ke 5000 agar tidak bentrok dengan Lavalink)
 app = Flask(__name__)
 
 @app.route("/")
@@ -33,11 +32,27 @@ def home():
     return "🤖 Bot is running!"
 
 def run_flask():
-    app.run(host="0.0.0.0", port=8080, debug=False, use_reloader=False)
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
 
 # Start Flask in background thread
 flask_thread = threading.Thread(target=run_flask, daemon=True)
 flask_thread.start()
+
+# ===== LAVALINK NODE CONNECTION =====
+@bot.event
+async def setup_hook():
+    """Dipanggil sekali saat bot startup (sebelum on_ready)."""
+    try:
+        node = wavelink.Node(
+            uri="http://localhost:2333",
+            password="youshallnotpass"
+        )
+        await wavelink.Pool.connect(nodes=[node], client=bot)
+        print("[LAVALINK] ✅ Node connected successfully!")
+    except Exception as e:
+        print(f"[LAVALINK] ❌ Failed to connect node: {e}")
+        print("[LAVALINK] ℹ️ Pastikan Lavalink sudah dijalankan dan application.yml bersih.")
+# ======================================
 
 @bot.event
 async def on_ready():

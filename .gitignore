@@ -1,9 +1,14 @@
 # Environment variables
 .env
+.env.local
 
 # Firebase service account
 serviceAccountKey.json
 *.json.key
+
+# Lavalink
+lavalink/logs/
+lavalink/plugins/
 
 # Python
 __pycache__/
@@ -48,7 +53,16 @@ Thumbs.db
 *.m4a
 *.webm
 *.part
- 
-# Lavalink 
-lavalink/logs/ 
-lavalink/plugins/ 
+
+# Replit specific
+.replit
+replit.nix
+.breakpoints
+
+# Lavalink JAR (opsional, kalau mau clone manual download)
+# lavalink/Lavalink.jar
+
+# Database local
+*.db
+*.sqlite
+*.sqlite3
