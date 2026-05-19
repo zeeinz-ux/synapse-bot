@@ -36,7 +36,7 @@ class Music(commands.Cog):
         self.bot = bot
         self.players = {}
         self._spotify_enabled = True
-        print("[SPOTIFY] Using oEmbed + Embed Page scraping (no API key required)")
+        print("[SPOTIFY] Using oEmbed + Embed Page scraping + Smart Fallback (no API key)")
 
     def get_player(self, guild_id: int) -> MusicPlayer:
         if guild_id not in self.players:
@@ -64,11 +64,30 @@ class Music(commands.Cog):
                 return (type_, match.group(1))
         return None
 
+    def _smart_fallback_query(self, url: str, spotify_type: str) -> str:
+        """
+        [SMART FALLBACK] Extract readable query dari URL path.
+        Contoh: https://open.spotify.com/track/xxx?si=... 
+        Kalau tidak ada metadata, coba ekstrak dari path segments.
+        """
+        # Coba ekstrak dari path yang mungkin mengandung judul
+        # Spotify URL biasanya: /track/ID atau /playlist/ID
+        # Tidak mengandung judul, tapi kita bisa coba
+
+        # Untuk track: tidak ada info di URL, return generic
+        if spotify_type == 'track':
+            return ""
+
+        # Untuk playlist/album: coba ekstrak dari URL yang mungkin punya slug
+        # Format: /playlist/ID atau /user/xxx/playlist/ID
+        return ""
+
+    def _title_case_from_slug(self, slug: str) -> str:
+        """Convert slug ke title case."""
+        return ' '.join(word.capitalize() for word in slug.replace('-', ' ').replace('_', ' ').split())
+
     def _get_spotify_metadata_oembed(self, url: str) -> dict | None:
-        """
-        Gunakan Spotify oEmbed API (gratis, tidak perlu auth).
-        Return: {'title': str, 'author_name': str, 'thumbnail_url': str} atau None
-        """
+        """Gunakan Spotify oEmbed API (gratis, tidak perlu auth)."""
         try:
             oembed_url = f"https://open.spotify.com/oembed?url={requests.utils.quote(url)}"
             resp = requests.get(oembed_url, timeout=10, headers={
@@ -88,10 +107,7 @@ class Music(commands.Cog):
             return None
 
     def _get_spotify_metadata_html(self, url: str) -> dict | None:
-        """
-        Fallback: scrape metadata dari HTML Spotify page.
-        Cari meta tags: og:title, og:description, og:image
-        """
+        """Fallback: scrape metadata dari HTML Spotify page."""
         try:
             resp = requests.get(url, timeout=10, headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -137,11 +153,7 @@ class Music(commands.Cog):
             return None
 
     def _get_spotify_embed_page_tracks(self, playlist_id: str) -> list[dict]:
-        """
-        [NEW] Scrape track list dari Spotify embed page.
-        Spotify embed page (open.spotify.com/embed/playlist/xxx) mengandung
-        track list dalam format HTML yang bisa di-parse.
-        """
+        """Scrape track list dari Spotify embed page."""
         tracks = []
         try:
             embed_url = f"https://open.spotify.com/embed/playlist/{playlist_id}"
@@ -157,10 +169,8 @@ class Music(commands.Cog):
             html = resp.text
 
             # [STRATEGY 1] Cari JSON data di dalam <script> tags
-            # Spotify embed menyimpan data track di window.__INITIAL_PROPS__ atau similar
             json_matches = re.findall(r'window\.__INITIAL_PROPS__\s*=\s*(\{.*?\});', html, re.DOTALL)
             if not json_matches:
-                # Coba pattern lain
                 json_matches = re.findall(r'"tracks":\s*(\[.*?\])', html, re.DOTALL)
 
             if json_matches:
@@ -182,10 +192,7 @@ class Music(commands.Cog):
                     print(f"[SPOTIFY EMBED JSON PARSE] {e}")
 
             # [STRATEGY 2] Parse HTML structure langsung
-            # Format: <li> dengan class tertentu, berisi <a> atau <div> dengan track info
             if not tracks:
-                # Cari semua track rows
-                # Pattern: ### Track Name \n #### Artist Name
                 track_sections = re.findall(
                     r'###\s*([^\n]+)\s*\n\s*####\s*([^\n]+)',
                     html
@@ -199,12 +206,10 @@ class Music(commands.Cog):
 
             # [STRATEGY 3] Cari pattern JSON-like di dalam HTML
             if not tracks:
-                # Cari pattern: {"name":"Track Name","uri":"spotify:track:..."}
                 track_jsons = re.findall(
                     r'"name":"([^"]{2,100})","uri":"spotify:track:[a-zA-Z0-9]+"',
                     html
                 )
-                # Deduplicate
                 seen = set()
                 for name in track_jsons:
                     if name not in seen:
@@ -223,10 +228,7 @@ class Music(commands.Cog):
             return tracks
 
     async def _get_spotify_track_info(self, url: str) -> dict | None:
-        """
-        Coba oEmbed dulu, kalau gagal fallback ke HTML scraping.
-        Return dict dengan 'name', 'artists', 'artwork' atau None.
-        """
+        """Coba oEmbed dulu, kalau gagal fallback ke HTML scraping."""
         meta = self._get_spotify_metadata_oembed(url)
         if meta and meta.get('title'):
             return {
@@ -246,14 +248,10 @@ class Music(commands.Cog):
         return None
 
     async def _get_spotify_playlist_tracks(self, playlist_id: str) -> list[dict]:
-        """
-        [IMPROVED] Untuk playlist, coba scrape embed page dulu untuk track list.
-        Kalau gagal, fallback ke oEmbed (cuma dapat nama playlist).
-        """
+        """Untuk playlist, coba scrape embed page dulu untuk track list lengkap."""
         # Coba embed page scraping untuk track list lengkap
         tracks = self._get_spotify_embed_page_tracks(playlist_id)
         if tracks:
-            # Ambil thumbnail playlist dari oEmbed
             url = f"https://open.spotify.com/playlist/{playlist_id}"
             meta = self._get_spotify_metadata_oembed(url)
             thumbnail = meta.get('thumbnail', '') if meta else ''
@@ -271,7 +269,6 @@ class Music(commands.Cog):
                 'artwork': meta['thumbnail']
             }]
 
-        # Fallback HTML
         meta = self._get_spotify_metadata_html(url)
         if meta and meta.get('title'):
             return [{
@@ -282,24 +279,19 @@ class Music(commands.Cog):
         return []
 
     async def _get_spotify_album_tracks(self, album_id: str) -> list[dict]:
-        """
-        Untuk album, scrape halaman album Spotify.
-        """
+        """Untuk album, scrape halaman album Spotify."""
         url = f"https://open.spotify.com/album/{album_id}"
-        # Ambil cover album dulu untuk dipakai di semua track
         meta = self._get_spotify_metadata_oembed(url)
         album_artwork = meta.get('thumbnail', '') if meta else ''
         album_name = meta.get('title', '') if meta else ''
         album_artist = meta.get('artist', '') if meta else ''
 
-        # Scrape HTML untuk track list
         try:
             resp = requests.get(url, timeout=10, headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             })
             if resp.status_code == 200:
                 html = resp.text
-                # Cari track names di JSON data yang ada di HTML
                 track_matches = re.findall(r'"name":"([^"]{2,100})","uri":"spotify:track:[a-zA-Z0-9]+"', html)
                 seen = set()
                 tracks = []
@@ -316,7 +308,6 @@ class Music(commands.Cog):
         except Exception as e:
             print(f"[SPOTIFY ALBUM SCRAPE ERROR] {e}")
 
-        # Fallback ke search album name
         if album_name:
             return [{
                 'name': album_name,
@@ -325,18 +316,42 @@ class Music(commands.Cog):
             }]
         return []
 
-    async def _search_youtube_for_tracks(self, tracks: list[dict], player: wavelink.Player) -> int:
+    # ==========================================================
+    # [SPEED] ASYNC CONCURRENT YOUTUBE SEARCH
+    # ==========================================================
+    async def _search_single_track(self, track_info: dict) -> wavelink.Playable | None:
+        """Search satu track di YouTube."""
+        try:
+            query = f"ytsearch:{track_info['name']} {track_info['artists']}"
+            results = await wavelink.Playable.search(query)
+            if results and len(results) > 0:
+                return results[0]
+        except Exception as e:
+            print(f"[YOUTUBE SEARCH ERROR] {track_info['name']}: {e}")
+        return None
+
+    async def _search_youtube_for_tracks_concurrent(self, tracks: list[dict], player: wavelink.Player, max_concurrent: int = 5) -> int:
+        """
+        [SPEED UP] Search YouTube secara concurrent dengan semaphore.
+        Default max 5 concurrent requests untuk menghindari rate limit.
+        """
         added = 0
-        for track_info in tracks:
-            try:
-                query = f"ytsearch:{track_info['name']} {track_info['artists']}"
-                results = await wavelink.Playable.search(query)
-                if results and len(results) > 0:
-                    await player.queue.put_wait(results[0])
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def search_and_queue(track_info: dict):
+            nonlocal added
+            async with semaphore:
+                track = await self._search_single_track(track_info)
+                if track:
+                    await player.queue.put_wait(track)
                     added += 1
-            except Exception as e:
-                print(f"[YOUTUBE SEARCH ERROR] {track_info['name']}: {e}")
-                await asyncio.sleep(0.5)
+                    return True
+                return False
+
+        # Jalankan semua search secara concurrent
+        tasks = [search_and_queue(t) for t in tracks]
+        await asyncio.gather(*tasks, return_exceptions=True)
+
         return added
 
     # ==========================================================
@@ -543,6 +558,28 @@ class Music(commands.Cog):
             elif spotify_type == 'album':
                 spotify_tracks = await self._get_spotify_album_tracks(spotify_id)
 
+            # [SMART FALLBACK] Kalau semua metode gagal
+            if not spotify_tracks:
+                print("[SPOTIFY] All methods failed, trying smart fallback...")
+                # Coba oEmbed sekali lagi dengan URL bersih
+                clean_url = f"https://open.spotify.com/{spotify_type}/{spotify_id}"
+                meta = self._get_spotify_metadata_oembed(clean_url)
+                if meta and meta.get('title'):
+                    spotify_tracks = [{
+                        'name': meta['title'],
+                        'artists': meta['artist'],
+                        'artwork': meta['thumbnail']
+                    }]
+                else:
+                    # Last resort: coba HTML scrape lagi
+                    meta = self._get_spotify_metadata_html(clean_url)
+                    if meta and meta.get('title'):
+                        spotify_tracks = [{
+                            'name': meta['title'],
+                            'artists': meta['artist'],
+                            'artwork': meta['thumbnail']
+                        }]
+
             if not spotify_tracks:
                 await loading_msg.edit(content="❌ Gagal mengambil metadata dari Spotify. Coba URL lain atau search manual.")
                 return
@@ -582,12 +619,13 @@ class Music(commands.Cog):
                 await loading_msg.edit(content=None, embed=embed)
                 return
 
-            # Playlist / Album
+            # Playlist / Album - dengan concurrent search
             else:
                 total_tracks = len(spotify_tracks)
                 await loading_msg.edit(content=f"🎵 Memuat {total_tracks} lagu dari Spotify {spotify_type}...")
 
-                added = await self._search_youtube_for_tracks(spotify_tracks, player)
+                # [SPEED UP] Gunakan concurrent search
+                added = await self._search_youtube_for_tracks_concurrent(spotify_tracks, player, max_concurrent=5)
 
                 if not player.current and not player.queue.is_empty:
                     await player.set_volume(100)
