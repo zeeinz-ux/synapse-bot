@@ -66,3 +66,9 @@ replit.nix
 *.db
 *.sqlite
 *.sqlite3
+
+# Backup files
+*-backup.py
+*-backup/
+*.bak
+backup/
