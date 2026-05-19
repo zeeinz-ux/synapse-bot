@@ -35,13 +35,9 @@ class Music(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.players = {}
-        self._spotify_token = None
-        self._spotify_token_expiry = 0
+        # [SPOTIFY SCRAPE] Tidak perlu token API lagi
         self._spotify_enabled = True
-        # [DEBUG] Cek credentials saat init
-        self._spotify_creds_ok = bool(os.getenv("SPOTIFY_CLIENT_ID") and os.getenv("SPOTIFY_CLIENT_SECRET"))
-        if not self._spotify_creds_ok:
-            print("[SPOTIFY] WARNING: SPOTIFY_CLIENT_ID atau SPOTIFY_CLIENT_SECRET tidak di-set!")
+        print("[SPOTIFY] Using oEmbed + HTML scraping (no API key required)")
 
     def get_player(self, guild_id: int) -> MusicPlayer:
         if guild_id not in self.players:
@@ -49,52 +45,16 @@ class Music(commands.Cog):
         return self.players[guild_id]
 
     # ==========================================================
-    # SPOTIFY API HELPERS
+    # [NEW] SPOTIFY SCRAPING HELPERS (No API Key)
     # ==========================================================
-    def _get_spotify_token(self) -> str | None:
-        import time
-        if self._spotify_token and time.time() < self._spotify_token_expiry - 60:
-            return self._spotify_token
-
-        client_id = os.getenv("SPOTIFY_CLIENT_ID")
-        client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-        if not client_id or not client_secret:
-            print("[SPOTIFY] No credentials in .env")
-            return None
-
-        try:
-            response = requests.post(
-                'https://accounts.spotify.com/api/token',
-                data={'grant_type': 'client_credentials'},
-                auth=(client_id, client_secret),
-                timeout=10
-            )
-            data = response.json()
-            if 'error' in data:
-                print(f"[SPOTIFY] API Error: {data.get('error_description', data['error'])}")
-                # [FIX] Kalau 401/403, nonaktifkan sementara
-                if response.status_code in (401, 403):
-                    self._spotify_enabled = False
-                    print("[SPOTIFY] Disabled due to auth error. Check your credentials.")
-                return None
-            self._spotify_token = data.get('access_token')
-            self._spotify_token_expiry = time.time() + data.get('expires_in', 3600)
-            print(f"[SPOTIFY] Token refreshed. Expires in {data.get('expires_in', 3600)}s")
-            return self._spotify_token
-        except Exception as e:
-            print(f"[SPOTIFY TOKEN ERROR] {e}")
-            return None
-
     def _is_spotify_url(self, query: str) -> bool:
         return "open.spotify.com" in query or "spotify.com" in query
 
     def _extract_spotify_id(self, url: str) -> tuple[str, str] | None:
-        # [FIX] Support URL dengan query params (?si=...)
         patterns = [
             (r'open\.spotify\.com/track/([a-zA-Z0-9]+)', 'track'),
             (r'open\.spotify\.com/playlist/([a-zA-Z0-9]+)', 'playlist'),
             (r'open\.spotify\.com/album/([a-zA-Z0-9]+)', 'album'),
-            # Fallback tanpa domain
             (r'track/([a-zA-Z0-9]+)', 'track'),
             (r'playlist/([a-zA-Z0-9]+)', 'playlist'),
             (r'album/([a-zA-Z0-9]+)', 'album'),
@@ -105,126 +65,182 @@ class Music(commands.Cog):
                 return (type_, match.group(1))
         return None
 
-    def _extract_search_query_from_spotify_url(self, url: str) -> str:
-        spotify_info = self._extract_spotify_id(url)
-        if not spotify_info:
-            return url.split('/')[-1].split('?')[0].replace('-', ' ')
-        spotify_type, spotify_id = spotify_info
-        token = self._get_spotify_token()
-        if token:
-            try:
-                headers = {'Authorization': f'Bearer {token}'}
-                if spotify_type == 'track':
-                    response = requests.get(f'https://api.spotify.com/v1/tracks/{spotify_id}', headers=headers, timeout=10)
-                    if response.status_code == 200:
-                        data = response.json()
-                        name = data.get('name', '')
-                        artists = ', '.join([a['name'] for a in data.get('artists', [])])
-                        return f"{name} {artists}"
-                    elif response.status_code == 403:
-                        self._spotify_enabled = False
-                    elif response.status_code == 401:
-                        self._spotify_enabled = False
-                        print("[SPOTIFY] 401 Unauthorized - credentials invalid")
-                elif spotify_type == 'playlist':
-                    response = requests.get(f'https://api.spotify.com/v1/playlists/{spotify_id}?fields=name', headers=headers, timeout=10)
-                    if response.status_code == 200:
-                        return response.json().get('name', 'playlist')
-                    elif response.status_code in (401, 403):
-                        self._spotify_enabled = False
-            except Exception as e:
-                print(f"[SPOTIFY FALLBACK ERROR] {e}")
-        # [FIX] Kalau tidak ada token atau gagal, untuk track kita tidak bisa dapat judul
-        # dari track ID saja. Return string yang menandakan ini adalah fallback gagal.
-        if spotify_type == 'track':
-            # Coba ekstrak dari URL path sebagai last resort (untuk URL yang mengandung judul)
-            # Tapi Spotify track ID tidak mengandung judul
-            return f"spotify track {spotify_id}"
-        return url.split('/')[-1].split('?')[0].replace('-', ' ')
-
-    async def _get_spotify_tracks(self, spotify_type: str, spotify_id: str) -> list[dict]:
-        token = self._get_spotify_token()
-        if not token:
-            print("[SPOTIFY] No token available. Cannot fetch tracks.")
-            return []
-        headers = {'Authorization': f'Bearer {token}'}
-        tracks = []
+    def _get_spotify_metadata_oembed(self, url: str) -> dict | None:
+        """
+        Gunakan Spotify oEmbed API (gratis, tidak perlu auth).
+        Return: {'title': str, 'author_name': str, 'thumbnail_url': str} atau None
+        """
         try:
-            if spotify_type == 'track':
-                response = requests.get(f'https://api.spotify.com/v1/tracks/{spotify_id}', headers=headers, timeout=10)
-                if response.status_code == 401:
-                    self._spotify_enabled = False
-                    print("[SPOTIFY] 401 Unauthorized when fetching track")
-                    return []
-                if response.status_code == 403:
-                    self._spotify_enabled = False
-                    return []
-                data = response.json()
-                if 'error' in data:
-                    print(f"[SPOTIFY TRACK ERROR] {data.get('error', {}).get('message', 'Unknown error')}")
-                    return []
-                tracks.append({
-                    'name': data.get('name', ''),
-                    'artists': ', '.join([a['name'] for a in data.get('artists', [])])
-                })
-
-            elif spotify_type == 'playlist':
-                test = requests.get(f'https://api.spotify.com/v1/playlists/{spotify_id}?fields=name', headers=headers, timeout=10)
-                if test.status_code in (401, 403):
-                    self._spotify_enabled = False
-                    return []
-                url = f'https://api.spotify.com/v1/playlists/{spotify_id}/tracks?fields=items(track(name,artists(name))),next&limit=100'
-                while url and len(tracks) < 500:
-                    response = requests.get(url, headers=headers, timeout=10)
-                    if response.status_code in (401, 403):
-                        self._spotify_enabled = False
-                        break
-                    data = response.json()
-                    if 'error' in data:
-                        break
-                    for item in data.get('items', []):
-                        track = item.get('track')
-                        if track and track.get('name'):
-                            tracks.append({
-                                'name': track.get('name', ''),
-                                'artists': ', '.join([a['name'] for a in track.get('artists', [])])
-                            })
-                    url = data.get('next')
-
-            elif spotify_type == 'album':
-                url = f'https://api.spotify.com/v1/albums/{spotify_id}/tracks?limit=50'
-                while url and len(tracks) < 500:
-                    response = requests.get(url, headers=headers, timeout=10)
-                    if response.status_code in (401, 403):
-                        self._spotify_enabled = False
-                        break
-                    data = response.json()
-                    if 'error' in data:
-                        break
-                    for track in data.get('items', []):
-                        if track.get('name'):
-                            tracks.append({
-                                'name': track.get('name', ''),
-                                'artists': ', '.join([a['name'] for a in track.get('artists', [])])
-                            })
-                    url = data.get('next')
+            oembed_url = f"https://open.spotify.com/oembed?url={requests.utils.quote(url)}"
+            resp = requests.get(oembed_url, timeout=10, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            if resp.status_code != 200:
+                print(f"[SPOTIFY OEMBED] Status {resp.status_code}")
+                return None
+            data = resp.json()
+            # oEmbed return: title, author_name, thumbnail_url
+            return {
+                'title': data.get('title', ''),
+                'artist': data.get('author_name', ''),
+                'thumbnail': data.get('thumbnail_url', '')
+            }
         except Exception as e:
-            print(f"[SPOTIFY API ERROR] {e}")
-        return tracks
+            print(f"[SPOTIFY OEMBED ERROR] {e}")
+            return None
 
-    async def _search_youtube_for_tracks(self, tracks: list[dict], player: wavelink.Player) -> int:
-        added = 0
-        for track_info in tracks:
-            try:
-                query = f"ytsearch:{track_info['name']} {track_info['artists']}"
-                results = await wavelink.Playable.search(query)
-                if results and len(results) > 0:
-                    await player.queue.put_wait(results[0])
-                    added += 1
-            except Exception as e:
-                print(f"[YOUTUBE SEARCH ERROR] {track_info['name']}: {e}")
-                await asyncio.sleep(0.5)
-        return added
+    def _get_spotify_metadata_html(self, url: str) -> dict | None:
+        """
+        Fallback: scrape metadata dari HTML Spotify page.
+        Cari meta tags: og:title, og:description, og:image
+        """
+        try:
+            resp = requests.get(url, timeout=10, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+            })
+            if resp.status_code != 200:
+                return None
+            html = resp.text
+
+            # Extract og:title
+            title_match = re.search(r'<meta[^>]*property="og:title"[^>]*content="([^"]*)"', html)
+            title = title_match.group(1) if title_match else ''
+
+            # Extract og:description (biasanya format: "Artis - Album" atau "Artis · Album")
+            desc_match = re.search(r'<meta[^>]*property="og:description"[^>]*content="([^"]*)"', html)
+            description = desc_match.group(1) if desc_match else ''
+
+            # Extract og:image (cover art)
+            image_match = re.search(r'<meta[^>]*property="og:image"[^>]*content="([^"]*)"', html)
+            image = image_match.group(1) if image_match else ''
+
+            # Parse artist dari description
+            # Format umum: "Listen to Artis on Spotify. Artis · Album · 2024 · 10 songs."
+            # Atau: "Artis - Track Name"
+            artist = ''
+            if ' · ' in description:
+                parts = description.split(' · ')
+                if len(parts) >= 1:
+                    artist = parts[0].replace('Listen to ', '').replace(' on Spotify', '').strip()
+            elif ' - ' in description:
+                artist = description.split(' - ')[0].strip()
+
+            if not artist and title:
+                # Coba ekstrak dari title: "Track Name - Artis" atau "Track Name — Artis"
+                if ' - ' in title:
+                    artist = title.split(' - ')[-1].strip()
+                    title = title.split(' - ')[0].strip()
+                elif ' — ' in title:
+                    artist = title.split(' — ')[-1].strip()
+                    title = title.split(' — ')[0].strip()
+
+            return {
+                'title': title,
+                'artist': artist,
+                'thumbnail': image
+            }
+        except Exception as e:
+            print(f"[SPOTIFY HTML SCRAPE ERROR] {e}")
+            return None
+
+    async def _get_spotify_track_info(self, url: str) -> dict | None:
+        """
+        Coba oEmbed dulu, kalau gagal fallback ke HTML scraping.
+        Return dict dengan 'name', 'artists', 'artwork' atau None.
+        """
+        # Coba oEmbed
+        meta = self._get_spotify_metadata_oembed(url)
+        if meta and meta.get('title'):
+            return {
+                'name': meta['title'],
+                'artists': meta['artist'],
+                'artwork': meta['thumbnail']
+            }
+
+        # Fallback HTML
+        meta = self._get_spotify_metadata_html(url)
+        if meta and meta.get('title'):
+            return {
+                'name': meta['title'],
+                'artists': meta['artist'],
+                'artwork': meta['thumbnail']
+            }
+
+        return None
+
+    async def _get_spotify_playlist_tracks(self, playlist_id: str) -> list[dict]:
+        """
+        Untuk playlist, kita scrape halaman playlist Spotify.
+        Sayangnya Spotify tidak expose track list via oEmbed.
+        Strategy: ambil nama playlist dari oEmbed, lalu search YouTube.
+        """
+        url = f"https://open.spotify.com/playlist/{playlist_id}"
+        meta = self._get_spotify_metadata_oembed(url)
+        if meta and meta.get('title'):
+            return [{
+                'name': meta['title'],
+                'artists': meta['artist'],
+                'artwork': meta['thumbnail']
+            }]
+        # Fallback HTML
+        meta = self._get_spotify_metadata_html(url)
+        if meta and meta.get('title'):
+            return [{
+                'name': meta['title'],
+                'artists': meta['artist'],
+                'artwork': meta['thumbnail']
+            }]
+        return []
+
+    async def _get_spotify_album_tracks(self, album_id: str) -> list[dict]:
+        """
+        Untuk album, scrape halaman album Spotify.
+        """
+        url = f"https://open.spotify.com/album/{album_id}"
+        # Coba ambil cover art dan nama album dari oEmbed
+        meta = self._get_spotify_metadata_oembed(url)
+        artwork = meta.get('thumbnail', '') if meta else ''
+        album_name = meta.get('title', '') if meta else ''
+        album_artist = meta.get('artist', '') if meta else ''
+
+        # Scrape HTML untuk track list
+        try:
+            resp = requests.get(url, timeout=10, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            if resp.status_code == 200:
+                html = resp.text
+                # Cari track names di JSON data yang ada di HTML
+                # Spotify embed data di window.__INITIAL_SPROPS__ atau similar
+                # Pattern: "name":"Track Name" dalam context track
+                tracks = []
+                # Coba ekstrak semua track names dari JSON-like structures
+                track_matches = re.findall(r'"name":"([^"]{2,100})","uri":"spotify:track:[a-zA-Z0-9]+"', html)
+                # Filter yang kemungkinan track (bukan album/artist name)
+                seen = set()
+                for name in track_matches:
+                    if name not in seen and name != album_name and len(name) > 1:
+                        seen.add(name)
+                        tracks.append({
+                            'name': name,
+                            'artists': album_artist,
+                            'artwork': artwork
+                        })
+                if tracks:
+                    return tracks
+        except Exception as e:
+            print(f"[SPOTIFY ALBUM SCRAPE ERROR] {e}")
+
+        # Kalau tidak bisa scrape track list, fallback ke search album name
+        if album_name:
+            return [{
+                'name': album_name,
+                'artists': album_artist,
+                'artwork': artwork
+            }]
+        return []
 
     # ==========================================================
     # [POLISH] HELPERS
@@ -381,7 +397,7 @@ class Music(commands.Cog):
             print(f"[PLAY CMD] defer error: {e}")
             return
         if not interaction.user.voice or not interaction.user.voice.channel:
-            await interaction.followup.send("Kamu harus join voice channel dulu!")
+            await interaction.followup.send("❌ Kamu harus join voice channel dulu!")
             return
         vc = interaction.user.voice.channel
         print(f"[PLAY CMD] Voice channel: {vc.name}")
@@ -393,7 +409,7 @@ class Music(commands.Cog):
                 player.home = interaction.channel
             except Exception as e:
                 print(f"[PLAY CMD] Connect error: {e}")
-                await interaction.followup.send(f"Gagal connect ke voice: {e}")
+                await interaction.followup.send(f"❌ Gagal connect ke voice: {e}")
                 return
         elif player.channel != vc:
             print("[PLAY CMD] Moving to new channel...")
@@ -402,7 +418,7 @@ class Music(commands.Cog):
                 player.home = interaction.channel
             except Exception as e:
                 print(f"[PLAY CMD] Move error: {e}")
-                await interaction.followup.send(f"Gagal pindah channel: {e}")
+                await interaction.followup.send(f"❌ Gagal pindah channel: {e}")
                 return
         print(f"[PLAY CMD] Player ready. Current: {player.current}")
         search_query = query.strip()
@@ -417,76 +433,24 @@ class Music(commands.Cog):
             spotify_type, spotify_id = spotify_info
             print(f"[SPOTIFY] Detected {spotify_type} with ID: {spotify_id}")
 
-            loading_msg = await interaction.followup.send(f"🎵 Memuat dari Spotify ({spotify_type})...")
+            loading_msg = await interaction.followup.send(f"🎵 Mengambil metadata Spotify ({spotify_type})...")
 
-            # [FIX] Cek credentials dulu
-            if not self._spotify_creds_ok:
-                print("[SPOTIFY] Credentials not configured")
-                await loading_msg.edit(content="❌ **Spotify credentials belum di-set.**\nTambahkan `SPOTIFY_CLIENT_ID` dan `SPOTIFY_CLIENT_SECRET` di environment variables.")
-                return
+            spotify_tracks = []
 
-            if self._spotify_enabled:
-                spotify_tracks = await self._get_spotify_tracks(spotify_type, spotify_id)
-            else:
-                spotify_tracks = []
-                print("[SPOTIFY] Skipped (disabled due to previous auth error)")
+            if spotify_type == 'track':
+                track_info = await self._get_spotify_track_info(search_query)
+                if track_info:
+                    spotify_tracks = [track_info]
+            elif spotify_type == 'playlist':
+                spotify_tracks = await self._get_spotify_playlist_tracks(spotify_id)
+            elif spotify_type == 'album':
+                spotify_tracks = await self._get_spotify_album_tracks(spotify_id)
 
             if not spotify_tracks:
-                print("[FALLBACK] Using YouTube search for Spotify URL")
-                fallback_query = self._extract_search_query_from_spotify_url(search_query)
+                await loading_msg.edit(content="❌ Gagal mengambil metadata dari Spotify. Coba URL lain atau search manual.")
+                return
 
-                # [FIX] Kalau fallback query masih berupa track ID, tidak bisa search YouTube
-                if fallback_query.startswith("spotify track ") or len(fallback_query) < 5:
-                    await loading_msg.edit(content="❌ **Gagal mengambil metadata dari Spotify.**\nSpotify API tidak tersedia dan track ID tidak bisa diterjemahkan ke judul lagu.")
-                    return
-
-                if spotify_type == 'track':
-                    yt_query = f"ytsearch:{fallback_query}"
-                    print(f"[FALLBACK] Searching: {yt_query}")
-                    try:
-                        tracks = await wavelink.Playable.search(yt_query)
-                    except Exception as e:
-                        print(f"[FALLBACK ERROR] {e}")
-                        await loading_msg.edit(content=f"❌ Gagal mencari lagu di YouTube.\n`{e}`")
-                        return
-                    if not tracks:
-                        await loading_msg.edit(content="❌ Lagu tidak ditemukan di YouTube.")
-                        return
-                    track = tracks[0]
-                    await player.queue.put_wait(track)
-                    if not player.current:
-                        await player.set_volume(100)
-                        await asyncio.sleep(0.3)
-                        await player.play(player.queue.get())
-                    embed = discord.Embed(
-                        title="✅ Added from Spotify (YouTube Fallback)",
-                        description=f"[{track.title}]({track.uri})",
-                        color=discord.Color.green()
-                    )
-                    if track.artwork:
-                        embed.set_thumbnail(url=track.artwork)
-                    await loading_msg.edit(content=None, embed=embed)
-                    return
-                else:
-                    yt_query = f"ytsearch:{fallback_query}"
-                    print(f"[FALLBACK] Searching playlist: {yt_query}")
-                    try:
-                        tracks = await wavelink.Playable.search(yt_query)
-                        if tracks:
-                            await player.queue.put_wait(tracks[0])
-                            if not player.current:
-                                await player.set_volume(100)
-                                await asyncio.sleep(0.3)
-                                await player.play(player.queue.get())
-                            await loading_msg.edit(content=f"✅ Spotify {spotify_type.title()} (fallback): **{tracks[0].title}** ditambahkan!")
-                        else:
-                            await loading_msg.edit(content="❌ Gagal memuat dari Spotify dan YouTube.")
-                    except Exception as e:
-                        print(f"[FALLBACK ERROR] {e}")
-                        await loading_msg.edit(content=f"❌ Gagal memuat playlist.\n`{e}`")
-                    return
-
-            # Spotify API worked
+            # Single track
             if spotify_type == 'track':
                 track_info = spotify_tracks[0]
                 yt_query = f"ytsearch:{track_info['name']} {track_info['artists']}"
@@ -500,32 +464,57 @@ class Music(commands.Cog):
                 if not tracks:
                     await loading_msg.edit(content="❌ Lagu tidak ditemukan di YouTube.")
                     return
+
                 track = tracks[0]
                 await player.queue.put_wait(track)
                 if not player.current:
                     await player.set_volume(100)
                     await asyncio.sleep(0.3)
                     await player.play(player.queue.get())
+
                 embed = discord.Embed(
                     title="✅ Added from Spotify",
                     description=f"[{track.title}]({track.uri})",
                     color=discord.Color.green()
                 )
-                if track.artwork:
+                # [ARTWORK] Pakai artwork Spotify kalau ada
+                if track_info.get('artwork'):
+                    embed.set_thumbnail(url=track_info['artwork'])
+                elif track.artwork:
                     embed.set_thumbnail(url=track.artwork)
+
                 await loading_msg.edit(content=None, embed=embed)
                 return
+
+            # Playlist / Album
             else:
                 total_tracks = len(spotify_tracks)
                 await loading_msg.edit(content=f"🎵 Memuat {total_tracks} lagu dari Spotify {spotify_type}...")
-                added = await self._search_youtube_for_tracks(spotify_tracks, player)
+
+                added = 0
+                failed = 0
+                for track_info in spotify_tracks:
+                    try:
+                        yt_query = f"ytsearch:{track_info['name']} {track_info['artists']}"
+                        results = await wavelink.Playable.search(yt_query)
+                        if results and len(results) > 0:
+                            await player.queue.put_wait(results[0])
+                            added += 1
+                        else:
+                            failed += 1
+                    except Exception as e:
+                        print(f"[YOUTUBE SEARCH ERROR] {track_info['name']}: {e}")
+                        failed += 1
+                        await asyncio.sleep(0.5)
+
                 if not player.current and not player.queue.is_empty:
                     await player.set_volume(100)
                     await asyncio.sleep(0.3)
                     await player.play(player.queue.get())
+
                 msg = f"✅ Spotify {spotify_type.title()} ditambahkan! ({added}/{total_tracks} lagu)"
-                if added < total_tracks:
-                    msg += f" | {total_tracks - added} lagu gagal dimuat"
+                if failed:
+                    msg += f" | {failed} lagu gagal dimuat"
                 await loading_msg.edit(content=msg)
                 return
 
