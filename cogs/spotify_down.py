@@ -4,8 +4,8 @@ SpotifyDown API Integration — Async Resolver dengan Multi-Fallback
 Fallback chain:
     1. SpotifyDown API (async, no auth) — fastest, bisa down
     2. Spotify Official API (async, Client Credentials) — stable but rate-limited
-    3. Spotify oEmbed (sync, no auth) — simple metadata only
-    4. Spotify HTML scrape (sync, no auth) — last resort
+    3. Spotify oEmbed (async, no auth) — simple metadata only
+    4. Spotify HTML scrape (async, no auth) — last resort
 
 Cara pakai di cog:
     from .spotify_down import SpotifyResolver
@@ -27,7 +27,6 @@ from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple
 
 import aiohttp
-import requests
 
 logger = logging.getLogger(__name__)
 
@@ -267,77 +266,81 @@ class SpotifyOfficialClient:
 
 
 # ==========================================================
-# SPOTIFY OEMBED (Fallback 2 — sync, no auth)
+# ASYNC OEMBED & HTML SCRAPE (Fallback 2 & 3)
 # ==========================================================
-def _get_spotify_metadata_oembed(url: str) -> Dict | None:
-    """Spotify oEmbed API (gratis, tidak perlu auth)."""
+async def _get_spotify_metadata_oembed(session: aiohttp.ClientSession, url: str) -> Dict | None:
+    """Spotify oEmbed API (gratis, tidak perlu auth) — async version."""
     try:
-        oembed_url = f"https://open.spotify.com/oembed?url={requests.utils.quote(url)}"
-        resp = requests.get(oembed_url, timeout=10, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
-        if resp.status_code != 200:
-            return None
-        data = resp.json()
-        return {
-            'name': data.get('title', ''),
-            'artists': data.get('author_name', ''),
-            'artwork': data.get('thumbnail_url', ''),
-            'album': None,
-            'duration_ms': None,
-        }
+        encoded_url = url.replace(" ", "%20").replace("&", "%26")
+        oembed_url = f"https://open.spotify.com/oembed?url={encoded_url}"
+        async with session.get(
+            oembed_url,
+            timeout=aiohttp.ClientTimeout(total=10),
+            headers={"User-Agent": "Mozilla/5.0"},
+        ) as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.json()
+            return {
+                "name": data.get("title", ""),
+                "artists": data.get("author_name", ""),
+                "artwork": data.get("thumbnail_url", ""),
+                "album": None,
+                "duration_ms": None,
+            }
     except Exception as e:
         logger.error("[SPOTIFY OEMBED ERROR] %s", e)
         return None
 
 
-# ==========================================================
-# SPOTIFY HTML SCRAPE (Fallback 3 — sync, no auth)
-# ==========================================================
-def _get_spotify_metadata_html(url: str) -> Dict | None:
-    """Scrape metadata dari HTML Spotify page."""
+async def _get_spotify_metadata_html(session: aiohttp.ClientSession, url: str) -> Dict | None:
+    """Scrape metadata dari HTML Spotify page — async version."""
     try:
-        resp = requests.get(url, timeout=10, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-        })
-        if resp.status_code != 200:
-            return None
-        html = resp.text
+        async with session.get(
+            url,
+            timeout=aiohttp.ClientTimeout(total=10),
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        ) as resp:
+            if resp.status != 200:
+                return None
+            html = await resp.text()
 
-        title_match = re.search(r'<meta[^>]*property="og:title"[^>]*content="([^"]*)"', html)
-        title = title_match.group(1) if title_match else ''
+            title_match = re.search(r'<meta[^>]*property="og:title"[^>]*content="([^"]*)"', html)
+            title = title_match.group(1) if title_match else ""
 
-        desc_match = re.search(r'<meta[^>]*property="og:description"[^>]*content="([^"]*)"', html)
-        description = desc_match.group(1) if desc_match else ''
+            desc_match = re.search(r'<meta[^>]*property="og:description"[^>]*content="([^"]*)"', html)
+            description = desc_match.group(1) if desc_match else ""
 
-        image_match = re.search(r'<meta[^>]*property="og:image"[^>]*content="([^"]*)"', html)
-        image = image_match.group(1) if image_match else ''
+            image_match = re.search(r'<meta[^>]*property="og:image"[^>]*content="([^"]*)"', html)
+            image = image_match.group(1) if image_match else ""
 
-        artist = ''
-        if ' · ' in description:
-            parts = description.split(' · ')
-            if len(parts) >= 1:
-                artist = parts[0].replace('Listen to ', '').replace(' on Spotify', '').strip()
-        elif ' - ' in description:
-            artist = description.split(' - ')[0].strip()
+            artist = ""
+            if " · " in description:
+                parts = description.split(" · ")
+                if len(parts) >= 1:
+                    artist = parts[0].replace("Listen to ", "").replace(" on Spotify", "").strip()
+            elif " - " in description:
+                artist = description.split(" - ")[0].strip()
 
-        if not artist and title:
-            if ' - ' in title:
-                artist = title.split(' - ')[-1].strip()
-                title = title.split(' - ')[0].strip()
-            elif ' — ' in title:
-                artist = title.split(' — ')[-1].strip()
-                title = title.split(' — ')[0].strip()
+            if not artist and title:
+                if " - " in title:
+                    artist = title.split(" - ")[-1].strip()
+                    title = title.split(" - ")[0].strip()
+                elif " — " in title:
+                    artist = title.split(" — ")[-1].strip()
+                    title = title.split(" — ")[0].strip()
 
-        return {
-            'name': title,
-            'artists': artist,
-            'artwork': image,
-            'album': None,
-            'duration_ms': None,
-        }
+            return {
+                "name": title,
+                "artists": artist,
+                "artwork": image,
+                "album": None,
+                "duration_ms": None,
+            }
     except Exception as e:
         logger.error("[SPOTIFY HTML SCRAPE ERROR] %s", e)
         return None
@@ -430,16 +433,16 @@ class SpotifyResolver:
                     self._track_to_resolved(track_data, track_id, "spotify_official")
                 ], "spotify_official"
 
-        # 3. Fallback oEmbed
-        meta = _get_spotify_metadata_oembed(original_url)
-        if meta and meta.get('name'):
+        # 3. Fallback oEmbed (async)
+        meta = await _get_spotify_metadata_oembed(session, original_url)
+        if meta and meta.get("name"):
             return [
                 ResolvedTrack(
-                    name=meta['name'],
-                    artists=meta['artists'],
-                    album=meta.get('album'),
-                    duration_ms=meta.get('duration_ms'),
-                    artwork=meta.get('artwork'),
+                    name=meta["name"],
+                    artists=meta["artists"],
+                    album=meta.get("album"),
+                    duration_ms=meta.get("duration_ms"),
+                    artwork=meta.get("artwork"),
                     spotify_id=track_id,
                     youtube_id=None,
                     query=f"ytsearch:{meta['name']} {meta['artists']}",
@@ -447,16 +450,16 @@ class SpotifyResolver:
                 )
             ], "oembed"
 
-        # 4. Fallback HTML scrape
-        meta = _get_spotify_metadata_html(original_url)
-        if meta and meta.get('name'):
+        # 4. Fallback HTML scrape (async)
+        meta = await _get_spotify_metadata_html(session, original_url)
+        if meta and meta.get("name"):
             return [
                 ResolvedTrack(
-                    name=meta['name'],
-                    artists=meta['artists'],
-                    album=meta.get('album'),
-                    duration_ms=meta.get('duration_ms'),
-                    artwork=meta.get('artwork'),
+                    name=meta["name"],
+                    artists=meta["artists"],
+                    album=meta.get("album"),
+                    duration_ms=meta.get("duration_ms"),
+                    artwork=meta.get("artwork"),
                     spotify_id=track_id,
                     youtube_id=None,
                     query=f"ytsearch:{meta['name']} {meta['artists']}",
@@ -503,16 +506,16 @@ class SpotifyResolver:
                     for t in raw
                 ], "spotify_official"
 
-        # 3. Fallback oEmbed (cuma dapat 1 track = nama playlist)
-        meta = _get_spotify_metadata_oembed(original_url)
-        if meta and meta.get('name'):
+        # 3. Fallback oEmbed (async) — cuma dapat 1 track = nama playlist
+        meta = await _get_spotify_metadata_oembed(session, original_url)
+        if meta and meta.get("name"):
             return [
                 ResolvedTrack(
-                    name=meta['name'],
-                    artists=meta['artists'],
+                    name=meta["name"],
+                    artists=meta["artists"],
                     album=None,
                     duration_ms=None,
-                    artwork=meta.get('artwork'),
+                    artwork=meta.get("artwork"),
                     spotify_id=playlist_id,
                     youtube_id=None,
                     query=f"ytsearch:{meta['name']} {meta['artists']} playlist",
@@ -520,16 +523,16 @@ class SpotifyResolver:
                 )
             ], "oembed"
 
-        # 4. Fallback HTML scrape
-        meta = _get_spotify_metadata_html(original_url)
-        if meta and meta.get('name'):
+        # 4. Fallback HTML scrape (async)
+        meta = await _get_spotify_metadata_html(session, original_url)
+        if meta and meta.get("name"):
             return [
                 ResolvedTrack(
-                    name=meta['name'],
-                    artists=meta['artists'],
+                    name=meta["name"],
+                    artists=meta["artists"],
                     album=None,
                     duration_ms=None,
-                    artwork=meta.get('artwork'),
+                    artwork=meta.get("artwork"),
                     spotify_id=playlist_id,
                     youtube_id=None,
                     query=f"ytsearch:{meta['name']} {meta['artists']} playlist",
@@ -592,16 +595,16 @@ class SpotifyResolver:
                     result.append(rt)
                 return result, "spotify_official"
 
-        # 3. Fallback oEmbed
-        meta = _get_spotify_metadata_oembed(original_url)
-        if meta and meta.get('name'):
+        # 3. Fallback oEmbed (async)
+        meta = await _get_spotify_metadata_oembed(session, original_url)
+        if meta and meta.get("name"):
             return [
                 ResolvedTrack(
-                    name=meta['name'],
-                    artists=meta['artists'],
-                    album=meta['name'],
+                    name=meta["name"],
+                    artists=meta["artists"],
+                    album=meta["name"],
                     duration_ms=None,
-                    artwork=meta.get('artwork'),
+                    artwork=meta.get("artwork"),
                     spotify_id=album_id,
                     youtube_id=None,
                     query=f"ytsearch:{meta['name']} {meta['artists']} album",
@@ -609,16 +612,16 @@ class SpotifyResolver:
                 )
             ], "oembed"
 
-        # 4. Fallback HTML scrape
-        meta = _get_spotify_metadata_html(original_url)
-        if meta and meta.get('name'):
+        # 4. Fallback HTML scrape (async)
+        meta = await _get_spotify_metadata_html(session, original_url)
+        if meta and meta.get("name"):
             return [
                 ResolvedTrack(
-                    name=meta['name'],
-                    artists=meta['artists'],
-                    album=meta['name'],
+                    name=meta["name"],
+                    artists=meta["artists"],
+                    album=meta["name"],
                     duration_ms=None,
-                    artwork=meta.get('artwork'),
+                    artwork=meta.get("artwork"),
                     spotify_id=album_id,
                     youtube_id=None,
                     query=f"ytsearch:{meta['name']} {meta['artists']} album",
