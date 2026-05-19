@@ -9,9 +9,9 @@ import re
 import requests
 from datetime import datetime, timezone
 
-from utils.formatters import format_duration
-
+# Firebase playlist support (lazy import to avoid init order issues)
 def get_db():
+    """Lazy import Firebase db to avoid circular/import order issues."""
     try:
         from cogs.firebase_setup import db
         return db
@@ -21,23 +21,22 @@ def get_db():
 
 
 class MusicPlayer:
+    """Wrapper untuk menyimpan state per guild."""
     def __init__(self, guild_id: int):
         self.guild_id = guild_id
-        self.loop_mode = "off"
+        self.loop_mode = "off"          # off, single, queue
         self.autoplay = False
-        self._queue_history = []
-        self._single_loop_track = None
-        self._last_track_id = None
-        self._last_embed_time = 0
-        self._track_lock = asyncio.Lock()
-        # [POLISH] Task untuk auto-disconnect saat sendirian di VC
-        self._alone_task = None
+        self._queue_history = []         # untuk queue loop
+        self._single_loop_track = None   # untuk single loop
+        self._last_track_id = None       # Anti-duplikat embed
+        self._last_embed_time = 0        # Cooldown timestamp (anti-spam)
+        self._track_lock = asyncio.Lock() # Lock serialize track_end
 
 
 class Music(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.players = {}
+        self.players = {}  # guild_id -> MusicPlayer
         self._spotify_token = None
         self._spotify_token_expiry = 0
         self._spotify_enabled = True
@@ -48,15 +47,17 @@ class Music(commands.Cog):
         return self.players[guild_id]
 
     # ==========================================================
-    # SPOTIFY API HELPERS
+    # SPOTIFY API HELPERS (with fallback)
     # ==========================================================
     def _get_spotify_token(self) -> str | None:
+        """Get Spotify access token (cached)."""
         import time
         if self._spotify_token and time.time() < self._spotify_token_expiry - 60:
             return self._spotify_token
 
         client_id = os.getenv("SPOTIFY_CLIENT_ID")
         client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+
         if not client_id or not client_secret:
             print("[SPOTIFY] No credentials in .env")
             return None
@@ -68,13 +69,24 @@ class Music(commands.Cog):
                 auth=(client_id, client_secret),
                 timeout=10
             )
-            data = response.json()
+
+            try:
+                data = response.json()
+            except ValueError:
+                print(f"[SPOTIFY] Invalid JSON response: {response.text[:200]}")
+                return None
+
             if 'error' in data:
                 print(f"[SPOTIFY] API Error: {data.get('error_description', data['error'])}")
+                if data.get('error') == 'invalid_client':
+                    print("[SPOTIFY] Client credentials invalid. Please check SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET")
                 return None
+
             self._spotify_token = data.get('access_token')
             self._spotify_token_expiry = time.time() + data.get('expires_in', 3600)
+            print(f"[SPOTIFY] Token refreshed, expires in {data.get('expires_in', 3600)}s")
             return self._spotify_token
+
         except Exception as e:
             print(f"[SPOTIFY TOKEN ERROR] {e}")
             return None
@@ -83,6 +95,7 @@ class Music(commands.Cog):
         return "open.spotify.com" in query or "spotify.com" in query
 
     def _extract_spotify_id(self, url: str) -> tuple[str, str] | None:
+        """Extract (type, id) from Spotify URL."""
         patterns = [
             (r'track/([a-zA-Z0-9]+)', 'track'),
             (r'playlist/([a-zA-Z0-9]+)', 'playlist'),
@@ -95,86 +108,150 @@ class Music(commands.Cog):
         return None
 
     def _extract_search_query_from_spotify_url(self, url: str) -> str:
+        """Extract a search query from Spotify URL for YouTube fallback."""
         spotify_info = self._extract_spotify_id(url)
         if not spotify_info:
             return url.split('/')[-1].split('?')[0].replace('-', ' ')
+
         spotify_type, spotify_id = spotify_info
+
         token = self._get_spotify_token()
         if token:
             try:
                 headers = {'Authorization': f'Bearer {token}'}
                 if spotify_type == 'track':
-                    response = requests.get(f'https://api.spotify.com/v1/tracks/{spotify_id}', headers=headers, timeout=10)
+                    response = requests.get(
+                        f'https://api.spotify.com/v1/tracks/{spotify_id}',
+                        headers=headers,
+                        timeout=10
+                    )
                     if response.status_code == 200:
                         data = response.json()
                         name = data.get('name', '')
                         artists = ', '.join([a['name'] for a in data.get('artists', [])])
                         return f"{name} {artists}"
                     elif response.status_code == 403:
+                        print("[SPOTIFY] 403 Forbidden - Premium required. Using fallback.")
                         self._spotify_enabled = False
+
                 elif spotify_type == 'playlist':
-                    response = requests.get(f'https://api.spotify.com/v1/playlists/{spotify_id}?fields=name', headers=headers, timeout=10)
+                    response = requests.get(
+                        f'https://api.spotify.com/v1/playlists/{spotify_id}?fields=name',
+                        headers=headers,
+                        timeout=10
+                    )
                     if response.status_code == 200:
-                        return response.json().get('name', 'playlist')
+                        data = response.json()
+                        return data.get('name', 'playlist')
                     elif response.status_code == 403:
+                        print("[SPOTIFY] 403 Forbidden - Premium required. Using fallback.")
                         self._spotify_enabled = False
+
             except Exception as e:
                 print(f"[SPOTIFY FALLBACK ERROR] {e}")
+
         return url.split('/')[-1].split('?')[0].replace('-', ' ')
 
     async def _get_spotify_tracks(self, spotify_type: str, spotify_id: str) -> list[dict]:
+        """Fetch tracks from Spotify API. Returns list of {name, artists}."""
         token = self._get_spotify_token()
         if not token:
             return []
+
         headers = {'Authorization': f'Bearer {token}'}
         tracks = []
+
         try:
             if spotify_type == 'track':
-                response = requests.get(f'https://api.spotify.com/v1/tracks/{spotify_id}', headers=headers, timeout=10)
+                response = requests.get(
+                    f'https://api.spotify.com/v1/tracks/{spotify_id}',
+                    headers=headers,
+                    timeout=10
+                )
+
                 if response.status_code == 403:
+                    print("[SPOTIFY] 403 Forbidden - Premium required. Disabling Spotify.")
                     self._spotify_enabled = False
                     return []
+
                 data = response.json()
                 if 'error' not in data:
-                    tracks.append({'name': data.get('name', ''), 'artists': ', '.join([a['name'] for a in data.get('artists', [])])})
+                    tracks.append({
+                        'name': data.get('name', ''),
+                        'artists': ', '.join([a['name'] for a in data.get('artists', [])])
+                    })
+
             elif spotify_type == 'playlist':
-                test = requests.get(f'https://api.spotify.com/v1/playlists/{spotify_id}?fields=name', headers=headers, timeout=10)
-                if test.status_code == 403:
+                test_response = requests.get(
+                    f'https://api.spotify.com/v1/playlists/{spotify_id}?fields=name',
+                    headers=headers,
+                    timeout=10
+                )
+
+                if test_response.status_code == 403:
+                    print("[SPOTIFY] 403 Forbidden - Premium required. Disabling Spotify.")
                     self._spotify_enabled = False
                     return []
+
+                playlist_data = test_response.json()
+                playlist_name = playlist_data.get('name', 'Unknown Playlist')
+                print(f"[SPOTIFY] Loading playlist: {playlist_name}")
+
                 url = f'https://api.spotify.com/v1/playlists/{spotify_id}/tracks?fields=items(track(name,artists(name))),next&limit=100'
                 while url and len(tracks) < 500:
                     response = requests.get(url, headers=headers, timeout=10)
+
                     if response.status_code == 403:
+                        print("[SPOTIFY] 403 Forbidden during pagination. Disabling.")
                         self._spotify_enabled = False
                         break
+
                     data = response.json()
+
                     if 'error' in data:
                         break
+
                     for item in data.get('items', []):
                         track = item.get('track')
                         if track and track.get('name'):
-                            tracks.append({'name': track.get('name', ''), 'artists': ', '.join([a['name'] for a in track.get('artists', [])])})
+                            tracks.append({
+                                'name': track.get('name', ''),
+                                'artists': ', '.join([a['name'] for a in track.get('artists', [])])
+                            })
+
                     url = data.get('next')
+
             elif spotify_type == 'album':
                 url = f'https://api.spotify.com/v1/albums/{spotify_id}/tracks?limit=50'
                 while url and len(tracks) < 500:
                     response = requests.get(url, headers=headers, timeout=10)
+
                     if response.status_code == 403:
+                        print("[SPOTIFY] 403 Forbidden - Premium required. Disabling Spotify.")
                         self._spotify_enabled = False
                         break
+
                     data = response.json()
+
                     if 'error' in data:
                         break
+
                     for track in data.get('items', []):
                         if track.get('name'):
-                            tracks.append({'name': track.get('name', ''), 'artists': ', '.join([a['name'] for a in track.get('artists', [])])})
+                            tracks.append({
+                                'name': track.get('name', ''),
+                                'artists': ', '.join([a['name'] for a in track.get('artists', [])])
+                            })
+
                     url = data.get('next')
+
         except Exception as e:
             print(f"[SPOTIFY API ERROR] {e}")
+
         return tracks
 
     async def _search_youtube_for_tracks(self, tracks: list[dict], player: wavelink.Player) -> int:
+        """Search each track on YouTube and add to queue. Returns count added."""
         added = 0
         for track_info in tracks:
             try:
@@ -189,35 +266,6 @@ class Music(commands.Cog):
         return added
 
     # ==========================================================
-    # [POLISH] HELPERS
-    # ==========================================================
-    def _progress_bar(self, current_ms: int, total_ms: int, length: int = 12) -> str:
-        if total_ms == 0:
-            return "🔴 LIVE"
-        ratio = min(current_ms / total_ms, 1.0)
-        filled = int(ratio * length)
-        bar = "▬" * filled + "🔘" + "▬" * (length - filled - 1)
-        return f"{bar} `{format_duration(current_ms)} / {format_duration(total_ms)}`"
-
-    async def _alone_disconnect(self, player: wavelink.Player, home: discord.TextChannel | None):
-        await asyncio.sleep(30)
-        if player and player.channel:
-            humans = [m for m in player.channel.members if not m.bot]
-            if not humans:
-                await player.disconnect()
-                if home:
-                    try:
-                        await home.send("👋 Keluar dari voice channel karena tidak ada user.")
-                    except Exception:
-                        pass
-
-    def _cancel_alone_task(self, guild_id: int):
-        mp = self.get_player(guild_id)
-        if mp._alone_task and not mp._alone_task.done():
-            mp._alone_task.cancel()
-            mp._alone_task = None
-
-    # ==========================================================
     # EVENTS
     # ==========================================================
     @commands.Cog.listener()
@@ -225,34 +273,27 @@ class Music(commands.Cog):
         print(f"[LAVALINK] Node {payload.node.identifier} ready! (Session ID: {payload.session_id})")
 
     @commands.Cog.listener()
-    async def on_wavelink_track_exception(self, payload: wavelink.TrackExceptionEventPayload):
-        print(f"[LAVALINK EXCEPTION] Track: {payload.track.title} | Error: {payload.exception}")
-        if payload.player and payload.player.home:
-            try:
-                await payload.player.home.send(f"❌ Error track: `{payload.exception}`")
-            except Exception:
-                pass
-
-    @commands.Cog.listener()
-    async def on_wavelink_track_stuck(self, payload: wavelink.TrackStuckEventPayload):
-        print(f"[LAVALINK STUCK] Track: {payload.track.title} | Threshold: {payload.threshold_ms}ms")
-
-    @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
         player = payload.player
         track = payload.track
         guild_id = player.guild.id
         mp = self.get_player(guild_id)
+
         track_id = getattr(track, 'identifier', track.title)
+
+        # Safety net: block duplicate embed dalam 3 detik (anti-spam)
         now = asyncio.get_event_loop().time()
         if mp._last_track_id == track_id and (now - mp._last_embed_time) < 3.0:
             print(f"[TRACK START] Duplicate/cooldown suppressed: {track.title}")
             return
+
         mp._last_track_id = track_id
         mp._last_embed_time = now
         mp._single_loop_track = track
+
         if mp.loop_mode == "queue":
             mp._queue_history.append(track)
+
         embed = discord.Embed(
             title="Now Playing",
             description=f"[{track.title}]({track.uri})",
@@ -260,9 +301,10 @@ class Music(commands.Cog):
         )
         if track.author:
             embed.add_field(name="Author", value=track.author, inline=True)
-        embed.add_field(name="Duration", value=format_duration(track.length), inline=True)
+        embed.add_field(name="Duration", value=self._format_duration(track.length), inline=True)
         if track.artwork:
             embed.set_thumbnail(url=track.artwork)
+
         if player.home:
             try:
                 await player.home.send(embed=embed)
@@ -274,19 +316,30 @@ class Music(commands.Cog):
         player = payload.player
         guild_id = player.guild.id
         mp = self.get_player(guild_id)
+
+        # FIX: lowercase reason karena Lavalink kirim "stopped"/"replaced" (lowercase)
         reason = getattr(payload, 'reason', 'unknown').lower()
         print(f"[TRACK END] reason={reason}, track={getattr(payload.track, 'title', 'unknown')}")
+
+        # Ignore kalau track di-stop/replace/cleanup oleh command
         if reason in ("stopped", "replaced", "cleanup"):
             print(f"[TRACK END] Ignoring reason={reason}, no auto-action")
             return
+
+        # Hanya proses kalau track habis natural (finished) atau gagal load (load_failed)
         async with mp._track_lock:
+            # 1. SINGLE LOOP
             if mp.loop_mode == "single" and mp._single_loop_track:
                 await player.play(mp._single_loop_track)
                 return
+
+            # 2. QUEUE LOOP
             if mp.loop_mode == "queue" and player.queue.is_empty and mp._queue_history:
                 for t in mp._queue_history:
                     await player.queue.put_wait(t)
                 mp._queue_history.clear()
+
+            # 3. AUTO-PLAY NEXT
             if not player.queue.is_empty:
                 try:
                     next_track = player.queue.get()
@@ -295,6 +348,8 @@ class Music(commands.Cog):
                 except Exception as e:
                     print(f"[QUEUE NEXT ERROR] {e}")
                 return
+
+            # 4. AUTOPLAY
             if mp.autoplay and mp._single_loop_track:
                 try:
                     query = f"ytsearch:{mp._single_loop_track.author} mix"
@@ -313,23 +368,18 @@ class Music(commands.Cog):
             except Exception:
                 pass
 
-    # [POLISH] Auto-disconnect when alone
-    @commands.Cog.listener()
-    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-        player = member.guild.voice_client
-        if not player or not player.channel:
-            return
-        
-        guild_id = member.guild.id
-        mp = self.get_player(guild_id)
-        vc = player.channel
-        humans = [m for m in vc.members if not m.bot]
-        
-        if not humans:
-            if mp._alone_task is None or mp._alone_task.done():
-                mp._alone_task = asyncio.create_task(self._alone_disconnect(player, getattr(player, 'home', None)))
-        else:
-            self._cancel_alone_task(guild_id)
+    # ==========================================================
+    # HELPERS
+    # ==========================================================
+    def _format_duration(self, ms: int) -> str:
+        if ms == 0:
+            return "Live"
+        seconds = ms // 1000
+        minutes = seconds // 60
+        hours = minutes // 60
+        if hours > 0:
+            return f"{hours}:{minutes % 60:02d}:{seconds % 60:02d}"
+        return f"{minutes}:{seconds % 60:02d}"
 
     # ==========================================================
     # COMMANDS
@@ -338,21 +388,26 @@ class Music(commands.Cog):
     @app_commands.describe(query="URL (YouTube/Spotify/SoundCloud) atau nama lagu")
     async def play(self, interaction: discord.Interaction, query: str):
         print(f"[PLAY CMD] Called by {interaction.user} with query: {query}")
+
         try:
             await interaction.response.defer()
         except Exception as e:
             print(f"[PLAY CMD] defer error: {e}")
             return
+
         if not interaction.user.voice or not interaction.user.voice.channel:
             await interaction.followup.send("Kamu harus join voice channel dulu!")
             return
+
         vc = interaction.user.voice.channel
         print(f"[PLAY CMD] Voice channel: {vc.name}")
+
+        # Dapatkan atau buat wavelink.Player
         player = interaction.guild.voice_client
         if not player:
             print("[PLAY CMD] Creating new player...")
             try:
-                player = await vc.connect(cls=wavelink.Player, self_deaf=False)
+                player = await vc.connect(cls=wavelink.Player)
                 player.home = interaction.channel
             except Exception as e:
                 print(f"[PLAY CMD] Connect error: {e}")
@@ -361,33 +416,45 @@ class Music(commands.Cog):
         elif player.channel != vc:
             print("[PLAY CMD] Moving to new channel...")
             try:
-                await player.move_to(vc, self_deaf=False)
+                await player.move_to(vc)
                 player.home = interaction.channel
             except Exception as e:
                 print(f"[PLAY CMD] Move error: {e}")
                 await interaction.followup.send(f"Gagal pindah channel: {e}")
                 return
+
         print(f"[PLAY CMD] Player ready. Current: {player.current}")
+
         search_query = query.strip()
         tracks = None
 
         # HANDLE SPOTIFY URL
         if self._is_spotify_url(search_query):
             spotify_info = self._extract_spotify_id(search_query)
+
             if not spotify_info:
-                await interaction.followup.send("URL Spotify tidak valid.")
+                await interaction.followup.send("URL Spotify tidak valid. Gunakan format: https://open.spotify.com/track/... atau /playlist/... atau /album/...")
                 return
+
             spotify_type, spotify_id = spotify_info
+
+            # Send loading message
             loading_msg = await interaction.followup.send(f"Memuat dari Spotify ({spotify_type})...")
+
+            # Try Spotify API first
             if self._spotify_enabled:
                 spotify_tracks = await self._get_spotify_tracks(spotify_type, spotify_id)
             else:
                 spotify_tracks = []
                 print("[SPOTIFY] Skipped (disabled due to previous 403 error)")
+
+            # If Spotify API failed, use YouTube fallback
             if not spotify_tracks:
                 print("[FALLBACK] Using YouTube search for Spotify URL")
                 fallback_query = self._extract_search_query_from_spotify_url(search_query)
+
                 if spotify_type == 'track':
+                    # Single track fallback
                     yt_query = f"ytsearch:{fallback_query}"
                     print(f"[FALLBACK] Searching: {yt_query}")
                     try:
@@ -396,15 +463,16 @@ class Music(commands.Cog):
                         print(f"[FALLBACK ERROR] {e}")
                         await loading_msg.edit(content="Gagal mencari lagu di YouTube.")
                         return
+
                     if not tracks:
                         await loading_msg.edit(content="Lagu tidak ditemukan di YouTube.")
                         return
+
                     track = tracks[0]
                     await player.queue.put_wait(track)
                     if not player.current:
-                        await player.set_volume(100)
-                        await asyncio.sleep(0.3)
                         await player.play(player.queue.get())
+
                     embed = discord.Embed(
                         title="Added from Spotify (YouTube Fallback)",
                         description=f"[{track.title}]({track.uri})",
@@ -414,7 +482,9 @@ class Music(commands.Cog):
                         embed.set_thumbnail(url=track.artwork)
                     await loading_msg.edit(content=None, embed=embed)
                     return
+
                 else:
+                    # Playlist/Album fallback - search first track only (to avoid rate limit)
                     yt_query = f"ytsearch:{fallback_query}"
                     print(f"[FALLBACK] Searching playlist: {yt_query}")
                     try:
@@ -422,8 +492,6 @@ class Music(commands.Cog):
                         if tracks:
                             await player.queue.put_wait(tracks[0])
                             if not player.current:
-                                await player.set_volume(100)
-                                await asyncio.sleep(0.3)
                                 await player.play(player.queue.get())
                             await loading_msg.edit(content=f"Spotify {spotify_type.title()} (fallback): **{tracks[0].title}** ditambahkan!")
                         else:
@@ -432,7 +500,9 @@ class Music(commands.Cog):
                         print(f"[FALLBACK ERROR] {e}")
                         await loading_msg.edit(content="Gagal memuat playlist.")
                     return
-            # Spotify API worked
+
+            # Spotify API worked - proceed as normal
+            # Single track
             if spotify_type == 'track':
                 track_info = spotify_tracks[0]
                 yt_query = f"ytsearch:{track_info['name']} {track_info['artists']}"
@@ -443,15 +513,16 @@ class Music(commands.Cog):
                     print(f"[SPOTIFY TRACK ERROR] {e}")
                     await loading_msg.edit(content="Gagal mencari lagu di YouTube.")
                     return
+
                 if not tracks:
                     await loading_msg.edit(content="Lagu tidak ditemukan di YouTube.")
                     return
+
                 track = tracks[0]
                 await player.queue.put_wait(track)
                 if not player.current:
-                    await player.set_volume(100)
-                    await asyncio.sleep(0.3)
                     await player.play(player.queue.get())
+
                 embed = discord.Embed(
                     title="Added from Spotify",
                     description=f"[{track.title}]({track.uri})",
@@ -461,24 +532,28 @@ class Music(commands.Cog):
                     embed.set_thumbnail(url=track.artwork)
                 await loading_msg.edit(content=None, embed=embed)
                 return
+
+            # Playlist or Album
             else:
                 total_tracks = len(spotify_tracks)
                 await loading_msg.edit(content=f"Memuat {total_tracks} lagu dari Spotify {spotify_type}...")
+
                 added = await self._search_youtube_for_tracks(spotify_tracks, player)
+
                 if not player.current and not player.queue.is_empty:
-                    await player.set_volume(100)
-                    await asyncio.sleep(0.3)
                     await player.play(player.queue.get())
+
                 msg = f"Spotify {spotify_type.title()} ditambahkan! ({added}/{total_tracks} lagu)"
                 if added < total_tracks:
                     msg += f" | {total_tracks - added} lagu gagal dimuat"
                 await loading_msg.edit(content=msg)
                 return
 
-        # HANDLE URL LANGSUNG
+        # HANDLE URL LANGSUNG (YouTube, SoundCloud, dll)
         elif search_query.startswith("http://") or search_query.startswith("https://"):
             print("[PLAY CMD] Direct URL detected, Lavalink will auto-resolve")
             pass
+
         # HANDLE SEARCH QUERY
         else:
             if not any(search_query.startswith(p) for p in ["ytsearch:", "scsearch:", "spsearch:"]):
@@ -488,6 +563,7 @@ class Music(commands.Cog):
         if tracks is None:
             print(f"[PLAY CMD] Searching: {search_query}")
             try:
+                # FIX: Tambah timeout 30 detik untuk menghindari hang
                 tracks = await asyncio.wait_for(
                     wavelink.Playable.search(search_query),
                     timeout=30.0
@@ -518,35 +594,36 @@ class Music(commands.Cog):
                 except Exception as e:
                     print(f"[PLAY CMD] Queue put error: {e}")
                     break
+
             print(f"[PLAY CMD] Added {added} tracks to queue")
+
             if not player.current and not player.queue.is_empty:
                 try:
                     first = player.queue.get()
                     print(f"[PLAY CMD] Starting playback with: {first.title}")
-                    await player.set_volume(100)
-                    await asyncio.sleep(0.3)
                     await player.play(first)
                 except Exception as e:
                     print(f"[PLAY CMD] Play error: {e}")
+
             await interaction.followup.send(f"Playlist ditambahkan! ({added} lagu dari {tracks.name})")
             return
 
         # Single track
         track = tracks[0] if hasattr(tracks, '__getitem__') else tracks
         print(f"[PLAY CMD] Single track: {track.title}")
+
         try:
             await player.queue.put_wait(track)
-            print("[PLAY CMD] Track queued")
+            print(f"[PLAY CMD] Track queued")
         except Exception as e:
             print(f"[PLAY CMD] Queue error: {e}")
             await interaction.followup.send(f"Gagal add ke queue: {e}")
             return
+
         if not player.current:
             try:
                 next_track = player.queue.get()
                 print(f"[PLAY CMD] Starting playback: {next_track.title}")
-                await player.set_volume(100)
-                await asyncio.sleep(0.5)
                 await player.play(next_track)
             except Exception as e:
                 print(f"[PLAY CMD] Play error: {e}")
@@ -586,10 +663,12 @@ class Music(commands.Cog):
         if not player or not player.current:
             await interaction.response.send_message("Tidak ada lagu yang sedang diputar.")
             return
+
         skipped_track = player.current
+
         if not player.queue.is_empty:
             next_track = player.queue.get()
-            await player.stop()
+            await player.stop()          # Trigger TrackEnd reason=stopped -> di-ignore handler
             await asyncio.sleep(0.2)
             await player.play(next_track)
             await interaction.response.send_message(
@@ -609,83 +688,65 @@ class Music(commands.Cog):
         if not player:
             await interaction.response.send_message("Bot tidak ada di voice channel.")
             return
+
         mp = self.get_player(interaction.guild_id)
         mp.loop_mode = "off"
         mp.autoplay = False
         mp._queue_history.clear()
         mp._single_loop_track = None
         mp._last_track_id = None
+
         player.queue.clear()
         await player.stop()
         await player.disconnect()
         await interaction.response.send_message("Music player dihentikan dan queue di-clear.")
 
-    # [POLISH] Updated /queue
     @app_commands.command(name="queue", description="Lihat antrian lagu")
     async def queue(self, interaction: discord.Interaction):
         player = interaction.guild.voice_client
         if not player:
             await interaction.response.send_message("Queue kosong.")
             return
-        
+
         mp = self.get_player(interaction.guild_id)
-        embed = discord.Embed(title="🎶 Music Queue", color=discord.Color.purple())
-        
+        embed = discord.Embed(title="Music Queue", color=discord.Color.purple())
+
         if player.current:
             loop_emoji = {"single": "🔁", "queue": "🔂", "off": ""}.get(mp.loop_mode, "")
-            embed.add_field(
-                name=f"▶️ Now Playing {loop_emoji}",
-                value=f"**{player.current.title}**\n`{format_duration(player.current.length)}`",
-                inline=False
-            )
-        
+            embed.add_field(name=f"Now Playing {loop_emoji}", value=player.current.title, inline=False)
+
         items = list(player.queue)
-        if items:
-            total_ms = sum(t.length or 0 for t in items)
-            queue_text = ""
-            for i, track in enumerate(items[:15], 1):
-                duration = format_duration(track.length) if track.length else "?"
-                queue_text += f"`{i:02d}.` {track.title[:40]}{'...' if len(track.title) > 40 else ''} (`{duration}`)\n"
-            
-            embed.add_field(name="⏭️ Up Next", value=queue_text or "...", inline=False)
-            embed.set_footer(text=f"{len(items)} lagu | Total durasi: {format_duration(total_ms)}")
-        else:
-            embed.set_footer(text="Queue kosong — tambah lagu dengan /play")
-        
+        for i, track in enumerate(items[:10], 1):
+            embed.add_field(name=f"{i}.", value=track.title, inline=False)
+
+        if len(items) > 10:
+            embed.set_footer(text=f"...dan {len(items) - 10} lagu lainnya")
+
         await interaction.response.send_message(embed=embed)
 
-    # [POLISH] Updated /nowplaying
     @app_commands.command(name="nowplaying", description="Info detail lagu yang sedang diputar")
     async def nowplaying(self, interaction: discord.Interaction):
         player = interaction.guild.voice_client
         if not player or not player.current:
             await interaction.response.send_message("Tidak ada lagu yang sedang diputar.")
             return
-        
+
         track = player.current
         mp = self.get_player(interaction.guild_id)
+
         embed = discord.Embed(
-            title="▶️ Now Playing",
+            title="Now Playing",
             description=f"[{track.title}]({track.uri})",
             color=discord.Color.green()
         )
         embed.add_field(name="Author", value=track.author or "Unknown", inline=True)
-        embed.add_field(name="Duration", value=format_duration(track.length), inline=True)
-        
-        position = getattr(player, 'position', 0) or 0
-        embed.add_field(
-            name="Progress",
-            value=self._progress_bar(position, track.length),
-            inline=False
-        )
-        
+        embed.add_field(name="Duration", value=self._format_duration(track.length), inline=True)
         embed.add_field(name="Autoplay", value="ON" if mp.autoplay else "OFF", inline=True)
         loop_text = {"single": "Single", "queue": "Queue", "off": "OFF"}.get(mp.loop_mode, "OFF")
         embed.add_field(name="Loop", value=loop_text, inline=True)
-        
         if track.artwork:
             embed.set_thumbnail(url=track.artwork)
-        
+
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="volume", description="Atur volume bot (0-1000)")
@@ -694,13 +755,16 @@ class Music(commands.Cog):
         if not 0 <= level <= 1000:
             await interaction.response.send_message("Volume harus antara 0-1000.")
             return
+
         player = interaction.guild.voice_client
         if not player:
             await interaction.response.send_message("Bot tidak ada di voice channel.")
             return
+
         await player.set_volume(level)
         await interaction.response.send_message(f"Volume diatur ke {level}%.")
 
+    # LOOP
     @app_commands.command(name="loop", description="Atur mode loop lagu/queue")
     @app_commands.describe(mode="Pilih mode loop")
     @app_commands.choices(mode=[
@@ -717,21 +781,25 @@ class Music(commands.Cog):
             mp._single_loop_track = None
         await interaction.response.send_message(f"Loop mode: {mode.name}")
 
+    # SHUFFLE
     @app_commands.command(name="shuffle", description="Acak antrian lagu")
     async def shuffle(self, interaction: discord.Interaction):
         player = interaction.guild.voice_client
         if not player or player.queue.is_empty:
             await interaction.response.send_message("Queue kosong, tidak ada yang bisa diacak.")
             return
+
         mp = self.get_player(interaction.guild_id)
         items = list(player.queue)
         random.shuffle(items)
         player.queue.clear()
         for item in items:
             await player.queue.put_wait(item)
+
         mp._queue_history.clear()
         await interaction.response.send_message(f"Queue diacak! ({len(items)} lagu)")
 
+    # AUTOPLAY
     @app_commands.command(name="autoplay", description="Toggle autoplay: bot cari lagu serupa ketika queue habis")
     async def autoplay(self, interaction: discord.Interaction):
         mp = self.get_player(interaction.guild_id)
@@ -739,190 +807,7 @@ class Music(commands.Cog):
         status = "ON" if mp.autoplay else "OFF"
         await interaction.response.send_message(f"Autoplay sekarang: {status}")
 
-    # ==========================================================
-    # [POLISH] NEW COMMANDS
-    # ==========================================================
-
-    @app_commands.command(name="seek", description="Skip ke posisi tertentu dalam lagu")
-    @app_commands.describe(position="Format: 1:30 atau 90 (detik)")
-    async def seek(self, interaction: discord.Interaction, position: str):
-        player = interaction.guild.voice_client
-        if not player or not player.current:
-            await interaction.response.send_message("Tidak ada lagu yang sedang diputar.")
-            return
-        
-        total_seconds = 0
-        try:
-            if ':' in position:
-                parts = position.split(':')
-                if len(parts) == 2:
-                    total_seconds = int(parts[0]) * 60 + int(parts[1])
-                elif len(parts) == 3:
-                    total_seconds = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
-            else:
-                total_seconds = int(position)
-        except ValueError:
-            await interaction.response.send_message("Format salah. Gunakan `1:30` atau `90`.")
-            return
-        
-        ms = total_seconds * 1000
-        if player.current.length and ms > player.current.length:
-            await interaction.response.send_message("Posisi melebihi durasi lagu.")
-            return
-        
-        await player.seek(ms)
-        await interaction.response.send_message(f"⏩ Skip ke `{format_duration(ms)}`.")
-
-    @app_commands.command(name="remove", description="Hapus lagu dari queue berdasarkan nomor")
-    @app_commands.describe(index="Nomor lagu di /queue")
-    async def remove(self, interaction: discord.Interaction, index: int):
-        player = interaction.guild.voice_client
-        if not player or player.queue.is_empty:
-            await interaction.response.send_message("Queue kosong.")
-            return
-        if index < 1:
-            await interaction.response.send_message("Nomor harus mulai dari 1.")
-            return
-        
-        items = list(player.queue)
-        if index > len(items):
-            await interaction.response.send_message(f"Queue cuma ada {len(items)} lagu.")
-            return
-        
-        mp = self.get_player(interaction.guild_id)
-        async with mp._track_lock:
-            removed = items.pop(index - 1)
-            player.queue.clear()
-            for item in items:
-                await player.queue.put_wait(item)
-        
-        await interaction.response.send_message(f"🗑️ Dihapus dari queue: **{removed.title}**")
-
-    @app_commands.command(name="move", description="Pindah posisi lagu di queue")
-    @app_commands.describe(from_index="Posisi asal", to_index="Posisi tujuan")
-    async def move(self, interaction: discord.Interaction, from_index: int, to_index: int):
-        player = interaction.guild.voice_client
-        if not player or player.queue.is_empty:
-            await interaction.response.send_message("Queue kosong.")
-            return
-        
-        items = list(player.queue)
-        if not (1 <= from_index <= len(items)) or not (1 <= to_index <= len(items)):
-            await interaction.response.send_message(f"Index harus antara 1 dan {len(items)}.")
-            return
-        
-        mp = self.get_player(interaction.guild_id)
-        async with mp._track_lock:
-            track = items.pop(from_index - 1)
-            items.insert(to_index - 1, track)
-            player.queue.clear()
-            for item in items:
-                await player.queue.put_wait(item)
-        
-        await interaction.response.send_message(f"↔️ Dipindah: **{track.title}** ke posisi `{to_index}`")
-
-    @app_commands.command(name="skipto", description="Skip ke lagu nomor tertentu di queue")
-    @app_commands.describe(index="Nomor lagu di /queue")
-    async def skipto(self, interaction: discord.Interaction, index: int):
-        player = interaction.guild.voice_client
-        if not player or player.queue.is_empty:
-            await interaction.response.send_message("Queue kosong.")
-            return
-        
-        items = list(player.queue)
-        if not (1 <= index <= len(items)):
-            await interaction.response.send_message(f"Index harus antara 1 dan {len(items)}.")
-            return
-        
-        mp = self.get_player(interaction.guild_id)
-        async with mp._track_lock:
-            target = items.pop(index - 1)
-            new_queue = [target] + items
-            player.queue.clear()
-            for item in new_queue:
-                await player.queue.put_wait(item)
-        
-        await player.stop()
-        await asyncio.sleep(0.3)
-        if not player.queue.is_empty:
-            next_track = player.queue.get()
-            await player.play(next_track)
-            await interaction.response.send_message(f"⏭️ Skip ke: **{next_track.title}**")
-        else:
-            await interaction.response.send_message("Queue kosong setelah reorder.")
-
-    @app_commands.command(name="disconnect", description="Keluar dari voice channel")
-    async def disconnect(self, interaction: discord.Interaction):
-        player = interaction.guild.voice_client
-        if not player:
-            await interaction.response.send_message("Bot tidak di voice channel.")
-            return
-        await player.disconnect()
-        await interaction.response.send_message("🔌 Keluar dari voice channel.")
-
-    @app_commands.command(name="clearqueue", description="Kosongkan queue tanpa menghentikan lagu yang sedang diputar")
-    async def clearqueue(self, interaction: discord.Interaction):
-        player = interaction.guild.voice_client
-        if not player or player.queue.is_empty:
-            await interaction.response.send_message("Queue sudah kosong.")
-            return
-        player.queue.clear()
-        mp = self.get_player(interaction.guild_id)
-        mp._queue_history.clear()
-        await interaction.response.send_message("🧹 Queue dikosongkan. Lagu yang sedang diputar tetap jalan.")
-
-    @app_commands.command(name="replay", description="Putar ulang lagu dari awal")
-    async def replay(self, interaction: discord.Interaction):
-        player = interaction.guild.voice_client
-        if not player or not player.current:
-            await interaction.response.send_message("Tidak ada lagu yang sedang diputar.")
-            return
-        await player.seek(0)
-        await interaction.response.send_message("🔁 Replay dari awal.")
-
-    @app_commands.command(name="lyrics", description="Cari lirik lagu yang sedang diputar atau dari judul")
-    @app_commands.describe(query="Judul lagu (opsional, default: lagu yang sedang diputar)")
-    async def lyrics(self, interaction: discord.Interaction, query: str = None):
-        if not query and interaction.guild.voice_client and interaction.guild.voice_client.current:
-            track = interaction.guild.voice_client.current
-            query = f"{track.title} {track.author or ''}"
-        
-        if not query:
-            await interaction.response.send_message("Tidak ada lagu yang diputar. Berikan judul!")
-            return
-        
-        await interaction.response.defer()
-        
-        try:
-            url = f"https://lrclib.net/api/search?q={requests.utils.quote(query.strip())}"
-            resp = requests.get(url, timeout=10)
-            data = resp.json()
-            if not data:
-                await interaction.followup.send("❌ Lirik tidak ditemukan.")
-                return
-            
-            song = data[0]
-            title = song.get('trackName', 'Unknown')
-            artist = song.get('artistName', 'Unknown')
-            plain = song.get('plainLyrics', 'Tidak ada lirik tersedia.')
-            
-            if len(plain) > 4000:
-                plain = plain[:4000] + "\n..."
-            
-            embed = discord.Embed(
-                title=f"🎤 {title}",
-                description=f"by **{artist}**",
-                color=discord.Color.pink()
-            )
-            embed.add_field(name="Lirik", value=f"```{plain}```", inline=False)
-            await interaction.followup.send(embed=embed)
-        except Exception as e:
-            print(f"[LYRICS ERROR] {e}")
-            await interaction.followup.send("❌ Gagal mengambil lirik. Coba judul lain.")
-
-    # ==========================================================
     # PLAYLIST GROUP
-    # ==========================================================
     playlist = app_commands.Group(name="playlist", description="Simpan dan muat playlist lagu")
 
     @playlist.command(name="save", description="Simpan queue saat ini sebagai playlist")
@@ -932,8 +817,10 @@ class Music(commands.Cog):
         if db is None:
             await interaction.response.send_message("Fitur playlist tidak tersedia (Firebase tidak terhubung).")
             return
+
         player = interaction.guild.voice_client
         tracks = []
+
         if player and player.current:
             tracks.append({
                 "title": player.current.title,
@@ -942,6 +829,7 @@ class Music(commands.Cog):
                 "artwork": player.current.artwork or "",
                 "length": player.current.length or 0
             })
+
         if player:
             for track in list(player.queue):
                 tracks.append({
@@ -951,9 +839,11 @@ class Music(commands.Cog):
                     "artwork": track.artwork or "",
                     "length": track.length or 0
                 })
+
         if not tracks:
             await interaction.response.send_message("Tidak ada lagu untuk disimpan.")
             return
+
         doc_id = f"{interaction.guild_id}_{interaction.user.id}_{name}"
         get_db().collection("playlists").document(doc_id).set({
             "guild_id": str(interaction.guild_id),
@@ -962,6 +852,7 @@ class Music(commands.Cog):
             "tracks": tracks,
             "created_at": datetime.now(timezone.utc)
         })
+
         await interaction.response.send_message(f"Playlist {name} disimpan! ({len(tracks)} lagu)")
 
     @playlist.command(name="load", description="Muat playlist ke queue")
@@ -971,28 +862,36 @@ class Music(commands.Cog):
         if db is None:
             await interaction.response.send_message("Fitur playlist tidak tersedia (Firebase tidak terhubung).")
             return
+
         await interaction.response.defer()
+
         doc_id = f"{interaction.guild_id}_{interaction.user.id}_{name}"
         doc = get_db().collection("playlists").document(doc_id).get()
+
         if not doc.exists:
             await interaction.followup.send(f"Playlist {name} tidak ditemukan.")
             return
+
         data = doc.to_dict()
         track_data = data.get("tracks", [])
+
         if not track_data:
             await interaction.followup.send("Playlist kosong.")
             return
+
         if not interaction.user.voice or not interaction.user.voice.channel:
             await interaction.followup.send("Kamu harus join voice channel dulu!")
             return
+
         vc = interaction.user.voice.channel
         player = interaction.guild.voice_client
         if not player:
-            player = await vc.connect(cls=wavelink.Player, self_deaf=False)
+            player = await vc.connect(cls=wavelink.Player)
             player.home = interaction.channel
         elif player.channel != vc:
-            await player.move_to(vc, self_deaf=False)
+            await player.move_to(vc)
             player.home = interaction.channel
+
         added = 0
         failed = 0
         for t in track_data:
@@ -1006,8 +905,10 @@ class Music(commands.Cog):
             except Exception as e:
                 print(f"[PLAYLIST LOAD ERROR] {e}")
                 failed += 1
+
         if not player.current and not player.queue.is_empty:
             await player.play(player.queue.get())
+
         msg = f"Playlist {name} dimuat! ({added} lagu ditambahkan)"
         if failed:
             msg += f" | {failed} gagal dimuat"
@@ -1019,10 +920,12 @@ class Music(commands.Cog):
         if db is None:
             await interaction.response.send_message("Fitur playlist tidak tersedia (Firebase tidak terhubung).")
             return
+
         playlists = (get_db().collection("playlists")
             .where("guild_id", "==", str(interaction.guild_id))
             .where("user_id", "==", str(interaction.user.id))
             .stream())
+
         embed = discord.Embed(title="Playlist-mu", color=discord.Color.blue())
         count = 0
         for doc in playlists:
@@ -1035,8 +938,10 @@ class Music(commands.Cog):
                 created_str = "Unknown"
             embed.add_field(name=data['name'], value=f"{track_count} lagu - {created_str}", inline=False)
             count += 1
+
         if count == 0:
             embed.description = "Belum ada playlist. Gunakan /playlist save <nama> untuk membuat satu."
+
         await interaction.response.send_message(embed=embed)
 
     @playlist.command(name="delete", description="Hapus playlist")
@@ -1046,12 +951,15 @@ class Music(commands.Cog):
         if db is None:
             await interaction.response.send_message("Fitur playlist tidak tersedia (Firebase tidak terhubung).")
             return
+
         doc_id = f"{interaction.guild_id}_{interaction.user.id}_{name}"
         doc_ref = get_db().collection("playlists").document(doc_id)
         doc = doc_ref.get()
+
         if not doc.exists:
             await interaction.response.send_message(f"Playlist {name} tidak ditemukan.")
             return
+
         doc_ref.delete()
         await interaction.response.send_message(f"Playlist {name} dihapus.")
 

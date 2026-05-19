@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="10" />
+    <title>Hidden Hamlet — Dashboard</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/dashboard.css') }}"
+    />
+    <base target="_blank" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🤖 Hidden Hamlet</h1>
+        <p>Discord Bot Status Dashboard</p>
+        <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #72767d">
+          Last update: {{ s.last_updated }} • Auto-refresh 10s
+        </p>
+      </header>
+
+      <div class="grid">
+        <div class="card">
+          <h3>
+            <span
+              class="dot {% if s.online %}dot-on{% else %}dot-off{% endif %}"
+            ></span>
+            Bot Status
+          </h3>
+          <div class="big">{{ s.username }}</div>
+          <p style="margin-top: 0.5rem; color: #b9bbbe">
+            Uptime: {{ s.uptime_fmt }}
+          </p>
+        </div>
+        <div class="card">
+          <h3>📊 Statistics</h3>
+          <div class="big">{{ s.guilds }}</div>
+          <p style="margin-top: 0.5rem; color: #b9bbbe">Servers</p>
+          <div class="big" style="margin-top: 0.75rem; font-size: 1.5rem">
+            {{ s.members }}
+          </div>
+          <p style="color: #b9bbbe">Total Members</p>
+        </div>
+        <div class="card">
+          <h3>
+            <span
+              class="dot {% if s.lavalink_connected %}dot-on{% else %}dot-off{% endif %}"
+            ></span>
+            Lavalink
+          </h3>
+          <div class="big" style="font-size: 1.25rem">
+            {% if s.lavalink_connected %}Connected{% else %}Disconnected{% endif
+            %}
+          </div>
+          <p style="margin-top: 0.5rem; color: #b9bbbe; word-break: break-all">
+            {{ s.lavalink_node }}
+          </p>
+        </div>
+        <div class="card">
+          <h3>🎵 Active Players</h3>
+          <div class="big">{{ s.players|length }}</div>
+          <p style="margin-top: 0.5rem; color: #b9bbbe">
+            Guilds currently playing music
+          </p>
+        </div>
+      </div>
+
+      <div class="players">
+        <h2>🎶 Now Playing</h2>
+        {% if s.players %} {% for p in s.players %}
+        <div class="p-card">
+          <img
+            src="{{ p.artwork }}"
+            alt="artwork"
+            class="p-art"
+            onerror="this.src = 'https://via.placeholder.com/80?text=No+Art'"
+          />
+          <div class="p-info">
+            <h4>{{ p.track }}</h4>
+            <div class="p-meta">{{ p.author }} • {{ p.guild }}</div>
+            <div>
+              <span class="badge bg-q">{{ p.queue }} in queue</span>
+              <span class="badge bg-l">{{ p.listeners }} listeners</span>
+              {% if p.paused %}<span class="badge bg-p">⏸ Paused</span>{% endif
+              %}
+            </div>
+            <div class="bar">
+              <div
+                class="bar-fill"
+                style="--progress: {{ p.progress_percent }}%;"
+              ></div>
+            </div>
+            <div class="bar-text">
+              {{ p.position_fmt }} / {{ p.duration_fmt }}
+            </div>
+          </div>
+        </div>
+        {% endfor %} {% else %}
+        <div class="card" style="text-align: center; padding: 3rem">
+          <p style="color: #72767d">No active music players.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <footer>
+        <p>
+          Hidden Hamlet Bot • Render.com • <a href="/api/stats">API JSON</a> •
+          <a href="/">Home</a>
+        </p>
+      </footer>
+    </div>
+  </body>
+</html>
