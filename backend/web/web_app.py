@@ -1,5 +1,7 @@
 import os
 import threading
+import base64
+import requests
 from flask import Flask, render_template, jsonify, request, redirect
 from datetime import datetime, timezone
 
@@ -36,7 +38,7 @@ _bot_stats = {
     "lavalink_node": "N/A",
     "players": [],
     "last_updated": "-",
-    "guilds_list": []  # ← WAJIB di-populate main.py: [{"id":"str","name":"str","member_count":int}, ...]
+    "guilds_list": []
 }
 
 def set_stats(**kwargs):
@@ -101,10 +103,7 @@ def get_guild_channels(guild_id: str) -> list:
 # Helper — baca config welcome dari Firestore (sync, untuk Flask)
 # ==========================================================
 def _get_welcome_config(guild_id: str) -> dict:
-    """
-    Baca konfigurasi welcome dari Firestore secara synchronous.
-    Aman dipanggil dari Flask karena bukan async context.
-    """
+    """Baca konfigurasi welcome dari Firestore secara synchronous."""
     if db is None:
         print("[WELCOME-WEB] ⚠️ Firebase tidak tersedia.")
         return {}
@@ -118,15 +117,45 @@ def _get_welcome_config(guild_id: str) -> dict:
     return {}
 
 # ==========================================================
+# Helper — Upload image ke Catbox.moe (free, no auth)
+# ==========================================================
+def _upload_to_catbox(file_data: bytes, filename: str) -> str | None:
+    """
+    Upload file image ke Catbox.moe.
+    Returns: URL publik atau None jika gagal.
+    """
+    try:
+        # Catbox.moe API endpoint
+        url = "https://litterbox.catbox.moe/resources/internals/api.php"
+
+        files = {
+            'fileToUpload': (filename, file_data, 'image/png')
+        }
+        data = {
+            'reqtype': 'fileupload',
+            'time': '1h'  # Expiry: 1h, can be '1h', '12h', '24h', '72h'
+        }
+
+        response = requests.post(url, files=files, data=data, timeout=30)
+
+        if response.status_code == 200:
+            catbox_url = response.text.strip()
+            if catbox_url.startswith('http'):
+                print(f"[CATBOX] ✅ Upload berhasil: {catbox_url}")
+                return catbox_url
+
+        print(f"[CATBOX] ❌ Upload gagal: HTTP {response.status_code} — {response.text}")
+        return None
+
+    except Exception as e:
+        print(f"[CATBOX] ❌ Error upload: {e}")
+        return None
+
+# ==========================================================
 # Helper — render template dengan sidebar context
 # ==========================================================
 def _render_page(template_name: str, active_page: str, guild_id: str, **kwargs):
-    """
-    Wrapper render_template yang otomatis inject:
-    - s (stats snapshot)
-    - active_page (untuk highlight sidebar)
-    - guild_id (untuk nav links & dropdown)
-    """
+    """Wrapper render_template yang otomatis inject stats + active_page + guild_id."""
     return render_template(
         template_name,
         s=get_stats_snapshot(),
@@ -210,13 +239,12 @@ def welcome_settings(guild_id: str):
         "embed_color": "#5865F2",
         "embed_title": "👋 Selamat Datang!",
         "bg_image_url": "",
-        # NEW: Banner style fields (v3.7)
-        "style": "embed",           # "embed" or "banner"
-        "banner_bg_url": "",        # Banner background image URL
-        "banner_text": "WELCOME",   # Main text overlay (e.g., "WELCOME")
-        "banner_subtext": "Member ke-{count} • {server}",  # Subtext below username
-        "banner_font_color": "#FFFFFF",  # Text color for banner
-        "banner_avatar_ring": True,      # White ring around avatar
+        "style": "embed",
+        "banner_bg_url": "",
+        "banner_text": "WELCOME",
+        "banner_subtext": "Member ke-{count} • {server}",
+        "banner_font_color": "#FFFFFF",
+        "banner_avatar_ring": True,
     }
 
     config = {**defaults, **current_config}
@@ -314,7 +342,7 @@ def save_welcome(guild_id: str):
         enabled = "enabled" in request.form
         is_embed = "is_embed" in request.form
 
-        # NEW v3.7: Banner style fields
+        # v3.7: Banner style fields
         style = request.form.get("style", "embed").strip()
         banner_avatar_ring = "banner_avatar_ring" in request.form
 
@@ -329,6 +357,38 @@ def save_welcome(guild_id: str):
         banner_text = request.form.get("banner_text", "WELCOME").strip()
         banner_subtext = request.form.get("banner_subtext", "Member ke-{count} • {server}").strip()
         banner_font_color = request.form.get("banner_font_color", "#FFFFFF").strip()
+
+        # ==========================================
+        # NEW: Handle file upload (drag-drop) via base64
+        # ==========================================
+        uploaded_file_data = request.form.get("uploaded_file_data", "").strip()
+        uploaded_file_name = request.form.get("uploaded_file_name", "upload.png").strip()
+
+        # Determine which image field to upload based on style
+        upload_target = request.form.get("upload_target", "").strip()
+
+        if uploaded_file_data and uploaded_file_data.startswith("data:image"):
+            try:
+                # Parse base64 data URI: data:image/png;base64,xxxx
+                header, base64_data = uploaded_file_data.split(",", 1)
+                file_bytes = base64.b64decode(base64_data)
+
+                print(f"[WELCOME-WEB] 📤 Uploading {len(file_bytes)} bytes to Catbox...")
+                catbox_url = _upload_to_catbox(file_bytes, uploaded_file_name)
+
+                if catbox_url:
+                    # Set the appropriate URL field based on upload target
+                    if upload_target == "banner_bg":
+                        banner_bg_url = catbox_url
+                        print(f"[WELCOME-WEB] ✅ Banner BG uploaded: {catbox_url}")
+                    else:
+                        bg_image_url = catbox_url
+                        print(f"[WELCOME-WEB] ✅ Embed BG uploaded: {catbox_url}")
+                else:
+                    print("[WELCOME-WEB] ⚠️ Catbox upload failed, keeping existing URL")
+
+            except Exception as e:
+                print(f"[WELCOME-WEB] ❌ Error processing upload: {e}")
 
         if not message_text:
             return jsonify({
@@ -351,7 +411,6 @@ def save_welcome(guild_id: str):
                 "embed_color": embed_color,
                 "embed_title": embed_title,
                 "bg_image_url": bg_image_url,
-                # NEW v3.7
                 "style": style,
                 "banner_bg_url": banner_bg_url,
                 "banner_text": banner_text,
