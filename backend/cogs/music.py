@@ -10,7 +10,7 @@ import aiohttp
 from datetime import datetime, timezone
 
 from backend.utils.formatters import format_duration
-from .spotify_down import SpotifyResolver, ResolvedTrack
+from backend.cogs.spotify_down import SpotifyResolver, ResolvedTrack
 
 def get_db():
     try:
