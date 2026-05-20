@@ -1,6 +1,6 @@
 /* ============================================
    SIDEBAR CSS — Hidden Hamlet Dashboard
-   v3.6 Responsive + Mobile Fix
+   v3.6 Responsive + Full Width Fix
    ============================================ */
 
 :root {
@@ -25,10 +25,33 @@
   --mobile-header-height: 56px;
 }
 
+/* ---------- Reset & Base ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  background: #121214;
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
 /* ---------- App Container ---------- */
 .app-container {
   display: flex;
   min-height: 100vh;
+  width: 100%;
   background: #121214;
 }
 
@@ -49,6 +72,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  flex-shrink: 0;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -539,18 +563,30 @@
   display: none;
 }
 
-/* ---------- Main Content ---------- */
+/* ---------- Main Content — FULL WIDTH FIX ---------- */
 .main-content {
   margin-left: var(--sidebar-width);
   min-height: 100vh;
+  width: calc(100% - var(--sidebar-width));
   transition: var(--transition);
   flex: 1;
   display: flex;
   flex-direction: column;
+  background: #121214;
 }
 
 .sidebar.collapsed ~ .main-content {
   margin-left: var(--sidebar-collapsed);
+  width: calc(100% - var(--sidebar-collapsed));
+}
+
+/* Content wrapper — FULL WIDTH */
+.content-wrapper {
+  flex: 1;
+  padding: 24px 32px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* ---------- Mobile Header ---------- */
@@ -566,6 +602,7 @@
   top: 0;
   z-index: 900;
   flex-shrink: 0;
+  width: 100%;
 }
 
 .mobile-menu-btn {
@@ -648,7 +685,7 @@
     transform: translateX(-105%);
     z-index: 1100;
     border-right: none;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
   }
 
   .sidebar.open {
@@ -695,6 +732,11 @@
 
   .main-content {
     margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .content-wrapper {
+    padding: 16px 20px;
   }
 
   .mobile-header {
@@ -738,7 +780,7 @@
 
   .sidebar.open {
     width: var(--sidebar-width) !important;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
   }
 
   .sidebar .bot-info,
@@ -818,14 +860,20 @@
 
   .main-content {
     margin-left: var(--sidebar-collapsed) !important;
+    width: calc(100% - var(--sidebar-collapsed)) !important;
   }
 
   .sidebar.open ~ .main-content {
     margin-left: var(--sidebar-width) !important;
+    width: calc(100% - var(--sidebar-width)) !important;
   }
 
   .mobile-header {
     display: none;
+  }
+
+  .content-wrapper {
+    padding: 20px 24px;
   }
 }
 
@@ -880,6 +928,7 @@
 
   .main-content {
     margin-left: var(--sidebar-collapsed);
+    width: calc(100% - var(--sidebar-collapsed));
   }
 
   .mobile-header {
@@ -931,6 +980,11 @@
 
   .sidebar:hover ~ .main-content {
     margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+  }
+
+  .content-wrapper {
+    padding: 22px 28px;
   }
 }
 
@@ -942,6 +996,11 @@
 
   .sidebar-overlay {
     display: none !important;
+  }
+
+  .content-wrapper {
+    padding: 24px 32px;
+    max-width: 100%;
   }
 }
 
@@ -958,6 +1017,10 @@
   .mobile-guild-selector select {
     max-width: 110px;
     font-size: 0.75rem;
+  }
+
+  .content-wrapper {
+    padding: 12px 16px;
   }
 }
 
