@@ -718,3 +718,8 @@ class SpotifyResolver:
         artists = SpotifyResolver._artists_to_string(track_data.get("artists", []))
         query = f"{artists} - {title}".strip(" -")
         return f"ytsearch:{query}"
+    
+    # --- Discord.py extension entrypoint (utility module, not a cog) ---
+async def setup(bot):
+    """Required by discord.py load_extension(). This module is a utility library used by music.py."""
+    pass

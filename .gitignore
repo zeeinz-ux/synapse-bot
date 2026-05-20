@@ -71,5 +71,6 @@ replit.nix
 *-backup.py
 *-backup/
 *.bak
-backup/"*backup*.py" 
-"3.9.0" 
+backup/
+*backup*.py"backend/lavalink/logs/" 
+"*.log" 

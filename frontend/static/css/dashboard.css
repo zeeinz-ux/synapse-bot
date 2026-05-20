@@ -21,7 +21,7 @@
 }
 
 body {
-  background: var(--bg-primary);
+  background: #121214;
   color: var(--text-primary);
   font-family: var(--font-family);
   line-height: 1.6;
@@ -184,6 +184,10 @@ header h1 {
 
 .bar-fill {
   height: 100%;
+  /* ✅ BUG FIX: width harus didefinisikan di sini (base style),
+     bukan hanya di dalam media query mobile.
+     Tanpa ini, progress bar tidak muncul sama sekali di desktop. */
+  width: var(--progress);
   background: linear-gradient(90deg, var(--accent-purple), var(--accent-pink));
   border-radius: 3px;
   transition: width 0.5s;
@@ -224,8 +228,27 @@ a:hover {
   .p-info h4 {
     white-space: normal;
   }
+  /* width: var(--progress) sudah di base style di atas, tidak perlu duplikat di sini */
+}
 
-  .bar-fill {
-    width: var(--progress);
-  }
+/* ========================================
+   SIDEBAR LAYOUT COMPATIBILITY (v3.6)
+   Dipakai ketika dashboard.html extends base.html
+   ======================================== */
+
+/* Content wrapper dari base.html — override container defaults */
+.content-wrapper .container {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Header alignment di content area */
+.content-wrapper header {
+  text-align: left;
+}
+
+/* Pastikan background konsisten dengan sidebar theme */
+.app-container {
+  background: #121214;
 }

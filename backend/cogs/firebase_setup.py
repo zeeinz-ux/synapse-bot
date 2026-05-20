@@ -6,7 +6,6 @@ from firebase_admin import credentials, firestore
 def init_firebase():
     """Initialize Firebase Firestore with dual mode support (VS Code / Replit)"""
 
-    # Guard: prevent double initialization
     if firebase_admin._apps:
         print("[FIREBASE] ℹ️ Firebase sudah di-init sebelumnya.")
         return firestore.client()
@@ -14,10 +13,14 @@ def init_firebase():
     firebase_key = os.getenv("FIREBASE_KEY", "")
 
     try:
+        # Resolve path relative ke backend/ folder
+        _backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cred_path = os.path.join(_backend_dir, firebase_key)
+
         # Mode 1: VS Code (file path)
-        if os.path.isfile(firebase_key):
-            print(f"[FIREBASE] 📁 Menggunakan file: {firebase_key}")
-            cred = credentials.Certificate(firebase_key)
+        if os.path.isfile(cred_path):
+            print(f"[FIREBASE] 📁 Menggunakan file: {cred_path}")
+            cred = credentials.Certificate(cred_path)
 
         # Mode 2: Replit (JSON string 1 baris)
         elif firebase_key.strip().startswith("{"):
@@ -27,7 +30,7 @@ def init_firebase():
 
         else:
             print("[FIREBASE] ❌ FIREBASE_KEY tidak valid!")
-            print("         Pastikan isi .env dengan path file atau JSON string.")
+            print(f"         Cek path: {cred_path}")
             return None
 
         firebase_admin.initialize_app(cred)
@@ -39,5 +42,4 @@ def init_firebase():
         print(f"[FIREBASE] ❌ Gagal init Firebase: {e}")
         return None
 
-# Auto-init when imported (for main.py)
 db = init_firebase()

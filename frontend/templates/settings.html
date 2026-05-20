@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Bot Settings — Hidden Hamlet{% endblock %}
+{% block content %}
+<div class="page-wrap">
+  <nav class="breadcrumb">
+    <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
+    <span>›</span>
+    <span>Bot Settings</span>
+  </nav>
+  <div class="placeholder-page">
+    <div class="placeholder-icon">⚙️</div>
+    <h1>Bot Settings</h1>
+    <p>Pengaturan global bot: prefix, permissions, default language, dan konfigurasi lainnya.</p>
+    <div class="placeholder-status">
+      <span class="status-badge">🔧 Under Development</span>
+    </div>
+    <div class="placeholder-hint">
+      <p>Fitur ini sedang dalam pengembangan.</p>
+      <p>Silakan gunakan <a href="/dashboard/{{ guild_id }}/welcome">Welcome Settings</a> atau <a href="/dashboard">Dashboard</a> yang sudah tersedia.</p>
+    </div>
+  </div>
+</div>
+<style>
+  .placeholder-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    text-align: center;
+    padding: 2rem;
+  }
+  .placeholder-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.8;
+  }
+  .placeholder-page h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #f2f3f5;
+    margin-bottom: 0.5rem;
+  }
+  .placeholder-page p {
+    color: #a0a0a0;
+    font-size: 1rem;
+    max-width: 400px;
+    line-height: 1.6;
+  }
+  .placeholder-status {
+    margin: 1.5rem 0;
+  }
+  .status-badge {
+    display: inline-block;
+    background: #2d2d30;
+    border: 1px solid #404040;
+    color: #f0b232;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .placeholder-hint {
+    margin-top: 1rem;
+    padding: 1rem 1.5rem;
+    background: #1a1a1c;
+    border-radius: 8px;
+    border: 1px solid #2a2a2c;
+  }
+  .placeholder-hint p {
+    font-size: 0.875rem;
+    color: #888;
+    margin: 0.25rem 0;
+  }
+  .placeholder-hint a {
+    color: #5865f2;
+    text-decoration: none;
+  }
+  .placeholder-hint a:hover {
+    text-decoration: underline;
+  }
+</style>
+{% endblock %}
