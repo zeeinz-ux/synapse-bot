@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>{% block title %}Hidden Hamlet Dashboard{% endblock %}</title>
+  
+  <!-- ⚠️ JANGAN TAMBAHKAN <base target="_blank"> — akan buat semua link buka tab baru -->
+  
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/placeholder.css') }}" />
@@ -61,7 +64,7 @@
           <div class="section-items">
             <a href="/dashboard" class="nav-item {% if active_page == 'main' %}active{% endif %}" data-search="main dashboard home">
               <span class="nav-icon">🏠</span>
-              <span class="nav-label">Main Dashboard</span>
+              <span class="nav-label">Dashboard</span>
             </a>
           </div>
         </div>
@@ -78,7 +81,7 @@
             <a href="/dashboard/{{ guild_id }}/music" class="nav-item {% if active_page == 'music' %}active{% endif %}" data-search="music player lagu">
               <span class="nav-icon">🎧</span>
               <span class="nav-label">Music Player</span>
-              {% if s.players %}<span class="nav-badge">{{ s.players|length }}</span>{% endif %}
+              {% if s.players %}<<span class="nav-badge">{{ s.players|length }}</span>{% endif %}
             </a>
             <a href="/dashboard/{{ guild_id }}/music/queue" class="nav-item {% if active_page == 'queue' %}active{% endif %}" data-search="queue antrian">
               <span class="nav-icon">📋</span>
