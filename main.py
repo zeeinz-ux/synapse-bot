@@ -15,7 +15,7 @@ from cogs import firebase_setup
 # ============================================
 
 # ===== [DASHBOARD] Import Flask app dari web/ =====
-from web.web_app import app, set_stats
+from web.web_app import app, set_stats, set_guild_channels
 # ==================================================
 
 # ===== [UTILS] Shared constants =====
@@ -30,11 +30,9 @@ intents.voice_states = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 start_time = time.time()
 
-
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
-
 
 flask_thread = threading.Thread(target=run_flask, daemon=True)
 flask_thread.start()
@@ -82,11 +80,9 @@ async def lavalink_healthcheck():
         except Exception as e:
             print(f"[LAVALINK] ❌ Reconnect gagal: {e}")
 
-
 @lavalink_healthcheck.before_loop
 async def before_healthcheck():
     await bot.wait_until_ready()
-
 
 # ===== [DASHBOARD] Stats updater loop =====
 @tasks.loop(seconds=30)
@@ -119,6 +115,16 @@ async def update_stats():
                     "artwork": vc.current.artwork or ""
                 })
 
+        # ===== [WELCOME] Sync guild channels untuk dropdown di dashboard =====
+        for guild in bot.guilds:
+            text_channels = [
+                {"id": str(ch.id), "name": ch.name}
+                for ch in guild.text_channels
+                if ch.permissions_for(guild.me).send_messages
+            ]
+            set_guild_channels(str(guild.id), text_channels)
+        # ==================================================================
+
         set_stats(
             online=bot.is_ready(),
             username=bot.user.name if bot.user else "Hidden Hamlet",
@@ -129,15 +135,14 @@ async def update_stats():
             lavalink_node=node_uri,
             players=players
         )
+
     except Exception as e:
         print(f"[DASHBOARD STATS ERROR] {e}")
-
 
 @update_stats.before_loop
 async def before_update_stats():
     await bot.wait_until_ready()
 # ==========================================
-
 
 @bot.event
 async def on_ready():
@@ -178,7 +183,6 @@ async def on_ready():
         print("[DASHBOARD] 📊 Stats updater aktif (30s).")
 
     print("=" * 50)
-
 
 TOKEN = os.getenv("TOKEN_BOT")
 if not TOKEN:

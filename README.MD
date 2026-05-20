@@ -1,6 +1,6 @@
 # 🤖 Hidden Hamlet — Discord Bot
 
-Bot Discord all-in-one dengan fitur tracking server boost, pencatatan donasi, music player kualitas jernih dari YouTube & Spotify, dan **web dashboard real-time**. Support 24/7 via UptimeRobot.
+Bot Discord all-in-one dengan fitur tracking server boost, pencatatan donasi, music player kualitas jernih dari YouTube & Spotify, **welcome announcement otomatis**, dan **web dashboard real-time**. Support 24/7 via UptimeRobot.
 
 ---
 
@@ -13,11 +13,60 @@ Bot Discord all-in-one dengan fitur tracking server boost, pencatatan donasi, mu
 | 📊 **Cek Riwayat Boost**    | Cek status boost user dengan `/cekboost`                              |
 | 🧪 **Simulasi Boost**       | Testing boost dengan `/testboost` (Admin only)                        |
 | 🎵 **Music Player**         | Putar lagu dari **YouTube** & **Spotify** dengan kualitas **320kbps** |
-| 📊 **Web Dashboard**        | Status bot real-time di browser (auto-refresh)                        |
+| 👋 **Welcome Announcement** | Sambut member baru otomatis dengan pesan kustom + embed               |
+| 📊 **Web Dashboard**        | Status bot real-time + pengaturan welcome per server                  |
 | 🔥 **Firebase Firestore**   | Database real-time untuk menyimpan data                               |
 | 🌐 **24/7 Uptime**          | Flask server untuk UptimeRobot ping                                   |
 | 🔒 **Secure**               | Token & key disimpan di environment variables                         |
 | 🔄 **Cogs System**          | Modular — tiap fitur di file terpisah                                 |
+
+---
+
+## 👋 Welcome Announcement (v3.5)
+
+Kirim pesan sambutan otomatis saat member baru bergabung ke server.
+
+### Konfigurasi via Web Dashboard
+
+```
+http://your-bot-url/dashboard/<guild_id>/welcome
+```
+
+### Fitur Welcome:
+
+| Opsi                  | Deskripsi                                             |
+| --------------------- | ----------------------------------------------------- |
+| **Toggle On/Off**     | Aktifkan/nonaktifkan welcome message                  |
+| **Channel Selection** | Pilih channel tujuan dari dropdown                    |
+| **Custom Message**    | Teks bebas dengan placeholder `{user}` dan `{server}` |
+| **Embed Mode**        | Kirim sebagai Discord embed dengan warna kustom       |
+| **Accent Color**      | Picker warna untuk garis embed (hex)                  |
+| **Embed Title**       | Judul kustom untuk embed                              |
+| **Background Image**  | URL gambar banner di bawah embed                      |
+| **Live Preview**      | Preview real-time saat mengubah pengaturan            |
+
+### Placeholder:
+
+| Placeholder | Hasil                           |
+| ----------- | ------------------------------- |
+| `{user}`    | Mention user baru (`@username`) |
+| `{server}`  | Nama server Discord             |
+
+### Firestore Schema:
+
+```json
+{
+  "welcome": {
+    "enabled": true,
+    "channel_id": "123456789012345678",
+    "message_text": "Halo {user}, selamat datang di {server}! 🎉",
+    "is_embed": true,
+    "embed_color": "#5865F2",
+    "embed_title": "👋 Selamat Datang!",
+    "bg_image_url": "https://example.com/welcome-banner.png"
+  }
+}
+```
 
 ---
 
@@ -60,18 +109,20 @@ Bot Discord all-in-one dengan fitur tracking server boost, pencatatan donasi, mu
 
 ## 📊 Web Dashboard
 
-Akses status bot real-time di browser:
+Akses status bot real-time dan pengaturan welcome per server:
 
-| URL          | Deskripsi                                |
-| ------------ | ---------------------------------------- |
-| `/`          | Landing page — links ke Dashboard & API  |
-| `/dashboard` | Full status dashboard (auto-refresh 10s) |
-| `/api/stats` | JSON API untuk integrasi eksternal       |
+| URL                             | Deskripsi                                |
+| ------------------------------- | ---------------------------------------- |
+| `/`                             | Landing page — links ke Dashboard & API  |
+| `/dashboard`                    | Full status dashboard (auto-refresh 10s) |
+| `/dashboard/<guild_id>/welcome` | Pengaturan welcome untuk server tertentu |
+| `/api/stats`                    | JSON API untuk integrasi eksternal       |
 
 ### Dashboard Menampilkan
 
 - **Bot Status**: online/offline, uptime, username
 - **Statistics**: jumlah server & total member
+- **Server List**: Daftar server dengan link ke welcome settings
 - **Lavalink**: connection status & node URI
 - **Active Players**: guild yang sedang play music
   - Judul lagu, author, artwork
@@ -86,7 +137,7 @@ Akses status bot real-time di browser:
 
 ```
 my-discord-bot/
-├── main.py                     # Entry point bot + Flask thread + stats updater
+├── main.py                     # Entry point (bot + Flask thread + stats updater)
 ├── requirements.txt            # Dependencies
 ├── .env                        # Environment variables (JANGAN DI-COMMIT!)
 ├── .env.example                # Template .env
@@ -97,9 +148,11 @@ my-discord-bot/
 ├── cogs/                       # Discord bot cogs
 │   ├── __init__.py
 │   ├── music.py                # Music Player (YouTube + Spotify + Playlist)
+│   ├── spotify_down.py         # SpotifyDown API resolver + fallback
 │   ├── general.py              # Ping, stats, help commands
 │   ├── boost.py                # Boost Tracker
 │   ├── donation.py             # Donation Tracker
+│   ├── welcome.py              # Welcome Announcement (on_member_join)
 │   └── firebase_setup.py       # Firebase Firestore init (dual mode)
 │
 ├── utils/                      # Shared helpers (DRY)
@@ -109,12 +162,14 @@ my-discord-bot/
 │
 └── web/                        # Flask dashboard
     ├── __init__.py
-    ├── web_app.py              # Flask app, routes, shared stats
+    ├── web_app.py              # Flask app, routes, shared stats + welcome routes
     ├── static/
     │   └── css/
-    │       └── dashboard.css   # Dark theme with :root variables
+    │       ├── dashboard.css   # Dark theme with :root variables
+    │       └── welcome_settings.css  # Welcome page custom styles
     └── templates/
-        └── dashboard.html      # Jinja2 template
+        ├── dashboard.html      # Main dashboard Jinja2 template
+        └── welcome_settings.html  # Welcome settings form
 ```
 
 ---
@@ -158,10 +213,12 @@ Edit `.env`:
 # WAJIB
 TOKEN_BOT=your_discord_bot_token_here
 
-# OPSIONAL (untuk Spotify)
+# OPSIONAL (untuk Spotify fallback ke Official API)
 SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 ```
+
+> **Note:** `SPOTIFY_CLIENT_ID` & `SECRET` opsional — bot tetap jalan pakai SpotifyDown API atau oEmbed fallback.
 
 ### 4. Jalankan Bot
 
@@ -172,17 +229,19 @@ python main.py
 Output yang diharapkan:
 
 ```
-[LAVALINK] ✅ Node 1 tersambung: https://lava-v4.ajieblogs.eu.org:443
+[FIREBASE] ✅ Berhasil terhubung ke Firestore!
+[LAVALINK] ✅ Node 1 tersambung: https://lavalink.jirayu.net:13592
 [STATUS] 🤖 Hidden Hamlet SEKARANG SUDAH ONLINE!
 [STATUS] Terhubung ke 1 server Discord.
-[COG] ✅ Total 4 cogs loaded!
-[SYNC] ✅ 18 slash command(s) berhasil di-sync!
+[COG] ✅ Total 5 cogs loaded!  (including welcome.py)
+[SYNC] ✅ 26 slash command(s) berhasil di-sync!
 [DASHBOARD] 📊 Stats updater aktif (30s).
 ```
 
 - Bot Discord aktif
 - Flask server jalan di port 8080
 - Dashboard: http://127.0.0.1:8080/dashboard
+- Welcome Settings: http://127.0.0.1:8080/dashboard/GUILD_ID/welcome
 
 ---
 
@@ -192,7 +251,7 @@ Output yang diharapkan:
 
 ```bash
 git add .
-git commit -m "Initial deploy"
+git commit -m "v3.5: Welcome Announcement feature"
 git push origin main
 ```
 
@@ -290,9 +349,13 @@ git push origin main
 
 /play query:https://youtube.com/watch?v=...
 
-# Play dari Spotify URL
+# Play dari Spotify URL (track)
 
-/play query:https://open.spotify.com/track/...
+/play query:https://open.spotify.com/track/11dFghVXANMlKmJXsNCbNl
+
+# Play dari Spotify URL (playlist)
+
+/play query:https://open.spotify.com/playlist/1OdeBqfZNHjcS3PgbXhqZc
 
 # Atur volume
 
@@ -310,6 +373,43 @@ git push origin main
 
 /playlist save name:Rock Favorites
 ```
+
+---
+
+## 🔥 Spotify Integration
+
+Bot menggunakan **multi-strategy resolver** untuk Spotify URLs:
+
+| Source                   | Kecepatan  | Reliability     | Auth                  |
+| ------------------------ | ---------- | --------------- | --------------------- |
+| **SpotifyDown API**      | ⚡ Fastest | ⚠️ Bisa down    | ❌ No auth            |
+| **Spotify Official API** | ⚡ Fast    | ✅ Stable       | ✅ Client ID + Secret |
+| **oEmbed**               | 🐢 Medium  | ✅ Always works | ❌ No auth            |
+| **HTML Scrape**          | 🐢 Slow    | ⚠️ Fragile      | ❌ No auth            |
+
+**Fallback chain:**
+
+```
+SpotifyDown API → Spotify Official → oEmbed → HTML Scrape → ytsearch
+```
+
+### SpotifyDown API
+
+- **Endpoint**: `api.spotifydown.com`
+- **Features**: Track list, album list, YouTube ID mapping
+- **Limitation**: Unofficial, bisa mati sewaktu-waktu
+
+### Spotify Official API (Fallback)
+
+- **Butuh**: `SPOTIFY_CLIENT_ID` & `SPOTIFY_CLIENT_SECRET`
+- **Features**: Full metadata, track list, album tracks
+- **Rate limit**: 1 request/second
+
+### oEmbed / HTML Scrape (Last Resort)
+
+- **No auth required**
+- **Returns**: Title, artist, thumbnail only
+- **Limitation**: Single track per URL (no playlist track list)
 
 ---
 
@@ -362,6 +462,22 @@ git push origin main
 }
 ```
 
+### Collection: `guild_settings`
+
+```json
+{
+  "welcome": {
+    "enabled": true,
+    "channel_id": "123456789012345678",
+    "message_text": "Halo {user}, selamat datang di {server}! 🎉",
+    "is_embed": true,
+    "embed_color": "#5865F2",
+    "embed_title": "👋 Selamat Datang!",
+    "bg_image_url": "https://example.com/welcome-banner.png"
+  }
+}
+```
+
 ---
 
 ## 🔒 Keamanan
@@ -390,30 +506,33 @@ git push origin main
 
 ## 🛠️ Troubleshooting
 
-| Error                        | Penyebab                   | Solusi                                                       |
-| ---------------------------- | -------------------------- | ------------------------------------------------------------ |
-| `TOKEN_BOT tidak ditemukan`  | `.env` tidak terbaca       | Pastikan `python-dotenv` terinstall, file `.env` ada di root |
-| `Module not found: wavelink` | Dependencies belum install | Jalankan `pip install -r requirements.txt`                   |
-| `Lavalink not connected`     | Node tidak tersedia        | Cek koneksi internet, node mungkin down                      |
-| `Slash command tidak muncul` | Belum di-sync              | Tunggu 1-5 menit, atau restart bot                           |
-| `Permission denied`          | Bot tidak punya izin       | Cek role permission di server Discord                        |
-| `/play hang/stuck`           | Search timeout             | Cek koneksi internet, coba query lain                        |
-| `Dashboard 404`              | Route tidak terdaftar      | Cek `web/web_app.py`, pastikan `/dashboard` route ada        |
-| `CSS tidak load`             | Path static salah          | Cek `static_folder` di Flask app                             |
+| Error                        | Penyebab                   | Solusi                                                        |
+| ---------------------------- | -------------------------- | ------------------------------------------------------------- |
+| `TOKEN_BOT tidak ditemukan`  | `.env` tidak terbaca       | Pastikan `python-dotenv` terinstall, file `.env` ada di root  |
+| `Module not found: wavelink` | Dependencies belum install | Jalankan `pip install -r requirements.txt`                    |
+| `Lavalink not connected`     | Node tidak tersedia        | Cek koneksi internet, node mungkin down                       |
+| `Slash command tidak muncul` | Belum di-sync              | Tunggu 1-5 menit, atau restart bot                            |
+| `Permission denied`          | Bot tidak punya izin       | Cek role permission di server Discord                         |
+| `/play hang/stuck`           | Search timeout             | Cek koneksi internet, coba query lain                         |
+| `Dashboard 404`              | Route tidak terdaftar      | Cek `web/web_app.py`, pastikan `/dashboard` route ada         |
+| `CSS tidak load`             | Path static salah          | Cek `static_folder` di Flask app                              |
+| `Welcome page error 500`     | Jinja2 syntax error        | Pastikan `==` (comparison) bukan `=` (assignment) di template |
+| `SpotifyDown API down`       | API tidak tersedia         | Fallback ke oEmbed/HTML scrape otomatis                       |
+| `YouTube 403`                | Lavalink node ke-block     | Ganti node di `utils/constants.py`                            |
 
 ---
 
 ## 📦 Dependencies
 
-| Package        | Versi    | Fungsi                         |
-| -------------- | -------- | ------------------------------ |
-| discord.py     | >=2.3.0  | Library Discord bot            |
-| wavelink       | >=3.0.0  | Lavalink client untuk music    |
-| firebase-admin | >=6.2.0  | Firebase Firestore integration |
-| flask          | >=2.3.0  | Web server untuk dashboard     |
-| python-dotenv  | >=1.0.0  | Load environment variables     |
-| spotipy        | >=2.23.0 | Spotify API integration        |
-| PyNaCl         | >=1.5.0  | Voice encryption               |
+| Package        | Versi   | Fungsi                           |
+| -------------- | ------- | -------------------------------- |
+| discord.py     | >=2.3.0 | Library Discord bot              |
+| wavelink       | >=3.0.0 | Lavalink client untuk music      |
+| firebase-admin | >=6.2.0 | Firebase Firestore integration   |
+| flask          | >=2.3.0 | Web server untuk dashboard       |
+| python-dotenv  | >=1.0.0 | Load environment variables       |
+| aiohttp        | >=3.9.0 | Async HTTP untuk SpotifyDown API |
+| PyNaCl         | >=1.5.0 | Voice encryption                 |
 
 ---
 
@@ -434,7 +553,6 @@ git push origin main
 
 ```bash
 # Update
-
 git add .
 git commit -m "Update: deskripsi perubahan"
 git push origin main
@@ -447,15 +565,19 @@ git pull origin main
 
 ## 📝 Changelog
 
-| Versi | Perubahan                                                            |
-| ----- | -------------------------------------------------------------------- |
-| v1.0  | Initial release — Boost tracking, donasi, Firebase integration       |
-| v2.0  | **+ Music Player** (YouTube + Spotify via Lavalink)                  |
-| v2.1  | Cogs system — modular architecture                                   |
-| v2.2  | Playlist system (save/load/list/delete via Firebase)                 |
-| v2.3  | Fix skip spam embed, add search timeout, auto-disconnect when alone  |
-| v3.0  | **+ Web Dashboard** — Real-time status, active players, progress bar |
-| v3.1  | Refactor: extract utils (formatters, constants), separate web folder |
+| Versi | Perubahan                                                                             |
+| ----- | ------------------------------------------------------------------------------------- |
+| v1.0  | Initial release — Boost tracking, donasi, Firebase integration                        |
+| v2.0  | **+ Music Player** (YouTube + Spotify via Lavalink)                                   |
+| v2.1  | Cogs system — modular architecture                                                    |
+| v2.2  | Playlist system (save/load/list/delete via Firebase)                                  |
+| v2.3  | Fix skip spam embed, add search timeout, auto-disconnect when alone                   |
+| v3.0  | **+ Web Dashboard** — Real-time status, active players, progress bar                  |
+| v3.1  | Refactor: extract utils (formatters, constants), separate web folder                  |
+| v3.2  | **+ SpotifyDown API** integration with triple fallback                                |
+| v3.3  | Async oEmbed/HTML scrape fallback, fix blocking I/O in `/lyrics`                      |
+| v3.4  | Playlist embed + auto-play first track, update Lavalink nodes                         |
+| v3.5  | **+ Welcome Announcement** — Auto welcome message with embed + web dashboard settings |
 
 ---
 

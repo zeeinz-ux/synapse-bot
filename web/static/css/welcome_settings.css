@@ -1,0 +1,512 @@
+:root {
+  /* ── Welcome-specific variables (override di JS via setProperty) ── */
+  --welcome-accent: #5865f2;
+  --welcome-accent-rgb: 88, 101, 242;
+}
+
+/*
+  Hanya mendefinisikan class BARU yang belum ada di dashboard.css:
+  toggle switch, embed panel, color picker, toast, save button.
+  Semua warna pakai var() dari dashboard.css.
+*/
+
+/* ── Layout ─────────────────────────────────────────── */
+.page-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 5rem;
+}
+
+/* ── Breadcrumb ──────────────────────────────────────── */
+.breadcrumb {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.breadcrumb a {
+  color: var(--text-muted);
+}
+.breadcrumb a:hover {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+/* ── Page Header ─────────────────────────────────────── */
+.page-header {
+  margin-bottom: 1.75rem;
+}
+.page-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+.page-header p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-left: 2.2rem;
+}
+
+/* ── Status Banner ───────────────────────────────────── */
+.status-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 1.5rem;
+  border: 1px solid transparent;
+}
+.status-banner.active {
+  background: rgba(59, 165, 93, 0.12);
+  border-color: rgba(59, 165, 93, 0.35);
+  color: var(--accent-green);
+}
+.status-banner.inactive {
+  background: rgba(114, 118, 125, 0.1);
+  border-color: var(--border-color);
+  color: var(--text-muted);
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-banner.active .status-dot {
+  background: var(--accent-green);
+}
+.status-banner.inactive .status-dot {
+  background: var(--text-muted);
+}
+
+/* ── Section title (di dalam card) ──────────────────── */
+.section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── Form group ──────────────────────────────────────── */
+.form-group {
+  margin-bottom: 1.25rem;
+}
+.form-group:last-child {
+  margin-bottom: 0;
+}
+.form-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+.form-label .req {
+  color: var(--accent-red);
+}
+
+/* ── Input / Select / Textarea ───────────────────────── */
+.form-control {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 0.9rem;
+  padding: 0.55rem 0.85rem;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.form-control:focus {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);
+}
+.form-control:hover:not(:focus) {
+  border-color: #44475a;
+}
+
+/* Select arrow */
+select.form-control {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%2372767d' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+  cursor: pointer;
+}
+select.form-control option {
+  background: var(--bg-card);
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.5;
+}
+
+.form-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+}
+.form-hint code {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 0.75rem;
+  color: var(--accent-purple);
+}
+
+/* ── Divider ─────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 1.25rem 0;
+}
+
+/* ── Toggle Switch ───────────────────────────────────── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: border-color 0.15s;
+}
+.toggle-row:hover {
+  border-color: var(--accent-purple);
+}
+
+.toggle-info .toggle-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+}
+.toggle-info .toggle-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Switch knob */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.switch-track {
+  position: absolute;
+  inset: 0;
+  background: #1e1e36;
+  border: 2px solid var(--border-color);
+  border-radius: 100px;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+.switch-track::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  top: 50%;
+  left: 3px;
+  transform: translateY(-50%);
+  transition:
+    left 0.2s,
+    background 0.2s;
+}
+.switch input:checked + .switch-track {
+  background: var(--accent-purple);
+  border-color: var(--accent-purple);
+}
+.switch input:checked + .switch-track::after {
+  left: calc(100% - 15px);
+  background: #fff;
+}
+.switch input:focus + .switch-track {
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.25);
+}
+
+/* ── Badge kecil "Embed only" ────────────────────────── */
+.embed-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(88, 101, 242, 0.15);
+  color: #99a3f5;
+  border: 1px solid rgba(88, 101, 242, 0.3);
+  border-radius: 100px;
+  padding: 1px 7px;
+  margin-left: 6px;
+}
+
+/* ── Embed Options Panel (kondisional) ───────────────── */
+.embed-panel {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.25s ease,
+    margin-top 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 0;
+}
+.embed-panel.open {
+  max-height: 700px;
+  opacity: 1;
+  margin-top: 1rem;
+}
+.embed-panel-inner {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Color Picker ────────────────────────────────────── */
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.color-swatch {
+  position: relative;
+  width: 42px;
+  height: 38px;
+  border-radius: 6px;
+  border: 2px solid var(--border-color);
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.color-swatch:hover {
+  border-color: var(--accent-purple);
+}
+.color-swatch input[type="color"] {
+  position: absolute;
+  inset: -6px;
+  width: calc(100% + 12px);
+  height: calc(100% + 12px);
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+}
+.color-preview {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 4px;
+  background: var(--welcome-accent);
+  transition: background 0.15s;
+}
+.color-hex {
+  flex: 1;
+}
+
+/* ── Embed Live Preview ───────────────────────────────── */
+.preview-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+.preview-mock {
+  display: flex;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+.preview-bar {
+  width: 4px;
+  flex-shrink: 0;
+  background: var(--welcome-accent);
+  transition: background 0.2s;
+}
+.preview-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  flex: 1;
+}
+.preview-text {
+  flex: 1;
+  min-width: 0;
+}
+.preview-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #fff;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.preview-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.preview-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-bar);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* ── Save Button ─────────────────────────────────────── */
+.btn-save {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  background: var(--accent-purple);
+  color: #fff;
+  font-family: var(--font-family);
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition:
+    background 0.15s,
+    transform 0.1s,
+    box-shadow 0.15s;
+  letter-spacing: 0.01em;
+}
+.btn-save:hover {
+  background: #4752c4;
+  box-shadow: 0 4px 14px rgba(88, 101, 242, 0.35);
+}
+.btn-save:active {
+  transform: scale(0.98);
+}
+.btn-save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Spinner loading */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+.btn-save.loading .spinner {
+  display: block;
+}
+.btn-save.loading .btn-text {
+  display: none;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Toast Notification ──────────────────────────────── */
+.toast {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  min-width: 280px;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  transform: translateX(calc(100% + 2rem));
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+.toast.show {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+.toast.success {
+  background: #122a1c;
+  border: 1px solid rgba(59, 165, 93, 0.5);
+  color: #57f287;
+}
+.toast.error {
+  background: #2a1212;
+  border: 1px solid rgba(237, 66, 69, 0.5);
+  color: #ff5555;
+}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 600px) {
+  .page-wrap {
+    padding: 1.25rem 1rem 4rem;
+  }
+  .page-header h1 {
+    font-size: 1.35rem;
+  }
+  .card {
+    padding: 1rem;
+  }
+  .embed-panel-inner {
+    padding: 1rem;
+  }
+}

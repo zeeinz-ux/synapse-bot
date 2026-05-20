@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome Settings — Hidden Hamlet</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/welcome_settings.css') }}" />
+
+    <script>
+      (function () {
+        const initialColor = "{{ config.embed_color or '#5865F2' }}";
+        document.documentElement.style.setProperty("--welcome-accent", initialColor);
+      })();
+    </script>
+    <base target="_blank" />
+  </head>
+
+  <body>
+    <div class="toast" id="toast" role="alert" aria-live="polite">
+      <span id="toastIcon">✅</span>
+      <span id="toastMsg">Tersimpan!</span>
+    </div>
+
+    <div class="container">
+      <div class="page-wrap">
+        <nav class="breadcrumb">
+          <a href="/dashboard">Dashboard</a>
+          <span>›</span>
+          <span>Server Settings</span>
+          <span>›</span>
+          <span>Welcome</span>
+        </nav>
+
+        <div class="page-header">
+          <h1>👋 Welcome Announcement</h1>
+          <p>Kirim pesan sambutan otomatis saat member baru bergabung ke server.</p>
+        </div>
+
+        <div class="status-banner {{ 'active' if config.enabled else 'inactive' }}" id="statusBanner">
+          <span class="status-dot"></span>
+          <span id="statusText">
+            {% if config.enabled %}
+              Modul Welcome sedang <strong>aktif</strong>.
+            {% else %}
+              Modul Welcome sedang <strong>nonaktif</strong>.
+            {% endif %}
+          </span>
+        </div>
+
+        <form id="welcomeForm" novalidate>
+          <input type="hidden" name="guild_id" value="{{ guild_id }}" />
+
+          <div class="card" style="margin-bottom: 1rem">
+            <h3 class="section-title">⚙️ Pengaturan Dasar</h3>
+
+            <div class="form-group">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="toggle-label">Aktifkan Welcome Message</span>
+                  <span class="toggle-hint">Bot akan menyambut member baru secara otomatis</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" name="enabled" id="toggleEnabled" {% if config.enabled %}checked{% endif %} />
+                  <span class="switch-track"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="channel_id">
+                Channel Tujuan <span class="req">*</span>
+              </label>
+              <select class="form-control" name="channel_id" id="channel_id" required>
+                <option value="" disabled {% if not config.channel_id %}selected{% endif %}>
+                  — Pilih channel —
+                </option>
+                {% for ch in channels %}
+                <option value="{{ ch.id }}" {% if config.channel_id == ch.id %}selected{% endif %}>
+                  # {{ ch.name }}
+                </option>
+                {% endfor %}
+                {% if not channels %}
+                <option value="" disabled>
+                  ⚠ Belum ada data channel (tunggu 30 detik)
+                </option>
+                {% endif %}
+              </select>
+              <div class="form-hint">
+                Hanya channel yang bot punya izin Send Messages yang ditampilkan.
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom: 1rem">
+            <h3 class="section-title">✉️ Isi Pesan</h3>
+
+            <div class="form-group">
+              <label class="form-label" for="message_text">
+                Teks Pesan <span class="req">*</span>
+              </label>
+              <textarea
+                class="form-control"
+                name="message_text"
+                id="message_text"
+                rows="4"
+                placeholder="Hei {user}, selamat datang di {server}! 🎉"
+                required
+              >{{ config.message_text }}</textarea>
+              <div class="form-hint">
+                Placeholder: <code>{user}</code> → mention user,
+                <code>{server}</code> → nama server. Mendukung format Markdown Discord.
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="form-group" style="margin-bottom: 0">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="toggle-label">
+                    Kirim sebagai Embed
+                    <span class="embed-badge">✨ Recommended</span>
+                  </span>
+                  <span class="toggle-hint">
+                    Tampilkan pesan dalam kotak embed dengan warna dan avatar kustom
+                  </span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" name="is_embed" id="toggleEmbed" {% if config.is_embed %}checked{% endif %} />
+                  <span class="switch-track"></span>
+                </label>
+              </div>
+
+              <div class="embed-panel {{ 'open' if config.is_embed else '' }}" id="embedPanel">
+                <div class="embed-panel-inner">
+                  <div class="form-group" style="margin-bottom: 0">
+                    <label class="form-label" for="embed_title">
+                      Judul Embed <span class="embed-badge">Embed only</span>
+                    </label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      name="embed_title"
+                      id="embed_title"
+                      value="{{ config.embed_title }}"
+                      placeholder="👋 Selamat Datang!"
+                      maxlength="256"
+                    />
+                    <div class="form-hint">
+                      Maks. 256 karakter. Placeholder <code>{user}</code> dan
+                      <code>{server}</code> juga bisa dipakai.
+                    </div>
+                  </div>
+
+                  <div class="form-group" style="margin-bottom: 0">
+                    <label class="form-label" for="embed_color_text">
+                      Warna Accent <span class="embed-badge">Embed only</span>
+                    </label>
+                    <div class="color-row">
+                      <div class="color-swatch" title="Klik untuk pilih warna">
+                        <input
+                          type="color"
+                          name="embed_color"
+                          id="embed_color"
+                          value="{{ config.embed_color }}"
+                        />
+                        <div class="color-preview" id="colorPreview"></div>
+                      </div>
+                      <input
+                        type="text"
+                        class="form-control color-hex"
+                        id="embed_color_text"
+                        value="{{ config.embed_color }}"
+                        placeholder="#5865F2"
+                        maxlength="7"
+                      />
+                    </div>
+                    <div class="form-hint">Garis warna di sisi kiri embed.</div>
+                  </div>
+
+                  <div class="form-group" style="margin-bottom: 0">
+                    <label class="form-label" for="bg_image_url">
+                      URL Banner / Background
+                      <span class="embed-badge">Embed only</span>
+                    </label>
+                    <input
+                      type="url"
+                      class="form-control"
+                      name="bg_image_url"
+                      id="bg_image_url"
+                      value="{{ config.bg_image_url }}"
+                      placeholder="https://i.imgur.com/example.png"
+                    />
+                    <div class="form-hint">
+                      Gambar besar di bawah embed. Kosongkan jika tidak diperlukan.
+                    </div>
+                  </div>
+
+                  <div>
+                    <div class="preview-label">Preview (estimasi)</div>
+                    <div class="preview-mock">
+                      <div class="preview-bar" id="previewBar"></div>
+                      <div class="preview-body">
+                        <div class="preview-text">
+                          <div class="preview-title" id="previewTitle">
+                            {{ config.embed_title or '👋 Selamat Datang!' }}
+                          </div>
+                          <div class="preview-desc">
+                            @User, selamat datang di server!
+                          </div>
+                        </div>
+                        <div class="preview-avatar">👤</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-save" id="btnSave">
+            <span class="spinner"></span>
+            <span class="btn-text">💾 Simpan Perubahan</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const toggleEmbed = document.getElementById("toggleEmbed");
+      const embedPanel = document.getElementById("embedPanel");
+      toggleEmbed.addEventListener("change", function () {
+        embedPanel.classList.toggle("open", this.checked);
+      });
+
+      const toggleEnabled = document.getElementById("toggleEnabled");
+      const statusBanner = document.getElementById("statusBanner");
+      const statusText = document.getElementById("statusText");
+      toggleEnabled.addEventListener("change", function () {
+        if (this.checked) {
+          statusBanner.className = "status-banner active";
+          statusText.innerHTML = "Modul Welcome sedang <strong>aktif</strong>.";
+        } else {
+          statusBanner.className = "status-banner inactive";
+          statusText.innerHTML = "Modul Welcome sedang <strong>nonaktif</strong>.";
+        }
+      });
+
+      const colorPicker = document.getElementById("embed_color");
+      const colorHexInput = document.getElementById("embed_color_text");
+      function applyColor(hex) {
+        document.documentElement.style.setProperty("--welcome-accent", hex);
+        if (document.activeElement !== colorPicker) colorPicker.value = hex;
+        if (document.activeElement !== colorHexInput) colorHexInput.value = hex;
+      }
+      colorPicker.addEventListener("input", function () {
+        applyColor(this.value);
+      });
+      colorHexInput.addEventListener("input", function () {
+        const v = this.value.startsWith("#") ? this.value : "#" + this.value;
+        if (/^#[0-9A-Fa-f]{6}$/.test(v)) applyColor(v);
+      });
+
+      const embedTitleInput = document.getElementById("embed_title");
+      const previewTitle = document.getElementById("previewTitle");
+      embedTitleInput.addEventListener("input", function () {
+        previewTitle.textContent = this.value.trim() || "👋 Selamat Datang!";
+      });
+
+      function showToast(msg, type = "success") {
+        const toast = document.getElementById("toast");
+        document.getElementById("toastMsg").textContent = msg;
+        document.getElementById("toastIcon").textContent = type === "success" ? "✅" : "❌";
+        toast.className = `toast ${type}`;
+        requestAnimationFrame(() => toast.classList.add("show"));
+        setTimeout(() => toast.classList.remove("show"), 4000);
+      }
+
+      document.getElementById("welcomeForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const hexVal = colorHexInput.value;
+        if (/^#?[0-9A-Fa-f]{6}$/.test(hexVal)) {
+          colorPicker.value = hexVal.startsWith("#") ? hexVal : "#" + hexVal;
+        }
+        if (!document.getElementById("channel_id").value) {
+          showToast("Pilih channel tujuan terlebih dahulu.", "error");
+          return;
+        }
+        const btn = document.getElementById("btnSave");
+        const guildId = document.querySelector('input[name="guild_id"]').value;
+        btn.disabled = true;
+        btn.classList.add("loading");
+        try {
+          const res = await fetch(`/dashboard/${guildId}/welcome/save`, {
+            method: "POST",
+            body: new FormData(this),
+          });
+          const result = await res.json();
+          showToast(
+            result.message || (res.ok ? "✅ Tersimpan!" : "❌ Gagal menyimpan."),
+            res.ok && result.success ? "success" : "error",
+          );
+        } catch (err) {
+          console.error("[WELCOME SAVE]", err);
+          showToast("❌ Kesalahan jaringan. Periksa koneksi.", "error");
+        } finally {
+          btn.disabled = false;
+          btn.classList.remove("loading");
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -184,6 +184,10 @@ header h1 {
 
 .bar-fill {
   height: 100%;
+  /* ✅ BUG FIX: width harus didefinisikan di sini (base style),
+     bukan hanya di dalam media query mobile.
+     Tanpa ini, progress bar tidak muncul sama sekali di desktop. */
+  width: var(--progress);
   background: linear-gradient(90deg, var(--accent-purple), var(--accent-pink));
   border-radius: 3px;
   transition: width 0.5s;
@@ -224,8 +228,5 @@ a:hover {
   .p-info h4 {
     white-space: normal;
   }
-
-  .bar-fill {
-    width: var(--progress);
-  }
+  /* width: var(--progress) sudah di base style di atas, tidak perlu duplikat di sini */
 }
