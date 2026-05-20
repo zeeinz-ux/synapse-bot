@@ -2,12 +2,14 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>{% block title %}Hidden Hamlet Dashboard{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/placeholder.css') }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<base target="_blank">
 </head>
 <body>
   <div class="app-container">
@@ -202,15 +204,15 @@
       </nav>
       <div class="sidebar-footer">
         <div class="footer-info">
-          <span class="version">v3.5</span>
+          <span class="version">v3.6</span>
           <span class="divider">•</span>
           <span class="last-update">{{ s.last_updated }}</span>
         </div>
       </div>
     </aside>
     <main class="main-content" id="mainContent">
-      <div class="mobile-header">
-        <button class="mobile-menu-btn" id="mobileMenuBtn">
+      <div class="mobile-header" id="mobileHeader">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="3" y1="12" x2="21" y2="12"></line>
             <line x1="3" y1="6" x2="21" y2="6"></line>
