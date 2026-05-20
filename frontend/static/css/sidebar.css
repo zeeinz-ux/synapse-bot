@@ -1,6 +1,6 @@
 /* ============================================
    SIDEBAR CSS — Hidden Hamlet Dashboard
-   Professional & Responsive
+   v3.6 Responsive + Mobile Fix
    ============================================ */
 
 :root {
@@ -22,6 +22,14 @@
   --guild-bg: #252528;
   --search-bg: #252528;
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --mobile-header-height: 56px;
+}
+
+/* ---------- App Container ---------- */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  background: #121214;
 }
 
 /* ---------- Sidebar Container ---------- */
@@ -35,10 +43,12 @@
   position: fixed;
   left: 0;
   top: 0;
+  bottom: 0;
   z-index: 1000;
   transition: var(--transition);
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -52,7 +62,7 @@
   border-radius: 2px;
 }
 
-/* Collapsed state */
+/* Collapsed state — DESKTOP ONLY */
 .sidebar.collapsed {
   width: var(--sidebar-collapsed);
 }
@@ -145,6 +155,8 @@
   width: 28px;
   height: 28px;
   margin-left: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sidebar-toggle:hover {
@@ -158,7 +170,7 @@
   height: 14px;
 }
 
-/* COLLAPSED: chevron flush with right edge */
+/* COLLAPSED: chevron flush with right edge — DESKTOP ONLY */
 .sidebar.collapsed .sidebar-header {
   padding: 14px 8px;
   justify-content: center;
@@ -231,10 +243,12 @@
   cursor: pointer;
   outline: none;
   appearance: none;
+  -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a0a0a0' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
   padding-right: 28px;
+  min-height: 36px;
 }
 
 .guild-dropdown:focus {
@@ -263,6 +277,7 @@
   font-size: 0.8rem;
   outline: none;
   transition: var(--transition);
+  min-height: 36px;
 }
 
 .sidebar-search input:focus {
@@ -327,6 +342,9 @@
   user-select: none;
   transition: var(--transition);
   border-radius: 0;
+  min-height: 32px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .section-header:hover {
@@ -389,6 +407,9 @@
   margin: 0 2px;
   line-height: 1.3;
   white-space: nowrap;
+  min-height: 36px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .nav-item:hover {
@@ -466,7 +487,7 @@
   color: var(--text-muted);
 }
 
-/* Collapsed nav item */
+/* Collapsed nav item — DESKTOP ONLY */
 .sidebar.collapsed .nav-item {
   justify-content: center;
   padding: 10px 8px;
@@ -518,20 +539,126 @@
   display: none;
 }
 
-/* ---------- Mobile ---------- */
-@media (max-width: 768px) {
+/* ---------- Main Content ---------- */
+.main-content {
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+  transition: var(--transition);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar.collapsed ~ .main-content {
+  margin-left: var(--sidebar-collapsed);
+}
+
+/* ---------- Mobile Header ---------- */
+.mobile-header {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--sidebar-border);
+  height: var(--mobile-header-height);
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  flex-shrink: 0;
+}
+
+.mobile-menu-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-menu-btn:hover {
+  background: var(--hover-bg);
+}
+
+.mobile-menu-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.mobile-title {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-guild-selector {
+  margin-left: auto;
+}
+
+.mobile-guild-selector select {
+  background: var(--guild-bg);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  max-width: 140px;
+  min-height: 36px;
+  outline: none;
+}
+
+/* ---------- Sidebar Overlay ---------- */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 1050;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.active {
+  display: block;
+  opacity: 1;
+}
+
+/* ============================================
+   RESPONSIVE BREAKPOINTS
+   ============================================ */
+
+/* ---------- MOBILE: 320px – 480px ---------- */
+@media (max-width: 480px) {
   .sidebar {
-    transform: translateX(-100%);
+    width: 85vw !important;
+    max-width: 320px;
+    transform: translateX(-105%);
     z-index: 1100;
-    width: var(--sidebar-width) !important;
+    border-right: none;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
   }
 
   .sidebar.open {
     transform: translateX(0);
   }
 
+  /* Force expanded look on mobile (ignore collapsed) */
   .sidebar.collapsed {
-    width: var(--sidebar-width) !important;
+    width: 85vw !important;
+    max-width: 320px;
   }
 
   .sidebar.collapsed .bot-info,
@@ -566,60 +693,249 @@
     background: var(--hover-bg);
   }
 
-  .sidebar-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 1050;
-  }
-
-  .sidebar-overlay.active {
-    display: block;
+  .main-content {
+    margin-left: 0 !important;
   }
 
   .mobile-header {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    background: var(--sidebar-bg);
-    border-bottom: 1px solid var(--sidebar-border);
   }
 
-  .mobile-menu-btn {
-    background: none;
-    border: none;
-    color: var(--text-primary);
-    cursor: pointer;
-    padding: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .sidebar-overlay {
+    z-index: 1090;
   }
 
-  .mobile-title {
-    font-weight: 700;
-    color: var(--text-primary);
-    font-size: 1rem;
+  /* Touch-friendly nav items */
+  .nav-item {
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 0.9rem;
   }
 
-  .mobile-guild-selector {
-    margin-left: auto;
+  .section-header {
+    min-height: 40px;
+    padding: 8px 12px;
   }
 
-  .mobile-guild-selector select {
-    background: var(--guild-bg);
-    border: 1px solid var(--sidebar-border);
-    border-radius: 6px;
-    color: var(--text-primary);
-    padding: 5px 10px;
-    font-size: 0.8rem;
-    max-width: 140px;
+  .guild-dropdown {
+    min-height: 40px;
+    font-size: 0.85rem;
+  }
+
+  .sidebar-search input {
+    min-height: 40px;
+    font-size: 0.85rem;
   }
 }
 
-@media (min-width: 769px) {
+/* ---------- TABLET: 481px – 768px ---------- */
+@media (min-width: 481px) and (max-width: 768px) {
+  .sidebar {
+    width: var(--sidebar-collapsed) !important;
+    transform: none;
+    z-index: 1000;
+  }
+
+  .sidebar.open {
+    width: var(--sidebar-width) !important;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+  }
+
+  .sidebar .bot-info,
+  .sidebar .guild-selector,
+  .sidebar .sidebar-search,
+  .sidebar .section-header,
+  .sidebar .sidebar-footer {
+    display: none;
+  }
+
+  .sidebar.open .bot-info,
+  .sidebar.open .guild-selector,
+  .sidebar.open .sidebar-search,
+  .sidebar.open .section-header,
+  .sidebar.open .sidebar-footer {
+    display: block;
+  }
+
+  .sidebar .nav-label,
+  .sidebar .nav-badge,
+  .sidebar .nav-tag {
+    display: none;
+  }
+
+  .sidebar.open .nav-label,
+  .sidebar.open .nav-badge,
+  .sidebar.open .nav-tag {
+    display: block;
+  }
+
+  .sidebar .nav-item {
+    justify-content: center;
+    padding: 10px 8px;
+    margin: 2px 8px;
+    gap: 0;
+  }
+
+  .sidebar.open .nav-item {
+    justify-content: flex-start;
+    padding: 7px 10px;
+    gap: 10px;
+  }
+
+  .sidebar .nav-icon {
+    font-size: 1.25rem;
+    width: 24px;
+    height: 24px;
+  }
+
+  .sidebar-toggle {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 48px;
+    padding: 0;
+    margin: 0;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--sidebar-border);
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    z-index: 1001;
+  }
+
+  .sidebar.open .sidebar-toggle {
+    position: static;
+    transform: none;
+    width: 28px;
+    height: 28px;
+    padding: 5px;
+    margin-left: auto;
+    border-radius: 6px;
+    border: 1px solid var(--sidebar-border);
+    background: var(--hover-bg);
+  }
+
+  .main-content {
+    margin-left: var(--sidebar-collapsed) !important;
+  }
+
+  .sidebar.open ~ .main-content {
+    margin-left: var(--sidebar-width) !important;
+  }
+
+  .mobile-header {
+    display: none;
+  }
+}
+
+/* ---------- SMALL LAPTOP: 769px – 1024px ---------- */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .sidebar {
+    width: var(--sidebar-collapsed);
+  }
+
+  .sidebar .bot-info,
+  .sidebar .guild-selector,
+  .sidebar .sidebar-search,
+  .sidebar .section-header,
+  .sidebar .sidebar-footer {
+    display: none;
+  }
+
+  .sidebar .nav-label,
+  .sidebar .nav-badge,
+  .sidebar .nav-tag {
+    display: none;
+  }
+
+  .sidebar .nav-item {
+    justify-content: center;
+    padding: 10px 8px;
+    margin: 2px 8px;
+    gap: 0;
+  }
+
+  .sidebar .nav-icon {
+    font-size: 1.25rem;
+    width: 24px;
+    height: 24px;
+  }
+
+  .sidebar-toggle {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 48px;
+    padding: 0;
+    margin: 0;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--sidebar-border);
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    z-index: 1001;
+  }
+
+  .main-content {
+    margin-left: var(--sidebar-collapsed);
+  }
+
+  .mobile-header {
+    display: none;
+  }
+
+  /* Allow expand on hover/click for small laptop */
+  .sidebar:hover {
+    width: var(--sidebar-width);
+  }
+
+  .sidebar:hover .bot-info,
+  .sidebar:hover .guild-selector,
+  .sidebar:hover .sidebar-search,
+  .sidebar:hover .section-header,
+  .sidebar:hover .sidebar-footer {
+    display: block;
+  }
+
+  .sidebar:hover .nav-label,
+  .sidebar:hover .nav-badge,
+  .sidebar:hover .nav-tag {
+    display: block;
+  }
+
+  .sidebar:hover .nav-item {
+    justify-content: flex-start;
+    padding: 7px 10px;
+    gap: 10px;
+  }
+
+  .sidebar:hover .nav-icon {
+    font-size: 1rem;
+    width: 20px;
+    height: 20px;
+  }
+
+  .sidebar:hover .sidebar-toggle {
+    position: static;
+    transform: none;
+    width: 28px;
+    height: 28px;
+    padding: 5px;
+    margin-left: auto;
+    border-radius: 6px;
+    border: 1px solid var(--sidebar-border);
+    background: var(--hover-bg);
+  }
+
+  .sidebar:hover ~ .main-content {
+    margin-left: var(--sidebar-width);
+  }
+}
+
+/* ---------- DESKTOP: 1025px+ ---------- */
+@media (min-width: 1025px) {
   .mobile-header {
     display: none;
   }
@@ -629,19 +945,31 @@
   }
 }
 
-/* ---------- Main Content Adjust ---------- */
-.main-content {
-  margin-left: var(--sidebar-width);
-  min-height: 100vh;
-  transition: var(--transition);
+/* ---------- Extra small phones ---------- */
+@media (max-width: 360px) {
+  .sidebar {
+    width: 90vw !important;
+  }
+
+  .mobile-title {
+    font-size: 0.85rem;
+  }
+
+  .mobile-guild-selector select {
+    max-width: 110px;
+    font-size: 0.75rem;
+  }
 }
 
-.sidebar.collapsed ~ .main-content {
-  margin-left: var(--sidebar-collapsed);
-}
+/* ---------- Landscape mobile ---------- */
+@media (max-height: 500px) and (max-width: 768px) {
+  .sidebar {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 
-@media (max-width: 768px) {
-  .main-content {
-    margin-left: 0;
+  .sidebar-header {
+    min-height: 48px;
+    padding: 8px 12px;
   }
 }
