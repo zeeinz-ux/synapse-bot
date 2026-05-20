@@ -312,7 +312,7 @@ textarea.form-control {
   margin-top: 0;
 }
 .embed-panel.open {
-  max-height: 700px;
+  max-height: 1200px;
   opacity: 1;
   margin-top: 1rem;
 }
@@ -542,7 +542,235 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   15. PLACEHOLDER CARD — dipakai page Music/Queue/etc
+   15. UPLOAD ZONE — Drag & Drop (NEW)
+   ═══════════════════════════════════════════════════════ */
+.upload-zone {
+  position: relative;
+  width: 100%;
+  min-height: 160px;
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-primary);
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+  overflow: hidden;
+  cursor: pointer;
+}
+.upload-zone:hover {
+  border-color: var(--accent-purple);
+  background: rgba(88, 101, 242, 0.05);
+}
+.upload-zone.dragover {
+  border-color: var(--accent-purple);
+  background: rgba(88, 101, 242, 0.1);
+  border-style: solid;
+}
+.upload-zone.has-file {
+  border-style: solid;
+  border-color: var(--accent-green);
+}
+
+.file-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.upload-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  pointer-events: none;
+}
+.upload-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+.upload-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+.upload-subtext {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+.upload-link {
+  color: var(--accent-purple);
+  font-weight: 600;
+}
+.upload-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+
+/* Upload Preview (when file selected) */
+.upload-preview {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+.upload-preview.active {
+  display: flex;
+}
+.upload-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.upload-remove {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(237, 66, 69, 0.9);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  z-index: 3;
+  transition:
+    transform 0.15s,
+    background 0.15s;
+}
+.upload-remove:hover {
+  transform: scale(1.1);
+  background: var(--accent-red);
+}
+
+/* URL Divider */
+.url-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.url-divider::before,
+.url-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+/* ═══════════════════════════════════════════════════════
+   16. BANNER PREVIEW — Full-width welcome banner (NEW)
+   ═══════════════════════════════════════════════════════ */
+.banner-preview {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 8 / 3;
+  background: linear-gradient(135deg, #1a1a2e 0%, #0f0f23 100%);
+  border: 1px solid var(--border-color);
+}
+.banner-preview img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+.banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.85) 0%,
+    rgba(0, 0, 0, 0.4) 40%,
+    rgba(0, 0, 0, 0.1) 70%,
+    transparent 100%
+  );
+  display: flex;
+  align-items: flex-end;
+  padding: 1.25rem;
+}
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+.banner-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-bar);
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.banner-text {
+  flex: 1;
+  min-width: 0;
+}
+.banner-text h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.25rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.banner-text p {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.banner-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.5rem 1.25rem;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.banner-footer::before {
+  content: "🛡️";
+}
+
+/* ═══════════════════════════════════════════════════════
+   17. PLACEHOLDER CARD — dipakai page Music/Queue/etc
    ═══════════════════════════════════════════════════════ */
 .placeholder-card {
   display: flex;
@@ -581,7 +809,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   16. RESPONSIVE — dipakai SEMUA page
+   18. RESPONSIVE — dipakai SEMUA page
    ═══════════════════════════════════════════════════════ */
 
 /* Mobile: ≤480px */
@@ -611,6 +839,43 @@ textarea.form-control {
     padding: 0.65rem 1rem;
     font-size: 0.85rem;
   }
+
+  /* Banner preview mobile */
+  .banner-preview {
+    aspect-ratio: 4 / 3;
+  }
+  .banner-content {
+    gap: 0.75rem;
+  }
+  .banner-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 1.2rem;
+  }
+  .banner-text h3 {
+    font-size: 1rem;
+  }
+  .banner-text p {
+    font-size: 0.75rem;
+  }
+  .banner-overlay {
+    padding: 0.875rem;
+  }
+  .banner-footer {
+    padding: 0.4rem 0.875rem;
+    font-size: 0.65rem;
+  }
+
+  /* Upload zone mobile */
+  .upload-zone {
+    min-height: 120px;
+  }
+  .upload-icon {
+    font-size: 2rem;
+  }
+  .upload-text {
+    font-size: 0.85rem;
+  }
 }
 
 /* Tablet: 481px – 768px */
@@ -626,6 +891,10 @@ textarea.form-control {
   }
   .placeholder-card {
     padding: 2.5rem 1.5rem;
+  }
+
+  .banner-text h3 {
+    font-size: 1.15rem;
   }
 }
 
@@ -646,5 +915,12 @@ textarea.form-control {
   }
   .page-header h1 {
     font-size: 1.75rem;
+  }
+
+  .banner-text h3 {
+    font-size: 1.35rem;
+  }
+  .banner-text p {
+    font-size: 0.9rem;
   }
 }
