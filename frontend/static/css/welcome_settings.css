@@ -5,19 +5,22 @@
 }
 
 /*
-  Hanya mendefinisikan class BARU yang belum ada di dashboard.css:
-  toggle switch, embed panel, color picker, toast, save button.
+  MASTER CSS untuk SEMUA page (Welcome + Placeholder + Form).
   Semua warna pakai var() dari dashboard.css.
 */
 
-/* ── Layout ─────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   1. LAYOUT — dipakai SEMUA page
+   ═══════════════════════════════════════════════════════ */
 .page-wrap {
   width: 100%;
   max-width: 100%;
-  padding: 2rem 1.5rem 5rem;
+  padding: 1.5rem 1.5rem 3rem 0.75rem; /* atas | kanan | bawah | kiri(rapet) */
 }
 
-/* ── Breadcrumb ──────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   2. BREADCRUMB — dipakai SEMUA page
+   ═══════════════════════════════════════════════════════ */
 .breadcrumb {
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -34,7 +37,9 @@
   text-decoration: none;
 }
 
-/* ── Page Header ─────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   3. PAGE HEADER — dipakai SEMUA page
+   ═══════════════════════════════════════════════════════ */
 .page-header {
   margin-bottom: 1.75rem;
 }
@@ -53,7 +58,9 @@
   margin-left: 2.2rem;
 }
 
-/* ── Status Banner ───────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   4. STATUS BANNER — dipakai SEMUA page
+   ═══════════════════════════════════════════════════════ */
 .status-banner {
   display: flex;
   align-items: center;
@@ -75,6 +82,11 @@
   border-color: var(--border-color);
   color: var(--text-muted);
 }
+.status-banner.info {
+  background: rgba(88, 101, 242, 0.08);
+  border-color: rgba(88, 101, 242, 0.25);
+  color: var(--accent-purple);
+}
 .status-dot {
   width: 8px;
   height: 8px;
@@ -87,8 +99,31 @@
 .status-banner.inactive .status-dot {
   background: var(--text-muted);
 }
+.status-banner.info .status-dot {
+  background: var(--accent-purple);
+}
 
-/* ── Section title (di dalam card) ──────────────────── */
+/* ═══════════════════════════════════════════════════════
+   5. CARD — dipakai SEMUA page
+   ═══════════════════════════════════════════════════════ */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(88, 101, 242, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════
+   6. SECTION TITLE — dipakai SEMUA page
+   ═══════════════════════════════════════════════════════ */
 .section-title {
   font-size: 0.75rem;
   font-weight: 700;
@@ -101,7 +136,9 @@
   gap: 0.5rem;
 }
 
-/* ── Form group ──────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   7. FORM — dipakai page Welcome/Leave/Ban/Boost Welcome
+   ═══════════════════════════════════════════════════════ */
 .form-group {
   margin-bottom: 1.25rem;
 }
@@ -121,7 +158,6 @@
   color: var(--accent-red);
 }
 
-/* ── Input / Select / Textarea ───────────────────────── */
 .form-control {
   width: 100%;
   background: var(--bg-primary);
@@ -146,7 +182,6 @@
   border-color: #44475a;
 }
 
-/* Select arrow */
 select.form-control {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%2372767d' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -178,14 +213,15 @@ textarea.form-control {
   color: var(--accent-purple);
 }
 
-/* ── Divider ─────────────────────────────────────────── */
 .divider {
   height: 1px;
   background: var(--border-color);
   margin: 1.25rem 0;
 }
 
-/* ── Toggle Switch ───────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   8. TOGGLE SWITCH — dipakai page Welcome/Leave/Ban/Boost
+   ═══════════════════════════════════════════════════════ */
 .toggle-row {
   display: flex;
   align-items: center;
@@ -213,7 +249,6 @@ textarea.form-control {
   margin-top: 2px;
 }
 
-/* Switch knob */
 .switch {
   position: relative;
   display: inline-block;
@@ -263,23 +298,9 @@ textarea.form-control {
   box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.25);
 }
 
-/* ── Badge kecil "Embed only" ────────────────────────── */
-.embed-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: rgba(88, 101, 242, 0.15);
-  color: #99a3f5;
-  border: 1px solid rgba(88, 101, 242, 0.3);
-  border-radius: 100px;
-  padding: 1px 7px;
-  margin-left: 6px;
-}
-
-/* ── Embed Options Panel (kondisional) ───────────────── */
+/* ═══════════════════════════════════════════════════════
+   9. EMBED PANEL — dipakai page Welcome/Leave/Ban/Boost
+   ═══════════════════════════════════════════════════════ */
 .embed-panel {
   max-height: 0;
   overflow: hidden;
@@ -305,7 +326,9 @@ textarea.form-control {
   gap: 1.25rem;
 }
 
-/* ── Color Picker ────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   10. COLOR PICKER — dipakai page Welcome/Leave/Ban/Boost
+   ═══════════════════════════════════════════════════════ */
 .color-row {
   display: flex;
   align-items: center;
@@ -346,7 +369,9 @@ textarea.form-control {
   flex: 1;
 }
 
-/* ── Embed Live Preview ───────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   11. EMBED LIVE PREVIEW — dipakai page Welcome/Leave/Ban
+   ═══════════════════════════════════════════════════════ */
 .preview-label {
   font-size: 0.72rem;
   font-weight: 700;
@@ -404,7 +429,27 @@ textarea.form-control {
   flex-shrink: 0;
 }
 
-/* ── Save Button ─────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   12. BADGE — dipakai page Welcome/Leave/Ban/Boost
+   ═══════════════════════════════════════════════════════ */
+.embed-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(88, 101, 242, 0.15);
+  color: #99a3f5;
+  border: 1px solid rgba(88, 101, 242, 0.3);
+  border-radius: 100px;
+  padding: 1px 7px;
+  margin-left: 6px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   13. SAVE BUTTON — dipakai page Welcome/Leave/Ban/Boost
+   ═══════════════════════════════════════════════════════ */
 .btn-save {
   width: 100%;
   padding: 0.75rem 1.5rem;
@@ -439,7 +484,6 @@ textarea.form-control {
   transform: none;
 }
 
-/* Spinner loading */
 .spinner {
   width: 16px;
   height: 16px;
@@ -461,7 +505,9 @@ textarea.form-control {
   }
 }
 
-/* ── Toast Notification ──────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   14. TOAST NOTIFICATION — dipakai SEMUA page
+   ═══════════════════════════════════════════════════════ */
 .toast {
   position: fixed;
   top: 1.5rem;
@@ -495,18 +541,110 @@ textarea.form-control {
   color: #ff5555;
 }
 
-/* ── Responsive ──────────────────────────────────────── */
-@media (max-width: 600px) {
+/* ═══════════════════════════════════════════════════════
+   15. PLACEHOLDER CARD — dipakai page Music/Queue/etc
+   ═══════════════════════════════════════════════════════ */
+.placeholder-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 3rem 2rem;
+  gap: 1rem;
+}
+.placeholder-icon {
+  font-size: 3rem;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+.placeholder-card h3 {
+  font-size: 1.25rem;
+  color: #fff;
+  font-weight: 700;
+}
+.placeholder-card > p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  max-width: 480px;
+}
+.placeholder-hint {
+  background: rgba(88, 101, 242, 0.08);
+  border: 1px solid rgba(88, 101, 242, 0.25);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.5rem;
+}
+.placeholder-hint strong {
+  color: var(--accent-purple);
+}
+
+/* ═══════════════════════════════════════════════════════
+   16. RESPONSIVE — dipakai SEMUA page
+   ═══════════════════════════════════════════════════════ */
+
+/* Mobile: ≤480px */
+@media (max-width: 480px) {
   .page-wrap {
-    padding: 1.25rem 1rem 4rem;
+    padding: 1.25rem 1rem 2.5rem 0.5rem;
   }
   .page-header h1 {
     font-size: 1.35rem;
+  }
+  .page-header p {
+    margin-left: 0;
   }
   .card {
     padding: 1rem;
   }
   .embed-panel-inner {
     padding: 1rem;
+  }
+  .placeholder-card {
+    padding: 2rem 1rem;
+  }
+  .placeholder-icon {
+    font-size: 2.5rem;
+  }
+  .btn-save {
+    padding: 0.65rem 1rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* Tablet: 481px – 768px */
+@media (min-width: 481px) and (max-width: 768px) {
+  .page-wrap {
+    padding: 1.35rem 1.25rem 2.75rem 0.65rem;
+  }
+  .page-header h1 {
+    font-size: 1.55rem;
+  }
+  .card {
+    padding: 1.25rem;
+  }
+  .placeholder-card {
+    padding: 2.5rem 1.5rem;
+  }
+}
+
+/* Small Laptop: 769px – 1024px */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .page-wrap {
+    padding: 1.5rem 1.5rem 3rem 0.75rem;
+  }
+  .page-header h1 {
+    font-size: 1.65rem;
+  }
+}
+
+/* Desktop: ≥1025px */
+@media (min-width: 1025px) {
+  .page-wrap {
+    padding: 1.5rem 1.5rem 3rem 0.75rem;
+  }
+  .page-header h1 {
+    font-size: 1.75rem;
   }
 }
