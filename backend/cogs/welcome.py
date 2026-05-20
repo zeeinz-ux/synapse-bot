@@ -1,7 +1,8 @@
 # =============================================================================
-# cogs/welcome.py — Hidden Hamlet Discord Bot v3.5
+# cogs/welcome.py — Hidden Hamlet Discord Bot v3.6
 # Modul  : Welcome Announcement (Join Message)
 # Author : zeeinz-ux
+# Features: Join + Rejoin support, Anti-spam cooldown, Default background image
 # =============================================================================
 
 import discord
@@ -19,6 +20,9 @@ class WelcomeCog(commands.Cog, name="Welcome"):
     Support: join pertama kali + rejoin (dengan anti-spam cooldown).
     Konfigurasi diambil real-time dari Firestore per guild_id.
     """
+
+    # Default background image URL (Logo HH)
+    DEFAULT_BG_IMAGE = "https://raw.githubusercontent.com/zeeinz-ux/my-discord-bot/main/frontend/static/images/default-welcome-bg.png"
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -206,8 +210,6 @@ class WelcomeCog(commands.Cog, name="Welcome"):
         # Case 2: Rejoin detection (joined_at berubah = baru join/rejoin)
         # Note: joined_at berubah saat member join, meskipun pernah join sebelumnya
         if before.joined_at != after.joined_at and after.joined_at is not None:
-            # Cek apakah ini rejoin (member pernah ada di server sebelumnya)
-            # Kita tidak bisa tahu 100%, tapi kalau joined_at berubah berarti baru join/rejoin
             print(f"[WELCOME] 🔄 on_member_update (rejoin): {after.name} joined_at updated di {after.guild.name}")
             await self._send_welcome(after)
             return
@@ -261,13 +263,16 @@ class WelcomeCog(commands.Cog, name="Welcome"):
         embed.set_thumbnail(url=member.display_avatar.url)
         print(f"[WELCOME] 🖼️ Thumbnail: {member.display_avatar.url}")
 
-        # Banner / bg_image opsional
+        # Banner / bg_image — pakai config atau default
         bg_image_url = cfg.get("bg_image_url", "").strip()
-        if bg_image_url:
-            embed.set_image(url=bg_image_url)
-            print(f"[WELCOME] 🖼️ Background image: {bg_image_url}")
+        if not bg_image_url:
+            # Kalau kosong, pakai default background image (Logo HH)
+            bg_image_url = self.DEFAULT_BG_IMAGE
+            print(f"[WELCOME] 🖼️ Using DEFAULT background image: {bg_image_url}")
         else:
-            print(f"[WELCOME] ℹ️ Tidak ada background image.")
+            print(f"[WELCOME] 🖼️ Using CUSTOM background image: {bg_image_url}")
+
+        embed.set_image(url=bg_image_url)
 
         # Footer informatif
         embed.set_footer(
