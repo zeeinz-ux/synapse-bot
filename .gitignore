@@ -7,8 +7,9 @@ serviceAccountKey.json
 *.json.key
 
 # Lavalink
+backend/lavalink/logs/
 lavalink/logs/
-lavalink/plugins/
+*.log
 
 # Python
 __pycache__/

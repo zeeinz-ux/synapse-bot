@@ -21,7 +21,7 @@
 }
 
 body {
-  background: var(--bg-primary);
+  background: #121214;
   color: var(--text-primary);
   font-family: var(--font-family);
   line-height: 1.6;
@@ -229,4 +229,29 @@ a:hover {
     white-space: normal;
   }
   /* width: var(--progress) sudah di base style di atas, tidak perlu duplikat di sini */
+<<<<<<< HEAD:web/static/css/dashboard.css
+=======
+}
+
+/* ========================================
+   SIDEBAR LAYOUT COMPATIBILITY (v3.6)
+   Dipakai ketika dashboard.html extends base.html
+   ======================================== */
+
+/* Content wrapper dari base.html — override container defaults */
+.content-wrapper .container {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Header alignment di content area */
+.content-wrapper header {
+  text-align: left;
+}
+
+/* Pastikan background konsisten dengan sidebar theme */
+.app-container {
+  background: #121214;
+>>>>>>> v3.6-sidebar:frontend/static/css/dashboard.css
 }

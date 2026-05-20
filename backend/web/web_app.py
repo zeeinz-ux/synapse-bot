@@ -1,22 +1,25 @@
 import os
 import threading
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, redirect
 from datetime import datetime, timezone
 
+# ==========================================================
+# Import relative dari dalam backend/ folder
+# ==========================================================
 from utils.formatters import format_duration, format_uptime
 
 # Firestore instance untuk route Welcome
 from cogs.firebase_setup import db
 
 # ==========================================================
-# Flask app dengan static & template folder eksplisit
+# Flask app — static & template folder ke frontend/
 # ==========================================================
 _base_dir = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(
     __name__,
-    static_folder=os.path.join(_base_dir, "static"),
-    template_folder=os.path.join(_base_dir, "templates")
+    static_folder=os.path.join(_base_dir, "../../frontend/static"),
+    template_folder=os.path.join(_base_dir, "../../frontend/templates")
 )
 
 # ==========================================================
@@ -33,7 +36,7 @@ _bot_stats = {
     "lavalink_node": "N/A",
     "players": [],
     "last_updated": "-",
-    "guilds_list": []  # ← TAMBAH: list guild untuk dashboard
+    "guilds_list": []  # ← WAJIB di-populate main.py: [{"id":"str","name":"str","member_count":int}, ...]
 }
 
 def set_stats(**kwargs):
@@ -75,7 +78,7 @@ def get_stats_snapshot():
         "lavalink_node":      raw.get("lavalink_node", "N/A"),
         "players":            players,
         "last_updated":       raw.get("last_updated", "-"),
-        "guilds_list":        raw.get("guilds_list", [])  # ← TAMBAH
+        "guilds_list":        raw.get("guilds_list", [])
     }
 
 # ==========================================================
@@ -115,7 +118,25 @@ def _get_welcome_config(guild_id: str) -> dict:
     return {}
 
 # ==========================================================
-# ROUTES — yang sudah ada
+# Helper — render template dengan sidebar context
+# ==========================================================
+def _render_page(template_name: str, active_page: str, guild_id: str, **kwargs):
+    """
+    Wrapper render_template yang otomatis inject:
+    - s (stats snapshot)
+    - active_page (untuk highlight sidebar)
+    - guild_id (untuk nav links & dropdown)
+    """
+    return render_template(
+        template_name,
+        s=get_stats_snapshot(),
+        active_page=active_page,
+        guild_id=guild_id,
+        **kwargs
+    )
+
+# ==========================================================
+# ROUTES — Landing & API
 # ==========================================================
 @app.route("/")
 def home():
@@ -125,20 +146,64 @@ def home():
         '<a href="/api/stats">API JSON</a></p>'
     )
 
-@app.route("/dashboard")
-def dashboard():
-    s = get_stats_snapshot()
-    return render_template("dashboard.html", s=s)
-
 @app.route("/api/stats")
 def api_stats():
     with _stats_lock:
         return jsonify(dict(_bot_stats))
 
 # ==========================================================
-# ROUTES — Welcome Settings
+# ROUTES — Dashboard (redirect ke guild pertama)
 # ==========================================================
+@app.route("/dashboard")
+def dashboard():
+    """Redirect ke guild pertama kalau ada, otherwise render tanpa guild."""
+    s = get_stats_snapshot()
+    guilds = s.get("guilds_list", [])
+    if guilds:
+        first_id = str(guilds[0].get("id", ""))
+        if first_id:
+            return redirect(f"/dashboard/{first_id}/")
+    return _render_page("dashboard.html", active_page="main", guild_id="")
 
+@app.route("/dashboard/<guild_id>/")
+def dashboard_guild(guild_id: str):
+    """Main dashboard untuk guild tertentu."""
+    return _render_page("dashboard.html", active_page="main", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/settings")
+def settings_page(guild_id: str):
+    """Placeholder: Settings."""
+    return _render_page("dashboard.html", active_page="settings", guild_id=guild_id)
+
+# ==========================================================
+# ROUTES — Music
+# ==========================================================
+@app.route("/dashboard/<guild_id>/music")
+def music_settings(guild_id: str):
+    """Placeholder: Music Player."""
+    return _render_page("music_settings.html", active_page="music", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/music/queue")
+def music_queue(guild_id: str):
+    """Placeholder: Queue."""
+    return _render_page("music_settings.html", active_page="queue", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/music/playlists")
+def music_playlists(guild_id: str):
+    """Placeholder: Playlists."""
+    return _render_page("music_settings.html", active_page="playlists", guild_id=guild_id)
+
+# ==========================================================
+# ROUTES — Spotify
+# ==========================================================
+@app.route("/dashboard/<guild_id>/spotify")
+def spotify_settings(guild_id: str):
+    """Placeholder: Spotify Downloader."""
+    return _render_page("spotify_settings.html", active_page="spotify", guild_id=guild_id)
+
+# ==========================================================
+# ROUTES — Welcome / Announcements
+# ==========================================================
 @app.route("/dashboard/<guild_id>/welcome")
 def welcome_settings(guild_id: str):
     """GET — Render halaman form konfigurasi Welcome."""
@@ -157,15 +222,81 @@ def welcome_settings(guild_id: str):
 
     config = {**defaults, **current_config}
 
-    return render_template(
+    return _render_page(
         "welcome_settings.html",
+        active_page="welcome",
         guild_id=guild_id,
         channels=channels,
         config=config
     )
 
+@app.route("/dashboard/<guild_id>/welcome/leave")
+def welcome_leave(guild_id: str):
+    """Placeholder: Leave announcement."""
+    return _render_page("welcome_settings.html", active_page="leave", guild_id=guild_id)
 
-# ✅ FIX: pakai <guild_id> bukan angka literal
+@app.route("/dashboard/<guild_id>/welcome/ban")
+def welcome_ban(guild_id: str):
+    """Placeholder: Ban announcement."""
+    return _render_page("welcome_settings.html", active_page="ban", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/welcome/boost")
+def welcome_boost(guild_id: str):
+    """Placeholder: Boost welcome announcement."""
+    return _render_page("welcome_settings.html", active_page="boost_welcome", guild_id=guild_id)
+
+# ==========================================================
+# ROUTES — Boost Tracker
+# ==========================================================
+@app.route("/dashboard/<guild_id>/boost")
+def boost_tracker(guild_id: str):
+    """Placeholder: Boost riwayat."""
+    return _render_page("boost_settings.html", active_page="boost_tracker", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/boost/stats")
+def boost_stats(guild_id: str):
+    """Placeholder: Boost statistik."""
+    return _render_page("boost_settings.html", active_page="boost_stats", guild_id=guild_id)
+
+# ==========================================================
+# ROUTES — Donation
+# ==========================================================
+@app.route("/dashboard/<guild_id>/donation")
+def donation_tracker(guild_id: str):
+    """Placeholder: Donation riwayat."""
+    return _render_page("donation_settings.html", active_page="donation", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/donation/stats")
+def donation_stats(guild_id: str):
+    """Placeholder: Donation statistik."""
+    return _render_page("donation_settings.html", active_page="donation_stats", guild_id=guild_id)
+
+# ==========================================================
+# ROUTES — Tools
+# ==========================================================
+@app.route("/dashboard/<guild_id>/message-builder")
+def message_builder(guild_id: str):
+    """Placeholder: Message Builder."""
+    return _render_page("dashboard.html", active_page="message_builder", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/templates")
+def templates_page(guild_id: str):
+    """Placeholder: Templates."""
+    return _render_page("dashboard.html", active_page="templates", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/actions")
+def actions_page(guild_id: str):
+    """Placeholder: Actions."""
+    return _render_page("dashboard.html", active_page="actions", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/auto-responders")
+def auto_responders(guild_id: str):
+    """Placeholder: Auto Responders."""
+    return _render_page("dashboard.html", active_page="auto_responders", guild_id=guild_id)
+
+# ==========================================================
+# ROUTES — Welcome Save (POST, JSON response)
+# ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/save", methods=["POST"])
 def save_welcome(guild_id: str):
     """POST — Simpan config welcome ke Firestore dengan merge=True."""

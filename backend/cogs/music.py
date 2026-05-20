@@ -9,12 +9,12 @@ import re
 import aiohttp
 from datetime import datetime, timezone
 
-from utils.formatters import format_duration
+from backend.utils.formatters import format_duration
 from .spotify_down import SpotifyResolver, ResolvedTrack
 
 def get_db():
     try:
-        from cogs.firebase_setup import db
+        from backend.cogs.firebase_setup import db
         return db
     except Exception as e:
         print(f"[FIREBASE LAZY IMPORT] {e}")
