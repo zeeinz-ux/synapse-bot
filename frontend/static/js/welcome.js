@@ -1,7 +1,7 @@
 /**
- * welcome.js — Hidden Hamlet Welcome Settings Form Logic v3.7
+ * welcome.js — Hidden Hamlet Welcome Settings Form Logic v3.7.1
  * Features: style toggle (embed/banner), color picker sync, live preview,
- *           drag & drop upload, banner preview, form submit
+ *           drag & drop upload with Catbox hosting, banner preview, form submit
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -20,12 +20,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnSave = document.getElementById("btnSave");
   const toast = document.getElementById("toast");
 
-  // Style selector elements (NEW v3.7)
+  // Style selector elements
   const styleSelector = document.getElementById("styleSelector");
   const embedSettingsCard = document.getElementById("embedSettingsCard");
   const bannerSettingsCard = document.getElementById("bannerSettingsCard");
 
-  // Banner elements (NEW v3.7)
+  // Banner elements
   const bannerTextInput = document.getElementById("banner_text");
   const bannerSubtextInput = document.getElementById("banner_subtext");
   const bannerFontColorPicker = document.getElementById("banner_font_color");
@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const koyaBannerBg = document.getElementById("koyaBannerBg");
   const bannerBgUrlInput = document.getElementById("banner_bg_url");
 
-  // Banner upload elements (NEW v3.7)
+  // Banner upload elements
   const bannerUploadZone = document.getElementById("bannerUploadZone");
   const bannerFileInput = document.getElementById("bannerFileInput");
   const bannerUploadPreview = document.getElementById("bannerUploadPreview");
@@ -54,40 +54,36 @@ document.addEventListener("DOMContentLoaded", () => {
   const uploadPreviewImg = document.getElementById("uploadPreviewImg");
   const uploadRemove = document.getElementById("uploadRemove");
 
-  // ── 1. Style Selector Toggle (NEW v3.7) ──
+  // Hidden inputs for file upload
+  let uploadedFileData = "";
+  let uploadedFileName = "";
+  let uploadTarget = ""; // "embed_bg" or "banner_bg"
+
+  // ── 1. Style Selector Toggle ──
   function setActiveStyle(style) {
-    // Update radio buttons
     document
       .querySelectorAll('.style-option input[name="style"]')
       .forEach((radio) => {
         radio.checked = radio.value === style;
       });
-
-    // Update visual active state
     document.querySelectorAll(".style-option").forEach((opt) => {
       opt.classList.toggle("active", opt.dataset.style === style);
     });
-
-    // Show/hide settings cards
     if (embedSettingsCard) {
       embedSettingsCard.classList.toggle("visible", style === "embed");
     }
     if (bannerSettingsCard) {
       bannerSettingsCard.classList.toggle("visible", style === "banner");
     }
-
     console.log(`[WELCOME] 🎨 Style switched to: ${style}`);
   }
 
   if (styleSelector) {
     document.querySelectorAll(".style-option").forEach((option) => {
       option.addEventListener("click", () => {
-        const style = option.dataset.style;
-        setActiveStyle(style);
+        setActiveStyle(option.dataset.style);
       });
     });
-
-    // Init: set initial active style
     const initialStyleRadio = document.querySelector(
       '.style-option input[name="style"]:checked',
     );
@@ -148,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ── 5. Banner Font Color Sync (NEW v3.7) ──
+  // ── 5. Banner Font Color Sync ──
   function applyBannerColor(hex) {
     document.documentElement.style.setProperty("--banner-font-color", hex);
     if (
@@ -184,7 +180,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ── 7. Banner Text Live Preview (NEW v3.7) ──
+  // ── 7. Banner Text Live Preview ──
   if (bannerTextInput && koyaBannerTitle) {
     bannerTextInput.addEventListener("input", function () {
       koyaBannerTitle.textContent = (
@@ -202,14 +198,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ── 8. Avatar Ring Toggle (NEW v3.7) ──
+  // ── 8. Avatar Ring Toggle ──
   if (toggleAvatarRing && koyaAvatarRing) {
     toggleAvatarRing.addEventListener("change", function () {
       koyaAvatarRing.classList.toggle("hidden", !this.checked);
     });
   }
 
-  // ── 9. Banner Background Preview (NEW v3.7) ──
+  // ── 9. Banner Background Preview ──
   function updateBannerBgPreview(url) {
     if (koyaBannerBg && url) {
       koyaBannerBg.style.backgroundImage = `url(${url})`;
@@ -233,23 +229,27 @@ document.addEventListener("DOMContentLoaded", () => {
     uploadPreview,
     uploadPreviewImg,
     uploadRemove,
-    (base64) => {
-      // For embed: update banner preview with base64
-      console.log("[WELCOME] 📤 Embed file selected (base64 preview)");
+    (base64, filename) => {
+      uploadedFileData = base64;
+      uploadedFileName = filename;
+      uploadTarget = "embed_bg";
+      console.log("[WELCOME] 📤 Embed file selected:", filename);
     },
   );
 
-  // ── 11. Drag & Drop Upload (Banner) (NEW v3.7) ──
+  // ── 11. Drag & Drop Upload (Banner) ──
   setupUploadZone(
     bannerUploadZone,
     bannerFileInput,
     bannerUploadPreview,
     bannerUploadPreviewImg,
     bannerUploadRemove,
-    (base64) => {
-      // For banner: update background preview
+    (base64, filename) => {
+      uploadedFileData = base64;
+      uploadedFileName = filename;
+      uploadTarget = "banner_bg";
       updateBannerBgPreview(base64);
-      console.log("[WELCOME] 📤 Banner file selected (base64 preview)");
+      console.log("[WELCOME] 📤 Banner file selected:", filename);
     },
   );
 
@@ -264,7 +264,6 @@ document.addEventListener("DOMContentLoaded", () => {
   ) {
     if (!zone || !input) return;
 
-    // Prevent default drag behaviors
     ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
       zone.addEventListener(eventName, preventDefaults, false);
       document.body.addEventListener(eventName, preventDefaults, false);
@@ -275,7 +274,6 @@ document.addEventListener("DOMContentLoaded", () => {
       e.stopPropagation();
     }
 
-    // Highlight drop zone on drag
     ["dragenter", "dragover"].forEach((eventName) => {
       zone.addEventListener(eventName, highlight, false);
     });
@@ -292,7 +290,6 @@ document.addEventListener("DOMContentLoaded", () => {
       zone.classList.remove("dragover");
     }
 
-    // Handle dropped files
     zone.addEventListener("drop", handleDrop, false);
 
     function handleDrop(e) {
@@ -301,7 +298,6 @@ document.addEventListener("DOMContentLoaded", () => {
       handleFiles(files);
     }
 
-    // Handle file input change
     input.addEventListener("change", function () {
       handleFiles(this.files);
     });
@@ -327,7 +323,6 @@ document.addEventListener("DOMContentLoaded", () => {
       reader.onloadend = function () {
         const base64 = reader.result;
 
-        // Show preview in upload zone
         if (previewImg) {
           previewImg.src = base64;
         }
@@ -336,16 +331,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         zone.classList.add("has-file");
 
-        // Callback
-        if (onPreview) onPreview(base64);
+        if (onPreview) onPreview(base64, file.name);
 
-        console.log(
-          "[WELCOME] 📤 File selected (base64 preview only — upload to hosting for Discord)",
-        );
+        showToast("📤 Gambar dipilih. Akan di-upload saat simpan.", "success");
       };
     }
 
-    // Remove uploaded file
     if (removeBtn) {
       removeBtn.addEventListener("click", function (e) {
         e.preventDefault();
@@ -362,8 +353,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         zone.classList.remove("has-file");
 
-        // Reset preview
-        if (onPreview) onPreview(null);
+        uploadedFileData = "";
+        uploadedFileName = "";
+        uploadTarget = "";
+
+        if (onPreview) onPreview(null, "");
       });
     }
   }
@@ -384,7 +378,7 @@ document.addEventListener("DOMContentLoaded", () => {
     welcomeForm.addEventListener("submit", async function (e) {
       e.preventDefault();
 
-      // Sync hex inputs ke color pickers sebelum submit
+      // Sync hex inputs ke color pickers
       if (colorHexInput && colorPicker) {
         const hexVal = colorHexInput.value;
         if (/^#?[0-9A-Fa-f]{6}$/.test(hexVal)) {
@@ -420,6 +414,16 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      // Build FormData with file upload info
+      const formData = new FormData(this);
+
+      // Add uploaded file data if exists
+      if (uploadedFileData) {
+        formData.append("uploaded_file_data", uploadedFileData);
+        formData.append("uploaded_file_name", uploadedFileName || "upload.png");
+        formData.append("upload_target", uploadTarget);
+      }
+
       // Loading state
       if (btnSave) {
         btnSave.disabled = true;
@@ -429,14 +433,25 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const res = await fetch(`/dashboard/${guildId}/welcome/save`, {
           method: "POST",
-          body: new FormData(this),
+          body: formData,
         });
         const result = await res.json();
 
-        showToast(
-          result.message || (res.ok ? "✅ Tersimpan!" : "❌ Gagal menyimpan."),
-          res.ok && result.success ? "success" : "error",
-        );
+        if (res.ok && result.success) {
+          showToast(result.message || "✅ Tersimpan!", "success");
+
+          // Clear upload state after successful save
+          uploadedFileData = "";
+          uploadedFileName = "";
+          uploadTarget = "";
+
+          // Refresh page after 1.5s to show saved image
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        } else {
+          showToast(result.message || "❌ Gagal menyimpan.", "error");
+        }
       } catch (err) {
         console.error("[WELCOME SAVE]", err);
         showToast("❌ Kesalahan jaringan. Periksa koneksi.", "error");
@@ -449,7 +464,5 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  console.log(
-    "[WELCOME] ✅ Welcome JS v3.7 loaded — Dual Style (Embed + Banner)",
-  );
+  console.log("[WELCOME] ✅ Welcome JS v3.7.1 loaded — Catbox Upload Support");
 });
