@@ -1,6 +1,7 @@
 /**
  * welcome.js — Hidden Hamlet Welcome Settings Form Logic
- * Features: toggle embed panel, color picker sync, live preview, form submit
+ * Features: toggle embed panel, color picker sync, live preview,
+ *           drag & drop upload, banner preview, form submit
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -17,6 +18,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const welcomeForm = document.getElementById("welcomeForm");
   const btnSave = document.getElementById("btnSave");
   const toast = document.getElementById("toast");
+
+  // Banner preview elements
+  const bgImageUrlInput = document.getElementById("bg_image_url");
+  const bannerImage = document.getElementById("bannerImage");
+  const bannerPreview = document.getElementById("bannerPreview");
+  const previewMessage = document.getElementById("previewMessage");
+
+  // Upload zone elements
+  const uploadZone = document.getElementById("uploadZone");
+  const fileInput = document.getElementById("fileInput");
+  const uploadPreview = document.getElementById("uploadPreview");
+  const uploadPreviewImg = document.getElementById("uploadPreviewImg");
+  const uploadRemove = document.getElementById("uploadRemove");
 
   // ── 1. Embed Panel Toggle ──
   if (toggleEmbed && embedPanel) {
@@ -72,7 +86,135 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ── 5. Toast Notification ──
+  // ── 5. Banner Preview Sync ──
+  function updateBannerPreview(url) {
+    if (bannerImage && url) {
+      bannerImage.src = url;
+      bannerImage.style.display = "block";
+    } else if (bannerImage) {
+      bannerImage.src = "/static/images/default-welcome-bg.png";
+    }
+  }
+
+  // Sync URL input → banner preview
+  if (bgImageUrlInput && bannerImage) {
+    bgImageUrlInput.addEventListener("input", function () {
+      updateBannerPreview(this.value.trim());
+    });
+  }
+
+  // ── 6. Drag & Drop Upload ──
+  if (uploadZone && fileInput) {
+    // Prevent default drag behaviors
+    ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+      uploadZone.addEventListener(eventName, preventDefaults, false);
+      document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // Highlight drop zone on drag
+    ["dragenter", "dragover"].forEach((eventName) => {
+      uploadZone.addEventListener(eventName, highlight, false);
+    });
+
+    ["dragleave", "drop"].forEach((eventName) => {
+      uploadZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight() {
+      uploadZone.classList.add("dragover");
+    }
+
+    function unhighlight() {
+      uploadZone.classList.remove("dragover");
+    }
+
+    // Handle dropped files
+    uploadZone.addEventListener("drop", handleDrop, false);
+
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      handleFiles(files);
+    }
+
+    // Handle file input change
+    fileInput.addEventListener("change", function () {
+      handleFiles(this.files);
+    });
+
+    function handleFiles(files) {
+      if (files.length > 0) {
+        const file = files[0];
+        if (!file.type.startsWith("image/")) {
+          showToast("File harus berupa gambar (PNG, JPG, GIF).", "error");
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          showToast("Ukuran file maksimal 5MB.", "error");
+          return;
+        }
+        previewFile(file);
+      }
+    }
+
+    function previewFile(file) {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = function () {
+        const base64 = reader.result;
+
+        // Show preview in upload zone
+        if (uploadPreviewImg) {
+          uploadPreviewImg.src = base64;
+        }
+        if (uploadPreview) {
+          uploadPreview.classList.add("active");
+        }
+        uploadZone.classList.add("has-file");
+
+        // Update banner preview
+        updateBannerPreview(base64);
+
+        // Note: Base64 images won't work in Discord embed (too large)
+        // User should upload to hosting and paste URL, or we need server-side upload
+        console.log(
+          "[WELCOME] 📤 File selected (base64 preview only — upload to hosting for Discord)",
+        );
+      };
+    }
+
+    // Remove uploaded file
+    if (uploadRemove) {
+      uploadRemove.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (uploadPreview) {
+          uploadPreview.classList.remove("active");
+        }
+        if (uploadPreviewImg) {
+          uploadPreviewImg.src = "";
+        }
+        if (fileInput) {
+          fileInput.value = "";
+        }
+        uploadZone.classList.remove("has-file");
+
+        // Reset banner to URL or default
+        const urlValue = bgImageUrlInput ? bgImageUrlInput.value.trim() : "";
+        updateBannerPreview(
+          urlValue || "/static/images/default-welcome-bg.png",
+        );
+      });
+    }
+  }
+
+  // ── 7. Toast Notification ──
   function showToast(msg, type = "success") {
     if (!toast) return;
     document.getElementById("toastMsg").textContent = msg;
@@ -83,7 +225,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => toast.classList.remove("show"), 4000);
   }
 
-  // ── 6. Form Submit ──
+  // ── 8. Form Submit ──
   if (welcomeForm) {
     welcomeForm.addEventListener("submit", async function (e) {
       e.preventDefault();
@@ -100,6 +242,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const channelSelect = document.getElementById("channel_id");
       if (channelSelect && !channelSelect.value) {
         showToast("Pilih channel tujuan terlebih dahulu.", "error");
+        return;
+      }
+
+      // Validate message text
+      const messageText = document.getElementById("message_text");
+      if (messageText && !messageText.value.trim()) {
+        showToast("Teks pesan tidak boleh kosong.", "error");
         return;
       }
 
