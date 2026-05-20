@@ -1,5 +1,5 @@
 # =============================================================================
-# backend/cogs/welcome.py — Hidden Hamlet Discord Bot v3.6
+# cogs/welcome.py — Hidden Hamlet Discord Bot v3.5
 # Modul  : Welcome Announcement (Join Message)
 # Author : zeeinz-ux
 # =============================================================================
@@ -7,10 +7,9 @@
 import discord
 from discord.ext import commands
 import asyncio
-from typing import Optional
 
 # Import instance Firestore dari firebase_setup (sudah diinisiasi di main.py)
-from .firebase_setup import db
+from backend.cogs.firebase_setup import db
 
 
 class WelcomeCog(commands.Cog, name="Welcome"):
@@ -43,7 +42,7 @@ class WelcomeCog(commands.Cog, name="Welcome"):
     # ─────────────────────────────────────────────────────────────────────────
     # AMBIL KONFIGURASI DARI FIRESTORE (async-safe wrapper)
     # ─────────────────────────────────────────────────────────────────────────
-    async def get_welcome_config(self, guild_id: str) -> Optional[dict]:
+    async def get_welcome_config(self, guild_id: str) -> dict | None:
         """
         Ambil konfigurasi welcome dari Firestore.
         Menggunakan asyncio.to_thread() agar operasi sync Firestore
