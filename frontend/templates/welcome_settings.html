@@ -60,16 +60,65 @@
       </div>
     </div>
 
-    <!-- Card 2: Isi Pesan -->
+    <!-- Card 2: Style Selector (NEW v3.7) -->
+    <div class="card">
+      <h3 class="section-title">🎨 Pilih Style Welcome</h3>
+      <div class="style-selector" id="styleSelector">
+        <label class="style-option {{ 'active' if config.style == 'embed' else '' }}" data-style="embed">
+          <input type="radio" name="style" value="embed" {{ 'checked' if config.style == 'embed' else '' }} />
+          <div class="style-preview">
+            <div class="style-preview-embed">
+              <div class="preview-bar" style="background: var(--welcome-accent);"></div>
+              <div class="preview-body">
+                <div class="preview-text">
+                  <div class="preview-title">👋 Selamat Datang!</div>
+                  <div class="preview-desc">Hei @User, selamat datang!</div>
+                </div>
+                <div class="preview-avatar">👤</div>
+              </div>
+            </div>
+          </div>
+          <div class="style-label">
+            <strong>Embed Style</strong>
+            <span>Kotak embed dengan thumbnail dan warna kustom</span>
+          </div>
+        </label>
+        <label class="style-option {{ 'active' if config.style == 'banner' else '' }}" data-style="banner">
+          <input type="radio" name="style" value="banner" {{ 'checked' if config.style == 'banner' else '' }} />
+          <div class="style-preview">
+            <div class="style-preview-banner">
+              <div class="preview-banner-bg"></div>
+              <div class="preview-banner-overlay">
+                <div class="preview-banner-avatar"></div>
+                <div class="preview-banner-text">
+                  <div class="preview-banner-title">WELCOME</div>
+                  <div class="preview-banner-name">USERNAME</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="style-label">
+            <strong>Banner Style</strong>
+            <span>Image banner dengan avatar dan text overlay (Koya-style)</span>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Card 3: Isi Pesan (Common) -->
     <div class="card">
       <h3 class="section-title">✉️ Isi Pesan</h3>
       <div class="form-group">
         <label class="form-label" for="message_text">Teks Pesan <span class="req">*</span></label>
         <textarea class="form-control" name="message_text" id="message_text" rows="4" placeholder="Hei {user}, selamat datang di {server}! 🎉" required>{{ config.message_text }}</textarea>
-        <div class="form-hint">Placeholder: <code>{user}</code> → mention user, <code>{server}</code> → nama server. Mendukung format Markdown Discord.</div>
+        <div class="form-hint">Placeholder: <code>{user}</code> → mention user, <code>{server}</code> → nama server, <code>{count}</code> → nomor member. Mendukung format Markdown Discord.</div>
       </div>
-      <div class="divider"></div>
-      <div class="form-group embed-toggle-group">
+    </div>
+
+    <!-- Card 4: Embed Settings (shown when style=embed) -->
+    <div class="card embed-settings-card" id="embedSettingsCard" data-style="embed">
+      <h3 class="section-title">🎨 Pengaturan Embed</h3>
+      <div class="form-group">
         <div class="toggle-row">
           <div class="toggle-info">
             <span class="toggle-label">Kirim sebagai Embed <span class="embed-badge">✨ Recommended</span></span>
@@ -130,24 +179,107 @@
               <div class="form-hint">URL gambar banner di bawah embed. Kosongkan untuk pakai default (Logo HH).</div>
             </div>
 
-            <!-- Live Preview Banner -->
+            <!-- Live Preview Embed -->
             <div class="form-group">
-              <label class="form-label">Preview Banner</label>
-              <div class="banner-preview" id="bannerPreview">
-                <img src="{{ config.bg_image_url or url_for('static', filename='images/default-welcome-bg.png') }}" alt="Welcome Banner" id="bannerImage" />
-                <div class="banner-overlay">
-                  <div class="banner-content">
-                    <div class="banner-avatar">👤</div>
-                    <div class="banner-text">
-                      <h3 id="previewTitle">{{ config.embed_title or '👋 Selamat Datang!' }}</h3>
-                      <p id="previewMessage">@User, selamat datang di server!</p>
-                    </div>
+              <label class="form-label">Preview Embed</label>
+              <div class="preview-mock">
+                <div class="preview-bar" id="embedPreviewBar"></div>
+                <div class="preview-body">
+                  <div class="preview-text">
+                    <div class="preview-title" id="embedPreviewTitle">{{ config.embed_title or '👋 Selamat Datang!' }}</div>
+                    <div class="preview-desc" id="embedPreviewDesc">@User, selamat datang di server!</div>
                   </div>
-                </div>
-                <div class="banner-footer">
-                  <span>Member ke-171 • Hidden Hamlet</span>
+                  <div class="preview-avatar">👤</div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 5: Banner Settings (shown when style=banner) (NEW v3.7) -->
+    <div class="card banner-settings-card" id="bannerSettingsCard" data-style="banner">
+      <h3 class="section-title">🖼️ Pengaturan Banner</h3>
+
+      <!-- Banner Background -->
+      <div class="form-group">
+        <label class="form-label">Background Banner</label>
+        <div class="upload-zone" id="bannerUploadZone">
+          <input type="file" id="bannerFileInput" accept="image/*" class="file-input" />
+          <div class="upload-content">
+            <div class="upload-icon">🖼️</div>
+            <p class="upload-text">Drag & drop gambar banner di sini</p>
+            <p class="upload-subtext">atau <span class="upload-link">klik untuk browse</span></p>
+            <p class="upload-hint">Rekomendasi: 1200×500px, PNG/JPG</p>
+          </div>
+          <div class="upload-preview" id="bannerUploadPreview">
+            <img src="" alt="Preview" id="bannerUploadPreviewImg" />
+            <button type="button" class="upload-remove" id="bannerUploadRemove">✕</button>
+          </div>
+        </div>
+        <div class="url-divider">
+          <span>atau</span>
+        </div>
+        <input type="url" class="form-control" name="banner_bg_url" id="banner_bg_url" value="{{ config.banner_bg_url }}" placeholder="https://i.imgur.com/banner-bg.png" />
+        <div class="form-hint">URL gambar background banner. Kosongkan untuk pakai default.</div>
+      </div>
+
+      <!-- Banner Text -->
+      <div class="form-group">
+        <label class="form-label" for="banner_text">Teks Utama <span class="embed-badge">Banner</span></label>
+        <input type="text" class="form-control" name="banner_text" id="banner_text" value="{{ config.banner_text }}" placeholder="WELCOME" maxlength="20" />
+        <div class="form-hint">Teks besar di atas username. Contoh: "WELCOME", "SELAMAT DATANG".</div>
+      </div>
+
+      <!-- Banner Subtext -->
+      <div class="form-group">
+        <label class="form-label" for="banner_subtext">Teks Bawah <span class="embed-badge">Banner</span></label>
+        <input type="text" class="form-control" name="banner_subtext" id="banner_subtext" value="{{ config.banner_subtext }}" placeholder="Member ke-{count} • {server}" maxlength="100" />
+        <div class="form-hint">Teks di bawah username. Placeholder: <code>{count}</code>, <code>{server}</code>.</div>
+      </div>
+
+      <!-- Banner Font Color -->
+      <div class="form-group">
+        <label class="form-label" for="banner_font_color_text">Warna Teks <span class="embed-badge">Banner</span></label>
+        <div class="color-row">
+          <div class="color-swatch" title="Klik untuk pilih warna">
+            <input type="color" name="banner_font_color" id="banner_font_color" value="{{ config.banner_font_color }}" />
+            <div class="color-preview" id="bannerColorPreview"></div>
+          </div>
+          <input type="text" class="form-control color-hex" id="banner_font_color_text" value="{{ config.banner_font_color }}" placeholder="#FFFFFF" maxlength="7" />
+        </div>
+        <div class="form-hint">Warna teks overlay di banner.</div>
+      </div>
+
+      <!-- Avatar Ring Toggle -->
+      <div class="form-group">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-label">Ring Putih di Avatar</span>
+            <span class="toggle-hint">Tambahkan border putih di sekeliling avatar user</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" name="banner_avatar_ring" id="toggleAvatarRing" data-initial="{{ config.banner_avatar_ring|lower }}" />
+            <span class="switch-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Banner Preview -->
+      <div class="form-group">
+        <label class="form-label">Preview Banner</label>
+        <div class="koya-banner-preview" id="koyaBannerPreview">
+          <div class="koya-banner-bg" id="koyaBannerBg"></div>
+          <div class="koya-banner-overlay">
+            <div class="koya-banner-avatar" id="koyaBannerAvatar">
+              <div class="koya-avatar-ring" id="koyaAvatarRing"></div>
+              <span>👤</span>
+            </div>
+            <div class="koya-banner-text">
+              <h2 id="koyaBannerTitle">{{ config.banner_text or 'WELCOME' }}</h2>
+              <p id="koyaBannerName">USERNAME</p>
+              <span id="koyaBannerSub">{{ config.banner_subtext or 'Member ke-171 • Hidden Hamlet' }}</span>
             </div>
           </div>
         </div>
@@ -166,8 +298,13 @@
   (function() {
     var enabledCb = document.getElementById("toggleEnabled");
     if (enabledCb && enabledCb.dataset.initial === "true") enabledCb.checked = true;
+
     var embedCb = document.getElementById("toggleEmbed");
     if (embedCb && embedCb.dataset.initial === "true") embedCb.checked = true;
+
+    var ringCb = document.getElementById("toggleAvatarRing");
+    if (ringCb && ringCb.dataset.initial === "true") ringCb.checked = true;
+
     var chSel = document.getElementById("channel_id");
     if (chSel) {
       var curCh = chSel.dataset.currentChannel;
@@ -184,12 +321,14 @@
     }
     var panel = document.getElementById("embedPanel");
     if (panel && panel.dataset.initialOpen === "true") panel.classList.add("open");
-  })();
 
-  // Init color
-  (function () {
-    const initialColor = "{{ config.embed_color or '#5865F2' }}";
+    // Init embed accent color
+    var initialColor = "{{ config.embed_color or '#5865F2' }}";
     document.documentElement.style.setProperty("--welcome-accent", initialColor);
+
+    // Init banner font color
+    var initialBannerColor = "{{ config.banner_font_color or '#FFFFFF' }}";
+    document.documentElement.style.setProperty("--banner-font-color", initialBannerColor);
   })();
 </script>
 <script src="{{ url_for('static', filename='js/welcome.js') }}"></script>
