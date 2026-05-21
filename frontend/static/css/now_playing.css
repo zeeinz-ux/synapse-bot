@@ -1,0 +1,370 @@
+:root {
+    --font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+    /* Warna dasar (gelap) */
+    --bg-primary: #121212;
+    --bg-secondary: #1E1E1E;
+    --bg-tertiary: #2a2a2a;
+    --bg-card: #181818;
+    --bg-bar: #333333;
+
+    /* Warna teks */
+    --text-primary: #FFFFFF;
+    --text-secondary: #b3b3b3;
+    --text-muted: #8e8e8e;
+
+    /* Warna aksen */
+    --accent-primary: #1DB954; /* Spotify Green */
+    --accent-secondary: #5865F2; /* Discord Blurple */
+    --accent-red: #ED4245;
+    --accent-green: #3BA55D;
+    --accent-yellow: #FAA61A;
+    --accent-purple: #99a3f5;
+    
+    /* Warna border */
+    --border-color: #333333;
+}
+
+/* ==========================================================
+   NOW PLAYING PAGE STYLES
+   ========================================================== */
+
+/* --------------------------------------
+   1. Player Container & Layout
+   -------------------------------------- */
+#music-player-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem; /* Jarak antara player dan queue */
+    max-width: 1200px;
+    margin: 1.5rem auto;
+}
+
+/* Layout 2 kolom untuk layar lebih besar */
+@media (min-width: 992px) {
+    #music-player-container {
+        grid-template-columns: 4fr 3fr; /* Player lebih besar dari queue */
+        align-items: flex-start;
+    }
+}
+
+/* --------------------------------------
+   2. Loading State
+   -------------------------------------- */
+.player-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    background-color: var(--bg-secondary);
+    border-radius: 12px;
+    text-align: center;
+    height: 100%;
+}
+
+.player-loading .spinner {
+    width: 48px;
+    height: 48px;
+    border: 5px solid var(--bg-tertiary);
+    border-bottom-color: var(--accent-primary);
+    border-radius: 50%;
+    display: inline-block;
+    box-sizing: border-box;
+    animation: rotation 1s linear infinite;
+}
+
+.player-loading p {
+    margin-top: 1.5rem;
+    font-size: 1rem;
+    color: var(--text-secondary);
+}
+
+@keyframes rotation {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* --------------------------------------
+   3. Player Card (Main)
+   -------------------------------------- */
+.player-card {
+    background-color: var(--bg-secondary);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.player-artwork {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.player-artwork img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.player-info h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.25rem 0;
+    line-height: 1.2;
+}
+
+.player-info p {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* --------------------------------------
+   4. Progress Bar
+   -------------------------------------- */
+.progress-bar-container {
+    margin: 1.5rem 0;
+}
+
+.progress-bar-bg {
+    background-color: var(--bg-tertiary);
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fg {
+    background-color: var(--accent-primary);
+    height: 100%;
+    width: 0%; /* Diupdate oleh JS */
+    border-radius: 4px;
+    transition: width 0.2s linear;
+}
+
+.progress-bar-time {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+/* --------------------------------------
+   5. Control Buttons
+   -------------------------------------- */
+.player-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.control-btn {
+    background-color: transparent;
+    border: 2px solid var(--bg-tertiary);
+    color: var(--text-secondary);
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.control-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    transform: scale(1.05);
+}
+
+.control-btn.play-pause {
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #fff;
+    width: 64px;
+    height: 64px;
+}
+
+.control-btn.play-pause:hover {
+    transform: scale(1.1);
+    filter: brightness(1.1);
+}
+
+.control-btn i {
+    font-size: 1.25rem;
+}
+
+.control-btn.play-pause i {
+    font-size: 1.75rem;
+}
+
+
+/* --------------------------------------
+   6. Queue List
+   -------------------------------------- */
+.queue-card {
+    background-color: var(--bg-secondary);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.queue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 1rem;
+}
+
+.queue-header h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.queue-header .queue-count {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.queue-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.queue-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid var(--bg-tertiary);
+    transition: background-color 0.2s ease;
+}
+
+.queue-item:last-child {
+    border-bottom: none;
+}
+
+.queue-item:hover {
+    background-color: var(--bg-tertiary);
+    border-radius: 6px;
+}
+
+.queue-item .pos {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    width: 2rem;
+    text-align: center;
+}
+
+.queue-item-info {
+    flex-grow: 1;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.queue-item-info .title {
+    font-weight: 500;
+    color: var(--text-primary);
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.queue-item-info .author {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.queue-item .duration {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    padding-left: 1rem;
+}
+
+.queue-empty {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--text-secondary);
+}
+
+.queue-empty i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+/* --------------------------------------
+   7. Responsive Design
+   -------------------------------------- */
+@media (max-width: 991px) {
+    .queue-card {
+        margin-top: 2rem;
+    }
+}
+
+@media (max-width: 767px) {
+    .player-card, .queue-card {
+        padding: 1.25rem;
+        border-radius: 12px;
+    }
+
+    .player-info h2 {
+        font-size: 1.5rem;
+    }
+
+    .player-info p {
+        font-size: 1rem;
+    }
+
+    .control-btn {
+        width: 44px;
+        height: 44px;
+    }
+    .control-btn.play-pause {
+        width: 60px;
+        height: 60px;
+    }
+    .control-btn i { font-size: 1.1rem; }
+    .control-btn.play-pause i { font-size: 1.5rem; }
+}
+
+@media (max-width: 480px) {
+    .page-wrap {
+        /* Menggunakan padding dari CSS global yang ada di welcome_settings.css */
+        /* Ini memastikan konsistensi */
+    }
+    
+    .player-card, .queue-card {
+        padding: 1rem;
+    }
+
+    .player-info h2 {
+        font-size: 1.3rem;
+    }
+
+    .player-info p {
+        font-size: 0.95rem;
+    }
+    
+    .control-btn {
+        width: 40px;
+        height: 40px;
+    }
+    .control-btn.play-pause {
+        width: 56px;
+        height: 56px;
+    }
+}
