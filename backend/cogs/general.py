@@ -3,11 +3,73 @@ from discord.ext import commands
 from discord import app_commands
 import platform
 import time
+import asyncio
+from backend.cogs.firebase_setup import db
 
 class GeneralCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.start_time = time.time()
+
+    @commands.Cog.listener()
+    async def on_guild_join(self, guild: discord.Guild):
+        """Create a default configuration when the bot joins a new guild."""
+        if db is None:
+            print("[General] Firestore DB not initialized. Skipping on_guild_join.")
+            return
+
+        guild_id = str(guild.id)
+        doc_ref = db.collection("guild_settings").document(guild_id)
+
+        try:
+            # Run sync DB check in a separate thread to avoid blocking
+            doc = await asyncio.to_thread(doc_ref.get)
+            
+            if doc.exists:
+                print(f"[General] Config already exists for {guild.name} ({guild_id}). Skipping creation.")
+                return
+
+            print(f"[General] No config found for {guild.name} ({guild_id}). Creating default entry.")
+            
+            # Define default settings for a new server
+            default_settings = {
+                "welcome": {
+                    "enabled": False,
+                    "channel_id": None,
+                    "message_text": "Welcome {user} to {server}! You are the {count}th member.",
+                    "style": "embed",
+                    "is_embed": True,
+                    "embed_color": "#5865F2",
+                    "embed_title": "👋 Welcome!",
+                    "bg_image_url": "https://raw.githubusercontent.com/zeeinz-ux/my-discord-bot/main/frontend/static/images/default-welcome-bg.png",
+                    "banner_bg_url": "https://raw.githubusercontent.com/zeeinz-ux/my-discord-bot/main/frontend/static/images/default-welcome-bg.png",
+                    "banner_text": "WELCOME",
+                    "banner_subtext": "Member #{count} • {server}",
+                    "banner_font_color": "#FFFFFF",
+                    "banner_avatar_ring": True
+                },
+                "ai_chat": {
+                    "enabled": False,
+                    "channel_id": None,
+                    "persona": "Default: Gaul, keren, santai, pakai Bahasa Indonesia kasual (lu-gue/kamu-aku sesuai konteks).",
+                    "temperature": 0.7
+                },
+                "boost": {
+                    "enabled": False,
+                    "channel_id": None
+                },
+                "donation": {
+                    "enabled": False,
+                    "log_channel_id": None
+                }
+            }
+
+            # Run sync DB write in a separate thread
+            await asyncio.to_thread(doc_ref.set, default_settings)
+            print(f"[General] ✅ Created default config for guild: {guild.name} ({guild_id})")
+
+        except Exception as e:
+            print(f"[General] ❌ Firestore error in on_guild_join for {guild.name} ({guild_id}): {e}")
 
     @app_commands.command(name="ping", description="Cek latency bot")
     async def ping(self, interaction: discord.Interaction):
