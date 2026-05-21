@@ -14,6 +14,16 @@ from utils.formatters import format_duration, format_uptime
 from cogs.firebase_setup import db
 
 # ==========================================================
+# Placeholder untuk instance Bot Discord
+# ==========================================================
+_bot_instance = None
+
+def set_bot_instance(bot):
+    """Dipanggil dari main.py untuk memberikan akses ke bot instance."""
+    global _bot_instance
+    _bot_instance = bot
+
+# ==========================================================
 # Flask app — static & template folder ke frontend/
 # ==========================================================
 _base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -246,6 +256,27 @@ def music_queue(guild_id: str):
 @app.route("/dashboard/<guild_id>/music/playlists")
 def music_playlists(guild_id: str):
     return _render_page("now_playing.html", active_page="playlists", guild_id=guild_id)
+
+
+# ==========================================================
+# API — Music
+# ==========================================================
+@app.route("/api/music/status/<guild_id>")
+def api_music_status(guild_id: str):
+    if not _bot_instance:
+        return jsonify({"error": "Bot not ready"}), 503
+
+    try:
+        gid = int(guild_id)
+    except ValueError:
+        return jsonify({"error": "Invalid guild ID"}), 400
+
+    now_playing_cog = _bot_instance.get_cog('NowPlaying')
+    if not now_playing_cog:
+        return jsonify({"error": "NowPlaying Cog not loaded"}), 503
+
+    state = now_playing_cog.get_player_state(gid)
+    return jsonify(state)
 
 
 # ==========================================================
