@@ -43,9 +43,9 @@ class WelcomeCog(commands.Cog, name="Welcome"):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        # Anti-spam: track last welcome per member per guild (cooldown 5 menit)
+        # Anti-spam: track last welcome per member per guild (cooldown 30 detik)
         self._last_welcome = {}  # key: "guild_id:user_id" → timestamp
-        self._cooldown_seconds = 300  # 5 menit
+        self._cooldown_seconds = 30  # 30 detik
 
         # ← FIX v3.7.3: Lock per member untuk mencegah race condition double welcome
         self._welcome_locks = {}  # key: "guild_id:user_id" → asyncio.Lock()
