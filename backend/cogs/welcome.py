@@ -1,11 +1,11 @@
 # =============================================================================
-# cogs/welcome.py — Hidden Hamlet Discord Bot v3.7.5
+# cogs/welcome.py — Hidden Hamlet Discord Bot v3.7.6
 # Modul  : Welcome Announcement (Join Message) — Dual Style: Embed + Banner
 # Author : zeeinz-ux
-# FIX v3.7.5:
-#   - Banner: add welcome message text above image (like Koya bot)
-#   - Content message uses message_text config with {user} mention
-#   - Cooldown 30s (configurable)
+# FIX v3.7.6:
+#   - _download_image() now handles BASE64 data URLs (data:image/png;base64,...)
+#   - Auto-detect: base64 vs http URL → backward compatible
+#   - Banner generation works with Firestore base64 images (v3.7.3)
 # =============================================================================
 
 import discord
@@ -13,6 +13,7 @@ from discord.ext import commands
 import asyncio
 import time
 import io
+import base64
 from PIL import Image, ImageDraw, ImageFont
 import aiohttp
 
@@ -30,7 +31,7 @@ class WelcomeCog(commands.Cog, name="Welcome"):
         self._last_welcome = {}
         self._cooldown_seconds = 30  # ← GANTI DI SINI: 0, 30, 60, 300, dll
         self._welcome_locks = {}
-        print(f"[WELCOME] ✅ WelcomeCog v3.7.5 — Cooldown: {self._cooldown_seconds}s")
+        print(f"[WELCOME] ✅ WelcomeCog v3.7.6 — Cooldown: {self._cooldown_seconds}s")
 
     def _get_lock(self, guild_id: str, user_id: str) -> asyncio.Lock:
         key = f"{guild_id}:{user_id}"
@@ -134,9 +135,34 @@ class WelcomeCog(commands.Cog, name="Welcome"):
             print(f"[WELCOME] 🔄 Screening: {after.name}")
             await self._send_welcome(after)
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # FIX v3.7.6: Handle BASE64 data URLs + HTTP URLs
+    # ═══════════════════════════════════════════════════════════════════════
     async def _download_image(self, url: str) -> bytes | None:
+        """
+        Download image dari URL atau decode base64 data URL.
+        Supports:
+          - data:image/png;base64,xxxxx  (base64 inline)
+          - data:image/jpeg;base64,xxxxx (base64 inline)
+          - https://example.com/img.png  (http download)
+          - http://example.com/img.png   (http download)
+        """
         if not url:
             return None
+
+        # ← FIX: Handle base64 data URL
+        if url.startswith("data:image"):
+            try:
+                # Parse: data:image/png;base64,xxxxx
+                header, b64_data = url.split(",", 1)
+                image_bytes = base64.b64decode(b64_data)
+                print(f"[WELCOME] ✅ Decoded base64 image: {len(image_bytes)} bytes")
+                return image_bytes
+            except Exception as e:
+                print(f"[WELCOME] ⚠️ Base64 decode error: {type(e).__name__}: {e}")
+                return None
+
+        # ← Existing: Handle HTTP/HTTPS URL
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -162,7 +188,7 @@ class WelcomeCog(commands.Cog, name="Welcome"):
             if not bg_url:
                 bg_url = self.DEFAULT_BANNER_BG
 
-            print(f"[WELCOME] 🖼️ BG URL: {bg_url}")
+            print(f"[WELCOME] 🖼️ BG URL: {bg_url[:80]}...")  # Truncate kalau base64 (panjang!)
 
             bg_bytes = await self._download_image(bg_url)
             if bg_bytes:
