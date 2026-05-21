@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Antrian Musik - {{ super() }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/queue.css') }}">
+{% endblock %}
+
+{% block page_content %}
+<div class="queue-container">
+    <header class="queue-header">
+        <h1>Antrian Musik</h1>
+        <div class="queue-actions">
+            <button id="shuffle-btn" class="btn btn-secondary">Acak Antrian</button>
+            <button id="clear-btn" class="btn btn-danger">Bersihkan</button>
+        </div>
+    </header>
+
+    <div class="queue-info">
+        <p>Total Lagu: <span id="track-count">0</span></p>
+        <p>Total Durasi: <span id="total-duration">00:00:00</span></p>
+    </div>
+
+    <div id="queue-list" class="queue-list-container">
+        <!-- Daftar lagu akan dimasukkan oleh JavaScript di sini -->
+        <div class="queue-item-placeholder">
+            <p>Memuat antrian...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/queue.js') }}"></script>
+{% endblock %}
