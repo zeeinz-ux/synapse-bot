@@ -1,4 +1,4 @@
-# 🤖 Hidden Hamlet — Discord Bot v4.4
+# 🤖 Hidden Hamlet — Discord Bot v4.4.1
 
 Bot Discord all-in-one dengan fitur tracking server boost, pencatatan donasi, music player kualitas jernih dari YouTube & Spotify, **welcome announcement otomatis (dual style: Embed + Banner)**, **web dashboard real-time dengan sidebar navigation**, dan **AI Chat powered by Google Gemini + OpenRouter**. Support 24/7 via UptimeRobot.
 
@@ -67,7 +67,7 @@ http://your-bot-url/dashboard/<guild_id>/ai-chat
 | **Channel Selection**   | Pilih channel khusus untuk AI Chat (kosong = semua channel)              |
 | **Personality Selector**| Pilih gaya bicara: friendly, formal, tsundere, sarcastic, wise             |
 | **Temperature Slider**  | Atur kreativitas AI (0 = deterministik, 1 = sangat kreatif)              |
-| **Model Info**          | Display model yang digunakan (Gemini 2.0 Flash)                          |
+| **Model Info**          | Display model yang digunakan (Gemini Flash 2.5)                          |
 | **Chat History**        | Lihat riwayat percakapan per user                                         |
 | **Rate Limit Info**     | Info quota gratis Google AI Studio                                        |
 
@@ -80,7 +80,7 @@ http://your-bot-url/dashboard/<guild_id>/ai-chat
     "channel_id": "123456789012345678",
     "personality": "friendly",
     "temperature": 0.75,
-    "model": "gemini-2.0-flash"
+    "model": "gemini-flash-2.5"
   }
 }
 ```
@@ -423,7 +423,7 @@ Output yang diharapkan:
 
 ```bash
 git add .
-git commit -m "v4.4: AI Chat dual API — Google + OpenRouter"
+git commit -m "v4.4.1: Update license and AI model info"
 git push origin main
 ```
 
@@ -692,7 +692,7 @@ SpotifyDown API → Spotify Official → oEmbed → HTML Scrape → ytsearch
     "channel_id": "123456789012345678",
     "personality": "friendly",
     "temperature": 0.75,
-    "model": "gemini-2.0-flash"
+    "model": "gemini-flash-2.5"
   }
 }
 ```
@@ -744,6 +744,16 @@ SpotifyDown API → Spotify Official → oEmbed → HTML Scrape → ytsearch
 2. **Reset API keys** di [Google AI Studio](https://aistudio.google.com/app/apikey) dan [OpenRouter](https://openrouter.ai/keys)
 3. Update `.env` / Render env vars dengan token baru
 4. Restart bot
+
+---
+
+## 📜 Lisensi
+
+**Hak Cipta © 2024 zeeinz-ux. Semua Hak Dilindungi.**
+
+Perangkat lunak ini adalah produk berpemilik dan bukan open-source. Penggunaan, reproduksi, atau distribusi apa pun tanpa izin tertulis dari pemilik hak cipta dilarang keras.
+
+Untuk pertanyaan lisensi atau izin penggunaan, silakan hubungi `zeeeinz` di Discord.
 
 ---
 
@@ -831,7 +841,7 @@ VS Code Prettier/formatter otomatis bisa merusak **Jinja2 template syntax** (`{%
 ```bash
 # Update
 git add .
-git commit -m "v4.4: deskripsi perubahan"
+git commit -m "v4.4.1: update license and AI model info"
 git push origin main
 
 # Pull update dari GitHub
@@ -857,7 +867,8 @@ git pull origin main
 | v3.5       | **+ Welcome Announcement** — Auto welcome message with embed + web dashboard settings                                                                                                                                                                                           |
 | v3.6       | **+ Sidebar Navigation** — Frontend/backend separation, sidebar menu, 15 placeholder pages, AI Chat menu, responsive CSS, welcome v3.6 (rejoin + anti-spam + default bg + drag-drop upload)                                                                                     |
 | v3.7.3     | **+ Dual Style Welcome** (Embed + Banner Koya-style), **base64 image in Firestore** (100% free, no Catbox/Imgur/Storage), **auto-compress** image >400KB, **asyncio.Lock** anti-double welcome, **Pillow banner generation** with avatar ring, **Koya-style text** above banner |
-| **v4.4**   | **+ AI Chat v4.4** — Google Gemini REST API + OpenRouter fallback, dual API auto-switch, personality customization, channel restriction, chat history Firestore, dashboard settings, `/ask` slash command, mention handler, anti-spam cooldown, rate limit handling           |
+| **v4.4.1** | **Update Lisensi**: Mengubah lisensi dari MIT ke Hak Cipta Penuh (All Rights Reserved) untuk menegaskan status non-open-source. Memperbarui info model AI ke Gemini Flash 2.5.                                                                                                    |
+| v4.4       | **+ AI Chat v4.4** — Google Gemini REST API + OpenRouter fallback, dual API auto-switch, personality customization, channel restriction, chat history Firestore, dashboard settings, `/ask` slash command, mention handler, anti-spam cooldown, rate limit handling           |
 
 ---
 
