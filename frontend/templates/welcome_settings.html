@@ -274,10 +274,10 @@
       <div class="form-group">
         <label class="form-label">Preview Banner</label>
         <div class="koya-banner-preview" id="koyaBannerPreview">
-          <div class="koya-banner-bg" id="koyaBannerBg"></div>
+          <div class="koya-banner-bg no-image" id="koyaBannerBg"></div>
           <div class="koya-banner-overlay">
             <div class="koya-banner-avatar" id="koyaBannerAvatar">
-              <div class="koya-avatar-ring" id="koyaAvatarRing"></div>
+              <div class="koya-avatar-ring hidden" id="koyaAvatarRing"></div>
               <span>👤</span>
             </div>
             <div class="koya-banner-text">
@@ -298,8 +298,11 @@
 </div>
 
 <script>
-  // Init data dari Jinja2
+  // ═══════════════════════════════════════════════════════════════
+  // INIT SCRIPT — Load saved config into previews on page load
+  // ═══════════════════════════════════════════════════════════════
   (function() {
+    // ── 1. Status & Toggles ──
     var enabledCb = document.getElementById("toggleEnabled");
     if (enabledCb && enabledCb.dataset.initial === "true") enabledCb.checked = true;
 
@@ -309,6 +312,7 @@
     var ringCb = document.getElementById("toggleAvatarRing");
     if (ringCb && ringCb.dataset.initial === "true") ringCb.checked = true;
 
+    // ── 2. Channel Select ──
     var chSel = document.getElementById("channel_id");
     if (chSel) {
       var curCh = chSel.dataset.currentChannel;
@@ -316,6 +320,8 @@
         if (chSel.options[i].value === curCh) { chSel.options[i].selected = true; break; }
       }
     }
+
+    // ── 3. Status Banner Text ──
     var banner = document.getElementById("statusBanner");
     if (banner) {
       banner.classList.add(banner.dataset.enabled === "true" ? "active" : "inactive");
@@ -323,16 +329,104 @@
         ? "Modul Welcome sedang <strong>aktif</strong>."
         : "Modul Welcome sedang <strong>nonaktif</strong>.";
     }
+
+    // ── 4. Embed Panel Open/Close ──
     var panel = document.getElementById("embedPanel");
     if (panel && panel.dataset.initialOpen === "true") panel.classList.add("open");
 
-    // Init embed accent color
+    // ── 5. Embed Accent Color ──
     var initialColor = "{{ config.embed_color or '#5865F2' }}";
     document.documentElement.style.setProperty("--welcome-accent", initialColor);
+    var colorPreview = document.getElementById("colorPreview");
+    if (colorPreview) colorPreview.style.background = initialColor;
+    var embedPreviewBar = document.getElementById("embedPreviewBar");
+    if (embedPreviewBar) embedPreviewBar.style.background = initialColor;
 
-    // Init banner font color
+    // ── 6. Banner Font Color ──
     var initialBannerColor = "{{ config.banner_font_color or '#FFFFFF' }}";
     document.documentElement.style.setProperty("--banner-font-color", initialBannerColor);
+    var bannerColorPreview = document.getElementById("bannerColorPreview");
+    if (bannerColorPreview) bannerColorPreview.style.background = initialBannerColor;
+
+    // ── 7. Style Selector + Card Visibility ──
+    var savedStyle = "{{ config.style or 'embed' }}";
+    var styleSelector = document.getElementById("styleSelector");
+    if (styleSelector) {
+      document.querySelectorAll('.style-option').forEach(function(opt) {
+        opt.classList.toggle('active', opt.dataset.style === savedStyle);
+      });
+      document.querySelectorAll('.style-option input[name="style"]').forEach(function(radio) {
+        radio.checked = radio.value === savedStyle;
+      });
+    }
+    var embedCard = document.getElementById("embedSettingsCard");
+    var bannerCard = document.getElementById("bannerSettingsCard");
+    if (embedCard) embedCard.classList.toggle("visible", savedStyle === "embed");
+    if (bannerCard) bannerCard.classList.toggle("visible", savedStyle === "banner");
+
+    // ── 8. Banner Background Preview (CRITICAL FIX) ──
+    var savedBannerBg = "{{ config.banner_bg_url or '' }}";
+    if (savedBannerBg) {
+      var koyaBannerBg = document.getElementById("koyaBannerBg");
+      if (koyaBannerBg) {
+        koyaBannerBg.style.backgroundImage = "url(" + savedBannerBg + ")";
+        koyaBannerBg.classList.remove("no-image");
+      }
+      // Sync URL input juga kalau kosong
+      var bannerUrlInput = document.getElementById("banner_bg_url");
+      if (bannerUrlInput && !bannerUrlInput.value) {
+        bannerUrlInput.value = savedBannerBg;
+      }
+    }
+
+    // ── 9. Embed Background Preview (Drag-drop zone) ──
+    var savedEmbedBg = "{{ config.bg_image_url or '' }}";
+    if (savedEmbedBg) {
+      var embedPreviewImg = document.getElementById("uploadPreviewImg");
+      var uploadPreview = document.getElementById("uploadPreview");
+      var uploadZone = document.getElementById("uploadZone");
+      if (embedPreviewImg && uploadPreview) {
+        embedPreviewImg.src = savedEmbedBg;
+        uploadPreview.classList.add("active");
+        if (uploadZone) uploadZone.classList.add("has-file");
+      }
+    }
+
+    // ── 10. Avatar Ring Preview ──
+    var koyaAvatarRing = document.getElementById("koyaAvatarRing");
+    if (koyaAvatarRing && ringCb) {
+      koyaAvatarRing.classList.toggle("hidden", !ringCb.checked);
+    }
+
+    // ── 11. Banner Text Live Preview Init ──
+    var bannerTextInput = document.getElementById("banner_text");
+    var koyaBannerTitle = document.getElementById("koyaBannerTitle");
+    if (bannerTextInput && koyaBannerTitle) {
+      koyaBannerTitle.textContent = (bannerTextInput.value.trim() || "WELCOME").toUpperCase();
+    }
+
+    // ── 12. Banner Subtext Live Preview Init ──
+    var bannerSubtextInput = document.getElementById("banner_subtext");
+    var koyaBannerSub = document.getElementById("koyaBannerSub");
+    if (bannerSubtextInput && koyaBannerSub) {
+      var val = bannerSubtextInput.value.trim() || "Member ke-171 • Hidden Hamlet";
+      koyaBannerSub.textContent = val.replace("{count}", "171").replace("{server}", "Hidden Hamlet");
+    }
+
+    // ── 13. Embed Title Live Preview Init ──
+    var embedTitleInput = document.getElementById("embed_title");
+    var embedPreviewTitle = document.getElementById("embedPreviewTitle");
+    if (embedTitleInput && embedPreviewTitle) {
+      embedPreviewTitle.textContent = embedTitleInput.value.trim() || "👋 Selamat Datang!";
+    }
+
+    // ── 14. Embed Message Preview Init ──
+    var messageTextInput = document.getElementById("message_text");
+    var embedPreviewDesc = document.getElementById("embedPreviewDesc");
+    if (messageTextInput && embedPreviewDesc) {
+      var msg = messageTextInput.value.trim() || "Hei @User, selamat datang di server!";
+      embedPreviewDesc.textContent = msg.replace("{user}", "@User").replace("{server}", "server").replace("{count}", "171");
+    }
   })();
 </script>
 <script src="{{ url_for('static', filename='js/welcome.js') }}"></script>
