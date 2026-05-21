@@ -3,7 +3,6 @@ import os
 
 # ==========================================================
 # FIX: Agar Python bisa menemukan package 'backend'
-# WAJIB di baris 1-6 sebelum import lain
 # ==========================================================
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
@@ -51,10 +50,7 @@ flask_thread.start()
 @bot.event
 async def setup_hook():
     nodes = [
-        wavelink.Node(
-            uri=node["uri"],
-            password=node["password"]
-        )
+        wavelink.Node(uri=node["uri"], password=node["password"])
         for node in LAVALINK_NODES
     ]
 
@@ -72,7 +68,6 @@ async def setup_hook():
             print(f"[LAVALINK] ❌ Node {i} gagal: {str(e)[:80]}")
 
     print("[LAVALINK] ⚠️ Lavalink tidak tersedia. Fitur musik mati.")
-# ======================================
 
 # [POLISH] Lavalink auto-reconnect loop
 @tasks.loop(seconds=60)
@@ -80,10 +75,7 @@ async def lavalink_healthcheck():
     if not wavelink.Pool.nodes:
         print("[LAVALINK] ⚠️ Node tidak terdeteksi, mencoba reconnect...")
         node_cfg = LAVALINK_NODES[0]
-        node = wavelink.Node(
-            uri=node_cfg["uri"],
-            password=node_cfg["password"]
-        )
+        node = wavelink.Node(uri=node_cfg["uri"], password=node_cfg["password"])
         try:
             await wavelink.Pool.connect(nodes=[node], client=bot)
             print("[LAVALINK] ✅ Reconnect berhasil!")
@@ -125,7 +117,7 @@ async def update_stats():
                     "artwork": vc.current.artwork or ""
                 })
 
-        # ===== [WELCOME] Sync guild channels untuk dropdown di dashboard =====
+        # Sync guild channels untuk dropdown
         for guild in bot.guilds:
             text_channels = [
                 {"id": str(ch.id), "name": ch.name}
@@ -133,14 +125,12 @@ async def update_stats():
                 if ch.permissions_for(guild.me).send_messages
             ]
             set_guild_channels(str(guild.id), text_channels)
-        # ==================================================================
 
-        # ===== [GUILDS LIST] Untuk dropdown server di sidebar =====
+        # Guilds list untuk sidebar
         guilds_list = [
             {"id": str(g.id), "name": g.name, "member_count": g.member_count or 0}
             for g in bot.guilds
         ]
-        # ===========================================================
 
         set_stats(
             online=bot.is_ready(),
@@ -160,7 +150,6 @@ async def update_stats():
 @update_stats.before_loop
 async def before_update_stats():
     await bot.wait_until_ready()
-# ==========================================
 
 @bot.event
 async def on_ready():
@@ -170,17 +159,20 @@ async def on_ready():
     print("=" * 50)
 
     # ===== FIX: Load cogs dari path absolut =====
+    # [v4.1 UPDATE] Exclude spotify_down.py (utility, bukan cog)
     cogs_dir = os.path.join(_project_root, "backend", "cogs")
     cog_count = 0
+    exclude_files = ("__init__.py", "firebase_setup.py", "spotify_down.py")
+
     for filename in os.listdir(cogs_dir):
-        if filename.endswith(".py") and filename not in ("__init__.py", "firebase_setup.py"):
+        if filename.endswith(".py") and filename not in exclude_files:
+            cog_name = filename[:-3]
             try:
-                await bot.load_extension(f"backend.cogs.{filename[:-3]}")
+                await bot.load_extension(f"backend.cogs.{cog_name}")
                 print(f"[COG] 📦 Loaded: {filename}")
                 cog_count += 1
             except Exception as e:
                 print(f"[COG] ❌ Failed to load {filename}: {e}")
-    # =============================================
 
     print(f"[COG] ✅ Total {cog_count} cogs loaded!")
 
