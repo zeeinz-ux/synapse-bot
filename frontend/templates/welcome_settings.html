@@ -299,7 +299,7 @@
 
 <script>
   // ═══════════════════════════════════════════════════════════════
-  // INIT SCRIPT — Load saved config into previews on page load
+  // INIT SCRIPT v3.7.4 — Load saved config into previews on page load
   // ═══════════════════════════════════════════════════════════════
   (function() {
     // ── 1. Status & Toggles ──
@@ -364,18 +364,30 @@
     if (embedCard) embedCard.classList.toggle("visible", savedStyle === "embed");
     if (bannerCard) bannerCard.classList.toggle("visible", savedStyle === "banner");
 
-    // ── 8. Banner Background Preview (CRITICAL FIX) ──
-    var savedBannerBg = "{{ config.banner_bg_url or '' }}";
-    if (savedBannerBg) {
+    // ═══════════════════════════════════════════════════════════════
+    // FIX v3.7.4: Banner Upload Zone Preview Init (NEW)
+    // ═══════════════════════════════════════════════════════════════
+    var savedBannerBgUrl = "{{ config.banner_bg_url or '' }}";
+    if (savedBannerBgUrl) {
+      // 8a. Koya Banner Background Preview
       var koyaBannerBg = document.getElementById("koyaBannerBg");
       if (koyaBannerBg) {
-        koyaBannerBg.style.backgroundImage = "url(" + savedBannerBg + ")";
+        koyaBannerBg.style.backgroundImage = "url(" + savedBannerBgUrl + ")";
         koyaBannerBg.classList.remove("no-image");
       }
-      // Sync URL input juga kalau kosong
+      // 8b. Banner Upload Zone Preview (CRITICAL FIX)
+      var bPreviewImg = document.getElementById("bannerUploadPreviewImg");
+      var bPreview = document.getElementById("bannerUploadPreview");
+      var bZone = document.getElementById("bannerUploadZone");
+      if (bPreviewImg && bPreview) {
+        bPreviewImg.src = savedBannerBgUrl;
+        bPreview.classList.add("active");
+        if (bZone) bZone.classList.add("has-file");
+      }
+      // 8c. Sync URL input kalau kosong
       var bannerUrlInput = document.getElementById("banner_bg_url");
       if (bannerUrlInput && !bannerUrlInput.value) {
-        bannerUrlInput.value = savedBannerBg;
+        bannerUrlInput.value = savedBannerBgUrl;
       }
     }
 
