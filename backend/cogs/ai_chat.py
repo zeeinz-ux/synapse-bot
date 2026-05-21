@@ -1,18 +1,19 @@
 """
 ================================================================================
-COG: AI Chat Module v4.4 — Hidden Hamlet Discord Bot
+COG: AI Chat Module v4.5 — Hidden Hamlet Discord Bot
 ================================================================================
 File        : backend/cogs/ai_chat.py
 Deskripsi   : Dual API support — Google AI Studio (Primary) + OpenRouter (Fallback)
-              • Google: Native Gemini API via REST
-              • OpenRouter: Fallback kalau Google quota 0 / rate limit
+              • Google: Native Gemini API via REST (aiohttp)
+              • OpenRouter: Fallback kalau Google quota 0 / rate limit / model error
               • Auto-switch logic, tidak perlu restart bot
               • Slash command pakai @app_commands.command()
               • Mention handler (@bot)
               • Channel restriction via dashboard
               • Anti-spam cooldown manual (5 detik/user)
-              • Chat history Firestore (max 5 pasang)
-Models      : gemini-2.0-flash (Google) / google/gemini-2.0-flash-exp:free (OpenRouter)
+              • Chat history Firestore (max 5 pasang Q&A per user)
+              • Temperature dari dashboard (0–1) diteruskan ke API
+Models      : gemini-2.5-flash (Google) / google/gemini-2.5-flash:free (OpenRouter)
 ================================================================================
 """
 
@@ -37,14 +38,14 @@ DEFAULT_PERSONALITY = "friendly"
 
 # ── Google AI Studio Config ──
 GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-GOOGLE_MODEL = "gemini-2.0-flash"
+GOOGLE_MODEL = "gemini-2.5-flash"
 
 # ── OpenRouter Config ──
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL = "google/gemini-2.0-flash-exp:free"
+OPENROUTER_MODEL = "google/gemini-2.5-flash:free"
 
 # ── System Prompt Template ──
-SYSTEM_PROMPT_TEMPLATE = """Kamu adalah AI Resmi dari bot Discord "Hidden Hamlet". 
+SYSTEM_PROMPT_TEMPLATE = """Kamu adalah AI Resmi dari bot Discord "Hidden Hamlet".
 Personality saat ini: {personality}
 
 Gaya bahasa:
@@ -76,7 +77,7 @@ class AIChat(commands.Cog):
             print("[AI CHAT] ⚠️ OPENROUTER_API_KEY tidak ditemukan!")
 
         self.session: aiohttp.ClientSession | None = None
-        print(f"[AI CHAT] ✅ Cog loaded. Dual API: Google + OpenRouter")
+        print("[AI CHAT] ✅ Cog loaded. Dual API: Google + OpenRouter")
 
     async def cog_load(self):
         timeout = aiohttp.ClientTimeout(total=30, connect=10)
@@ -143,6 +144,7 @@ class AIChat(commands.Cog):
                 {"role": "user", "content": user_msg, "timestamp": now},
                 {"role": "assistant", "content": assistant_msg, "timestamp": now},
             ]
+            # max 5 pasang = 10 entries
             if len(new_history) > 10:
                 new_history = new_history[-10:]
 
@@ -180,7 +182,7 @@ class AIChat(commands.Cog):
     # ═══════════════════════════════════════════════════════════════════════
 
     async def _call_google_gemini(
-        self, user_message: str, history: List[Dict], system_prompt: str
+        self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
         """Call Google AI Studio. Return (response_text, success)."""
         if not self.google_api_key or not self.session:
@@ -196,7 +198,11 @@ class AIChat(commands.Cog):
             payload = {
                 "systemInstruction": {"parts": [{"text": system_prompt}]},
                 "contents": contents,
-                "generationConfig": {"temperature": 0.75, "topP": 0.95, "maxOutputTokens": 1024},
+                "generationConfig": {
+                    "temperature": temperature,
+                    "topP": 0.95,
+                    "maxOutputTokens": 1024,
+                },
             }
 
             url = f"{GOOGLE_API_BASE}/models/{GOOGLE_MODEL}:generateContent?key={self.google_api_key}"
@@ -207,21 +213,28 @@ class AIChat(commands.Cog):
 
                 if status == 429:
                     error_msg = data.get("error", {}).get("message", "")
-                    print(f"[AI CHAT] ⛔ Google Rate Limit: {error_msg[:100]}")
-                    if "limit: 0" in error_msg:
-                        return "QUOTA_ZERO", False  # Special flag for fallback
+                    print(f"[AI CHAT] ⛔ Google Rate Limit: {error_msg[:200]}")
+                    if "limit: 0" in error_msg or "Resource has been exhausted" in error_msg:
+                        return "QUOTA_ZERO", False
                     return "", False
 
                 if status == 400:
-                    print(f"[AI CHAT] ❌ Google Bad Request: {data}")
+                    err_detail = data.get("error", data)
+                    print(f"[AI CHAT] ❌ Google Bad Request (400): {err_detail}")
                     return "", False
 
                 if status == 403:
-                    print(f"[AI CHAT] ❌ Google Forbidden: API key invalid")
+                    err_detail = data.get("error", data)
+                    print(f"[AI CHAT] ❌ Google Forbidden (403): {err_detail}")
+                    return "", False
+
+                if status == 404:
+                    err_detail = data.get("error", data)
+                    print(f"[AI CHAT] ❌ Google Not Found (404): Model '{GOOGLE_MODEL}' mungkin tidak tersedia. {err_detail}")
                     return "", False
 
                 if status != 200:
-                    print(f"[AI CHAT] ❌ Google HTTP {status}")
+                    print(f"[AI CHAT] ❌ Google HTTP {status}: {data}")
                     return "", False
 
                 candidates = data.get("candidates", [])
@@ -239,7 +252,7 @@ class AIChat(commands.Cog):
             return "", False
 
     async def _call_openrouter(
-        self, user_message: str, history: List[Dict], system_prompt: str
+        self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
         """Call OpenRouter. Return (response_text, success)."""
         if not self.openrouter_api_key or not self.session:
@@ -255,7 +268,7 @@ class AIChat(commands.Cog):
             payload = {
                 "model": OPENROUTER_MODEL,
                 "messages": messages,
-                "temperature": 0.75,
+                "temperature": temperature,
                 "top_p": 0.95,
                 "max_tokens": 1024,
             }
@@ -274,11 +287,15 @@ class AIChat(commands.Cog):
                 data = await resp.json()
 
                 if status == 429:
-                    print(f"[AI CHAT] ⛔ OpenRouter Rate Limit")
+                    print(f"[AI CHAT] ⛔ OpenRouter Rate Limit: {data}")
                     return "", False
 
                 if status == 401:
-                    print(f"[AI CHAT] ❌ OpenRouter Unauthorized: API key invalid")
+                    print(f"[AI CHAT] ❌ OpenRouter Unauthorized (401): API key invalid")
+                    return "", False
+
+                if status == 404:
+                    print(f"[AI CHAT] ❌ OpenRouter Not Found (404): Model '{OPENROUTER_MODEL}' tidak valid. {data}")
                     return "", False
 
                 if status != 200:
@@ -296,14 +313,16 @@ class AIChat(commands.Cog):
             return "", False
 
     async def _call_gemini(
-        self, user_message: str, history: List[Dict], system_prompt: str
+        self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> str:
         """Dual API: Try Google first, fallback to OpenRouter."""
 
         # Try Google first
         if self.google_api_key:
             print("[AI CHAT] 🔄 Trying Google AI Studio...")
-            response, success = await self._call_google_gemini(user_message, history, system_prompt)
+            response, success = await self._call_google_gemini(
+                user_message, history, system_prompt, temperature
+            )
 
             if success and response:
                 print("[AI CHAT] ✅ Google success")
@@ -316,7 +335,9 @@ class AIChat(commands.Cog):
 
         # Fallback to OpenRouter
         if self.openrouter_api_key:
-            response, success = await self._call_openrouter(user_message, history, system_prompt)
+            response, success = await self._call_openrouter(
+                user_message, history, system_prompt, temperature
+            )
             if success and response:
                 print("[AI CHAT] ✅ OpenRouter success")
                 return response
@@ -333,7 +354,7 @@ class AIChat(commands.Cog):
 
         return (
             "Waduh, semua AI-nya lagi pusing nih! 🧠💥\n"
-            "Google quota = 0, OpenRouter juga rate limit.\n"
+            "Google quota = 0, OpenRouter juga rate limit / model error.\n"
             "Coba tanya lagi dalam beberapa menit ya, bro!"
         )
 
@@ -386,16 +407,17 @@ class AIChat(commands.Cog):
             return
 
         personality = settings.get("personality", DEFAULT_PERSONALITY)
+        temperature = settings.get("temperature", 0.75)
         history = await self._get_chat_history(guild_id, user_id)
         server_ctx = self._build_server_context(guild)
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(personality=personality, server_context=server_ctx)
 
         try:
             async with typing_ctx.typing():
-                response_text = await self._call_gemini(user_message, history, system_prompt)
+                response_text = await self._call_gemini(user_message, history, system_prompt, temperature)
         except Exception as e:
             print(f"[AI CHAT] ⚠️ Typing error: {e}")
-            response_text = await self._call_gemini(user_message, history, system_prompt)
+            response_text = await self._call_gemini(user_message, history, system_prompt, temperature)
 
         await self._save_chat_history(guild_id, user_id, user_message, response_text, personality)
         await self._send_response(ctx, response_text)
