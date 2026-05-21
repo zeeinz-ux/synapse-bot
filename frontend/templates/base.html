@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>{% block title %}Hidden Hamlet Dashboard{% endblock %}</title>
-  
+
   <!-- ⚠️ JANGAN TAMBAHKAN <base target="_blank"> — akan buat semua link buka tab baru -->
-  
+
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/placeholder.css') }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  {% block extra_css %}{% endblock %}
 </head>
 <body>
   <div class="app-container">
@@ -81,7 +81,7 @@
             <a href="/dashboard/{{ guild_id }}/music" class="nav-item {% if active_page == 'music' %}active{% endif %}" data-search="music player lagu">
               <span class="nav-icon">🎧</span>
               <span class="nav-label">Music Player</span>
-              {% if s.players %}<<span class="nav-badge">{{ s.players|length }}</span>{% endif %}
+              {% if s.players %}<span class="nav-badge">{{ s.players|length }}</span>{% endif %}
             </a>
             <a href="/dashboard/{{ guild_id }}/music/queue" class="nav-item {% if active_page == 'queue' %}active{% endif %}" data-search="queue antrian">
               <span class="nav-icon">📋</span>
@@ -236,9 +236,12 @@
     </main>
   </div>
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- Guild dropdown sync script -->
   <script>
     (function() {
       var currentGuild = "{{ guild_id }}";
+      window.CURRENT_GUILD_ID = currentGuild;  // ← GLOBAL: available for all child scripts
       ["guildDropdown", "mobileGuildDropdown"].forEach(function(id) {
         var sel = document.getElementById(id);
         if (!sel) return;
@@ -249,5 +252,6 @@
     })();
   </script>
   <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+  {% block extra_js %}{% endblock %}
 </body>
 </html>
