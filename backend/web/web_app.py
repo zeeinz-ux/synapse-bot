@@ -5,14 +5,12 @@ import traceback
 import io
 from flask import Flask, render_template, jsonify, request, redirect
 from datetime import datetime, timezone
-from PIL import Image  # ← TAMBAH: untuk auto-compress
+from PIL import Image
 
 # ==========================================================
 # Import relative dari dalam backend/ folder
 # ==========================================================
 from utils.formatters import format_duration, format_uptime
-
-# Firestore instance untuk route Welcome
 from cogs.firebase_setup import db
 
 # ==========================================================
@@ -116,28 +114,20 @@ def _get_welcome_config(guild_id: str) -> dict:
     return {}
 
 # ==========================================================
-# Helper — Auto-compress image kalau terlalu besar
+# Helper — Auto-compress image
 # ==========================================================
 def _compress_image_if_needed(file_data: bytes, max_kb: int = 400) -> bytes:
-    """
-    Compress image kalau size melebihi max_kb.
-    Gunakan Pillow untuk resize + compress.
-    Returns: compressed bytes.
-    """
     size_kb = len(file_data) / 1024
     if size_kb <= max_kb:
-        return file_data  # Tidak perlu compress
+        return file_data
 
     print(f"[COMPRESS] 🗜️ Image {size_kb:.0f}KB > {max_kb}KB, compressing...")
 
     try:
         img = Image.open(io.BytesIO(file_data))
-
-        # Convert ke RGB kalau RGBA (JPEG tidak support alpha)
         if img.mode in ('RGBA', 'P'):
             img = img.convert('RGB')
 
-        # Resize kalau terlalu besar (max 1200px width)
         max_width = 1200
         if img.width > max_width:
             ratio = max_width / img.width
@@ -145,7 +135,6 @@ def _compress_image_if_needed(file_data: bytes, max_kb: int = 400) -> bytes:
             img = img.resize((max_width, new_height), Image.LANCZOS)
             print(f"[COMPRESS] 📐 Resized: {img.width}x{img.height}")
 
-        # Compress dengan quality berkurang sampai di bawah max_kb
         quality = 85
         while quality >= 40:
             output = io.BytesIO()
@@ -158,9 +147,7 @@ def _compress_image_if_needed(file_data: bytes, max_kb: int = 400) -> bytes:
                 return compressed
 
             quality -= 10
-            print(f"[COMPRESS] 🔄 Quality {quality+10} too big ({compressed_kb:.0f}KB), trying {quality}...")
 
-        # Kalau masih besar, resize lebih kecil
         img = img.resize((800, int(img.height * 800 / img.width)), Image.LANCZOS)
         output = io.BytesIO()
         img.save(output, format='JPEG', quality=70, optimize=True)
@@ -172,21 +159,12 @@ def _compress_image_if_needed(file_data: bytes, max_kb: int = 400) -> bytes:
         print(f"[COMPRESS] ⚠️ Error compress: {e}, using original")
         return file_data
 
-
 # ==========================================================
-# Helper — Convert image ke base64 data URL (FREE — Firestore only)
+# Helper — Convert image ke base64 data URL
 # ==========================================================
 def _image_to_base64_data_url(file_data: bytes, filename: str) -> str | None:
-    """
-    Convert image bytes ke base64 data URL.
-    Format: data:image/jpeg;base64,xxxxx
-    Simpan langsung di Firestore (100% FREE, tidak perlu Storage/Imgur/Catbox).
-    """
     try:
-        # Auto-compress kalau terlalu besar
         compressed_data = _compress_image_if_needed(file_data, max_kb=400)
-
-        # Detect content type
         ext = filename.lower().split(".")[-1] if "." in filename else "png"
         mime_types = {
             "png": "image/png",
@@ -195,20 +173,15 @@ def _image_to_base64_data_url(file_data: bytes, filename: str) -> str | None:
             "gif": "image/gif",
             "webp": "image/webp",
         }
-        content_type = mime_types.get(ext, "image/jpeg")  # Default JPEG setelah compress
-
-        # Convert ke base64
+        content_type = mime_types.get(ext, "image/jpeg")
         b64_string = base64.b64encode(compressed_data).decode("utf-8")
         data_url = f"data:{content_type};base64,{b64_string}"
-
         print(f"[BASE64] ✅ Converted: {len(compressed_data)} bytes → {len(b64_string)} chars base64")
         return data_url
-
     except Exception as e:
         print(f"[BASE64] ❌ Error: {type(e).__name__}: {e}")
         traceback.print_exc()
         return None
-
 
 # ==========================================================
 # Helper — render template dengan sidebar context
@@ -361,20 +334,182 @@ def actions_page(guild_id: str):
 def auto_responders(guild_id: str):
     return _render_page("auto_responders.html", active_page="auto_responders", guild_id=guild_id)
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ROUTES — AI Chat v4.1 (Gemini + Channel Restriction)
+# ═══════════════════════════════════════════════════════════════════════════════
+
 @app.route("/dashboard/<guild_id>/ai-chat")
 def ai_chat_page(guild_id: str):
-    return _render_page("ai_chat.html", active_page="ai_chat", guild_id=guild_id)
+    channels = get_guild_channels(guild_id)
+    return _render_page(
+        "ai_chat.html",
+        active_page="ai_chat",
+        guild_id=guild_id,
+        channels=channels
+    )
+
+
+@app.route("/dashboard/<guild_id>/ai-chat/toggle", methods=["POST"])
+def ai_chat_toggle(guild_id):
+    try:
+        if request.is_json:
+            data = request.get_json()
+            enabled = data.get("enabled", False)
+        else:
+            enabled = request.form.get("enabled", "false").lower() == "true"
+
+        if db is None:
+            return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
+
+        doc_ref = db.collection("guild_settings").document(str(guild_id))
+        doc_ref.set({"ai_chat_enabled": enabled}, merge=True)
+
+        return jsonify({
+            "success": True,
+            "enabled": enabled,
+            "message": f"AI Chat {'diaktifkan' if enabled else 'dinonaktifkan'}."
+        }), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Terjadi error: {str(e)}"}), 500
+
+
+@app.route("/dashboard/<guild_id>/ai-chat/save", methods=["POST"])
+def ai_chat_save(guild_id):
+    try:
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form.to_dict()
+
+        personality = data.get("personality", "friendly")
+        channel_id = data.get("channel_id", "").strip()
+        model = data.get("model", "gemini-2.0-flash")
+        temperature = float(data.get("temperature", 0.75))
+
+        valid_personalities = ["friendly", "formal", "tsundere", "sarcastic", "wise"]
+        if personality not in valid_personalities:
+            personality = "friendly"
+
+        if db is None:
+            return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
+
+        doc_ref = db.collection("guild_settings").document(str(guild_id))
+        doc_ref.set({
+            "ai_chat": {
+                "personality": personality,
+                "channel_id": channel_id,
+                "model": model,
+                "temperature": temperature,
+                "updated_at": datetime.now(timezone.utc),
+            }
+        }, merge=True)
+
+        return jsonify({
+            "success": True,
+            "message": "Pengaturan AI Chat berhasil disimpan."
+        }), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Terjadi error: {str(e)}"}), 500
+
+
+@app.route("/api/ai-chat/settings/<guild_id>")
+def api_ai_chat_settings(guild_id):
+    try:
+        if db is None:
+            return jsonify({
+                "success": True,
+                "ai_chat_enabled": False,
+                "ai_chat": {
+                    "personality": "friendly",
+                    "channel_id": "",
+                    "model": "gemini-2.0-flash",
+                    "temperature": 0.75,
+                }
+            }), 200
+
+        doc_ref = db.collection("guild_settings").document(str(guild_id))
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            return jsonify({
+                "success": True,
+                "ai_chat_enabled": False,
+                "ai_chat": {
+                    "personality": "friendly",
+                    "channel_id": "",
+                    "model": "gemini-2.0-flash",
+                    "temperature": 0.75,
+                }
+            }), 200
+
+        data = doc.to_dict()
+        ai_chat = data.get("ai_chat", {})
+        return jsonify({
+            "success": True,
+            "ai_chat_enabled": data.get("ai_chat_enabled", False),
+            "ai_chat": {
+                "personality": ai_chat.get("personality", "friendly"),
+                "channel_id": ai_chat.get("channel_id", ""),
+                "model": ai_chat.get("model", "gemini-2.0-flash"),
+                "temperature": ai_chat.get("temperature", 0.75),
+            }
+        }), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/ai-chat/history/<guild_id>")
+def api_ai_chat_history(guild_id):
+    try:
+        if db is None:
+            return jsonify({"success": True, "history": []}), 200
+
+        docs = (
+            db.collection("guild_settings")
+            .document(str(guild_id))
+            .collection("ai_chat")
+            .stream()
+        )
+
+        results = []
+        for doc in docs:
+            d = doc.to_dict()
+            history = d.get("history", [])
+            preview = history[-2:] if len(history) >= 2 else history
+            results.append({
+                "user_id": doc.id,
+                "personality": d.get("personality", "unknown"),
+                "last_interaction": d.get("updated_at"),
+                "preview": preview,
+                "total_messages": len(history),
+            })
+
+        results.sort(
+            key=lambda x: x["last_interaction"] or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True
+        )
+        results = results[:50]
+
+        return jsonify({"success": True, "history": results}), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": str(e)}), 500
+
 
 # ==========================================================
-# ROUTES — Welcome Save (POST) — BASE64 FIRESTORE (FREE + AUTO-COMPRESS)
+# ROUTES — Welcome Save (POST)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/save", methods=["POST"])
 def save_welcome(guild_id: str):
     if db is None:
-        return jsonify({
-            "success": False,
-            "message": "Firebase tidak tersedia."
-        }), 500
+        return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
 
     try:
         enabled = "enabled" in request.form
@@ -393,9 +528,6 @@ def save_welcome(guild_id: str):
         banner_subtext = request.form.get("banner_subtext", "Member ke-{count} • {server}").strip()
         banner_font_color = request.form.get("banner_font_color", "#FFFFFF").strip()
 
-        # ==========================================
-        # Handle file upload (drag-drop) via base64
-        # ==========================================
         uploaded_file_data = request.form.get("uploaded_file_data", "").strip()
         uploaded_file_name = request.form.get("uploaded_file_name", "upload.png").strip()
         upload_target = request.form.get("upload_target", "").strip()
@@ -404,16 +536,10 @@ def save_welcome(guild_id: str):
 
         if uploaded_file_data and uploaded_file_data.startswith("data:image"):
             try:
-                # Parse base64 data URI: data:image/png;base64,xxxx
                 header, base64_data = uploaded_file_data.split(",", 1)
                 file_bytes = base64.b64decode(base64_data)
-
                 print(f"[WELCOME-WEB] 📤 Processing {len(file_bytes)} bytes...")
-
                 safe_filename = uploaded_file_name or "welcome_upload.png"
-
-                # ← FIX v3.7.3: Convert ke base64 data URL dengan auto-compress
-                # FREE — tidak perlu Storage/Imgur/Catbox!
                 data_url = _image_to_base64_data_url(file_bytes, safe_filename)
 
                 if data_url:
@@ -431,10 +557,7 @@ def save_welcome(guild_id: str):
                 traceback.print_exc()
 
         if not message_text:
-            return jsonify({
-                "success": False,
-                "message": "Teks pesan tidak boleh kosong."
-            }), 400
+            return jsonify({"success": False, "message": "Teks pesan tidak boleh kosong."}), 400
 
         if embed_color and not embed_color.startswith("#"):
             embed_color = f"#{embed_color}"
@@ -463,15 +586,9 @@ def save_welcome(guild_id: str):
         db.collection("guild_settings").document(guild_id).set(payload, merge=True)
 
         print(f"[WELCOME-WEB] ✅ Config tersimpan untuk guild {guild_id} (style={style})")
-        return jsonify({
-            "success": True,
-            "message": "✅ Pengaturan Welcome berhasil disimpan!"
-        }), 200
+        return jsonify({"success": True, "message": "✅ Pengaturan Welcome berhasil disimpan!"}), 200
 
     except Exception as e:
         print(f"[WELCOME-WEB] ❌ Error saat menyimpan: {e}")
         traceback.print_exc()
-        return jsonify({
-            "success": False,
-            "message": f"❌ Terjadi kesalahan server: {str(e)}"
-        }), 500
+        return jsonify({"success": False, "message": f"❌ Terjadi kesalahan server: {str(e)}"}), 500
