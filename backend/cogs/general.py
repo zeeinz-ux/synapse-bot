@@ -93,6 +93,37 @@ class GeneralCog(commands.Cog):
 
         await interaction.edit_original_response(embed=embed)
 
+    @app_commands.command(name="testjoin", description="Tes koneksi dasar ke voice channel tanpa Wavelink.")
+    async def testjoin(self, interaction: discord.Interaction):
+        """A simple command to test basic voice connection."""
+        await interaction.response.defer(ephemeral=True)
+
+        if not interaction.user.voice:
+            await interaction.followup.send("❌ Anda harus berada di voice channel untuk menjalankan tes ini.")
+            return
+
+        voice_channel = interaction.user.voice.channel
+        
+        try:
+            print(f"[TESTJOIN] Attempting to connect to '{voice_channel.name}' in '{voice_channel.guild.name}'...")
+            # Try to connect to the voice channel
+            vc = await voice_channel.connect(timeout=20.0, self_deaf=True)
+            print(f"[TESTJOIN] ✅ Successfully connected to '{voice_channel.name}'.")
+            
+            await interaction.followup.send(f"✅ Berhasil terhubung ke `{voice_channel.name}`. Koneksi dasar OK.")
+            
+            # Disconnect after a short delay
+            await asyncio.sleep(3)
+            await vc.disconnect()
+            print(f"[TESTJOIN] Disconnected from '{voice_channel.name}'.")
+
+        except asyncio.TimeoutError:
+            print(f"[TESTJOIN] ❌ Timed out while trying to connect to '{voice_channel.name}'.")
+            await interaction.followup.send("❌ **Timeout!** Gagal terhubung ke voice channel dalam 20 detik. Ini menandakan ada masalah jaringan antara server bot dan Discord.")
+        except Exception as e:
+            print(f"[TESTJOIN] ❌ An unexpected error occurred: {e}")
+            await interaction.followup.send(f"❌ Gagal terhubung karena error tak terduga: `{e}`")
+
     @app_commands.command(name="stats", description="Lihat statistik bot")
     async def stats(self, interaction: discord.Interaction):
         embed = discord.Embed(
