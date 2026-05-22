@@ -13,30 +13,23 @@ import discord
 from discord.ext import commands, tasks
 import wavelink
 import asyncio
+import sys
 
 from backend.utils.formatters import format_duration
 
-# Lazy import web_app untuk avoid circular
-_web_app = None
-
 
 def _get_web_app():
-    global _web_app
-    if _web_app is None:
+    """Ambil web_app module via sys.modules (avoid circular import)."""
+    wa = sys.modules.get("backend.web.web_app")
+    if wa is None:
+        # Fallback: coba import langsung
         try:
-            from backend.web.web_app import (
-                set_music_state,
-                set_music_voice_channels,
-                pop_music_commands,
-            )
-            _web_app = {
-                "set_music_state": set_music_state,
-                "set_music_voice_channels": set_music_voice_channels,
-                "pop_music_commands": pop_music_commands,
-            }
+            import backend.web.web_app as wa_mod
+            wa = wa_mod
         except Exception as e:
-            print(f"[NOW_PLAYING] ⚠️ Web app import failed: {e}")
-    return _web_app
+            print(f"[NOW_PLAYING] ⚠️ Cannot import web_app: {e}")
+            return None
+    return wa
 
 
 class NowPlaying(commands.Cog):
@@ -70,16 +63,19 @@ class NowPlaying(commands.Cog):
 
         for guild in self.bot.guilds:
             guild_id = str(guild.id)
-            state = self._build_state(guild)
-            wa["set_music_state"](guild_id, state)
+            try:
+                state = self._build_state(guild)
+                wa.set_music_state(guild_id, state)
 
-            # Sync voice channels untuk dropdown
-            voice_channels = [
-                {"id": str(ch.id), "name": ch.name}
-                for ch in guild.voice_channels
-                if ch.permissions_for(guild.me).connect
-            ]
-            wa["set_music_voice_channels"](guild_id, voice_channels)
+                # Sync voice channels untuk dropdown
+                voice_channels = [
+                    {"id": str(ch.id), "name": ch.name}
+                    for ch in guild.voice_channels
+                    if ch.permissions_for(guild.me).connect
+                ]
+                wa.set_music_voice_channels(guild_id, voice_channels)
+            except Exception as e:
+                print(f"[NOW_PLAYING] State build error for {guild_id}: {e}")
 
     @state_updater.before_loop
     async def before_state_updater(self):
@@ -94,7 +90,12 @@ class NowPlaying(commands.Cog):
         if not wa:
             return
 
-        cmds = wa["pop_music_commands"](max_n=10)
+        try:
+            cmds = wa.pop_music_commands(max_n=10)
+        except Exception as e:
+            print(f"[NOW_PLAYING] Pop commands error: {e}")
+            return
+
         for cmd in cmds:
             try:
                 await self._execute_command(cmd)
@@ -210,7 +211,6 @@ class NowPlaying(commands.Cog):
             if player and player.current:
                 await player.stop()
         elif action == "prev":
-            # Prev: replay current or seek 0
             if player and player.current:
                 await player.seek(0)
         elif action == "stop":
@@ -328,7 +328,6 @@ class NowPlaying(commands.Cog):
             value = payload.get("value")
             if mp:
                 if key == "autojoin":
-                    # Store in mp for reference (implementasi sesuai kebutuhan)
                     pass
                 elif key == "247_mode":
                     pass
