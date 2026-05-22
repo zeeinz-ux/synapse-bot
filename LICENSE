@@ -1,11 +1,155 @@
-Copyright (c) 2026 zeeinz-ux. All Rights Reserved.
+HAK CIPTA (COPYRIGHT) © 2026 zeeinz-ux. SEMUA HAK DILINDUNGI.
 
-Seluruh hak cipta atas perangkat lunak ini dan dokumentasi terkait ("Perangkat Lunak") dilindungi undang-undang.
+================================================================================
+PERJANJIAN LISENSI PERANGKAT LUNAK — HIDDEN HAMLET DISCORD BOT
+================================================================================
 
-DILARANG KERAS untuk mereproduksi, mendistribusikan, memodifikasi, atau membuat karya turunan dari Perangkat Lunak ini, baik sebagian maupun seluruhnya, dalam bentuk apa pun, tanpa izin tertulis sebelumnya dari pemilik hak cipta.
+Dengan ini, pemilik hak cipta ("Pemilik") memberikan izin penggunaan perangkat
+lunak ini ("Perangkat Lunak") HANYA kepada pihak yang secara eksplisit
+mendapatkan izin tertulis dari Pemilik. Penggunaan, reproduksi, modifikasi,
+distribusi, atau tindakan lain terhadap Perangkat Lunak ini TANPA izin tertulis
+terlebih dahulu adalah DILARANG KERAS dan merupakan pelanggaran hak cipta.
 
-Penggunaan komersial, penyewaan, atau penjualan Perangkat Lunak ini secara langsung maupun tidak langsung sangat dilarang tanpa adanya perjanjian lisensi komersial yang terpisah dengan pemilik hak cipta.
+--------------------------------------------------------------------------------
+1. DEFINISI PERANGKAT LUNAK
+--------------------------------------------------------------------------------
 
-PERANGKAT LUNAK INI DISEDIAKAN "SEBAGAIMANA ADANYA", TANPA JAMINAN APA PUN, BAIK TERSURAT MAUPUN TERSIRAT, TERMASUK NAMUN TIDAK TERBATAS PADA JAMINAN KELAYAKAN UNTUK DIPERDAGANGKAN, KESESUAIAN UNTUK TUJUAN TERTENTU, DAN KETIADAAN PELANGGARAN. DALAM KEADAAN APA PUN, PEMILIK HAK CIPTA TIDAK BERTANGGUNG JAWAB ATAS KLAIM, KERUSAKAN, ATAU KEWAJIBAN LAINNYA, BAIK DALAM TINDAKAN KONTRAK, KESALAHAN, ATAU LAINNYA, YANG TIMBUL DARI, DARI, ATAU SEHUBUNGAN DENGAN PERANGKAT LUNAK ATAU PENGGUNAAN ATAU URUSAN LAIN DALAM PERANGKAT LUNAK.
+"Perangkat Lunak" mencakup seluruh kode sumber, dokumentasi, aset grafis,
+konfigurasi, skema database, dan semua file yang terkandung dalam repositori
+GitHub https://github.com/zeeinz-ux/my-discord-bot, termasuk namun tidak	erbatas pada:
 
-Untuk pertanyaan lisensi atau izin penggunaan, silakan hubungi pemilik hak cipta melalui Discord: zeeeinz.
+  • File Python (.py) di direktori backend/ dan seluruh subdirektorinya
+  • File HTML, CSS, JavaScript di direktori frontend/ dan seluruh subdirektorinya
+  • File konfigurasi (.env.example, requirements.txt, .gitignore)
+  • File dokumentasi (README.md, CHANGELOG, dll)
+  • Skema database Firebase Firestore
+  • Logo, ikon, dan aset visual lainnya
+  • Algoritma, arsitektur, dan logika bisnis yang terimplementasi
+
+--------------------------------------------------------------------------------
+2. STATUS NON-OPEN SOURCE
+--------------------------------------------------------------------------------
+
+Perangkat Lunak ini BUKAN perangkat lunak open source. Perangkat Lunak ini
+adalah produk berpemilik (proprietary software) milik Pemilik.
+
+Perangkat Lunak ini TIDAK dilisensikan di bawah lisensi open source apapun,
+termasuk namun tidak terbatas pada:
+  • MIT License
+  • Apache License 2.0
+  • GNU General Public License (GPL) v2/v3
+  • BSD License
+  • Creative Commons
+  • Atau lisensi open source lainnya
+
+Tidak ada kode sumber dari Perangkat Lunak ini yang "terbuka" untuk publik
+untuk tujuan penggunaan, modifikasi, atau distribusi bebas.
+
+--------------------------------------------------------------------------------
+3. LARANGAN
+--------------------------------------------------------------------------------
+
+TANPA izin tertulis dari Pemilik, pihak manapun DILARANG:
+
+  a) MENGGUNAKAN Perangkat Lunak ini untuk tujuan apapun, baik pribadi,
+     komersial, edukasional, atau tujuan lainnya;
+
+  b) MENYALIN, MENDUPLIKASI, atau MEREPRODUKSI Perangkat Lunak ini secara
+     keseluruhan atau sebagian, dalam bentuk apapun;
+
+  c) MEMODIFIKASI, MENGUBAH, atau MEMBUAT karya turunan (derivative work)
+     dari Perangkat Lunak ini;
+
+  d) MENDISTRIBUSIKAN, MEMPUBLIKASIKAN, atau MENYEBARKAN Perangkat Lunak ini
+     kepada pihak ketiga, baik secara gratis maupun berbayar;
+
+  e) MENJUAL, MENYEWAKAN, MENGGADAI, atau MENTRANSFER Perangkat Lunak ini
+     kepada pihak lain;
+
+  f) MENGGUNAKAN kode, algoritma, arsitektur, atau logika bisnis dari
+     Perangkat Lunak ini sebagai dasar untuk pengembangan perangkat lunak
+     lainnya;
+
+  g) MELAKUKAN reverse engineering, decompiling, atau disassembling terhadap
+     Perangkat Lunak ini;
+
+  h) MENGHAPUS, MENGUBAH, atau MENYEMBUNYIKAN pemberitahuan hak cipta,
+     watermark, atau atribusi lainnya yang terdapat dalam Perangkat Lunak;
+
+  i) MENGGUNAKAN nama, merek dagang, atau identitas Pemilik tanpa izin.
+
+--------------------------------------------------------------------------------
+4. PENGGUNAAN YANG DIIZINKAN
+--------------------------------------------------------------------------------
+
+Penggunaan Perangkat Lunak ini HANYA diizinkan jika:
+
+  1. Pemilik memberikan izin tertulis secara eksplisit kepada pihak tersebut;
+  2. Izin tersebut mencakup ruang lingkup penggunaan yang spesifik;
+  3. Pihak tersebut mematuhi semua ketentuan yang tercantum dalam izin
+     tersebut; dan
+  4. Pihak tersebut tidak melakukan tindakan yang bertentangan dengan
+     ketentuan dalam perjanjian ini.
+
+--------------------------------------------------------------------------------
+5. KONSEKUENSI PELANGGARAN
+--------------------------------------------------------------------------------
+
+Pelanggaran terhadap perjanjian lisensi ini akan dikenakan:
+
+  • Tindakan hukum sesuai Undang-Undang Hak Cipta;
+  • Ganti rugi atas kerugian yang ditimbulkan;
+  • Penghapusan paksa seluruh salinan Perangkat Lunak yang tidak sah;
+  • Sanksi pidana sesuai ketentuan hukum yang berlaku.
+
+--------------------------------------------------------------------------------
+6. JAMINAN DAN TANGGUNG JAWAB
+--------------------------------------------------------------------------------
+
+PERANGKAT LUNAK INI DISEDIAKAN "SEBAGAIMANA ADANYA" (AS IS), TANPA JAMINAN
+APAPUN, BAIK TERSURAT MAUPUN TERSIRAT, TERMASUK NAMUN TIDAK TERBATAS PADA
+JAMINAN KELAYAKAN UNTUK DIPERDAGANGKAN, KESESUAIAN UNTUK TUJUAN TERTENTU,
+DAN KETIADAAN PELANGGARAN.
+
+DALAM KEADAAN APAPUN, PEMILIK HAK CIPTA TIDAK BERTANGGUNG JAWAB ATAS KLAIM,
+KERUSAKAN, ATAU KEWAJIBAN LAINNYA, BAIK DALAM TINDAKAN KONTRAK, KESALAHAN,
+ATAU LAINNYA, YANG TIMBUL DARI, BERKAITAN DENGAN, ATAU SEHUBUNGAN DENGAN
+PERANGKAT LUNAK ATAU PENGGUNAAN ATAU URUSAN LAIN DALAM PERANGKAT LUNAK.
+
+--------------------------------------------------------------------------------
+7. KONTAK DAN IZIN
+--------------------------------------------------------------------------------
+
+Untuk meminta izin penggunaan, lisensi komersial, atau pertanyaan lainnya
+terkait Perangkat Lunak ini, silakan hubungi:
+
+  Discord: zeeeinz
+  GitHub: https://github.com/zeeinz-ux
+
+Setiap permohonan izin akan dievaluasi secara individual. Pemilik berhak
+menolak permohonan izin tanpa memberikan alasan.
+
+--------------------------------------------------------------------------------
+8. PERUBAHAN LISENSI
+--------------------------------------------------------------------------------
+
+Pemilik berhak mengubah, memodifikasi, atau mencabut ketentuan lisensi ini
+kapan saja tanpa pemberitahuan terlebih dahulu. Perubahan lisensi akan
+berlaku efektif sejak dipublikasikan di repositori resmi.
+
+--------------------------------------------------------------------------------
+9. HUKUM YANG BERLAKU
+--------------------------------------------------------------------------------
+
+Perjanjian lisensi ini tunduk pada dan diinterpretasikan sesuai dengan
+hukum yang berlaku di wilayah yurisdiksi Pemilik.
+
+================================================================================
+
+Dengan mengakses, mengunduh, atau menggunakan Perangkat Lunak ini, Anda
+menyatakan bahwa Anda telah membaca, memahami, dan setuju untuk mematuhi
+seluruh ketentuan dalam perjanjian lisensi ini.
+
+================================================================================
+Dokumen ini terakhir diperbarui: Mei 2026
+================================================================================
