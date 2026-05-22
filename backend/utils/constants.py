@@ -1,32 +1,31 @@
 LAVALINK_NODES = [
-    # Node 1: HeavenCloud (Global, 10Gbps)
+    # Node 1: NyxBot SG (Singapore) - PRIORITY & FIXED
     {
-        "uri": "https://89.106.84.59:4000",
-        "password": "heavencloud.in",
+        "uri": "http://sg1-nodelink.nyxbot.app:3000",
+        "password": "nyxbot.app/support",
     },
-    # Node 2: Jirayu (Global)
+    # Node 2: Jirayu (Global) - Backup 1
     {
         "uri": "https://lavalink.jirayu.net:13592",
         "password": "youshallnotpass",
     },
-    # Node 3: G3V UK (Europe)
+    # Node 3: G3V UK (Europe) - Backup 2
     {
         "uri": "https://lava.g3v.co.uk:9008",
         "password": "lavalinklol",
     },
-    # Node 4: NyxBot SG (Singapore, YouTube plugin)
-    {
-        "uri": "https://sg1-nodelink.nyxbot.app:3000",
-        "password": "nyxbot.app/support",
-    },
-    # Node 5: TriniumHost (Global)
+    # Node 4: TriniumHost (Global) - Backup 3
     {
         "uri": "https://lavalink.triniumhost.com:4333",
         "password": "free",
     },
-    # Backup: AjieDev (kalau YouTube fix)
+    # --- Node Kurang Stabil atau Offline ---
     {
         "uri": "https://lava-v4.ajieblogs.eu.org:443",
         "password": "https://dsc.gg/ajidevserver",
+    },
+    {
+        "uri": "https://89.106.84.59:4000",
+        "password": "heavencloud.in",
     },
 ]
