@@ -24,7 +24,9 @@ from backend.cogs import firebase_setup
 # ============================================
 
 # ===== [DASHBOARD] Import Flask app dari web/ =====
-from backend.web.web_app import app, set_stats, set_guild_channels
+from backend.web.web_app import (
+    app, set_stats, set_guild_channels, set_music_voice_channels
+)
 # ==================================================
 
 # ===== [UTILS] Shared constants =====
@@ -39,12 +41,15 @@ intents.voice_states = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 start_time = time.time()
 
+
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
+
 flask_thread = threading.Thread(target=run_flask, daemon=True)
 flask_thread.start()
+
 
 # ===== LAVALINK: PUBLIC NODE =====
 @bot.event
@@ -69,6 +74,7 @@ async def setup_hook():
 
     print("[LAVALINK] ⚠️ Lavalink tidak tersedia. Fitur musik mati.")
 
+
 # [POLISH] Lavalink auto-reconnect loop
 @tasks.loop(seconds=60)
 async def lavalink_healthcheck():
@@ -82,9 +88,11 @@ async def lavalink_healthcheck():
         except Exception as e:
             print(f"[LAVALINK] ❌ Reconnect gagal: {e}")
 
+
 @lavalink_healthcheck.before_loop
 async def before_healthcheck():
     await bot.wait_until_ready()
+
 
 # ===== [DASHBOARD] Stats updater loop =====
 @tasks.loop(seconds=30)
@@ -117,14 +125,25 @@ async def update_stats():
                     "artwork": vc.current.artwork or ""
                 })
 
-        # Sync guild channels untuk dropdown
+        # ==========================================================
+        # [v4.6] Sync guild channels untuk dropdown
+        # ==========================================================
         for guild in bot.guilds:
+            # Text channels (untuk AI Chat, Welcome, dll)
             text_channels = [
                 {"id": str(ch.id), "name": ch.name}
                 for ch in guild.text_channels
                 if ch.permissions_for(guild.me).send_messages
             ]
             set_guild_channels(str(guild.id), text_channels)
+
+            # Voice channels (untuk Music Now Playing dropdown)
+            voice_channels = [
+                {"id": str(ch.id), "name": ch.name}
+                for ch in guild.voice_channels
+                if ch.permissions_for(guild.me).connect
+            ]
+            set_music_voice_channels(str(guild.id), voice_channels)
 
         # Guilds list untuk sidebar
         guilds_list = [
@@ -147,9 +166,11 @@ async def update_stats():
     except Exception as e:
         print(f"[DASHBOARD STATS ERROR] {e}")
 
+
 @update_stats.before_loop
 async def before_update_stats():
     await bot.wait_until_ready()
+
 
 @bot.event
 async def on_ready():
@@ -159,10 +180,15 @@ async def on_ready():
     print("=" * 50)
 
     # ===== FIX: Load cogs dari path absolut =====
-    # [v4.1 UPDATE] Exclude spotify_down.py (utility, bukan cog)
+    # [v4.6 UPDATE] Exclude web_app.py (bukan cog)
     cogs_dir = os.path.join(_project_root, "backend", "cogs")
     cog_count = 0
-    exclude_files = ("__init__.py", "firebase_setup.py", "spotify_down.py")
+    exclude_files = (
+        "__init__.py",
+        "firebase_setup.py",
+        "spotify_down.py",
+        "web_app.py",
+    )
 
     for filename in os.listdir(cogs_dir):
         if filename.endswith(".py") and filename not in exclude_files:
@@ -196,6 +222,7 @@ async def on_ready():
         print("[DASHBOARD] 📊 Stats updater aktif (30s).")
 
     print("=" * 50)
+
 
 TOKEN = os.getenv("TOKEN_BOT")
 if not TOKEN:
