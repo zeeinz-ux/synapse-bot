@@ -1,5 +1,6 @@
 /* ================================================================================
-   CSS: AI Chat Settings v4.1 — Hidden Hamlet Dashboard
+   CSS: AI Chat Settings v4.6 — Hidden Hamlet Dashboard
+   UPDATE: Triple API Tier Stack + Circuit Breaker Info
    ================================================================================ */
 
 :root {
@@ -21,6 +22,7 @@
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ── Layout ── */
 .ai-chat-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -32,6 +34,7 @@
   grid-column: 1 / -1;
 }
 
+/* ── Card ── */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -91,7 +94,7 @@
   padding: 1.25rem;
 }
 
-/* Toggle Switch */
+/* ── Toggle Switch ── */
 .toggle-switch {
   position: relative;
   display: inline-block;
@@ -143,7 +146,7 @@
   box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.3);
 }
 
-/* Form Elements */
+/* ── Form Elements ── */
 .form-group {
   margin-bottom: 1.25rem;
 }
@@ -156,6 +159,15 @@
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.field-hint {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
+  margin-bottom: 0.6rem;
+  line-height: 1.4;
 }
 
 .form-select {
@@ -186,16 +198,8 @@
   cursor: not-allowed;
 }
 
-.form-hint {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-top: 0.4rem;
-  line-height: 1.4;
-}
-
-/* Range Slider */
-.range-wrap {
+/* ── Range Slider ── */
+.slider-container {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -225,7 +229,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.2);
 }
 
-.range-value {
+.slider-value {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--accent-primary);
@@ -236,7 +240,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-radius: 6px;
 }
 
-/* Buttons */
+/* ── Buttons ── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -280,7 +284,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   font-size: 1rem;
 }
 
-/* Toast */
+/* ── Toast ── */
 .toast {
   position: fixed;
   top: 1.5rem;
@@ -308,7 +312,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   display: none;
 }
 
-/* History List */
+/* ── History List ── */
 .history-list {
   display: flex;
   flex-direction: column;
@@ -374,7 +378,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   color: #93c5fd;
 }
 
-/* Empty State */
+/* ── Empty State ── */
 .empty-state {
   text-align: center;
   padding: 2rem;
@@ -387,7 +391,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   opacity: 0.5;
 }
 
-/* Loading Spinner */
+/* ── Loading Spinner ── */
 .loading-spinner {
   display: flex;
   align-items: center;
@@ -412,7 +416,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   }
 }
 
-/* Info List */
+/* ── Info List ── */
 .info-list {
   list-style: none;
   padding: 0;
@@ -442,6 +446,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   color: var(--text-primary);
 }
 
+/* ── Badges ── */
 .badge {
   font-size: 0.75rem;
   font-weight: 600;
@@ -461,7 +466,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border: 1px solid var(--accent-success);
 }
 
-/* Hint Text */
+/* ── Hint Text ── */
 .hint-text {
   font-size: 0.85rem;
   color: var(--text-muted);
@@ -477,7 +482,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   color: var(--accent-warning);
 }
 
-/* Page Title */
+/* ── Page Title ── */
 .page-title {
   font-size: 1.5rem;
   font-weight: 700;
@@ -491,7 +496,205 @@ input[type="range"]::-webkit-slider-thumb:hover {
   margin: 0 0 1rem;
 }
 
-/* Responsive */
+/* ── Page Header ── */
+.page-header {
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+}
+
+.page-header p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ── Toggle Label ── */
+.toggle-label {
+  margin-left: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ── Text Utilities ── */
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* ================================================================================
+   TIER STACK STYLING v4.6 — Triple API Fallback
+   ================================================================================ */
+
+/* Engine Stack (di card Personality & Channel) */
+.engine-stack-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 14px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-color);
+}
+
+.tier-badge {
+  padding: 10px 14px;
+  border-radius: calc(var(--radius) / 2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border-left: 4px solid transparent;
+  transition: var(--transition);
+}
+
+.tier-badge:hover {
+  background: var(--bg-card);
+  transform: translateX(4px);
+}
+
+.tier-1 {
+  border-left-color: var(--accent-primary);
+}
+.tier-1::before {
+  content: "⚡";
+  font-size: 1rem;
+}
+
+.tier-2 {
+  border-left-color: var(--accent-warning);
+}
+.tier-2::before {
+  content: "🚀";
+  font-size: 1rem;
+}
+
+.tier-3 {
+  border-left-color: var(--accent-success);
+}
+.tier-3::before {
+  content: "🌐";
+  font-size: 1rem;
+}
+
+.tier-arrow {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 2px 0;
+}
+
+/* Tier Info Cards (di section Info & Limitasi) */
+.tier-info {
+  margin-bottom: 4px;
+}
+
+.tier-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tier-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.tier-1-dot {
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
+}
+
+.tier-2-dot {
+  background: var(--accent-warning);
+  box-shadow: 0 0 8px var(--accent-warning);
+}
+
+.tier-3-dot {
+  background: var(--accent-success);
+  box-shadow: 0 0 8px var(--accent-success);
+}
+
+.tier-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-left: auto;
+  color: var(--text-primary);
+}
+
+.tier-tag.primary {
+  background: var(--accent-primary);
+}
+
+.tier-tag.backup {
+  background: var(--accent-warning);
+  color: var(--bg-primary);
+}
+
+.tier-tag.fallback {
+  background: var(--accent-success);
+}
+
+.tier-details {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding-left: 20px;
+}
+
+.tier-divider {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 16px 0;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 4px 0;
+}
+
+.detail-label {
+  color: var(--text-muted);
+}
+
+.detail-value {
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-align: right;
+}
+
+.global-limits {
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+/* ================================================================================
+   Responsive
+   ================================================================================ */
+
 @media (max-width: 1024px) {
   .ai-chat-grid {
     grid-template-columns: 1fr;
@@ -508,10 +711,22 @@ input[type="range"]::-webkit-slider-thumb:hover {
   .history-meta {
     flex-wrap: wrap;
   }
+  .tier-details {
+    padding-left: 10px;
+  }
+  .detail-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .detail-value {
+    text-align: left;
+  }
 }
 
 @media (max-width: 480px) {
-  .page-title {
+  .page-title,
+  .page-header h1 {
     font-size: 1.25rem;
   }
   .card-body {
@@ -520,5 +735,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
   .btn {
     width: 100%;
     justify-content: center;
+  }
+  .tier-badge {
+    font-size: 0.8rem;
+    padding: 8px 10px;
+  }
+  .engine-stack-info {
+    padding: 10px;
   }
 }
