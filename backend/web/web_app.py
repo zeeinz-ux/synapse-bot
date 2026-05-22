@@ -1,3 +1,10 @@
+import sys
+# ==========================================================
+# FIX: Pastikan module ini selalu instance yang sama
+# ==========================================================
+if __name__ != '__main__':
+    sys.modules['backend.web.web_app'] = sys.modules.get('backend.web.web_app', sys.modules[__name__])
+
 import os
 import threading
 import base64
