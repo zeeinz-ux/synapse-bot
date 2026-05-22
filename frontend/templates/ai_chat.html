@@ -1,153 +1,181 @@
 {% extends "base.html" %}
-{% block title %}AI Chat — Hidden Hamlet{% endblock %}
-{% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/ai_chat.css') }}" />
-{% endblock %}
+
+{% block title %}AI Chat Settings — Hidden Hamlet{% endblock %}
+
 {% block content %}
-<div class="page-wrap">
-  <nav class="breadcrumb">
-    <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
-    <span>›</span>
-    <span>Tools</span>
-    <span>›</span>
-    <span>AI Chat</span>
-  </nav>
 
-  <h1 class="page-title">🧠 AI Chat Settings</h1>
-  <p class="page-subtitle">Atur personality, channel restriction, dan kelola chat history.</p>
+<!-- Toast Notification -->
+<div id="toast" class="toast" style="display: none;">
+  <span id="toast-message">✅ Berhasil disimpan!</span>
+</div>
 
-  <div id="toast" class="toast hidden">
-    <span id="toast-icon">✅</span>
-    <span id="toast-message">Berhasil disimpan!</span>
+<!-- Header -->
+<div class="page-header">
+  <h1>🧠 AI Chat Settings</h1>
+  <p>Atur personality, channel restriction, dan kelola chat history.</p>
+</div>
+
+<!-- Status Card -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-icon">⚡</span>
+    <h2>Status AI Chat</h2>
   </div>
+  <div class="card-body">
+    <p>Aktifkan atau nonaktifkan fitur AI Chat di server ini.</p>
+    <p class="text-muted">Jika dimatikan, bot tidak akan merespons mention maupun command <code>/ask</code>.</p>
+    <br>
+    <label class="toggle-switch">
+      <input type="checkbox" id="ai-toggle" {% if ai_chat_enabled %}checked{% endif %}>
+      <span class="toggle-slider"></span>
+    </label>
+    <span id="toggle-label" class="toggle-label">{% if ai_chat_enabled %}Aktif{% else %}Nonaktif{% endif %}</span>
+  </div>
+</div>
 
-  <div class="ai-chat-grid">
-    <!-- CARD 1: Master Toggle -->
-    <div class="card card-highlight">
-      <div class="card-header">
-        <div class="card-icon">⚡</div>
-        <div class="card-title-group">
-          <h2>Status AI Chat</h2>
-          <p>Aktifkan atau nonaktifkan fitur AI Chat di server ini.</p>
-        </div>
-        <label class="toggle-switch">
-          <input type="checkbox" id="aiChatToggle" />
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-      <div class="card-body">
-        <p class="hint-text">
-          Jika dimatikan, bot tidak akan merespons mention maupun command <code>/ask</code>.
-        </p>
+<!-- Personality & Channel Card -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-icon">🎭</span>
+    <h2>Personality & Channel</h2>
+  </div>
+  <div class="card-body">
+    <p>Atur gaya bicara AI dan channel restriction.</p>
+    <br>
+
+    <div class="form-group">
+      <label for="channel-select">Channel AI Chat</label>
+      <p class="field-hint">Pilih channel khusus untuk AI Chat. Kosongkan agar AI merespons di SEMUA channel.</p>
+      <select id="channel-select" class="form-select">
+        <option value="">Semua Channel</option>
+        {% for ch in channels %}
+        <option value="{{ ch.id }}" {% if ch.id == ai_chat_channel %}selected{% endif %}>{{ ch.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="personality-select">Personality AI</label>
+      <p class="field-hint">Gaya bahasa AI akan menyesuaikan personality ini.</p>
+      <select id="personality-select" class="form-select">
+        <option value="friendly" {% if personality == 'friendly' %}selected{% endif %}>😊 Friendly (Santai & Gaul)</option>
+        <option value="formal" {% if personality == 'formal' %}selected{% endif %}>🧐 Formal (Profesional)</option>
+        <option value="tsundere" {% if personality == 'tsundere' %}selected{% endif %}>😤 Tsundere (Galak tapi peduli)</option>
+        <option value="sarcastic" {% if personality == 'sarcastic' %}selected{% endif %}>😏 Sarcastic (Nyinyir)</option>
+        <option value="wise" {% if personality == 'wise' %}selected{% endif %}>🦉 Wise (Bijaksana)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="temperature-slider">Temperature (Kreativitas)</label>
+      <p class="field-hint">0 = Sangat deterministik. 1 = Sangat kreatif/random.</p>
+      <div class="slider-container">
+        <input type="range" id="temperature-slider" min="0" max="1" step="0.05" value="{{ temperature }}">
+        <span id="temperature-value" class="slider-value">{{ temperature }}</span>
       </div>
     </div>
 
-    <!-- CARD 2: Personality & Channel -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-icon">🎭</div>
-        <div class="card-title-group">
-          <h2>Personality & Channel</h2>
-          <p>Atur gaya bicara AI dan channel restriction.</p>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="form-group">
-          <label for="channelSelect">Channel AI Chat</label>
-          <select id="channelSelect" class="form-select">
-            <option value="">-- Semua Channel (Default) --</option>
-            {% for ch in channels %}
-            <option value="{{ ch.id }}">#{{ ch.name }}</option>
-            {% endfor %}
-          </select>
-          <span class="form-hint">
-            Pilih channel khusus untuk AI Chat. Kosongkan agar AI merespons di SEMUA channel.
-          </span>
-        </div>
-
-        <div class="form-group">
-          <label for="personalitySelect">Personality AI</label>
-          <select id="personalitySelect" class="form-select">
-            <option value="friendly">😊 Friendly (Santai & Ramah)</option>
-            <option value="formal">👔 Formal (Profesional & Sopan)</option>
-            <option value="tsundere">💢 Tsundere (Galak tapi peduli)</option>
-            <option value="sarcastic">😏 Sarcastic (Sinis & Jenaka)</option>
-            <option value="wise">🦉 Wise (Bijaksana & Tenang)</option>
-          </select>
-          <span class="form-hint">Gaya bahasa AI akan menyesuaikan personality ini.</span>
-        </div>
-
-        <div class="form-group">
-          <label for="modelSelect">Model Gemini</label>
-          <select id="modelSelect" class="form-select" disabled>
-            <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (Free)</option>
-          </select>
-          <span class="form-hint">Versi gratis dari Google AI Studio.</span>
-        </div>
-
-        <div class="form-group">
-          <label for="temperatureRange">Temperature (Kreativitas)</label>
-          <div class="range-wrap">
-            <input type="range" id="temperatureRange" min="0" max="1" step="0.05" value="0.75" />
-            <span id="temperatureValue" class="range-value">0.75</span>
-          </div>
-          <span class="form-hint">
-            0 = Sangat deterministik. 1 = Sangat kreatif/random.
-          </span>
-        </div>
-
-        <button id="saveSettingsBtn" class="btn btn-primary">
-          <span class="btn-icon">💾</span> Simpan Pengaturan
-        </button>
+    <div class="form-group">
+      <label>AI Engine Stack</label>
+      <p class="field-hint">Arsitektur 3-tier fallback di backend. Auto-switch tanpa restart bot.</p>
+      <div class="engine-stack-info">
+        <div class="tier-badge tier-1">⚡ Tier 1: Gemini 2.5 Flash (Google AI Studio)</div>
+        <div class="tier-arrow">↓</div>
+        <div class="tier-badge tier-2">🚀 Tier 2: Llama 3.3 70B (Groq)</div>
+        <div class="tier-arrow">↓</div>
+        <div class="tier-badge tier-3">🌐 Tier 3: Gemini 2.5 Flash (OpenRouter)</div>
       </div>
     </div>
 
-    <!-- CARD 3: Chat History -->
-    <div class="card card-fullwidth">
-      <div class="card-header">
-        <div class="card-icon">📜</div>
-        <div class="card-title-group">
-          <h2>Chat History</h2>
-          <p>Riwayat percakapan terakhir dari user di server ini.</p>
-        </div>
-        <button id="refreshHistoryBtn" class="btn btn-secondary btn-sm">🔄 Refresh</button>
-      </div>
-      <div class="card-body">
-        <div id="historyLoading" class="loading-spinner hidden">
-          <div class="spinner"></div>
-          <span>Memuat data...</span>
-        </div>
-        <div id="historyEmpty" class="empty-state">
-          <div class="empty-icon">📝</div>
-          <p>Belum ada riwayat chat.</p>
-          <span>History akan muncul setelah user mulai chat dengan AI.</span>
-        </div>
-        <div id="historyList" class="history-list"></div>
-      </div>
-    </div>
+    <button id="save-btn" class="btn btn-primary">💾 Simpan Pengaturan</button>
+  </div>
+</div>
 
-    <!-- CARD 4: Info -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-icon">📊</div>
-        <div class="card-title-group">
-          <h2>Info & Limitasi</h2>
-          <p>Kuota gratis Google AI Studio.</p>
-        </div>
-      </div>
-      <div class="card-body">
-        <ul class="info-list">
-          <li><span class="info-label">Model</span><span class="info-value">Gemini 2.5 Flash</span></li>
-          <li><span class="info-label">Rate Limit</span><span class="info-value">60 req/minute</span></li>
-          <li><span class="info-label">Daily Limit</span><span class="info-value">~1,500 requests</span></li>
-          <li><span class="info-label">Max History</span><span class="info-value">5 pasang Q&A per user</span></li>
-          <li><span class="info-label">Status</span><span id="apiStatusBadge" class="badge badge-neutral">Checking...</span></li>
-        </ul>
-      </div>
+<!-- Chat History Card -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-icon">📜</span>
+    <h2>Chat History</h2>
+  </div>
+  <div class="card-body">
+    <p>Riwayat percakapan terakhir dari user di server ini.</p>
+    <br>
+    <div id="history-container">
+      <p class="text-muted">Memuat data...</p>
     </div>
   </div>
 </div>
+
+<!-- Info & Limitasi Card — UPDATED v4.6 -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-icon">📊</span>
+    <h2>Info & Limitasi</h2>
+  </div>
+  <div class="card-body">
+
+    <!-- Tier 1: Gemini -->
+    <div class="tier-info">
+      <div class="tier-header">
+        <span class="tier-dot tier-1-dot"></span>
+        <strong>Tier 1 — Google AI Studio</strong>
+        <span class="tier-tag primary">PRIMARY</span>
+      </div>
+      <div class="tier-details">
+        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">Gemini 2.5 Flash</span></div>
+        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">60 req/minute</span></div>
+        <div class="detail-row"><span class="detail-label">Daily Limit</span><span class="detail-value">~1,500 requests</span></div>
+        <div class="detail-row"><span class="detail-label">Circuit Breaker</span><span class="detail-value">Auto-skip 2h setelah 3x fail</span></div>
+      </div>
+    </div>
+
+    <hr class="tier-divider">
+
+    <!-- Tier 2: Groq -->
+    <div class="tier-info">
+      <div class="tier-header">
+        <span class="tier-dot tier-2-dot"></span>
+        <strong>Tier 2 — Groq</strong>
+        <span class="tier-tag backup">BACKUP</span>
+      </div>
+      <div class="tier-details">
+        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">Llama 3.3 70B Versatile</span></div>
+        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">30 req/min (Free Tier)</span></div>
+        <div class="detail-row"><span class="detail-label">Latency</span><span class="detail-value">~300-800ms (LPU)</span></div>
+        <div class="detail-row"><span class="detail-label">Timeout</span><span class="detail-value">10 detik</span></div>
+      </div>
+    </div>
+
+    <hr class="tier-divider">
+
+    <!-- Tier 3: OpenRouter -->
+    <div class="tier-info">
+      <div class="tier-header">
+        <span class="tier-dot tier-3-dot"></span>
+        <strong>Tier 3 — OpenRouter</strong>
+        <span class="tier-tag fallback">LAST RESORT</span>
+      </div>
+      <div class="tier-details">
+        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">google/gemini-2.5-flash:free</span></div>
+        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">Sesuai provider</span></div>
+        <div class="detail-row"><span class="detail-label">Fallback</span><span class="detail-value">Hanya aktif jika T1 & T2 down</span></div>
+      </div>
+    </div>
+
+    <hr class="tier-divider">
+
+    <!-- Global Limits -->
+    <div class="global-limits">
+      <div class="detail-row"><span class="detail-label">Max History</span><span class="detail-value">5 pasang Q&A per user</span></div>
+      <div class="detail-row"><span class="detail-label">Cooldown</span><span class="detail-value">5 detik per user</span></div>
+      <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value" id="ai-status-text">Checking...</span></div>
+    </div>
+
+  </div>
+</div>
+
 {% endblock %}
+
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/ai_chat.js') }}"></script>
 {% endblock %}
