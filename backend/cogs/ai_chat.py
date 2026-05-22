@@ -5,6 +5,7 @@ import os
 import aiohttp
 import json
 import time
+import asyncio  # <-- FIX: Ditambahkan
 from typing import Dict, List, Optional, Tuple
 
 # Constants
@@ -65,21 +66,24 @@ class AIChat(commands.Cog):
 
     async def _get_db_settings(self, guild_id: int) -> dict:
         doc_ref = self.bot.db.collection('guild_settings').document(str(guild_id))
-        doc = await doc_ref.get()
+        # FIX: Jalankan operasi sinkron di thread terpisah
+        doc = await asyncio.to_thread(doc_ref.get)
         if doc.exists:
             return doc.to_dict()
         return {}
 
     async def _get_user_history(self, guild_id: int, user_id: int) -> List[Dict[str, str]]:
         history_ref = self.bot.db.collection('guild_settings').document(str(guild_id)).collection('ai_chat').document(str(user_id))
-        doc = await history_ref.get()
+        # FIX: Jalankan operasi sinkron di thread terpisah
+        doc = await asyncio.to_thread(history_ref.get)
         if doc.exists:
             return doc.to_dict().get('history', [])
         return []
 
     async def _save_user_history(self, guild_id: int, user_id: int, history: List[Dict[str, str]]):
         history_ref = self.bot.db.collection('guild_settings').document(str(guild_id)).collection('ai_chat').document(str(user_id))
-        await history_ref.set({'history': history, 'updated_at': time.time()})
+        # FIX: Jalankan operasi sinkron di thread terpisah
+        await asyncio.to_thread(history_ref.set, {'history': history, 'updated_at': time.time()})
 
     async def _call_google_api(self, messages: List[Dict[str, str]], temperature: float) -> Tuple[str, Optional[str]]:
         if not self.google_api_key:
@@ -157,16 +161,18 @@ class AIChat(commands.Cog):
 
         settings = await self._get_db_settings(guild_id)
         
-        if not settings.get('ai_chat_enabled', False):
+        # FIX: Kunci 'ai_chat_enabled' mungkin tidak ada, gunakan .get()
+        ai_chat_settings = settings.get('ai_chat', {})
+        if not ai_chat_settings.get('enabled', False):
             await interaction.followup.send("Fitur AI Chat sedang tidak aktif di server ini.", ephemeral=True)
             return
 
-        allowed_channel = settings.get('ai_chat', {}).get('channel_id')
+        allowed_channel = ai_chat_settings.get('channel_id')
         if allowed_channel and str(interaction.channel.id) != allowed_channel:
             await interaction.followup.send(f"Perintah ini hanya bisa digunakan di <#{allowed_channel}>.", ephemeral=True)
             return
 
-        temperature = settings.get('ai_chat', {}).get('temperature', 0.75)
+        temperature = ai_chat_settings.get('temperature', 0.75)
         
         history = await self._get_user_history(guild_id, user_id)
         
@@ -229,15 +235,103 @@ class AIChat(commands.Cog):
                 self._cooldowns[cooldown_key] = now
 
                 settings = await self._get_db_settings(guild_id)
-                if not settings.get('ai_chat_enabled', False):
+                ai_chat_settings = settings.get('ai_chat', {})
+                if not ai_chat_settings.get('enabled', False):
                     return
 
-                allowed_channel = settings.get('ai_chat', {}).get('channel_id')
+                allowed_channel = ai_chat_settings.get('channel_id')
                 if allowed_channel and str(message.channel.id) != allowed_channel:
                     return
 
-                temperature = settings.get('ai_chat', {}).get('temperature', 0.75)
-                history = await self._get_user_history(guild_id, user_id)
+                temperature = ai_chat_settings.get('temperature', 0.75)
+D:\Project Gabut\my-discord-bot\discord-bot\backend>python main.py
+[FIREBASE] 📁 Menggunakan file: D:\Project Gabut\my-discord-bot\discord-bot\backend\serviceAccountKey.json
+[FIREBASE] ✅ Berhasil terhubung ke Firestore!
+[FIREBASE] ℹ️ Firebase sudah di-init sebelumnya.
+2026-05-22 13:02:29 INFO     discord.client logging in using static token
+ * Serving Flask app 'backend.web.web_app'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.1.46:8080
+Press CTRL+C to quit
+[LAVALINK] ⏱️ Node 1 timeout: https://89.106.84.59:4000
+An unexpected error occurred while connecting Node(identifier=rLB2AEHil1VqqwQi, uri=https://lavalink.jirayu.net:13592, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host lavalink.jirayu.net:13592 ssl:default [[SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1077)]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+An unexpected error occurred while connecting Node(identifier=rLB2AEHil1VqqwQi, uri=https://lavalink.jirayu.net:13592, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host lavalink.jirayu.net:13592 ssl:default [[SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1077)]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+An unexpected error occurred while connecting Node(identifier=rLB2AEHil1VqqwQi, uri=https://lavalink.jirayu.net:13592, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host lavalink.jirayu.net:13592 ssl:default [[SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1077)]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+[LAVALINK] ⏱️ Node 2 timeout: https://lavalink.jirayu.net:13592
+[LAVALINK] ⏱️ Node 3 timeout: https://lava.g3v.co.uk:9008
+An unexpected error occurred while connecting Node(identifier=6e0klEAlFDyaJNZA, uri=https://sg1-nodelink.nyxbot.app:3000, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host sg1-nodelink.nyxbot.app:3000 ssl:default [None]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+An unexpected error occurred while connecting Node(identifier=6e0klEAlFDyaJNZA, uri=https://sg1-nodelink.nyxbot.app:3000, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host sg1-nodelink.nyxbot.app:3000 ssl:default [None]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+An unexpected error occurred while connecting Node(identifier=6e0klEAlFDyaJNZA, uri=https://sg1-nodelink.nyxbot.app:3000, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host sg1-nodelink.nyxbot.app:3000 ssl:default [None]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+An unexpected error occurred while connecting Node(identifier=6e0klEAlFDyaJNZA, uri=https://sg1-nodelink.nyxbot.app:3000, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host sg1-nodelink.nyxbot.app:3000 ssl:default [None]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+[LAVALINK] ⏱️ Node 4 timeout: https://sg1-nodelink.nyxbot.app:3000
+An unexpected error occurred while connecting Node(identifier=g9sTMXoa5LoWp5Lt, uri=https://lavalink.triniumhost.com:4333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host lavalink.triniumhost.com:4333 ssl:default [[SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1077)]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+An unexpected error occurred while connecting Node(identifier=g9sTMXoa5LoWp5Lt, uri=https://lavalink.triniumhost.com:4333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host lavalink.triniumhost.com:4333 ssl:default [[SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1077)]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+An unexpected error occurred while connecting Node(identifier=g9sTMXoa5LoWp5Lt, uri=https://lavalink.triniumhost.com:4333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host lavalink.triniumhost.com:4333 ssl:default [[SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1077)]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+[LAVALINK] ⏱️ Node 5 timeout: https://lavalink.triniumhost.com:4333
+[LAVALINK] ✅ Node 6 tersambung: https://lava-v4.ajieblogs.eu.org:443
+2026-05-22 13:03:48 INFO     discord.gateway Shard ID None has connected to Gateway (Session ID: 750951ee5d83b74ce8374243c6500994).
+==================================================
+[STATUS] 🤖 Hidden Hamlet SEKARANG SUDAH ONLINE!
+[STATUS] Terhubung ke 2 server Discord.
+==================================================
+[AI CHAT] ✅ Cog loaded. Dual API: Google + OpenRouter
+[AI CHAT] ✅ HTTP session initialized
+Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x0000023E5AF0C2F0>
+[AI CHAT] ✅ HTTP session initialized
+[COG] 📦 Loaded: ai_chat.py
+[COG] 📦 Loaded: boost.py
+[COG] 📦 Loaded: donation.py
+[COG] 📦 Loaded: general.py
+[SPOTIFY] SpotifyDown API resolver aktif (fallback: Official API)
+[COG] 📦 Loaded: music.py
+[WELCOME] ✅ WelcomeCog v3.7.6 — Cooldown: 30s
+[COG] 📦 Loaded: welcome.py
+[COG] ✅ Total 6 cogs loaded!
+[SYNC] ✅ 27 slash command(s) berhasil di-sync!
+  - /ask
+  - /cekboost
+  - /testboost
+  - /donasi
+  - /ping
+  - /stats
+  - /help
+  - /play
+  - /pause
+  - /resume
+  - /skip
+  - /stop
+  - /queue
+  - /nowplaying
+  - /volume
+  - /loop
+  - /shuffle
+  - /autoplay
+  - /seek
+  - /remove
+  - /move
+  - /skipto
+  - /disconnect
+  - /clearqueue
+  - /replay
+  - /lyrics
+  - /playlist
+[LAVALINK] 🔄 Health check loop aktif (60s).
+[DASHBOARD] 📊 Stats updater aktif (30s).
+==================================================                history = await self._get_user_history(guild_id, user_id)
                 
                 formatted_history = []
                 for h_msg in history:
