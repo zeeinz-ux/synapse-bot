@@ -25,7 +25,7 @@ from backend.cogs import firebase_setup
 
 # ===== [DASHBOARD] Import Flask app dari web/ =====
 from backend.web.web_app import (
-    app, set_stats, set_guild_channels, set_music_voice_channels
+    app, set_stats, set_guild_channels, set_music_voice_channels, set_music_state
 )
 # ==================================================
 
@@ -95,7 +95,7 @@ async def before_healthcheck():
 
 
 # ===== [DASHBOARD] Stats updater loop =====
-@tasks.loop(seconds=30)
+@tasks.loop(seconds=5)  # [FIX] Dipercepat dari 30s ke 5s untuk real-time
 async def update_stats():
     try:
         nodes = wavelink.Pool.nodes
@@ -163,6 +163,55 @@ async def update_stats():
             guilds_list=guilds_list
         )
 
+        # ==========================================================
+        # [FIX v4.6.1] Sync music state cache untuk Now Playing API
+        # ==========================================================
+        for guild in bot.guilds:
+            vc = guild.voice_client
+            guild_id_str = str(guild.id)
+            if vc and getattr(vc, "current", None):
+                ch = getattr(vc, "channel", None)
+                listeners = 0
+                if ch:
+                    listeners = len([m for m in ch.members if not m.bot])
+
+                # Build queue list with proper format for frontend
+                queue_list = []
+                queue_total_ms = 0
+                if hasattr(vc, "queue"):
+                    for t in list(vc.queue):
+                        queue_list.append({
+                            "title": t.title,
+                            "author": t.author or "Unknown",
+                            "duration": (t.length or 0) // 1000,
+                            "thumbnail": t.artwork or "",
+                            "uri": t.uri or ""
+                        })
+                        queue_total_ms += (t.length or 0)
+
+                set_music_state(guild_id_str, {
+                    "connected": True,
+                    "playing": not getattr(vc, "paused", False),
+                    "paused": getattr(vc, "paused", False),
+                    "channel_name": ch.name if ch else "Unknown",
+                    "channel_id": str(ch.id) if ch else None,
+                    "position": (getattr(vc, "position", 0) or 0) // 1000,
+                    "track": {
+                        "title": vc.current.title,
+                        "artist": vc.current.author or "Unknown",
+                        "duration": (vc.current.length or 0) // 1000,
+                        "thumbnail": vc.current.artwork or "",
+                        "uri": vc.current.uri or ""
+                    },
+                    "queue": queue_list,
+                    "queue_count": len(queue_list),
+                    "queue_duration": queue_total_ms // 1000,
+                    "listeners": listeners,
+                })
+            else:
+                # Bersihkan state kalau bot tidak di VC atau tidak ada lagu
+                set_music_state(guild_id_str, {"connected": False})
+
     except Exception as e:
         print(f"[DASHBOARD STATS ERROR] {e}")
 
@@ -219,7 +268,7 @@ async def on_ready():
 
     if not update_stats.is_running():
         update_stats.start()
-        print("[DASHBOARD] 📊 Stats updater aktif (30s).")
+        print("[DASHBOARD] 📊 Stats updater aktif (5s).")
 
     print("=" * 50)
 
