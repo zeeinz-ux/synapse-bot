@@ -1,6 +1,6 @@
 /* ================================================================================
-   JS: AI Chat Settings v4.5 — Hidden Hamlet Dashboard
-   FIX: Spinner robustness (style.display instead of classList), model sync v4.5
+   JS: AI Chat Settings v4.6 — Hidden Hamlet Dashboard
+   UPDATE: Triple API Tier Stack + Circuit Breaker Info
    ================================================================================ */
 
 (function () {
@@ -44,20 +44,17 @@
   const SAVE_URL = `/dashboard/${GUILD_ID}/ai-chat/save`;
 
   const els = {
-    toggle: document.getElementById("aiChatToggle"),
-    channel: document.getElementById("channelSelect"),
-    personality: document.getElementById("personalitySelect"),
-    temperature: document.getElementById("temperatureRange"),
-    tempValue: document.getElementById("temperatureValue"),
-    saveBtn: document.getElementById("saveSettingsBtn"),
-    refreshHistory: document.getElementById("refreshHistoryBtn"),
-    historyList: document.getElementById("historyList"),
-    historyLoading: document.getElementById("historyLoading"),
-    historyEmpty: document.getElementById("historyEmpty"),
+    toggle: document.getElementById("ai-toggle"),
+    toggleLabel: document.getElementById("toggle-label"),
+    channel: document.getElementById("channel-select"),
+    personality: document.getElementById("personality-select"),
+    temperature: document.getElementById("temperature-slider"),
+    tempValue: document.getElementById("temperature-value"),
+    saveBtn: document.getElementById("save-btn"),
+    historyContainer: document.getElementById("history-container"),
     toast: document.getElementById("toast"),
-    toastIcon: document.getElementById("toast-icon"),
     toastMsg: document.getElementById("toast-message"),
-    apiStatus: document.getElementById("apiStatusBadge"),
+    apiStatus: document.getElementById("ai-status-text"),
   };
 
   // ── Robust show/hide helpers ──
@@ -74,7 +71,7 @@
   }
 
   async function init() {
-    console.log("[AI Chat] ✅ Initializing v4.5 with guild_id:", GUILD_ID);
+    console.log("[AI Chat] ✅ Initializing v4.6 with guild_id:", GUILD_ID);
     await loadSettings();
     setupEventListeners();
     await loadHistory();
@@ -90,37 +87,59 @@
       const data = await res.json();
 
       if (!data.success) {
-        showToast("⚠️", data.message || "Gagal memuat pengaturan.", "error");
+        showToast("⚠️ Gagal memuat pengaturan.", "error");
         return;
       }
 
-      els.toggle.checked = data.ai_chat_enabled || false;
-
-      const cfg = data.ai_chat || {};
-      if (cfg.personality && els.personality) els.personality.value = cfg.personality;
-      if (cfg.channel_id && els.channel) els.channel.value = cfg.channel_id;
-      if (cfg.temperature !== undefined && cfg.temperature !== null && els.temperature) {
-        els.temperature.value = cfg.temperature;
-        if (els.tempValue) els.tempValue.textContent = cfg.temperature;
+      // Toggle
+      if (els.toggle) {
+        els.toggle.checked = data.ai_chat_enabled || false;
+        updateToggleVisuals();
       }
 
-      updateToggleVisuals();
+      const cfg = data.ai_chat || {};
+
+      // Channel
+      if (cfg.channel_id && els.channel) {
+        els.channel.value = cfg.channel_id;
+      }
+
+      // Personality
+      if (cfg.personality && els.personality) {
+        els.personality.value = cfg.personality;
+      }
+
+      // Temperature
+      if (
+        cfg.temperature !== undefined &&
+        cfg.temperature !== null &&
+        els.temperature
+      ) {
+        els.temperature.value = cfg.temperature;
+        if (els.tempValue) {
+          els.tempValue.textContent = cfg.temperature;
+        }
+      }
+
       console.log("[AI Chat] ✅ Settings loaded:", data);
     } catch (err) {
       console.error("[AI Chat] Error load settings:", err);
-      showToast("⚠️", "Gagal memuat pengaturan. Cek koneksi.", "error");
+      showToast("⚠️ Gagal memuat pengaturan. Cek koneksi.", "error");
     }
   }
 
   function setupEventListeners() {
     if (els.toggle) els.toggle.addEventListener("change", handleToggle);
+
     if (els.temperature) {
       els.temperature.addEventListener("input", (e) => {
-        if (els.tempValue) els.tempValue.textContent = e.target.value;
+        if (els.tempValue) {
+          els.tempValue.textContent = e.target.value;
+        }
       });
     }
+
     if (els.saveBtn) els.saveBtn.addEventListener("click", handleSaveSettings);
-    if (els.refreshHistory) els.refreshHistory.addEventListener("click", loadHistory);
   }
 
   async function handleToggle() {
@@ -142,7 +161,6 @@
 
       if (data.success) {
         showToast(
-          enabled ? "✅" : "🚫",
           `AI Chat ${enabled ? "diaktifkan" : "dinonaktifkan"}.`,
           "success",
         );
@@ -150,21 +168,29 @@
       } else {
         els.toggle.checked = !enabled;
         updateToggleVisuals();
-        showToast("❌", data.message || "Gagal menyimpan.", "error");
+        showToast(data.message || "Gagal menyimpan.", "error");
       }
     } catch (err) {
       console.error("[AI Chat] Toggle error:", err);
       els.toggle.checked = !enabled;
       updateToggleVisuals();
-      showToast("❌", "Koneksi error. Coba lagi.", "error");
+      showToast("Koneksi error. Coba lagi.", "error");
     }
   }
 
   function updateToggleVisuals() {
-    if (!els.toggle) return;
+    if (!els.toggle || !els.toggleLabel) return;
+
+    const enabled = els.toggle.checked;
+    els.toggleLabel.textContent = enabled ? "Aktif" : "Nonaktif";
+    els.toggleLabel.style.color = enabled
+      ? "var(--accent-success)"
+      : "var(--text-muted)";
+
     const card = els.toggle.closest(".card");
     if (!card) return;
-    if (els.toggle.checked) {
+
+    if (enabled) {
       card.style.borderColor = "var(--accent-primary)";
       card.style.background =
         "linear-gradient(135deg, #1e1e22 0%, #1a1a2e 100%)";
@@ -179,12 +205,14 @@
       personality: els.personality ? els.personality.value : "friendly",
       channel_id: els.channel ? els.channel.value : "",
       temperature: els.temperature ? parseFloat(els.temperature.value) : 0.75,
-      model: "gemini-2.5-flash", // v4.5: sync dengan backend
+      model: "gemini-2.5-flash",
     };
 
-    const originalText = els.saveBtn ? els.saveBtn.innerHTML : "Simpan";
+    const originalText = els.saveBtn
+      ? els.saveBtn.innerHTML
+      : "💾 Simpan Pengaturan";
     if (els.saveBtn) {
-      els.saveBtn.innerHTML = `<span class="btn-icon">⏳</span> Menyimpan...`;
+      els.saveBtn.innerHTML = `⏳ Menyimpan...`;
       els.saveBtn.disabled = true;
     }
 
@@ -202,14 +230,14 @@
       const data = await res.json();
 
       if (data.success) {
-        showToast("✅", "Pengaturan berhasil disimpan!", "success");
+        showToast("✅ Pengaturan berhasil disimpan!", "success");
         console.log("[AI Chat] Save success:", data);
       } else {
-        showToast("❌", data.message || "Gagal menyimpan.", "error");
+        showToast(data.message || "❌ Gagal menyimpan.", "error");
       }
     } catch (err) {
       console.error("[AI Chat] Save error:", err);
-      showToast("❌", "Koneksi error. Coba lagi.", "error");
+      showToast("❌ Koneksi error. Coba lagi.", "error");
     } finally {
       if (els.saveBtn) {
         els.saveBtn.innerHTML = originalText;
@@ -219,16 +247,15 @@
   }
 
   async function loadHistory() {
-    // ROBUST: pakai style.display + classList
-    if (els.historyLoading) {
-      show(els.historyLoading);
-    }
-    if (els.historyEmpty) {
-      hide(els.historyEmpty);
-    }
-    if (els.historyList) {
-      els.historyList.innerHTML = "";
-    }
+    if (!els.historyContainer) return;
+
+    // Show loading state
+    els.historyContainer.innerHTML = `
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <span>Memuat data...</span>
+      </div>
+    `;
 
     try {
       const res = await fetch(`${API_BASE}/history/${GUILD_ID}`);
@@ -237,22 +264,19 @@
       }
       const data = await res.json();
 
-      // Hide spinner
-      if (els.historyLoading) {
-        hide(els.historyLoading);
-      }
-
       if (!data.success || !data.history || data.history.length === 0) {
-        if (els.historyEmpty) {
-          show(els.historyEmpty);
-        }
+        els.historyContainer.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <p>Belum ada riwayat chat.</p>
+            <p class="text-muted">History akan muncul setelah user mulai chat dengan AI.</p>
+          </div>
+        `;
         return;
       }
 
+      let html = '<div class="history-list">';
       data.history.forEach((item) => {
-        const div = document.createElement("div");
-        div.className = "history-item";
-
         const preview = item.preview || [];
         let messagesHtml = "";
         preview.forEach((msg) => {
@@ -265,27 +289,29 @@
           `;
         });
 
-        div.innerHTML = `
-          <div class="history-meta">
-            <div class="history-avatar">#${item.user_id.slice(-4)}</div>
-            <span class="history-user">User ${item.user_id.slice(-8)}</span>
-            <span class="history-time">${item.total_messages} pesan • ${item.personality}</span>
+        html += `
+          <div class="history-item">
+            <div class="history-meta">
+              <div class="history-avatar">#${item.user_id.slice(-4)}</div>
+              <span class="history-user">User ${item.user_id.slice(-8)}</span>
+              <span class="history-time">${item.total_messages} pesan • ${item.personality}</span>
+            </div>
+            ${messagesHtml}
           </div>
-          ${messagesHtml}
         `;
-
-        if (els.historyList) {
-          els.historyList.appendChild(div);
-        }
       });
+      html += "</div>";
+
+      els.historyContainer.innerHTML = html;
     } catch (err) {
       console.error("[AI Chat] History load error:", err);
-      if (els.historyLoading) {
-        hide(els.historyLoading);
-      }
-      if (els.historyEmpty) {
-        show(els.historyEmpty);
-      }
+      els.historyContainer.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">⚠️</div>
+          <p>Gagal memuat riwayat chat.</p>
+          <p class="text-muted">Coba refresh halaman.</p>
+        </div>
+      `;
     }
   }
 
@@ -293,22 +319,25 @@
     if (!els.apiStatus) return;
     setTimeout(() => {
       els.apiStatus.textContent = "Online";
-      els.apiStatus.className = "badge badge-success";
+      els.apiStatus.style.color = "var(--accent-success)";
+      els.apiStatus.style.fontWeight = "600";
     }, 800);
   }
 
-  function showToast(icon, message, type = "success") {
-    if (!els.toast || !els.toastIcon || !els.toastMsg) return;
-    els.toastIcon.textContent = icon;
+  function showToast(message, type = "success") {
+    if (!els.toast || !els.toastMsg) return;
+
     els.toastMsg.textContent = message;
+
     const colors = {
-      success: "#3ba55d",
-      error: "#ed4245",
-      warning: "#f0b232",
+      success: "var(--accent-success)",
+      error: "var(--accent-danger)",
+      warning: "var(--accent-warning)",
     };
     els.toast.style.borderLeft = `4px solid ${colors[type] || colors.success}`;
+
     els.toast.classList.remove("hidden");
-    els.toast.style.display = "";
+    els.toast.style.display = "flex";
     void els.toast.offsetWidth;
     els.toast.classList.add("show");
 
