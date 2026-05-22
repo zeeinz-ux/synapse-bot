@@ -3,6 +3,42 @@
    ============================================================ */
 
 :root {
+
+
+/* ============================================================
+   Breadcrumb Navigation — Hidden Hamlet v4.6
+   ============================================================ */
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 0 4px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.breadcrumb a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.breadcrumb a:hover {
+  color: var(--accent-secondary);
+}
+
+.breadcrumb-separator {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.breadcrumb-current {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
   /* Core Theme (sync with ai_chat_v46_final.css) */
   --bg-primary: #0f0f13;
   --bg-secondary: #1a1a23;
