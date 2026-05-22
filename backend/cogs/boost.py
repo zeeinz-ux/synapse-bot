@@ -1,11 +1,9 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import firebase_admin
 from firebase_admin import firestore
 
-# Ambil db dari main (sudah di-init)
-db = firestore.client()
+# Hapus inisialisasi 'db' yang salah dari sini
 
 NOTIF_CHANNEL_ID = 1505826133097316434
 
@@ -18,6 +16,11 @@ class BoostCog(commands.Cog):
     # ==========================================================================
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
+        # Periksa apakah bot memiliki atribut db
+        if not hasattr(self.bot, 'db') or not self.bot.db:
+            print("[BOOST] ⚠️ Firestore DB tidak tersedia di bot.")
+            return
+
         # CASE A: Member BARU boost
         if before.premium_since is None and after.premium_since is not None:
             user = after
@@ -33,7 +36,7 @@ class BoostCog(commands.Cog):
                     "status": "active"
                 }
 
-                _, doc_ref = db.collection("boosts").add(data_boost)
+                _, doc_ref = self.bot.db.collection("boosts").add(data_boost)
                 print(f"[FIREBASE] ✅ Data boost tersimpan! ID: {doc_ref.id}")
 
                 # Kirim notif ke channel
@@ -63,7 +66,7 @@ class BoostCog(commands.Cog):
             print(f"[UNBOOST] 💔 {user.name} ({user.id}) berhenti boost server.")
 
             try:
-                boosts_ref = db.collection("boosts")
+                boosts_ref = self.bot.db.collection("boosts")
                 query = boosts_ref.where("user_id", "==", str(user.id)).where("status", "==", "active")
 
                 docs = query.stream()
@@ -104,13 +107,16 @@ class BoostCog(commands.Cog):
     @app_commands.command(name="cekboost", description="Cek riwayat boost user di database")
     @app_commands.describe(member="User yang mau dicek (kosongkan = diri sendiri)")
     async def cekboost(self, interaction: discord.Interaction, member: discord.Member = None):
+        if not hasattr(self.bot, 'db') or not self.bot.db:
+            return await interaction.response.send_message("❌ Koneksi database tidak tersedia.", ephemeral=True)
+
         if member is None:
             member = interaction.user
 
         await interaction.response.send_message("⏳ Mengambil data boost...", ephemeral=True)
 
         try:
-            boosts_ref = db.collection("boosts")
+            boosts_ref = self.bot.db.collection("boosts")
             query = boosts_ref.where("user_id", "==", str(member.id))
             docs = list(query.stream())
 
@@ -147,6 +153,9 @@ class BoostCog(commands.Cog):
     @app_commands.describe(member="User yang mau di-simulasi boost (kosongkan = diri sendiri)")
     @app_commands.checks.has_permissions(administrator=True)
     async def testboost(self, interaction: discord.Interaction, member: discord.Member = None):
+        if not hasattr(self.bot, 'db') or not self.bot.db:
+            return await interaction.response.send_message("❌ Koneksi database tidak tersedia.", ephemeral=True)
+
         if member is None:
             member = interaction.user
 
@@ -162,7 +171,7 @@ class BoostCog(commands.Cog):
                 "note": "Manual slash command test"
             }
 
-            _, doc_ref = db.collection("boosts").add(data_boost)
+            _, doc_ref = self.bot.db.collection("boosts").add(data_boost)
 
             # Kirim notif ke channel
             log_channel = self.bot.get_channel(NOTIF_CHANNEL_ID)
