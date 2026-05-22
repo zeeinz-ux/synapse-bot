@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Playlist Manager — Hidden Hamlet{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/playlist.css') }}">
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav class="breadcrumb">
+  <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
+  <span class="breadcrumb-separator">›</span>
+  <span>MUSIC</span>
+  <span class="breadcrumb-separator">›</span>
+  <span class="breadcrumb-current">Playlists</span>
+</nav>
+
+<div class="pl-container">
+  <!-- Sidebar: Playlist List -->
+  <div class="pl-sidebar">
+    <div class="pl-sidebar-title">📂 Playlists</div>
+    <div id="pl-sidebar-list">
+      <!-- Playlist items rendered by JS -->
+    </div>
+    <button class="pl-btn-new" id="btn-new-pl">➕ New Playlist</button>
+  </div>
+
+  <!-- Main: Playlist Detail -->
+  <div class="pl-main">
+    <div class="pl-main-header">
+      <input type="text" class="pl-title-input" id="pl-title" value="Select a playlist" readonly>
+      <div class="pl-main-actions">
+        <button class="pl-btn pl-btn-accent" id="btn-save-pl">💾 Save</button>
+        <button class="pl-btn pl-btn-success" id="btn-load-queue">📤 Load to Queue</button>
+      </div>
+    </div>
+
+    <!-- Tracks -->
+    <div class="pl-tracks" id="pl-tracks">
+      <div class="pl-empty">
+        <div class="pl-empty-icon">🎵</div>
+        <div>Select or create a playlist to manage tracks</div>
+      </div>
+    </div>
+
+    <!-- Add Track -->
+    <div class="pl-add-row" id="pl-add-row" style="display:none;">
+      <input type="text" class="pl-input" id="pl-new-url" placeholder="Paste URL or search query...">
+      <button class="pl-btn pl-btn-accent" id="btn-add-track">➕ Add</button>
+    </div>
+
+    <!-- Import / Export -->
+    <div class="pl-io-bar">
+      <button class="pl-btn" id="btn-export">📥 Export JSON</button>
+      <button class="pl-btn" id="btn-import-trigger">📤 Import JSON</button>
+      <input type="file" id="btn-import-file" accept=".json">
+      <button class="pl-btn pl-btn-accent" id="btn-sync-server">☁️ Sync to Server</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="pl-toast" id="pl-toast">
+  <span id="pl-toast-msg">Message</span>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/playlist.js') }}"></script>
+{% endblock %}
