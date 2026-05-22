@@ -1,255 +1,197 @@
-document.addEventListener('DOMContentLoaded', function() {
+/* ============================================================
+   Hidden Hamlet v4.6 — Now Playing Controller
+   ============================================================ */
 
-    const container = document.getElementById('music-player-container');
-    let guildId = null;
-    let pollInterval = null;
+(function() {
+  const GUILD_ID = window.CURRENT_GUILD_ID || (() => {
+    const m = window.location.pathname.match(/\/guild\/(\d+)/);
+    return m ? m[1] : null;
+  })();
 
-    /**
-     * Ekstrak guild ID dari URL
-     * Contoh: /dashboard/123456789/music/now-playing -> 123456789
-     */
-    function getGuildId() {
-        const pathParts = window.location.pathname.split('/');
-        const dashboardIndex = pathParts.indexOf('dashboard');
-        if (dashboardIndex !== -1 && pathParts.length > dashboardIndex + 1) {
-            return pathParts[dashboardIndex + 1];
-        }
-        return null;
+  // DOM refs
+  const els = {
+    status: document.getElementById('np-status'),
+    statusText: document.getElementById('np-status-text'),
+    art: document.getElementById('np-art'),
+    artPlaceholder: document.getElementById('np-art-placeholder'),
+    title: document.getElementById('np-title'),
+    artist: document.getElementById('np-artist'),
+    progressBar: document.getElementById('np-progress-bar'),
+    progressFill: document.getElementById('np-progress-fill'),
+    currentTime: document.getElementById('np-current'),
+    duration: document.getElementById('np-duration'),
+    btnPlay: document.getElementById('btn-play'),
+    btnPrev: document.getElementById('btn-prev'),
+    btnNext: document.getElementById('btn-next'),
+    btnStop: document.getElementById('btn-stop'),
+    volume: document.getElementById('np-volume'),
+    volValue: document.getElementById('np-vol-value'),
+    channelSelect: document.getElementById('np-channel'),
+    toggleAutojoin: document.getElementById('toggle-autojoin'),
+    toggle247: document.getElementById('toggle-247'),
+    toggleAnnounce: document.getElementById('toggle-announce'),
+    defaultVol: document.getElementById('np-default-vol'),
+    defaultVolValue: document.getElementById('np-default-vol-value'),
+    btnDisconnect: document.getElementById('btn-disconnect'),
+    btnClear: document.getElementById('btn-clear'),
+    btnShuffle: document.getElementById('btn-shuffle'),
+    btnLoop: document.getElementById('btn-loop'),
+    toast: document.getElementById('np-toast'),
+    toastMsg: document.getElementById('np-toast-msg'),
+  };
+
+  let pollInterval = null;
+  let isPlaying = false;
+
+  function showToast(msg) {
+    els.toastMsg.textContent = msg;
+    els.toast.classList.add('show');
+    setTimeout(() => els.toast.classList.remove('show'), 2500);
+  }
+
+  async function api(endpoint, opts = {}) {
+    const url = `/api/music/${endpoint}`;
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json().catch(() => ({}));
+  }
+
+  function fmtTime(sec) {
+    if (!sec || isNaN(sec)) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  function updateStatus(connected, channelName) {
+    if (connected) {
+      els.status.className = 'np-status np-status-playing';
+      els.statusText.textContent = `Playing in #${channelName || 'unknown'}`;
+    } else {
+      els.status.className = 'np-status np-status-idle';
+      els.statusText.textContent = 'Idle — Not connected';
+    }
+  }
+
+  function updatePlayer(data) {
+    const track = data.track || {};
+    isPlaying = data.playing || false;
+
+    els.title.textContent = track.title || '—';
+    els.artist.textContent = track.artist || '—';
+    els.duration.textContent = fmtTime(track.duration);
+    els.currentTime.textContent = fmtTime(data.position);
+
+    const pct = track.duration ? (data.position / track.duration) * 100 : 0;
+    els.progressFill.style.width = `${Math.min(pct, 100)}%`;
+
+    els.btnPlay.textContent = isPlaying ? '⏸' : '▶';
+
+    if (track.thumbnail) {
+      els.art.src = track.thumbnail;
+      els.art.style.display = 'block';
+      els.artPlaceholder.style.display = 'none';
+    } else {
+      els.art.style.display = 'none';
+      els.artPlaceholder.style.display = 'flex';
     }
 
-    /**
-     * Fungsi utama untuk mengambil data dari API backend
-     */
-    async function fetchAndUpdate() {
-        if (!guildId) {
-            console.error("Guild ID tidak ditemukan di URL.");
-            container.innerHTML = createErrorState('Gagal memuat pemutar musik. ID server tidak valid.');
-            return;
-        }
+    updateStatus(data.connected, data.channel_name);
+  }
 
-        try {
-            const response = await fetch(`/api/music/status/${guildId}`);
-            
-            // Jika bot tidak online atau ada masalah server, tangani di sini
-            if (!response.ok) {
-                 if (pollInterval) clearInterval(pollInterval); // Hentikan polling
-                 const errorData = await response.json().catch(() => null);
-                 const message = errorData ? errorData.error : `Gagal terhubung ke server (Status: ${response.status}).`;
-                 container.innerHTML = createErrorState(message);
-                 return;
-            }
-            
-            const state = await response.json();
-            updateUI(state);
-
-        } catch (error) {
-            console.error("Gagal mengambil status musik:", error);
-            container.innerHTML = createErrorState('Gagal terhubung ke bot. Pastikan bot online dan coba muat ulang halaman.');
-            if (pollInterval) clearInterval(pollInterval);
-        }
+  async function loadStatus() {
+    if (!GUILD_ID) return;
+    try {
+      const data = await api(`status?guild_id=${GUILD_ID}`);
+      updatePlayer(data);
+    } catch (e) {
+      // silent fail on poll
     }
+  }
 
-    /**
-     * Memperbarui UI berdasarkan data dari API
-     */
-    function updateUI(state) {
-        // State 1: Bot tidak terhubung ke voice channel sama sekali.
-        if (!state || !state.connected) {
-            container.innerHTML = createEmptyState();
-            if (pollInterval) clearInterval(pollInterval); // Stop polling karena tidak ada player aktif
-            return;
-        }
-
-        // Jika UI pemutar musik belum ada, buat markupnya.
-        let playerCard = container.querySelector('.player-card');
-        if (!playerCard) {
-            container.innerHTML = createPlayerMarkup();
-        } 
-        
-        // State 2 & 3: Bot terhubung, baik sedang memutar lagu atau sedang idle.
-        updatePlayerCard(state);
-        updateQueueCard(state);
+  async function loadChannels() {
+    if (!GUILD_ID) return;
+    try {
+      const data = await api(`channels?guild_id=${GUILD_ID}`);
+      const channels = data.channels || [];
+      els.channelSelect.innerHTML = '<option value="">— Select Channel —</option>' +
+        channels.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    } catch (e) {
+      console.error('Failed to load channels', e);
     }
+  }
 
-    /**
-     * Update bagian kartu pemutar musik utama
-     */
-    function updatePlayerCard(state) {
-        const artwork = container.querySelector('.player-artwork img');
-        const title = container.querySelector('.player-info h2');
-        const author = container.querySelector('.player-info p');
-        const progressFg = container.querySelector('.progress-bar-fg');
-        const timeCurrent = container.querySelector('.time-current');
-        const timeTotal = container.querySelector('.time-total');
-        const playPauseBtnIcon = container.querySelector('.control-btn.play-pause i');
-
-        // State 2: Ada lagu yang sedang diputar (atau dijeda)
-        if (state.current_track) {
-            artwork.src = state.current_track.artwork || '/static/img/default-artwork.png';
-            artwork.alt = state.current_track.title;
-            title.textContent = state.current_track.title;
-            author.textContent = state.current_track.author;
-            timeTotal.textContent = state.current_track.duration_fmt;
-            timeCurrent.textContent = state.position_fmt;
-
-            const progressPercent = (state.position_ms / state.current_track.duration_ms) * 100;
-            progressFg.style.width = `${progressPercent}%`;
-            
-            if (state.paused) {
-                playPauseBtnIcon.classList.remove('fa-pause');
-                playPauseBtnIcon.classList.add('fa-play');
-            } else {
-                playPauseBtnIcon.classList.remove('fa-play');
-                playPauseBtnIcon.classList.add('fa-pause');
-            }
-        // State 3: Tidak ada lagu (idle di voice channel)
-        } else {
-            artwork.src = '/static/img/default-artwork.png';
-            artwork.alt = "No song playing";
-            title.textContent = "Menunggu Lagu";
-            author.textContent = "Gunakan /play untuk memulai musik";
-            timeTotal.textContent = "0:00";
-            timeCurrent.textContent = "0:00";
-            progressFg.style.width = `0%`;
-            playPauseBtnIcon.classList.remove('fa-pause');
-            playPauseBtnIcon.classList.add('fa-play');
-        }
+  async function sendControl(action, payload = {}) {
+    if (!GUILD_ID) return showToast('Guild ID not found');
+    try {
+      await api('control', {
+        method: 'POST',
+        body: { guild_id: GUILD_ID, action, ...payload },
+      });
+      showToast(`Sent: ${action}`);
+      loadStatus();
+    } catch (e) {
+      showToast(`Error: ${e.message}`);
     }
+  }
 
-    /**
-     * Update bagian kartu antrian
-     */
-    function updateQueueCard(state) {
-        const queueCount = container.querySelector('.queue-count');
-        const queueList = container.querySelector('.queue-list');
+  // Event bindings
+  els.btnPlay.addEventListener('click', () => sendControl(isPlaying ? 'pause' : 'play'));
+  els.btnPrev.addEventListener('click', () => sendControl('prev'));
+  els.btnNext.addEventListener('click', () => sendControl('skip'));
+  els.btnStop.addEventListener('click', () => sendControl('stop'));
 
-        queueCount.textContent = `${state.queue_count} lagu dalam antrian`;
+  els.volume.addEventListener('input', (e) => {
+    const val = e.target.value;
+    els.volValue.textContent = `${val}%`;
+  });
+  els.volume.addEventListener('change', (e) => {
+    sendControl('volume', { volume: parseInt(e.target.value, 10) });
+  });
 
-        if (state.queue && state.queue.length > 0) {
-            queueList.innerHTML = state.queue.map(track => `
-                <li class="queue-item">
-                    <span class="pos">${track.position}.</span>
-                    <div class="queue-item-info">
-                        <div class="title">${escapeHtml(track.title)}</div>
-                        <div class="author">${escapeHtml(track.author)}</div>
-                    </div>
-                    <span class="duration">${track.duration_fmt}</span>
-                </li>
-            `).join('');
-        } else {
-            queueList.innerHTML = `
-                <div class="queue-empty">
-                    <i class="fas fa-list-ol"></i>
-                    <p>Antrian kosong</p>
-                </div>
-            `;
-        }
-    }
-    
-    /**
-     * Membuat markup HTML untuk seluruh player
-     */
-    function createPlayerMarkup() {
-        return `
-        <div class="player-card">
-            <div class="player-artwork">
-                <img src="/static/img/default-artwork.png" alt="Album Art">
-            </div>
-            <div class="player-info">
-                <h2>Memuat...</h2>
-                <p>...</p>
-            </div>
-            <div class="progress-bar-container">
-                <div class="progress-bar-bg">
-                    <div class="progress-bar-fg"></div>
-                </div>
-                <div class="progress-bar-time">
-                    <span class="time-current">0:00</span>
-                    <span class="time-total">0:00</span>
-                </div>
-            </div>
-            <div class="player-controls">
-                <button class="control-btn loop" title="Loop (segera hadir)" disabled><i class="fas fa-sync-alt"></i></button>
-                <button class="control-btn prev" title="Previous (segera hadir)" disabled><i class="fas fa-step-backward"></i></button>
-                <button class="control-btn play-pause" title="Play/Pause (segera hadir)" disabled><i class="fas fa-play"></i></button>
-                <button class="control-btn next" title="Next (segera hadir)" disabled><i class="fas fa-step-forward"></i></button>
-                <button class="control-btn shuffle" title="Shuffle (segera hadir)" disabled><i class="fas fa-random"></i></button>
-            </div>
-        </div>
+  els.defaultVol.addEventListener('input', (e) => {
+    els.defaultVolValue.textContent = `${e.target.value}%`;
+  });
 
-        <div class="queue-card">
-            <div class="queue-header">
-                <h3>Berikutnya</h3>
-                <span class="queue-count">0 lagu dalam antrian</span>
-            </div>
-            <ul class="queue-list">
-                 <div class="queue-empty">
-                    <i class="fas fa-spinner fa-spin"></i>
-                 </div>
-            </ul>
-        </div>
-        `;
-    }
+  els.channelSelect.addEventListener('change', (e) => {
+    if (e.target.value) sendControl('join', { channel_id: e.target.value });
+  });
 
-    /**
-     * Membuat markup untuk state kosong (bot tidak di voice channel)
-     */
-    function createEmptyState() {
-        return `
-        <div class="player-loading" style="grid-column: 1 / -1;">
-            <i class="fas fa-microphone-slash fa-3x" style="color: var(--text-secondary); margin-bottom: 1rem;"></i>
-            <h2>Bot Tidak Terhubung</h2>
-            <p>Hidden Hamlet tidak sedang berada di voice channel manapun.</p>
-            <p style="font-size: 0.9rem; margin-top: 1rem;">Gunakan perintah <code>/play</code> di server Discord Anda untuk memulai sesi musik.</p>
-        </div>
-        `;
-    }
+  function bindToggle(el, settingKey) {
+    el.addEventListener('click', () => {
+      const active = el.classList.toggle('active');
+      sendControl('setting', { key: settingKey, value: active });
+    });
+  }
+  bindToggle(els.toggleAutojoin, 'autojoin');
+  bindToggle(els.toggle247, '247_mode');
+  bindToggle(els.toggleAnnounce, 'announce');
 
-    /**
-     * Membuat markup untuk state error
-     */
-    function createErrorState(message) {
-        return `
-        <div class="player-loading" style="grid-column: 1 / -1;">
-            <i class="fas fa-exclamation-triangle fa-3x" style="color: var(--accent-red); margin-bottom: 1rem;"></i>
-            <h2>Oops! Terjadi Kesalahan</h2>
-            <p>${escapeHtml(message)}</p>
-        </div>
-        `;
-    }
+  els.btnDisconnect.addEventListener('click', () => sendControl('disconnect'));
+  els.btnClear.addEventListener('click', () => {
+    if (confirm('Clear entire queue?')) sendControl('clear');
+  });
+  els.btnShuffle.addEventListener('click', () => sendControl('shuffle'));
+  els.btnLoop.addEventListener('click', () => sendControl('loop'));
 
-    /**
-     * Helper untuk escape HTML string untuk mencegah XSS
-     */
-    function escapeHtml(unsafe) {
-        if (typeof unsafe !== 'string') return '';
-        return unsafe
-             .replace(/&/g, "&amp;")
-             .replace(/</g, "&lt;")
-             .replace(/>/g, "&gt;")
-             .replace(/"/g, "&quot;")
-             .replace(/'/g, "&#039;");
-     }
+  // Progress bar seek
+  els.progressBar.addEventListener('click', (e) => {
+    const rect = els.progressBar.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    sendControl('seek', { position_pct: pct });
+  });
 
-    /**
-     * Inisialisasi
-     */
-    function init() {
-        guildId = getGuildId();
-        if (guildId) {
-            fetchAndUpdate(); // Panggil pertama kali untuk memuat UI awal
-            // Hanya mulai polling jika panggilan pertama berhasil dan player ada
-            setTimeout(() => {
-                // Cek apakah player sudah dibuat, jika ya, mulai polling
-                 if (container.querySelector('.player-card')) {
-                    pollInterval = setInterval(fetchAndUpdate, 3000); // Polling setiap 3 detik
-                }
-            }, 1000); // Beri sedikit jeda sebelum memulai polling
-        } else {
-            container.innerHTML = createErrorState('Tidak dapat menemukan ID server dari URL. Pastikan Anda mengakses halaman ini dari dalam dashboard.');
-        }
-    }
+  // Init
+  loadChannels();
+  loadStatus();
+  pollInterval = setInterval(loadStatus, 3000);
 
-    init();
-
-});
+  // Cleanup on page leave
+  window.addEventListener('beforeunload', () => {
+    if (pollInterval) clearInterval(pollInterval);
+  });
+})();
