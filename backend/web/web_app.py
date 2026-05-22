@@ -1,3 +1,4 @@
+
 import os
 import threading
 import base64
@@ -11,17 +12,22 @@ from PIL import Image
 # Import relative dari dalam backend/ folder
 # ==========================================================
 from utils.formatters import format_duration, format_uptime
-from cogs.firebase_setup import db
 
 # ==========================================================
-# Placeholder untuk instance Bot Discord
+# Placeholder untuk instance Bot & DB
 # ==========================================================
 _bot_instance = None
+_db = None # <<<< NEW: DB placeholder
 
 def set_bot_instance(bot):
     """Dipanggil dari main.py untuk memberikan akses ke bot instance."""
     global _bot_instance
     _bot_instance = bot
+
+def set_db_instance(db_instance):
+    """Dipanggil dari main.py untuk memberikan akses ke Firestore client."""
+    global _db
+    _db = db_instance
 
 # ==========================================================
 # Flask app — static & template folder ke frontend/
@@ -111,12 +117,12 @@ def get_guild_channels(guild_id: str) -> list:
 # Helper — baca config welcome dari Firestore
 # ==========================================================
 def _get_welcome_config(guild_id: str) -> dict:
-    if db is None:
+    if _db is None:
         print("[WELCOME-WEB] ⚠️ Firebase tidak tersedia.")
         return {}
 
     try:
-        doc = db.collection("guild_settings").document(guild_id).get()
+        doc = _db.collection("guild_settings").document(guild_id).get()
         if doc.exists:
             return doc.to_dict().get("welcome", {})
     except Exception as e:
@@ -251,7 +257,7 @@ def music_now_playing(guild_id: str):
 
 @app.route("/dashboard/<guild_id>/music/queue")
 def music_queue(guild_id: str):
-    return _render_page("now_playing.html", active_page="queue", guild_id=guild_id)
+    return _render_page("queue.html", active_page="queue", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/music/playlists")
 def music_playlists(guild_id: str):
@@ -367,7 +373,7 @@ def auto_responders(guild_id: str):
     return _render_page("auto_responders.html", active_page="auto_responders", guild_id=guild_id)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ROUTES — AI Chat v4.5 (Gemini 2.5 Flash + OpenRouter + Temperature Support)
+# ROUTES — AI Chat v4.5 (Gemini 1.5 Flash + OpenRouter + Temperature Support)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.route("/dashboard/<guild_id>/ai-chat")
@@ -390,10 +396,10 @@ def ai_chat_toggle(guild_id):
         else:
             enabled = request.form.get("enabled", "false").lower() == "true"
 
-        if db is None:
+        if _db is None:
             return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
 
-        doc_ref = db.collection("guild_settings").document(str(guild_id))
+        doc_ref = _db.collection("guild_settings").document(str(guild_id))
         doc_ref.set({"ai_chat_enabled": enabled}, merge=True)
 
         return jsonify({
@@ -417,17 +423,17 @@ def ai_chat_save(guild_id):
 
         personality = data.get("personality", "friendly")
         channel_id = data.get("channel_id", "").strip()
-        model = data.get("model", "gemini-2.5-flash")
+        model = data.get("model", "gemini-1.5-flash")
         temperature = float(data.get("temperature", 0.75))
 
         valid_personalities = ["friendly", "formal", "tsundere", "sarcastic", "wise"]
         if personality not in valid_personalities:
             personality = "friendly"
 
-        if db is None:
+        if _db is None:
             return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
 
-        doc_ref = db.collection("guild_settings").document(str(guild_id))
+        doc_ref = _db.collection("guild_settings").document(str(guild_id))
         doc_ref.set({
             "ai_chat": {
                 "personality": personality,
@@ -451,19 +457,19 @@ def ai_chat_save(guild_id):
 @app.route("/api/ai-chat/settings/<guild_id>")
 def api_ai_chat_settings(guild_id):
     try:
-        if db is None:
+        if _db is None:
             return jsonify({
                 "success": True,
                 "ai_chat_enabled": False,
                 "ai_chat": {
                     "personality": "friendly",
                     "channel_id": "",
-                    "model": "gemini-2.5-flash",
+                    "model": "gemini-1.5-flash",
                     "temperature": 0.75,
                 }
             }), 200
 
-        doc_ref = db.collection("guild_settings").document(str(guild_id))
+        doc_ref = _db.collection("guild_settings").document(str(guild_id))
         doc = doc_ref.get()
 
         if not doc.exists:
@@ -473,7 +479,7 @@ def api_ai_chat_settings(guild_id):
                 "ai_chat": {
                     "personality": "friendly",
                     "channel_id": "",
-                    "model": "gemini-2.5-flash",
+                    "model": "gemini-1.5-flash",
                     "temperature": 0.75,
                 }
             }), 200
@@ -486,7 +492,7 @@ def api_ai_chat_settings(guild_id):
             "ai_chat": {
                 "personality": ai_chat.get("personality", "friendly"),
                 "channel_id": ai_chat.get("channel_id", ""),
-                "model": ai_chat.get("model", "gemini-2.5-flash"),
+                "model": ai_chat.get("model", "gemini-1.5-flash"),
                 "temperature": ai_chat.get("temperature", 0.75),
             }
         }), 200
@@ -499,11 +505,11 @@ def api_ai_chat_settings(guild_id):
 @app.route("/api/ai-chat/history/<guild_id>")
 def api_ai_chat_history(guild_id):
     try:
-        if db is None:
+        if _db is None:
             return jsonify({"success": True, "history": []}), 200
 
         docs = (
-            db.collection("guild_settings")
+            _db.collection("guild_settings")
             .document(str(guild_id))
             .collection("ai_chat")
             .stream()
@@ -540,7 +546,7 @@ def api_ai_chat_history(guild_id):
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/save", methods=["POST"])
 def save_welcome(guild_id: str):
-    if db is None:
+    if _db is None:
         return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
 
     try:
@@ -615,7 +621,7 @@ def save_welcome(guild_id: str):
             }
         }
 
-        db.collection("guild_settings").document(guild_id).set(payload, merge=True)
+        _db.collection("guild_settings").document(guild_id).set(payload, merge=True)
 
         print(f"[WELCOME-WEB] ✅ Config tersimpan untuk guild {guild_id} (style={style})")
         return jsonify({"success": True, "message": "✅ Pengaturan Welcome berhasil disimpan!"}), 200
