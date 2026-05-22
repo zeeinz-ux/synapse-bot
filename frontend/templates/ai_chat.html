@@ -2,10 +2,14 @@
 
 {% block title %}AI Chat Settings — Hidden Hamlet{% endblock %}
 
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ai_chat.css') }}">
+{% endblock %}
+
 {% block content %}
 
 <!-- Toast Notification -->
-<div id="toast" class="toast" style="display: none;">
+<div id="toast" class="toast hidden">
   <span id="toast-message">✅ Berhasil disimpan!</span>
 </div>
 
@@ -19,10 +23,12 @@
 <div class="card">
   <div class="card-header">
     <span class="card-icon">⚡</span>
-    <h2>Status AI Chat</h2>
+    <div class="card-title-group">
+      <h2>Status AI Chat</h2>
+      <p>Aktifkan atau nonaktifkan fitur AI Chat di server ini.</p>
+    </div>
   </div>
   <div class="card-body">
-    <p>Aktifkan atau nonaktifkan fitur AI Chat di server ini.</p>
     <p class="text-muted">Jika dimatikan, bot tidak akan merespons mention maupun command <code>/ask</code>.</p>
     <br>
     <label class="toggle-switch">
@@ -37,11 +43,12 @@
 <div class="card">
   <div class="card-header">
     <span class="card-icon">🎭</span>
-    <h2>Personality & Channel</h2>
+    <div class="card-title-group">
+      <h2>Personality & Channel</h2>
+      <p>Atur gaya bicara AI dan channel restriction.</p>
+    </div>
   </div>
   <div class="card-body">
-    <p>Atur gaya bicara AI dan channel restriction.</p>
-    <br>
 
     <div class="form-group">
       <label for="channel-select">Channel AI Chat</label>
@@ -95,22 +102,29 @@
 <div class="card">
   <div class="card-header">
     <span class="card-icon">📜</span>
-    <h2>Chat History</h2>
+    <div class="card-title-group">
+      <h2>Chat History</h2>
+      <p>Riwayat percakapan terakhir dari user di server ini.</p>
+    </div>
   </div>
   <div class="card-body">
-    <p>Riwayat percakapan terakhir dari user di server ini.</p>
-    <br>
     <div id="history-container">
-      <p class="text-muted">Memuat data...</p>
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <span>Memuat data...</span>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Info & Limitasi Card — UPDATED v4.6 -->
+<!-- Info & Limitasi Card — v4.6 Triple API -->
 <div class="card">
   <div class="card-header">
     <span class="card-icon">📊</span>
-    <h2>Info & Limitasi</h2>
+    <div class="card-title-group">
+      <h2>Info & Limitasi</h2>
+      <p>Detail arsitektur AI dan batasan penggunaan.</p>
+    </div>
   </div>
   <div class="card-body">
 
