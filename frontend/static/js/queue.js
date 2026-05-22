@@ -1,98 +1,135 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const guildId = window.CURRENT_GUILD_ID;
-    if (!guildId) {
-        console.error('Error: Guild ID tidak ditemukan.');
-        const queueList = document.getElementById('queue-list');
-        if (queueList) {
-            queueList.innerHTML = '<div class="queue-item-placeholder"><p>Error: Tidak dapat memuat antrian. Guild ID tidak valid.</p></div>';
-        }
-        return;
+/* ============================================================
+   Hidden Hamlet v4.6 — Queue Manager
+   ============================================================ */
+
+(function() {
+  const GUILD_ID = window.CURRENT_GUILD_ID || (() => {
+    const m = window.location.pathname.match(/\/guild\/(\d+)/);
+    return m ? m[1] : null;
+  })();
+
+  const els = {
+    total: document.getElementById('q-total'),
+    duration: document.getElementById('q-duration'),
+    btnShuffle: document.getElementById('btn-shuffle'),
+    btnClear: document.getElementById('btn-clear'),
+    inputUrl: document.getElementById('q-input-url'),
+    inputSource: document.getElementById('q-input-source'),
+    btnAdd: document.getElementById('btn-add'),
+    list: document.getElementById('queue-list'),
+    toast: document.getElementById('queue-toast'),
+    toastMsg: document.getElementById('queue-toast-msg'),
+  };
+
+  let tracks = [];
+
+  function showToast(msg) {
+    els.toastMsg.textContent = msg;
+    els.toast.classList.add('show');
+    setTimeout(() => els.toast.classList.remove('show'), 2500);
+  }
+
+  async function api(endpoint, opts = {}) {
+    const url = `/api/music/${endpoint}`;
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json().catch(() => ({}));
+  }
+
+  function fmtTime(sec) {
+    if (!sec || isNaN(sec)) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  function render() {
+    els.total.textContent = tracks.length;
+    const totalSec = tracks.reduce((a, t) => a + (t.duration || 0), 0);
+    els.duration.textContent = fmtTime(totalSec);
+
+    if (tracks.length === 0) {
+      els.list.innerHTML = `
+        <div class="queue-empty">
+          <div class="queue-empty-icon">🎶</div>
+          <div class="queue-empty-text">Queue kosong. Tambahkan lagu untuk memulai.</div>
+        </div>`;
+      return;
     }
 
-    const queueList = document.getElementById('queue-list');
-    const trackCountEl = document.getElementById('track-count');
-    const totalDurationEl = document.getElementById('total-duration');
-    const shuffleBtn = document.getElementById('shuffle-btn');
-    const clearBtn = document.getElementById('clear-btn');
+    els.list.innerHTML = tracks.map((t, i) => `
+      <div class="queue-track" data-index="${i}">
+        <div class="queue-track-num">${i + 1}</div>
+        <img class="queue-track-thumb" src="${t.thumbnail || ''}" alt="" onerror="this.style.display='none'">
+        <div class="queue-track-info">
+          <div class="queue-track-title">${t.title || 'Unknown'}</div>
+          <div class="queue-track-artist">${t.artist || 'Unknown Artist'}</div>
+        </div>
+        <div class="queue-track-dur">${fmtTime(t.duration)}</div>
+        <div class="queue-track-btns">
+          <button class="q-btn q-btn-icon" title="Move to top" onclick="window.moveToTop(${i})">⤴</button>
+          <button class="q-btn q-btn-icon danger" title="Remove" onclick="window.removeTrack(${i})">❌</button>
+        </div>
+      </div>
+    `).join('');
+  }
 
-    const API_URL = `/api/music/status/${guildId}`;
-
-    function formatDuration(ms) {
-        const totalSeconds = Math.floor(ms / 1000);
-        const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
-        const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
-        const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-        return `${hours}:${minutes}:${seconds}`;
+  async function loadQueue() {
+    if (!GUILD_ID) return;
+    try {
+      const data = await api(`queue?guild_id=${GUILD_ID}`);
+      tracks = data.queue || [];
+      render();
+    } catch (e) {
+      showToast(`Error loading queue: ${e.message}`);
     }
+  }
 
-    function renderQueue(state) {
-        if (!queueList || !trackCountEl || !totalDurationEl) return;
-
-        const tracks = state.queue || [];
-        const totalDuration = tracks.reduce((acc, track) => acc + (track.duration_ms || 0), 0);
-
-        trackCountEl.textContent = tracks.length;
-        totalDurationEl.textContent = formatDuration(totalDuration);
-
-        if (tracks.length === 0) {
-            queueList.innerHTML = '<div class="queue-item-placeholder"><p>Antrian saat ini kosong.</p></div>';
-            return;
-        }
-
-        let html = ''
-        tracks.forEach((track, index) => {
-            html += `
-                <div class="queue-item" data-track-id="${track.id}">
-                    <span class="track-position">${index + 1}</span>
-                    <img src="${track.artwork || 'https://via.placeholder.com/48?text=Art'}" alt="Artwork" class="track-artwork">
-                    <div class="track-details">
-                        <p class="track-title">${track.title || 'Trek Tidak Dikenal'}</p>
-                        <p class="track-author">${track.author || 'Artis Tidak Dikenal'}</p>
-                    </div>
-                    <span class="track-duration">${formatDuration(track.duration_ms || 0)}</span>
-                    <div class="track-actions">
-                        <button class="action-btn remove-track-btn" title="Hapus dari antrian">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-        queueList.innerHTML = html;
+  async function sendAction(action, payload = {}) {
+    if (!GUILD_ID) return showToast('Guild ID not found');
+    try {
+      await api('queue', {
+        method: 'POST',
+        body: { guild_id: GUILD_ID, action, ...payload },
+      });
+      showToast(`Sent: ${action}`);
+      loadQueue();
+    } catch (e) {
+      showToast(`Error: ${e.message}`);
     }
+  }
 
-    async function fetchQueue() {
-        try {
-            const response = await fetch(API_URL);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const state = await response.json();
-            renderQueue(state);
-        } catch (error) {
-            console.error("Gagal mengambil data antrian:", error);
-            if (queueList) {
-                queueList.innerHTML = '<div class="queue-item-placeholder"><p>Gagal memuat antrian. Coba lagi nanti.</p></div>';
-            }
-        }
-    }
+  window.removeTrack = function(index) {
+    sendAction('remove', { index });
+  };
 
-    // Event Listeners (untuk masa depan)
-    if (shuffleBtn) {
-        shuffleBtn.addEventListener('click', () => {
-            console.log('Shuffle button clicked');
-            // Logika untuk mengacak antrian akan ditambahkan di sini
-        });
-    }
+  window.moveToTop = function(index) {
+    sendAction('move_top', { index });
+  };
 
-    if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
-            console.log('Clear button clicked');
-            // Logika untuk membersihkan antrian akan ditambahkan di sini
-        });
-    }
+  els.btnAdd.addEventListener('click', () => {
+    const url = els.inputUrl.value.trim();
+    const source = els.inputSource.value;
+    if (!url) return showToast('Enter a URL or query');
+    sendAction('add', { query: url, source });
+    els.inputUrl.value = '';
+  });
 
-    // Ambil data pertama kali & set interval untuk pembaruan
-    fetchQueue();
-    setInterval(fetchQueue, 5000); // refresh setiap 5 detik
-});
+  els.inputUrl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') els.btnAdd.click();
+  });
+
+  els.btnClear.addEventListener('click', () => {
+    if (confirm('Clear entire queue?')) sendAction('clear');
+  });
+
+  els.btnShuffle.addEventListener('click', () => sendAction('shuffle'));
+
+  // Init
+  loadQueue();
+  setInterval(loadQueue, 5000);
+})();
