@@ -3,73 +3,11 @@ from discord.ext import commands
 from discord import app_commands
 import platform
 import time
-import asyncio
-from backend.cogs.firebase_setup import db
 
 class GeneralCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.start_time = time.time()
-
-    @commands.Cog.listener()
-    async def on_guild_join(self, guild: discord.Guild):
-        """Create a default configuration when the bot joins a new guild."""
-        if db is None:
-            print("[General] Firestore DB not initialized. Skipping on_guild_join.")
-            return
-
-        guild_id = str(guild.id)
-        doc_ref = db.collection("guild_settings").document(guild_id)
-
-        try:
-            # Run sync DB check in a separate thread to avoid blocking
-            doc = await asyncio.to_thread(doc_ref.get)
-            
-            if doc.exists:
-                print(f"[General] Config already exists for {guild.name} ({guild_id}). Skipping creation.")
-                return
-
-            print(f"[General] No config found for {guild.name} ({guild_id}). Creating default entry.")
-            
-            # Define default settings for a new server
-            default_settings = {
-                "welcome": {
-                    "enabled": False,
-                    "channel_id": None,
-                    "message_text": "Welcome {user} to {server}! You are the {count}th member.",
-                    "style": "embed",
-                    "is_embed": True,
-                    "embed_color": "#5865F2",
-                    "embed_title": "👋 Welcome!",
-                    "bg_image_url": "https://raw.githubusercontent.com/zeeinz-ux/my-discord-bot/main/frontend/static/images/default-welcome-bg.png",
-                    "banner_bg_url": "https://raw.githubusercontent.com/zeeinz-ux/my-discord-bot/main/frontend/static/images/default-welcome-bg.png",
-                    "banner_text": "WELCOME",
-                    "banner_subtext": "Member #{count} • {server}",
-                    "banner_font_color": "#FFFFFF",
-                    "banner_avatar_ring": True
-                },
-                "ai_chat": {
-                    "enabled": False,
-                    "channel_id": None,
-                    "persona": "Default: Gaul, keren, santai, pakai Bahasa Indonesia kasual (lu-gue/kamu-aku sesuai konteks).",
-                    "temperature": 0.7
-                },
-                "boost": {
-                    "enabled": False,
-                    "channel_id": None
-                },
-                "donation": {
-                    "enabled": False,
-                    "log_channel_id": None
-                }
-            }
-
-            # Run sync DB write in a separate thread
-            await asyncio.to_thread(doc_ref.set, default_settings)
-            print(f"[General] ✅ Created default config for guild: {guild.name} ({guild_id})")
-
-        except Exception as e:
-            print(f"[General] ❌ Firestore error in on_guild_join for {guild.name} ({guild_id}): {e}")
 
     @app_commands.command(name="ping", description="Cek latency bot")
     async def ping(self, interaction: discord.Interaction):
@@ -92,37 +30,6 @@ class GeneralCog(commands.Cog):
         embed.set_footer(text=f"Requested by {interaction.user.name}")
 
         await interaction.edit_original_response(embed=embed)
-
-    @app_commands.command(name="testjoin", description="Tes koneksi dasar ke voice channel tanpa Wavelink.")
-    async def testjoin(self, interaction: discord.Interaction):
-        """A simple command to test basic voice connection."""
-        await interaction.response.defer(ephemeral=True)
-
-        if not interaction.user.voice:
-            await interaction.followup.send("❌ Anda harus berada di voice channel untuk menjalankan tes ini.")
-            return
-
-        voice_channel = interaction.user.voice.channel
-        
-        try:
-            print(f"[TESTJOIN] Attempting to connect to '{voice_channel.name}' in '{voice_channel.guild.name}'...")
-            # Try to connect to the voice channel
-            vc = await voice_channel.connect(timeout=20.0, self_deaf=True)
-            print(f"[TESTJOIN] ✅ Successfully connected to '{voice_channel.name}'.")
-            
-            await interaction.followup.send(f"✅ Berhasil terhubung ke `{voice_channel.name}`. Koneksi dasar OK.")
-            
-            # Disconnect after a short delay
-            await asyncio.sleep(3)
-            await vc.disconnect()
-            print(f"[TESTJOIN] Disconnected from '{voice_channel.name}'.")
-
-        except asyncio.TimeoutError:
-            print(f"[TESTJOIN] ❌ Timed out while trying to connect to '{voice_channel.name}'.")
-            await interaction.followup.send("❌ **Timeout!** Gagal terhubung ke voice channel dalam 20 detik. Ini menandakan ada masalah jaringan antara server bot dan Discord.")
-        except Exception as e:
-            print(f"[TESTJOIN] ❌ An unexpected error occurred: {e}")
-            await interaction.followup.send(f"❌ Gagal terhubung karena error tak terduga: `{e}`")
 
     @app_commands.command(name="stats", description="Lihat statistik bot")
     async def stats(self, interaction: discord.Interaction):
