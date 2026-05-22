@@ -9,21 +9,22 @@ import discord
 from discord.ext import commands, tasks
 import wavelink
 import asyncio
+import sys
 
 from backend.utils.formatters import format_duration
 
-_web_app = None
-
 
 def _get_web_app():
-    global _web_app
-    if _web_app is None:
+    """Ambil web_app module via sys.modules (avoid circular import)."""
+    wa = sys.modules.get("backend.web.web_app")
+    if wa is None:
         try:
-            from backend.web.web_app import pop_music_commands
-            _web_app = {"pop_music_commands": pop_music_commands}
+            import backend.web.web_app as wa_mod
+            wa = wa_mod
         except Exception as e:
-            print(f"[QUEUE_COG] ⚠️ Web app import failed: {e}")
-    return _web_app
+            print(f"[QUEUE_COG] ⚠️ Cannot import web_app: {e}")
+            return None
+    return wa
 
 
 class QueueManager(commands.Cog):
@@ -46,7 +47,12 @@ class QueueManager(commands.Cog):
         wa = _get_web_app()
         if not wa:
             return
-        cmds = wa["pop_music_commands"](max_n=10)
+        try:
+            cmds = wa.pop_music_commands(max_n=10)
+        except Exception as e:
+            print(f"[QUEUE_COG] Pop commands error: {e}")
+            return
+
         for cmd in cmds:
             scope = cmd.get("scope")
             if scope == "queue":
