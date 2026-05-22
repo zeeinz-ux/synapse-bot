@@ -186,7 +186,7 @@ class AIChat(commands.Cog):
     ) -> tuple[str, bool]:
         """Call Google AI Studio. Return (response_text, success)."""
         if not self.google_api_key or not self.session:
-            return "", False
+            return "API_KEY_MISSING", False
 
         try:
             contents = []
@@ -209,53 +209,42 @@ class AIChat(commands.Cog):
 
             async with self.session.post(url, headers={"Content-Type": "application/json"}, json=payload) as resp:
                 status = resp.status
-                data = await resp.json()
+                
+                # Jaga-jaga kalau response bukan JSON resmi
+                try:
+                    data = await resp.json()
+                except Exception:
+                    data = {}
 
                 if status == 429:
                     error_msg = data.get("error", {}).get("message", "Rate limit or quota exhausted.")
                     print(f"[AI CHAT] ⛔ Google Rate Limit (429): {error_msg[:200]}")
-                    # Anggap semua error 429 sebagai sinyal kuota/limit habis untuk fallback.
-                    return "QUOTA_ZERO", False
-
-                if status == 400:
-                    err_detail = data.get("error", data)
-                    print(f"[AI CHAT] ❌ Google Bad Request (400): {err_detail}")
-                    return "", False
-
-                if status == 403:
-                    err_detail = data.get("error", data)
-                    print(f"[AI CHAT] ❌ Google Forbidden (403): {err_detail}")
-                    return "", False
-
-                if status == 404:
-                    err_detail = data.get("error", data)
-                    print(f"[AI CHAT] ❌ Google Not Found (404): Model '{GOOGLE_MODEL}' mungkin tidak tersedia. {err_detail}")
-                    return "", False
+                    return "RATE_LIMIT", False
 
                 if status != 200:
                     print(f"[AI CHAT] ❌ Google HTTP {status}: {data}")
-                    return "", False
+                    return f"HTTP_{status}", False
 
                 candidates = data.get("candidates", [])
                 if not candidates:
-                    return "", False
+                    return "EMPTY_CANDIDATES", False
 
                 parts = candidates[0].get("content", {}).get("parts", [])
                 if not parts:
-                    return "", False
+                    return "EMPTY_PARTS", False
 
                 return parts[0].get("text", "").strip(), True
 
         except Exception as e:
-            print(f"[AI CHAT] ❌ Google Error: {e}")
-            return "", False
+            print(f"[AI CHAT] ❌ Google Exception Error: {e}")
+            return "EXCEPTION", False
 
     async def _call_openrouter(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
         """Call OpenRouter. Return (response_text, success)."""
         if not self.openrouter_api_key or not self.session:
-            return "", False
+            return "API_KEY_MISSING", False
 
         try:
             messages = [{"role": "system", "content": system_prompt}]
@@ -283,78 +272,73 @@ class AIChat(commands.Cog):
 
             async with self.session.post(url, headers=headers, json=payload) as resp:
                 status = resp.status
-                data = await resp.json()
+                try:
+                    data = await resp.json()
+                except Exception:
+                    data = {}
 
                 if status == 429:
                     print(f"[AI CHAT] ⛔ OpenRouter Rate Limit: {data}")
-                    return "", False
-
-                if status == 401:
-                    print(f"[AI CHAT] ❌ OpenRouter Unauthorized (401): API key invalid")
-                    return "", False
-
-                if status == 404:
-                    print(f"[AI CHAT] ❌ OpenRouter Not Found (404): Model '{OPENROUTER_MODEL}' tidak valid. {data}")
-                    return "", False
+                    return "RATE_LIMIT", False
 
                 if status != 200:
                     print(f"[AI CHAT] ❌ OpenRouter HTTP {status}: {data}")
-                    return "", False
+                    return f"HTTP_{status}", False
 
                 choices = data.get("choices", [])
                 if not choices:
-                    return "", False
+                    return "EMPTY_CHOICES", False
 
                 return choices[0].get("message", {}).get("content", "").strip(), True
 
         except Exception as e:
-            print(f"[AI CHAT] ❌ OpenRouter Error: {e}")
-            return "", False
+            print(f"[AI CHAT] ❌ OpenRouter Exception Error: {e}")
+            return "EXCEPTION", False
 
     async def _call_gemini(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> str:
-        """Dual API: Try Google first, fallback to OpenRouter."""
+        """Dual API Fallback Engine"""
 
-        # Try Google first
+        # 1. Coba Google AI Studio Dulu (Primary)
         if self.google_api_key:
-            print("[AI CHAT] 🔄 Trying Google AI Studio...")
+            print("[AI CHAT] 🔄 [PRIMARY] Trying Google AI Studio...")
             response, success = await self._call_google_gemini(
                 user_message, history, system_prompt, temperature
             )
 
             if success and response:
-                print("[AI CHAT] ✅ Google success")
+                print("[AI CHAT] ✅ Google AI Studio Success!")
                 return response
+            
+            print(f"[AI CHAT] ⚠️ Google AI Studio gagal/limit (Reason: {response}).")
 
-            if response == "QUOTA_ZERO":
-                print("[AI CHAT] ⚠️ Google quota = 0, switching to OpenRouter...")
-            else:
-                print("[AI CHAT] ⚠️ Google failed, trying OpenRouter...")
-
-        # Fallback to OpenRouter
+        # 2. Kalau Google Gagal, Otomatis Alihkan Ke OpenRouter (Backup)
         if self.openrouter_api_key:
+            print("[AI CHAT] 🚀 [FALLBACK] Switching to OpenRouter...")
             response, success = await self._call_openrouter(
                 user_message, history, system_prompt, temperature
             )
             if success and response:
-                print("[AI CHAT] ✅ OpenRouter success")
+                print("[AI CHAT] ✅ OpenRouter Fallback Success!")
                 return response
+            
+            print(f"[AI CHAT] ❌ OpenRouter juga gagal (Reason: {response}).")
 
-        # Both failed
+        # 3. Skenario Terburuk: Kedua API Gagal / Kena Limit Barengan
         if not self.google_api_key and not self.openrouter_api_key:
-            return "❌ Tidak ada API key yang tersedia. Hubungi admin bot."
+            return "❌ Tidak ada API key yang tersedia di environment (.env). Hubungi admin bot."
 
         if not self.openrouter_api_key:
             return (
-                "⚠️ Google AI quota habis (0).\n"
-                "OpenRouter belum di-setup. Hubungi admin untuk tambah fallback API."
+                "⚠️ Kuota harian Google AI Studio lu udah habis (20/20 RPD).\n"
+                "Dan lu belum pasang `OPENROUTER_API_KEY` di `.env` sebagai backup. Tolong di-setup dulu bro!"
             )
 
         return (
-            "Waduh, semua AI-nya lagi pusing nih! 🧠💥\n"
-            "Google quota = 0, OpenRouter juga rate limit / model error.\n"
-            "Coba tanya lagi dalam beberapa menit ya, bro!"
+            "Waduh, semua mesin AI-nya lagi pusing nih, bro! 🧠💥\n"
+            "Google AI Studio lu udah limit (429), dan pas dicoba dilempar ke OpenRouter juga dapet error.\n"
+            "Coba tunggu beberapa menit lagi baru chat gua ya!"
         )
 
     # ═══════════════════════════════════════════════════════════════════════
