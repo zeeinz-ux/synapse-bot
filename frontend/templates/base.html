@@ -11,6 +11,11 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Page-specific styles -->
+  {% block styles %}{% endblock %}
+
+  <!-- Legacy head block for backward compatibility -->
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -208,7 +213,7 @@
       </nav>
       <div class="sidebar-footer">
         <div class="footer-info">
-          <span class="version">v4.5</span>
+          <span class="version">v4.6</span>
           <span class="divider">•</span>
           <span class="last-update">{{ s.last_updated }}</span>
         </div>
