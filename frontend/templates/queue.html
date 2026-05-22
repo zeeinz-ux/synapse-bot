@@ -1,32 +1,59 @@
 {% extends "base.html" %}
 
-{% block title %}Antrian Musik - {{ super() }}{% endblock %}
+{% block title %}Queue Manager — Hidden Hamlet{% endblock %}
 
-{% block head %}
+{% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/queue.css') }}">
 {% endblock %}
 
 {% block content %}
+<!-- Breadcrumb -->
+<nav class="breadcrumb">
+  <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
+  <span class="breadcrumb-separator">›</span>
+  <span>MUSIC</span>
+  <span class="breadcrumb-separator">›</span>
+  <span class="breadcrumb-current">Queue</span>
+</nav>
+
 <div class="queue-container">
-    <header class="queue-header">
-        <h1>Antrian Musik</h1>
-        <div class="queue-actions">
-            <button id="shuffle-btn" class="btn btn-secondary">Acak Antrian</button>
-            <button id="clear-btn" class="btn btn-danger">Bersihkan</button>
-        </div>
-    </header>
-
-    <div class="queue-info">
-        <p>Total Lagu: <span id="track-count">0</span></p>
-        <p>Total Durasi: <span id="total-duration">00:00:00</span></p>
+  <!-- Header Stats -->
+  <div class="queue-header">
+    <div class="queue-stats">
+      <div class="queue-stat">
+        <div class="queue-stat-value" id="q-total">0</div>
+        <div class="queue-stat-label">Tracks</div>
+      </div>
+      <div class="queue-stat">
+        <div class="queue-stat-value" id="q-duration">0:00</div>
+        <div class="queue-stat-label">Duration</div>
+      </div>
     </div>
-
-    <div id="queue-list" class="queue-list-container">
-        <!-- Daftar lagu akan dimasukkan oleh JavaScript di sini -->
-        <div class="queue-item-placeholder">
-            <p>Memuat antrian...</p>
-        </div>
+    <div class="queue-actions">
+      <button class="q-btn" id="btn-shuffle">🔀 Shuffle</button>
+      <button class="q-btn q-btn-danger" id="btn-clear">🗑 Clear All</button>
     </div>
+  </div>
+
+  <!-- Add Track Bar -->
+  <div class="queue-add-bar">
+    <input type="text" class="q-input" id="q-input-url" placeholder="Paste YouTube / Spotify URL or search query...">
+    <select class="q-select" id="q-input-source">
+      <option value="youtube">YouTube</option>
+      <option value="spotify">Spotify</option>
+    </select>
+    <button class="q-btn q-btn-accent" id="btn-add">➕ Add</button>
+  </div>
+
+  <!-- Track List -->
+  <div class="queue-list" id="queue-list">
+    <!-- Empty state rendered by JS -->
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="queue-toast" id="queue-toast">
+  <span id="queue-toast-msg">Message</span>
 </div>
 {% endblock %}
 
