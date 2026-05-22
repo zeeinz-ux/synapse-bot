@@ -1,27 +1,24 @@
 """
 ================================================================================
-COG: AI Chat Module v4.5 — Hidden Hamlet Discord Bot
+COG: AI Chat Module v4.6 — Hidden Hamlet Discord Bot
 ================================================================================
-File        : backend/cogs/ai_chat.py
-Deskripsi   : Dual API support — Google AI Studio (Primary) + OpenRouter (Fallback)
-              • Google: Native Gemini API via REST (aiohttp)
-              • OpenRouter: Fallback kalau Google quota 0 / rate limit / model error
-              • Auto-switch logic, tidak perlu restart bot
-              • Slash command pakai @app_commands.command()
-              • Mention handler (@bot)
-              • Channel restriction via dashboard
-              • Anti-spam cooldown manual (5 detik/user)
-              • Chat history Firestore (max 5 pasang Q&A per user)
-              • Temperature dari dashboard (0–1) diteruskan ke API
-Models      : gemini-2.5-flash (Google) / google/gemini-2.5-flash:free (OpenRouter)
+File    : backend/cogs/ai_chat.py
+Deskripsi : Triple API Fallback — Google AI Studio (T1) → Groq (T2) → OpenRouter (T3)
+  • Tier 1: Google AI Studio — Primary (Gemini 2.5 Flash)
+  • Tier 2: Groq — Backup (Llama 3.3 70B Versatile)
+  • Tier 3: OpenRouter — Last Resort (Gemini 2.5 Flash Free)
+  • Lightweight Circuit Breaker: Gemini auto-skip 2h setelah 3x fail berturut-turut
+  • Compact structured logging — 1 line per tier switch
+  • Slash command /ask + Mention handler (@bot)
+  • Channel restriction, personality, temperature via dashboard
+  • Chat history Firestore (max 5 pasang Q&A per user)
 ================================================================================
 """
 
 import os
 import asyncio
-import traceback
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 import discord
 from discord import app_commands
@@ -36,13 +33,21 @@ MAX_HISTORY_PAIRS = 5
 COOLDOWN_SECONDS = 5
 DEFAULT_PERSONALITY = "friendly"
 
-# ── Google AI Studio Config ──
+# ── Tier 1: Google AI Studio ──
 GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 GOOGLE_MODEL = "gemini-2.5-flash"
 
-# ── OpenRouter Config ──
+# ── Tier 2: Groq ──
+GROQ_API_BASE = "https://api.groq.com/openai/v1"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
+# ── Tier 3: OpenRouter ──
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
 OPENROUTER_MODEL = "google/gemini-2.5-flash:free"
+
+# ── Circuit Breaker ──
+CIRCUIT_BREAKER_THRESHOLD = 3       # fail streak sebelum circuit open
+CIRCUIT_BREAKER_COOLDOWN = 7200     # 2 jam (detik)
 
 # ── System Prompt Template ──
 SYSTEM_PROMPT_TEMPLATE = """Kamu adalah AI Resmi dari bot Discord "Hidden Hamlet".
@@ -69,15 +74,23 @@ class AIChat(commands.Cog):
 
         # API Keys
         self.google_api_key = os.getenv("GEMINI_API_KEY", "")
+        self.groq_api_key = os.getenv("GROQ_API_KEY", "")
         self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "")
+
+        # Circuit Breaker State (Tier 1: Gemini)
+        self._gemini_circuit_open = False
+        self._gemini_circuit_until = 0.0
+        self._gemini_fail_streak = 0
 
         if not self.google_api_key:
             print("[AI CHAT] ⚠️ GEMINI_API_KEY tidak ditemukan!")
+        if not self.groq_api_key:
+            print("[AI CHAT] ⚠️ GROQ_API_KEY tidak ditemukan!")
         if not self.openrouter_api_key:
             print("[AI CHAT] ⚠️ OPENROUTER_API_KEY tidak ditemukan!")
 
         self.session: aiohttp.ClientSession | None = None
-        print("[AI CHAT] ✅ Cog loaded. Dual API: Google + OpenRouter")
+        print("[AI CHAT] ✅ Cog loaded. Triple API: Google → Groq → OpenRouter")
 
     async def cog_load(self):
         timeout = aiohttp.ClientTimeout(total=30, connect=10)
@@ -161,7 +174,6 @@ class AIChat(commands.Cog):
             )
         except Exception as e:
             print(f"[AI CHAT] ⚠️ Error simpan history: {e}")
-            traceback.print_exc()
 
     def _build_server_context(self, guild: discord.Guild) -> str:
         if not guild:
@@ -169,7 +181,7 @@ class AIChat(commands.Cog):
         try:
             return f"""[CONTEXT SERVER]
 • Nama Server : {guild.name}
-• ID Server   : {guild.id}
+• ID Server : {guild.id}
 • Total Member: {guild.member_count or 0}
 • Boost Level : {guild.premium_tier}
 • Dibuat Pada : {guild.created_at.strftime('%Y-%m-%d')}
@@ -178,7 +190,7 @@ class AIChat(commands.Cog):
             return ""
 
     # ═══════════════════════════════════════════════════════════════════════
-    # API CALLERS
+    # TIER 1: Google AI Studio
     # ═══════════════════════════════════════════════════════════════════════
 
     async def _call_google_gemini(
@@ -209,20 +221,18 @@ class AIChat(commands.Cog):
 
             async with self.session.post(url, headers={"Content-Type": "application/json"}, json=payload) as resp:
                 status = resp.status
-                
-                # Jaga-jaga kalau response bukan JSON resmi
                 try:
                     data = await resp.json()
                 except Exception:
                     data = {}
 
                 if status == 429:
-                    error_msg = data.get("error", {}).get("message", "Rate limit or quota exhausted.")
-                    print(f"[AI CHAT] ⛔ Google Rate Limit (429): {error_msg[:200]}")
+                    err_msg = data.get("error", {}).get("message", "Rate limit or quota exhausted.")
+                    print(f"[AI CHAT] ⛔ Google Rate Limit (429): {err_msg[:100]}")
                     return "RATE_LIMIT", False
 
                 if status != 200:
-                    print(f"[AI CHAT] ❌ Google HTTP {status}: {data}")
+                    print(f"[AI CHAT] ❌ Google HTTP {status}")
                     return f"HTTP_{status}", False
 
                 candidates = data.get("candidates", [])
@@ -236,8 +246,81 @@ class AIChat(commands.Cog):
                 return parts[0].get("text", "").strip(), True
 
         except Exception as e:
-            print(f"[AI CHAT] ❌ Google Exception Error: {e}")
+            print(f"[AI CHAT] ❌ Google Exception: {type(e).__name__}")
             return "EXCEPTION", False
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TIER 2: Groq (Llama 3.3 70B)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    async def _call_groq(
+        self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
+    ) -> tuple[str, bool]:
+        """Call Groq API. Return (response_text, success)."""
+        if not self.groq_api_key or not self.session:
+            return "API_KEY_MISSING", False
+
+        try:
+            messages = [{"role": "system", "content": system_prompt}]
+            for item in history:
+                role = "assistant" if item["role"] == "assistant" else "user"
+                messages.append({"role": role, "content": item["content"]})
+            messages.append({"role": "user", "content": user_message})
+
+            payload = {
+                "model": GROQ_MODEL,
+                "messages": messages,
+                "temperature": temperature,
+                "top_p": 0.95,
+                "max_tokens": 1024,
+            }
+
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.groq_api_key}",
+            }
+
+            url = f"{GROQ_API_BASE}/chat/completions"
+
+            # Groq LPU sangat cepat — timeout pendek 10s
+            groq_timeout = aiohttp.ClientTimeout(total=10, connect=5)
+
+            async with self.session.post(url, headers=headers, json=payload, timeout=groq_timeout) as resp:
+                status = resp.status
+                try:
+                    data = await resp.json()
+                except Exception:
+                    data = {}
+
+                if status == 429:
+                    err_msg = data.get("error", {}).get("message", "Rate limit")
+                    print(f"[AI CHAT] ⛔ Groq Rate Limit (429): {err_msg[:100]}")
+                    return "RATE_LIMIT", False
+
+                if status in (401, 403):
+                    print(f"[AI CHAT] ❌ Groq Auth Error ({status})")
+                    return f"AUTH_{status}", False
+
+                if status != 200:
+                    print(f"[AI CHAT] ❌ Groq HTTP {status}")
+                    return f"HTTP_{status}", False
+
+                choices = data.get("choices", [])
+                if not choices:
+                    return "EMPTY_CHOICES", False
+
+                return choices[0].get("message", {}).get("content", "").strip(), True
+
+        except asyncio.TimeoutError:
+            print("[AI CHAT] ⏱️ Groq Timeout (10s)")
+            return "TIMEOUT", False
+        except Exception as e:
+            print(f"[AI CHAT] ❌ Groq Exception: {type(e).__name__}")
+            return "EXCEPTION", False
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TIER 3: OpenRouter
+    # ═══════════════════════════════════════════════════════════════════════
 
     async def _call_openrouter(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
@@ -278,11 +361,11 @@ class AIChat(commands.Cog):
                     data = {}
 
                 if status == 429:
-                    print(f"[AI CHAT] ⛔ OpenRouter Rate Limit: {data}")
+                    print("[AI CHAT] ⛔ OpenRouter Rate Limit (429)")
                     return "RATE_LIMIT", False
 
                 if status != 200:
-                    print(f"[AI CHAT] ❌ OpenRouter HTTP {status}: {data}")
+                    print(f"[AI CHAT] ❌ OpenRouter HTTP {status}")
                     return f"HTTP_{status}", False
 
                 choices = data.get("choices", [])
@@ -292,52 +375,85 @@ class AIChat(commands.Cog):
                 return choices[0].get("message", {}).get("content", "").strip(), True
 
         except Exception as e:
-            print(f"[AI CHAT] ❌ OpenRouter Exception Error: {e}")
+            print(f"[AI CHAT] ❌ OpenRouter Exception: {type(e).__name__}")
             return "EXCEPTION", False
 
-    async def _call_gemini(
+    # ═══════════════════════════════════════════════════════════════════════
+    # MASTER FALLBACK ENGINE (Triple Tier)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    async def _call_ai(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> str:
-        """Dual API Fallback Engine"""
+        """Triple API Fallback Engine with Lightweight Circuit Breaker."""
 
-        # 1. Coba Google AI Studio Dulu (Primary)
+        now = datetime.now(timezone.utc).timestamp()
+
+        # ── Tier 1: Google AI Studio (Primary) ──
         if self.google_api_key:
-            print("[AI CHAT] 🔄 [PRIMARY] Trying Google AI Studio...")
-            response, success = await self._call_google_gemini(
+            # Circuit breaker check
+            if self._gemini_circuit_open:
+                if now >= self._gemini_circuit_until:
+                    self._gemini_circuit_open = False
+                    self._gemini_fail_streak = 0
+                    print("[AI CHAT] 🟢 Tier 1 Circuit CLOSED — retrying Gemini")
+                else:
+                    remaining = int(self._gemini_circuit_until - now)
+                    print(f"[AI CHAT] ⚠️ Tier 1 Circuit OPEN ({remaining}s left). Skip to Tier 2 (Groq)...")
+
+            if not self._gemini_circuit_open:
+                response, success = await self._call_google_gemini(
+                    user_message, history, system_prompt, temperature
+                )
+                if success and response:
+                    self._gemini_fail_streak = 0
+                    print("[AI CHAT] ✅ Tier 1 Success (Gemini)")
+                    return response
+
+                # Gemini failed — increment streak & check circuit breaker
+                self._gemini_fail_streak += 1
+                if self._gemini_fail_streak >= CIRCUIT_BREAKER_THRESHOLD:
+                    self._gemini_circuit_open = True
+                    self._gemini_circuit_until = now + CIRCUIT_BREAKER_COOLDOWN
+                    print(f"[AI CHAT] 🔴 Tier 1 Circuit OPEN ({CIRCUIT_BREAKER_COOLDOWN // 3600}h) — {self._gemini_fail_streak}x fail")
+                else:
+                    print(f"[AI CHAT] ⚠️ Tier 1 Fail ({response}). Switching to Tier 2 (Groq)...")
+
+        # ── Tier 2: Groq (Backup) ──
+        if self.groq_api_key:
+            print("[AI CHAT] 🚀 [TIER 2] Trying Groq (Llama 3.3 70B)...")
+            response, success = await self._call_groq(
                 user_message, history, system_prompt, temperature
             )
-
             if success and response:
-                print("[AI CHAT] ✅ Google AI Studio Success!")
+                print("[AI CHAT] ✅ Tier 2 Success (Groq)")
                 return response
-            
-            print(f"[AI CHAT] ⚠️ Google AI Studio gagal/limit (Reason: {response}).")
+            print(f"[AI CHAT] ⚠️ Tier 2 Fail ({response}). Switching to Tier 3 (OpenRouter)...")
 
-        # 2. Kalau Google Gagal, Otomatis Alihkan Ke OpenRouter (Backup)
+        # ── Tier 3: OpenRouter (Last Resort) ──
         if self.openrouter_api_key:
-            print("[AI CHAT] 🚀 [FALLBACK] Switching to OpenRouter...")
+            print("[AI CHAT] 🌐 [TIER 3] Trying OpenRouter...")
             response, success = await self._call_openrouter(
                 user_message, history, system_prompt, temperature
             )
             if success and response:
-                print("[AI CHAT] ✅ OpenRouter Fallback Success!")
+                print("[AI CHAT] ✅ Tier 3 Success (OpenRouter)")
                 return response
-            
-            print(f"[AI CHAT] ❌ OpenRouter juga gagal (Reason: {response}).")
+            print(f"[AI CHAT] ❌ Tier 3 Fail ({response})")
 
-        # 3. Skenario Terburuk: Kedua API Gagal / Kena Limit Barengan
-        if not self.google_api_key and not self.openrouter_api_key:
+        # ── All Tiers Failed ──
+        if not self.google_api_key and not self.groq_api_key and not self.openrouter_api_key:
             return "❌ Tidak ada API key yang tersedia di environment (.env). Hubungi admin bot."
 
-        if not self.openrouter_api_key:
+        if self._gemini_circuit_open and not self.groq_api_key and not self.openrouter_api_key:
             return (
-                "⚠️ Kuota harian Google AI Studio lu udah habis (20/20 RPD).\n"
-                "Dan lu belum pasang `OPENROUTER_API_KEY` di `.env` sebagai backup. Tolong di-setup dulu bro!"
+                "⚠️ Kuota harian Google AI Studio lu udah habis dan tidak ada backup API tersedia.\n"
+                "Tunggu beberapa jam lagi ya bro!"
             )
 
         return (
             "Waduh, semua mesin AI-nya lagi pusing nih, bro! 🧠💥\n"
-            "Google AI Studio lu udah limit (429), dan pas dicoba dilempar ke OpenRouter juga dapet error.\n"
+            "Google AI Studio limit (circuit open), Groq juga down, dan OpenRouter ikut error.\n"
             "Coba tunggu beberapa menit lagi baru chat gua ya!"
         )
 
@@ -347,7 +463,7 @@ class AIChat(commands.Cog):
     async def _send_response(self, ctx, text: str):
         if isinstance(ctx, discord.Interaction):
             if len(text) > 2000:
-                chunks = [text[i:i+1900] for i in range(0, len(text), 1900)]
+                chunks = [text[i:i + 1900] for i in range(0, len(text), 1900)]
                 await ctx.followup.send(chunks[0])
                 for chunk in chunks[1:]:
                     await ctx.followup.send(chunk)
@@ -355,7 +471,7 @@ class AIChat(commands.Cog):
                 await ctx.followup.send(text)
         else:
             if len(text) > 2000:
-                chunks = [text[i:i+1900] for i in range(0, len(text), 1900)]
+                chunks = [text[i:i + 1900] for i in range(0, len(text), 1900)]
                 for idx, chunk in enumerate(chunks):
                     if idx == 0:
                         await ctx.reply(chunk, mention_author=False)
@@ -397,10 +513,10 @@ class AIChat(commands.Cog):
 
         try:
             async with typing_ctx.typing():
-                response_text = await self._call_gemini(user_message, history, system_prompt, temperature)
+                response_text = await self._call_ai(user_message, history, system_prompt, temperature)
         except Exception as e:
             print(f"[AI CHAT] ⚠️ Typing error: {e}")
-            response_text = await self._call_gemini(user_message, history, system_prompt, temperature)
+            response_text = await self._call_ai(user_message, history, system_prompt, temperature)
 
         await self._save_chat_history(guild_id, user_id, user_message, response_text, personality)
         await self._send_response(ctx, response_text)
@@ -408,7 +524,7 @@ class AIChat(commands.Cog):
     # ═══════════════════════════════════════════════════════════════════════
     # SLASH COMMAND: /ask
     # ═══════════════════════════════════════════════════════════════════════
-    @app_commands.command(name="ask", description="Tanya apa saja ke AI Gemini Hidden Hamlet")
+    @app_commands.command(name="ask", description="Tanya apa saja ke AI Hidden Hamlet")
     @app_commands.describe(pertanyaan="Apa yang mau ditanyakan?")
     async def ask(self, interaction: discord.Interaction, pertanyaan: str):
         guild_id = str(interaction.guild_id)
@@ -436,7 +552,6 @@ class AIChat(commands.Cog):
             )
         except Exception as e:
             print(f"[AI CHAT] ❌ Fatal error di /ask: {e}")
-            traceback.print_exc()
             try:
                 await interaction.followup.send("❌ Terjadi error internal. Coba lagi nanti ya!")
             except Exception:
@@ -490,7 +605,6 @@ class AIChat(commands.Cog):
             )
         except Exception as e:
             print(f"[AI CHAT] ❌ Fatal error di on_message: {e}")
-            traceback.print_exc()
             try:
                 await message.reply("❌ Terjadi error internal. Coba lagi nanti ya!", mention_author=False)
             except Exception:
