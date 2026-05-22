@@ -1,45 +1,128 @@
 {% extends "base.html" %}
 
-{% block title %}Now Playing{% endblock %}
+{% block title %}Now Playing — Hidden Hamlet{% endblock %}
 
-{% block head %}
-    {{ super() }}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/now_playing.css') }}">
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/now_playing.css') }}">
 {% endblock %}
 
 {% block content %}
+<div class="np-container">
+  <!-- Status Badge -->
+  <div style="grid-column: 1 / -1;">
+    <span id="np-status" class="np-status np-status-idle">
+      <span class="np-status-dot"></span>
+      <span id="np-status-text">Idle — Not connected</span>
+    </span>
+  </div>
 
-<div class="page-header">
-    <h1>
-        <i class="fas fa-music icon-gradient"></i>
-        Now Playing
-    </h1>
-    <p>Lihat dan kontrol musik yang sedang diputar di server secara real-time.</p>
-</div>
+  <!-- Left: Now Playing -->
+  <div class="np-card">
+    <div class="np-card-title">🎵 Now Playing</div>
 
-<div id="music-player-container">
-    <!--
-        INITIAL LOADING STATE
-        Konten ini akan digantikan oleh JavaScript setelah data pertama kali dimuat.
-        Bisa berupa state "loading", "empty", atau "error".
-    -->
-    <div class="player-loading" style="grid-column: 1 / -1;"> <!-- Style ini untuk memastikan dia mengambil space penuh -->
-        <div class="spinner"></div>
-        <p>Memuat status pemutar musik...</p>
+    <div class="np-art-wrap">
+      <img id="np-art" src="" alt="Album Art" style="display:none;">
+      <div id="np-art-placeholder" class="np-art-placeholder">🎶</div>
     </div>
 
-    <!-- 
-        TEMPLATE PLAYER (HIDDEN, for JS cloning if needed, but we build it in JS)
-        Struktur di bawah ini adalah representasi dari apa yang akan dibuat oleh JavaScript.
-        Kita tidak menampilkannya langsung untuk menghindari FOUC (Flash of Unstyled Content).
-        JavaScript akan membuat elemen-elemen ini dari string setelah mendapatkan data dari API.
-    -->
+    <div class="np-track-title" id="np-title">—</div>
+    <div class="np-track-artist" id="np-artist">—</div>
 
+    <div class="np-progress-wrap">
+      <div class="np-progress-bar" id="np-progress-bar">
+        <div class="np-progress-fill" id="np-progress-fill"></div>
+      </div>
+      <div class="np-time-row">
+        <span id="np-current">0:00</span>
+        <span id="np-duration">0:00</span>
+      </div>
+    </div>
+
+    <div class="np-controls">
+      <button class="np-btn" id="btn-prev" title="Previous">⏮</button>
+      <button class="np-btn np-btn-primary" id="btn-play" title="Play/Pause">▶</button>
+      <button class="np-btn" id="btn-next" title="Next">⏭</button>
+      <button class="np-btn np-btn-danger" id="btn-stop" title="Stop">⏹</button>
+    </div>
+
+    <div class="np-volume-wrap">
+      <label>🔊 Volume</label>
+      <input type="range" class="np-slider" id="np-volume" min="0" max="100" value="50">
+      <span id="np-vol-value" style="font-size:0.8rem;color:var(--text-muted);min-width:32px;">50%</span>
+    </div>
+  </div>
+
+  <!-- Right: Connection & Settings -->
+  <div class="np-card">
+    <div class="np-card-title">⚙️ Connection & Settings</div>
+
+    <div class="np-setting-row">
+      <div>
+        <div class="np-setting-label">Target Voice Channel</div>
+        <div class="np-setting-desc">Select channel for the bot to join</div>
+      </div>
+      <select class="np-select" id="np-channel">
+        <option value="">— Select Channel —</option>
+      </select>
+    </div>
+
+    <div class="np-setting-row">
+      <div>
+        <div class="np-setting-label">Auto-Join on Command</div>
+        <div class="np-setting-desc">Bot joins automatically when /play is used</div>
+      </div>
+      <div class="np-toggle" id="toggle-autojoin">
+        <div class="np-toggle-knob"></div>
+      </div>
+    </div>
+
+    <div class="np-setting-row">
+      <div>
+        <div class="np-setting-label">24/7 Mode</div>
+        <div class="np-setting-desc">Stay connected even when queue is empty</div>
+      </div>
+      <div class="np-toggle" id="toggle-247">
+        <div class="np-toggle-knob"></div>
+      </div>
+    </div>
+
+    <div class="np-setting-row">
+      <div>
+        <div class="np-setting-label">Announce Track</div>
+        <div class="np-setting-desc">Send "Now Playing" embed in text channel</div>
+      </div>
+      <div class="np-toggle active" id="toggle-announce">
+        <div class="np-toggle-knob"></div>
+      </div>
+    </div>
+
+    <div class="np-setting-row">
+      <div>
+        <div class="np-setting-label">Default Volume</div>
+        <div class="np-setting-desc">Starting volume for new sessions</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;min-width:160px;">
+        <input type="range" class="np-slider" id="np-default-vol" min="0" max="100" value="50">
+        <span id="np-default-vol-value" style="font-size:0.8rem;color:var(--text-muted);min-width:32px;">50%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom: Quick Actions -->
+  <div class="np-actions">
+    <button class="np-btn" id="btn-disconnect">🔌 Disconnect Bot</button>
+    <button class="np-btn" id="btn-clear">🗑 Clear Queue</button>
+    <button class="np-btn" id="btn-shuffle">🔀 Shuffle</button>
+    <button class="np-btn" id="btn-loop">🔁 Loop</button>
+  </div>
 </div>
 
+<!-- Toast -->
+<div class="np-toast" id="np-toast">
+  <span id="np-toast-msg">Message</span>
+</div>
 {% endblock %}
 
 {% block scripts %}
-    {{ super() }}
-    <script src="{{ url_for('static', filename='js/now_playing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/now_playing.js') }}"></script>
 {% endblock %}
