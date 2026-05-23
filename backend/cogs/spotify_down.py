@@ -164,7 +164,7 @@ class SpotifyDownClient:
 # SPOTIFY OFFICIAL API (Fallback 1)
 # ==========================================================
 class SpotifyOfficialClient:
-    """Fallback menggunakan Spotify Web API dengan Client Credentials."""
+    """Fallback menggunakan Spotify Web API resmi dengan Client Credentials."""
 
     def __init__(self, client_id: str, client_secret: str):
         self.client_id = client_id
@@ -269,7 +269,7 @@ class SpotifyOfficialClient:
 # ASYNC OEMBED & HTML SCRAPE (Fallback 2 & 3)
 # ==========================================================
 async def _get_spotify_metadata_oembed(session: aiohttp.ClientSession, url: str) -> Dict | None:
-    """Spotify oEmbed API (gratis, tidak perlu auth) — async version."""
+    """Spotify oEmbed API (gratis, tidak perlu auth) — versi resmi."""
     try:
         encoded_url = url.replace(" ", "%20").replace("&", "%26")
         oembed_url = f"https://open.spotify.com/oembed?url={encoded_url}"
