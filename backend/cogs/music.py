@@ -52,7 +52,8 @@ class Music(commands.Cog):
     # SPOTIFY URL HELPERS
     # ==========================================================
     def _is_spotify_url(self, query: str) -> bool:
-        return "open.spotify.com" in query or "spotify.com" in query
+        # FIX: Menggunakan deteksi URL Spotify asli dan bentuk URI skema resmi
+        return "open.spotify.com" in query or "spotify:" in query
 
     def _extract_spotify_id(self, url: str) -> tuple[str, str] | None:
         patterns = [
@@ -196,7 +197,8 @@ class Music(commands.Cog):
         player = payload.player
         guild_id = player.guild.id
         mp = self.get_player(guild_id)
-        reason = getattr(payload, 'reason', 'unknown').lower()
+        # FIX: Cast ke string dahulu agar aman jika tipe data aslinya adalah Enum objek
+        reason = str(getattr(payload, 'reason', 'unknown')).lower()
         print(f"[TRACK END] reason={reason}, track={getattr(payload.track, 'title', 'unknown')}")
         if reason in ("stopped", "replaced", "cleanup"):
             print(f"[TRACK END] Ignoring reason={reason}, no auto-action")
@@ -384,14 +386,10 @@ class Music(commands.Cog):
                         thumbnail = t.artwork
                         break
 
-                # ==========================================================
-                # [NEW] Embed Playlist/Album Info (kayak Jockie Music)
-                # ==========================================================
                 embed = discord.Embed(
                     title=f"🎵 Added {spotify_type.title()}",
                     color=discord.Color.green(),
                 )
-                # Nama playlist/album dari track pertama (kalau ada album field)
                 playlist_name = resolved_tracks[0].album or f"Spotify {spotify_type.title()}"
                 embed.add_field(
                     name="Playlist",
@@ -414,9 +412,6 @@ class Music(commands.Cog):
 
                 await loading_msg.edit(content=None, embed=embed)
 
-                # ==========================================================
-                # [NEW] Auto-Play Track Pertama, Sisanya ke Queue
-                # ==========================================================
                 # Search semua track secara concurrent
                 added, playables = await self._search_youtube_for_tracks_concurrent(
                     resolved_tracks, player, max_concurrent=5
@@ -426,22 +421,20 @@ class Music(commands.Cog):
                     await interaction.followup.send("❌ Gagal menemukan lagu di YouTube.")
                     return
 
-                # Track pertama langsung play, sisanya queue
                 first_track = playables[0]
                 remaining_tracks = playables[1:]
 
-                # Queue sisa track
-                for t in remaining_tracks:
-                    await player.queue.put_wait(t)
-
-                # Play track pertama
+                # FIX: Urutan antrean playlist Spotify agar lagu nomor 1 selalu diproses duluan
                 if not player.current:
+                    for t in remaining_tracks:
+                        await player.queue.put_wait(t)
                     await player.set_volume(100)
                     await asyncio.sleep(0.3)
                     await player.play(first_track)
                 else:
-                    # Kalau sudah ada yang play, queue first track juga
                     await player.queue.put_wait(first_track)
+                    for t in remaining_tracks:
+                        await player.queue.put_wait(t)
 
                 # Update embed dengan info final
                 final_embed = discord.Embed(
@@ -469,8 +462,6 @@ class Music(commands.Cog):
                     text=f"▶️ Now playing: {first_track.title[:50]}... | Source: {source}"
                 )
 
-                # Kirim embed baru (atau edit yang lama kalau mau)
-                # Di sini kita kirim followup karena loading_msg sudah di-edit
                 if added < total_tracks:
                     final_embed.add_field(
                         name="⚠️ Note",
@@ -748,7 +739,6 @@ class Music(commands.Cog):
     # ==========================================================
     # [POLISH] NEW COMMANDS
     # ==========================================================
-
     @app_commands.command(name="seek", description="Skip ke posisi tertentu dalam lagu")
     @app_commands.describe(position="Format: 1:30 atau 90 (detik)")
     async def seek(self, interaction: discord.Interaction, position: str):
@@ -900,7 +890,6 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
         try:
-            # [FIXED] Async HTTP call menggunakan aiohttp, nggak blocking lagi
             async with aiohttp.ClientSession() as session:
                 url = f"https://lrclib.net/api/search?q={query.strip().replace(' ', '%20')}"
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
@@ -918,15 +907,16 @@ class Music(commands.Cog):
             artist = song.get('artistName', 'Unknown')
             plain = song.get('plainLyrics', 'Tidak ada lirik tersedia.')
 
-            if len(plain) > 4000:
-                plain = plain[:4000] + "\n..."
+            # FIX: Ganti batasan teks menjadi 3900 dan pindahkan teks dari Embed Field ke Embed Description 
+            # untuk menghindari penolakan Discord API karena batas isi field maksimal hanya 1024 karakter.
+            if len(plain) > 3900:
+                plain = plain[:3900] + "\n..."
 
             embed = discord.Embed(
                 title=f"🎤 {title}",
-                description=f"by **{artist}**",
+                description=f"by **{artist}**\n\n```{plain}```",
                 color=discord.Color.pink(),
             )
-            embed.add_field(name="Lirik", value=f"```{plain}```", inline=False)
             await interaction.followup.send(embed=embed)
         except Exception as e:
             print(f"[LYRICS ERROR] {e}")
@@ -1005,19 +995,35 @@ class Music(commands.Cog):
         elif player.channel != vc:
             await player.move_to(vc, self_deaf=False)
             player.home = interaction.channel
+            
         added = 0
         failed = 0
-        for t in track_data:
-            try:
-                results = await wavelink.Playable.search(t['uri'])
-                if results:
-                    await player.queue.put_wait(results[0])
-                    added += 1
-                else:
-                    failed += 1
-            except Exception as e:
-                print(f"[PLAYLIST LOAD ERROR] {e}")
+        
+        # OPTIMASI: Memproses track_data secara concurrent menggunakan semaphore (max 5)
+        # agar muat playlist berisi puluhan lagu tidak memakan waktu lama (blocking)
+        semaphore = asyncio.Semaphore(5)
+        
+        async def load_single_track(t):
+            nonlocal added, failed
+            async with semaphore:
+                try:
+                    results = await wavelink.Playable.search(t['uri'])
+                    if results:
+                        return results[0]
+                except Exception as e:
+                    print(f"[PLAYLIST CONCURRENT LOAD ERROR] {e}")
+                return None
+
+        tasks = [load_single_track(track) for track in track_data]
+        playables = await asyncio.gather(*tasks)
+        
+        for p in playables:
+            if p:
+                await player.queue.put_wait(p)
+                added += 1
+            else:
                 failed += 1
+
         if not player.current and not player.queue.is_empty:
             await player.play(player.queue.get())
         msg = f"📂 Playlist **{name}** dimuat! ({added} lagu ditambahkan)"
