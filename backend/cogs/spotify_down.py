@@ -194,7 +194,14 @@ class SpotifyOfficialClient:
                     self._token_expires = (
                         asyncio.get_event_loop().time() + data["expires_in"] - 60
                     )
+                    logger.info("Spotify Official API token berhasil didapat.")
                     return self._token
+                else:
+                    body = await resp.text()
+                    logger.error(
+                        "Spotify auth GAGAL — status: %s | response: %s",
+                        resp.status, body[:200]
+                    )
         except Exception as e:
             logger.error("Spotify auth error: %s", e)
         return None
