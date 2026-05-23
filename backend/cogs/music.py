@@ -42,6 +42,7 @@ class Music(commands.Cog):
             fallback_client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
         )
         print("[SPOTIFY] SpotifyDown API resolver aktif (fallback: Official API)")
+        print(f"[DEBUG SPOTIFY] Client ID Terdeteksi: {os.getenv('SPOTIFY_CLIENT_ID')[:5]}***" if os.getenv('SPOTIFY_CLIENT_ID') else "[DEBUG SPOTIFY] Client ID TIDAK DITEMUKAN!")
 
     def get_player(self, guild_id: int) -> MusicPlayer:
         if guild_id not in self.players:
