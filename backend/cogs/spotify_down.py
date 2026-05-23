@@ -171,16 +171,12 @@ class SpotifyOfficialClient:
         self.client_secret = client_secret
         self._token: Optional[str] = None
         self._token_expires = 0.0
-        # DEBUG: log konfirmasi credential diterima (WARNING level = pasti muncul)
-        logger.warning("[SPOTIFY OFFICIAL INIT] Client ID received: %s...", client_id[:8])
-        logger.warning("[SPOTIFY OFFICIAL INIT] Client Secret received: %s...", client_secret[:4])
 
     async def _get_token(self, session: aiohttp.ClientSession) -> Optional[str]:
-        now = asyncio.get_event_loop().time()
-        if self._token and now < self._token_expires:
-            logger.warning("[SPOTIFY AUTH] Reusing cached token (expires in %.0fs).", self._token_expires - now)
+        if self._token and asyncio.get_event_loop().time() < self._token_expires:
+            logger.info("[SPOTIFY AUTH] Reusing cached token.")
             return self._token
-        logger.warning("[SPOTIFY AUTH] Requesting new token from accounts.spotify.com...")
+        logger.info("[SPOTIFY AUTH] Requesting new token from accounts.spotify.com...")
         try:
             creds = base64.b64encode(
                 f"{self.client_id}:{self.client_secret}".encode()
@@ -194,32 +190,31 @@ class SpotifyOfficialClient:
                 data={"grant_type": "client_credentials"},
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as resp:
-                body = await resp.text()
                 if resp.status == 200:
-                    data = json.loads(body)
+                    data = await resp.json()
                     self._token = data["access_token"]
-                    self._token_expires = now + data["expires_in"] - 60
-                    logger.warning("[SPOTIFY AUTH] Token OK — expires_in=%s", data.get("expires_in"))
+                    self._token_expires = (
+                        asyncio.get_event_loop().time() + data["expires_in"] - 60
+                    )
+                    logger.info("[SPOTIFY AUTH] ✅ Token berhasil didapat!")
                     return self._token
                 else:
+                    body = await resp.text()
                     logger.error(
-                        "[SPOTIFY AUTH] FAIL — HTTP %s | body: %s",
-                        resp.status, body[:500]
+                        "[SPOTIFY AUTH] ❌ GAGAL — HTTP %s | body: %s",
+                        resp.status, body[:300]
                     )
         except Exception as e:
-            logger.error("[SPOTIFY AUTH] EXCEPTION: %s", e)
+            logger.error("[SPOTIFY AUTH] ❌ Exception: %s", e)
         return None
 
     async def get_playlist_tracks(self, session: aiohttp.ClientSession, playlist_id: str) -> List[Dict]:
         token = await self._get_token(session)
         if not token:
-            logger.error("[SPOTIFY PLAYLIST] No token, aborting.")
             return []
         tracks = []
         url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks?limit=100"
-        page = 0
         while url:
-            page += 1
             try:
                 async with session.get(
                     url,
@@ -227,24 +222,16 @@ class SpotifyOfficialClient:
                     timeout=aiohttp.ClientTimeout(total=15),
                 ) as resp:
                     if resp.status != 200:
-                        body = await resp.text()
-                        logger.error(
-                            "[SPOTIFY PLAYLIST] HTTP %s on page %s | body: %s",
-                            resp.status, page, body[:500]
-                        )
                         break
                     data = await resp.json()
-                    items = data.get("items", [])
-                    logger.warning("[SPOTIFY PLAYLIST] Page %s — got %s items", page, len(items))
-                    for item in items:
+                    for item in data.get("items", []):
                         t = item.get("track")
                         if t:
                             tracks.append(t)
                     url = data.get("next")
             except Exception as e:
-                logger.error("[SPOTIFY PLAYLIST] Exception on page %s: %s", page, e)
+                logger.error("Spotify official API error: %s", e)
                 break
-        logger.warning("[SPOTIFY PLAYLIST] Total tracks collected: %s", len(tracks))
         return tracks
 
     async def get_album_tracks(self, session: aiohttp.ClientSession, album_id: str) -> List[Dict]:
@@ -261,14 +248,12 @@ class SpotifyOfficialClient:
                     timeout=aiohttp.ClientTimeout(total=15),
                 ) as resp:
                     if resp.status != 200:
-                        body = await resp.text()
-                        logger.error("[SPOTIFY ALBUM] HTTP %s | body: %s", resp.status, body[:300])
                         break
                     data = await resp.json()
                     tracks.extend(data.get("items", []))
                     url = data.get("next")
             except Exception as e:
-                logger.error("[SPOTIFY ALBUM] Exception: %s", e)
+                logger.error("Spotify official API error: %s", e)
                 break
         return tracks
 
@@ -284,11 +269,8 @@ class SpotifyOfficialClient:
             ) as resp:
                 if resp.status == 200:
                     return await resp.json()
-                else:
-                    body = await resp.text()
-                    logger.error("[SPOTIFY TRACK] HTTP %s | body: %s", resp.status, body[:300])
         except Exception as e:
-            logger.error("[SPOTIFY TRACK] Exception: %s", e)
+            logger.error("Spotify official API error: %s", e)
         return None
 
 
@@ -390,9 +372,6 @@ class SpotifyResolver:
         self.official: Optional[SpotifyOfficialClient] = None
         if fallback_client_id and fallback_client_secret:
             self.official = SpotifyOfficialClient(fallback_client_id, fallback_client_secret)
-            logger.warning("[SPOTIFY RESOLVER] Official client CREATED.")
-        else:
-            logger.error("[SPOTIFY RESOLVER] MISSING credentials — official client DISABLED.")
 
     @staticmethod
     def parse_spotify_url(url: str) -> Optional[Tuple[str, str]]:
@@ -523,32 +502,32 @@ class SpotifyResolver:
         original_url: str,
     ) -> Tuple[List[ResolvedTrack], str]:
         # 1. SpotifyDown
-        logger.warning("[RESOLVE PLAYLIST] Step 1: SpotifyDown API...")
+        logger.info("[RESOLVE PLAYLIST] Step 1: Mencoba SpotifyDown API...")
         raw = await sd.get_playlist_tracks(playlist_id)
         if raw:
-            logger.warning("[RESOLVE PLAYLIST] SpotifyDown OK: %d tracks", len(raw))
+            logger.info("[RESOLVE PLAYLIST] ✅ SpotifyDown berhasil: %d tracks", len(raw))
             return self._convert_sd_tracks(raw), "spotifydown"
-        logger.warning("[RESOLVE PLAYLIST] SpotifyDown FAIL.")
+        logger.warning("[RESOLVE PLAYLIST] ⚠️ SpotifyDown gagal, lanjut ke Official API...")
 
         # 2. Fallback Official
         if self.official:
-            logger.warning("[RESOLVE PLAYLIST] Step 2: Official API...")
+            logger.info("[RESOLVE PLAYLIST] Step 2: Mencoba Spotify Official API...")
             raw = await self.official.get_playlist_tracks(session, playlist_id)
             if raw:
-                logger.warning("[RESOLVE PLAYLIST] Official API OK: %d tracks", len(raw))
+                logger.info("[RESOLVE PLAYLIST] ✅ Official API berhasil: %d tracks", len(raw))
                 return [
                     self._track_to_resolved(t, t.get("id", ""), "spotify_official")
                     for t in raw
                 ], "spotify_official"
-            logger.warning("[RESOLVE PLAYLIST] Official API FAIL/EMPTY.")
+            logger.warning("[RESOLVE PLAYLIST] ⚠️ Official API gagal/kosong, lanjut ke oEmbed...")
         else:
-            logger.error("[RESOLVE PLAYLIST] self.official = None — SKIP!")
+            logger.warning("[RESOLVE PLAYLIST] ⚠️ self.official = None, Official API skip!")
 
         # 3. Fallback oEmbed (async) — cuma dapat 1 track = nama playlist
-        logger.warning("[RESOLVE PLAYLIST] Step 3: oEmbed...")
+        logger.info("[RESOLVE PLAYLIST] Step 3: Mencoba oEmbed...")
         meta = await _get_spotify_metadata_oembed(session, original_url)
         if meta and meta.get("name"):
-            logger.warning("[RESOLVE PLAYLIST] oEmbed got metadata (1 track = playlist name)")
+            logger.warning("[RESOLVE PLAYLIST] ⚠️ Hanya dapat metadata oEmbed (1 track = nama playlist)")
             return [
                 ResolvedTrack(
                     name=meta["name"],
@@ -564,7 +543,7 @@ class SpotifyResolver:
             ], "oembed"
 
         # 4. Fallback HTML scrape (async)
-        logger.warning("[RESOLVE PLAYLIST] Step 4: HTML scrape...")
+        logger.info("[RESOLVE PLAYLIST] Step 4: Mencoba HTML scrape...")
         meta = await _get_spotify_metadata_html(session, original_url)
         if meta and meta.get("name"):
             return [
@@ -759,7 +738,7 @@ class SpotifyResolver:
         artists = SpotifyResolver._artists_to_string(track_data.get("artists", []))
         query = f"{artists} - {title}".strip(" -")
         return f"ytsearch:{query}"
-
+    
     # --- Discord.py extension entrypoint (utility module, not a cog) ---
 async def setup(bot):
     """Required by discord.py load_extension(). This module is a utility library used by music.py."""
