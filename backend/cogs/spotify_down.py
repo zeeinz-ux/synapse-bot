@@ -174,7 +174,9 @@ class SpotifyOfficialClient:
 
     async def _get_token(self, session: aiohttp.ClientSession) -> Optional[str]:
         if self._token and asyncio.get_event_loop().time() < self._token_expires:
+            logger.info("[SPOTIFY AUTH] Reusing cached token.")
             return self._token
+        logger.info("[SPOTIFY AUTH] Requesting new token from accounts.spotify.com...")
         try:
             creds = base64.b64encode(
                 f"{self.client_id}:{self.client_secret}".encode()
@@ -194,16 +196,16 @@ class SpotifyOfficialClient:
                     self._token_expires = (
                         asyncio.get_event_loop().time() + data["expires_in"] - 60
                     )
-                    logger.info("Spotify Official API token berhasil didapat.")
+                    logger.info("[SPOTIFY AUTH] ✅ Token berhasil didapat!")
                     return self._token
                 else:
                     body = await resp.text()
                     logger.error(
-                        "Spotify auth GAGAL — status: %s | response: %s",
-                        resp.status, body[:200]
+                        "[SPOTIFY AUTH] ❌ GAGAL — HTTP %s | body: %s",
+                        resp.status, body[:300]
                     )
         except Exception as e:
-            logger.error("Spotify auth error: %s", e)
+            logger.error("[SPOTIFY AUTH] ❌ Exception: %s", e)
         return None
 
     async def get_playlist_tracks(self, session: aiohttp.ClientSession, playlist_id: str) -> List[Dict]:
@@ -500,22 +502,32 @@ class SpotifyResolver:
         original_url: str,
     ) -> Tuple[List[ResolvedTrack], str]:
         # 1. SpotifyDown
+        logger.info("[RESOLVE PLAYLIST] Step 1: Mencoba SpotifyDown API...")
         raw = await sd.get_playlist_tracks(playlist_id)
         if raw:
+            logger.info("[RESOLVE PLAYLIST] ✅ SpotifyDown berhasil: %d tracks", len(raw))
             return self._convert_sd_tracks(raw), "spotifydown"
+        logger.warning("[RESOLVE PLAYLIST] ⚠️ SpotifyDown gagal, lanjut ke Official API...")
 
         # 2. Fallback Official
         if self.official:
+            logger.info("[RESOLVE PLAYLIST] Step 2: Mencoba Spotify Official API...")
             raw = await self.official.get_playlist_tracks(session, playlist_id)
             if raw:
+                logger.info("[RESOLVE PLAYLIST] ✅ Official API berhasil: %d tracks", len(raw))
                 return [
                     self._track_to_resolved(t, t.get("id", ""), "spotify_official")
                     for t in raw
                 ], "spotify_official"
+            logger.warning("[RESOLVE PLAYLIST] ⚠️ Official API gagal/kosong, lanjut ke oEmbed...")
+        else:
+            logger.warning("[RESOLVE PLAYLIST] ⚠️ self.official = None, Official API skip!")
 
         # 3. Fallback oEmbed (async) — cuma dapat 1 track = nama playlist
+        logger.info("[RESOLVE PLAYLIST] Step 3: Mencoba oEmbed...")
         meta = await _get_spotify_metadata_oembed(session, original_url)
         if meta and meta.get("name"):
+            logger.warning("[RESOLVE PLAYLIST] ⚠️ Hanya dapat metadata oEmbed (1 track = nama playlist)")
             return [
                 ResolvedTrack(
                     name=meta["name"],
@@ -531,6 +543,7 @@ class SpotifyResolver:
             ], "oembed"
 
         # 4. Fallback HTML scrape (async)
+        logger.info("[RESOLVE PLAYLIST] Step 4: Mencoba HTML scrape...")
         meta = await _get_spotify_metadata_html(session, original_url)
         if meta and meta.get("name"):
             return [
