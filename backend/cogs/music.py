@@ -427,7 +427,7 @@ class Music(commands.Cog):
 
                 # FIX: Urutan antrean playlist Spotify agar lagu nomor 1 selalu diproses duluan
                 if not player.current:
-                    for t in remaining_tracks:
+                    await player.play(first_track)
                         await player.queue.put_wait(t)
                     await player.set_volume(100)
                     await asyncio.sleep(0.3)
