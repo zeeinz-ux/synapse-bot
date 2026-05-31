@@ -347,64 +347,64 @@ class SpotifyResolver:
         return tracks
 
     async def _resolve_playlist(
-        self,
-        playlist_id: str,
-        sd: SpotifyDownClient,
-        session: aiohttp.ClientSession,
-        original_url: str,
-    ) -> Tuple[List[ResolvedTrack], str]:
-        # 1. SpotifyDown
-        logger.info("[RESOLVE PLAYLIST] Step 1: Mencoba SpotifyDown API...")
-        raw = await sd.get_playlist_tracks(playlist_id)
+    self,
+    playlist_id: str,
+    sd: SpotifyDownClient,
+    session: aiohttp.ClientSession,
+    original_url: str,
+) -> Tuple[List[ResolvedTrack], str]:
+    """
+    Resolves all tracks in a Spotify playlist using Official API first,
+    fallback ke SpotifyDown API jika Official API gagal.
+    """
+    # 1. Gunakan Official API terlebih dahulu
+    if self.official:
+        raw = await self.official.get_playlist_tracks(session, playlist_id)
         if raw:
-            logger.info("[RESOLVE PLAYLIST] SpotifyDown berhasil: %d tracks", len(raw))
-            return self._convert_sd_tracks(raw), "spotifydown"
-        logger.warning("[RESOLVE PLAYLIST] SpotifyDown gagal, lanjut ke Official API...")
-
-        # 2. Official API
-        if self.official:
-            logger.info("[RESOLVE PLAYLIST] Step 2: Mencoba Spotify Official API...")
-            raw = await self.official.get_playlist_tracks(session, playlist_id)
-            if raw:
-                logger.info("[RESOLVE PLAYLIST] Official API berhasil: %d tracks", len(raw))
-                return [
-                    self._track_to_resolved(t, t.get("id", ""), "spotify_official")
-                    for t in raw
-                ], "spotify_official"
-            logger.warning("[RESOLVE PLAYLIST] Official API gagal/kosong, lanjut ke oEmbed...")
-        else:
-            logger.warning("[RESOLVE PLAYLIST] self.official = None, Official API skip!")
-
-        # 3. oEmbed
-        logger.info("[RESOLVE PLAYLIST] Step 3: Mencoba oEmbed...")
-        meta = await _get_spotify_metadata_oembed(session, original_url)
-        if meta and meta.get("name"):
-            logger.warning("[RESOLVE PLAYLIST] Hanya dapat metadata oEmbed (1 track = nama playlist)")
             return [
-                ResolvedTrack(
-                    name=meta["name"], artists=meta["artists"], album=None,
-                    duration_ms=None, artwork=meta.get("artwork"),
-                    spotify_id=playlist_id, youtube_id=None,
-                    query=f"ytsearch:{meta['name']} {meta['artists']} playlist",
-                    source="oembed",
-                )
-            ], "oembed"
+                self._track_to_resolved(t, t.get("id", ""), "spotify_official")
+                for t in raw
+            ], "spotify_official"
 
-        # 4. HTML scrape
-        logger.info("[RESOLVE PLAYLIST] Step 4: Mencoba HTML scrape...")
-        meta = await _get_spotify_metadata_html(session, original_url)
-        if meta and meta.get("name"):
-            return [
-                ResolvedTrack(
-                    name=meta["name"], artists=meta["artists"], album=None,
-                    duration_ms=None, artwork=meta.get("artwork"),
-                    spotify_id=playlist_id, youtube_id=None,
-                    query=f"ytsearch:{meta['name']} {meta['artists']} playlist",
-                    source="html_scrape",
-                )
-            ], "html_scrape"
+    # 2. Jika Official API gagal, coba SpotifyDown API
+    raw = await sd.get_playlist_tracks(playlist_id)
+    if raw:
+        return self._convert_sd_tracks(raw), "spotifydown"
 
-        return [], "failed"
+    # 3. Fallback: oEmbed / HTML (hanya 1 track info)
+    meta = await _get_spotify_metadata_oembed(session, original_url)
+    if meta:
+        return [
+            ResolvedTrack(
+                name=meta["name"],
+                artists=meta["artists"],
+                album=None,
+                duration_ms=None,
+                artwork=meta.get("artwork"),
+                spotify_id=playlist_id,
+                youtube_id=None,
+                query=f"ytsearch:{meta['name']} {meta['artists']} playlist",
+                source="oembed",
+            )
+        ], "oembed"
+
+    meta = await _get_spotify_metadata_html(session, original_url)
+    if meta:
+        return [
+            ResolvedTrack(
+                name=meta["name"],
+                artists=meta["artists"],
+                album=None,
+                duration_ms=None,
+                artwork=meta.get("artwork"),
+                spotify_id=playlist_id,
+                youtube_id=None,
+                query=f"ytsearch:{meta['name']} {meta['artists']} playlist",
+                source="html_scrape",
+            )
+        ], "html_scrape"
+
+    return [], "failed"
 
     async def _resolve_album(
         self,
