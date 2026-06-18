@@ -98,7 +98,7 @@ def get_guild_channels(guild_id: str) -> list:
     with _guild_lock:
         return _guild_channels.get(guild_id, [])
     
-    # ==========================================================
+# ==========================================================
 # Shared music state (thread-safe)
 # ==========================================================
 _music_lock = threading.Lock()
@@ -111,6 +111,73 @@ def set_music_state(guild_id: str, state: dict):
 def get_music_state(guild_id: str) -> dict:
     with _music_lock:
         return _music_states.get(guild_id, {"connected": False})
+    
+
+# ==========================================================
+# API — Music
+# ==========================================================
+
+@app.route("/api/music/status")
+def api_music_status():
+    guild_id = request.args.get("guild_id")
+
+    if not guild_id:
+        return jsonify({"connected": False}), 400
+
+    return jsonify(get_music_state(guild_id))
+
+
+@app.route("/api/music/channels")
+def api_music_channels():
+    guild_id = request.args.get("guild_id")
+
+    if not guild_id:
+        return jsonify({"channels": []}), 400
+
+    return jsonify({
+        "channels": get_guild_channels(guild_id)
+    })
+
+
+@app.route("/api/music/queue", methods=["GET"])
+def api_music_queue():
+    guild_id = request.args.get("guild_id")
+
+    if not guild_id:
+        return jsonify({
+            "success": False,
+            "message": "guild_id required"
+        }), 400
+
+    state = get_music_state(guild_id)
+
+    return jsonify({
+        "success": True,
+        "queue": state.get("queue", []),
+        "queue_count": state.get("queue_count", 0),
+        "queue_duration": state.get("queue_duration", 0)
+    })
+
+
+@app.route("/api/music/queue", methods=["POST"])
+def api_music_queue_action():
+    data = request.get_json() or {}
+
+    return jsonify({
+        "success": True,
+        "message": f"Action {data.get('action')} received"
+    })
+
+
+@app.route("/api/music/control", methods=["POST"])
+def api_music_control():
+    data = request.get_json() or {}
+
+    return jsonify({
+        "success": True,
+        "message": f"Control {data.get('action')} received"
+    })
+    
 
 # ==========================================================
 # Helper — baca config welcome dari Firestore
