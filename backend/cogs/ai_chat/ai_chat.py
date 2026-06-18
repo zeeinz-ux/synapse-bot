@@ -637,7 +637,7 @@ class AIChat(commands.Cog):
         now = datetime.now(timezone.utc).timestamp()
 
         # DEFER FIRST — sebelum cooldown check!
-        await interaction.response.defer(thinking=True)
+        await interaction.response.defer(thinking=False)
 
         key = (guild_id, user_id)
         last_used = self._cooldowns.get(key, 0)
