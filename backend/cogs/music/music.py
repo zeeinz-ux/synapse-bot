@@ -69,6 +69,16 @@ class Music(commands.Cog):
             print(f"[YT SEARCH] {track.query}")
 
             results = await wavelink.Playable.search(track.query)
+            print("=" * 80)
+            print(f"[YT SEARCH] {track.query}")
+
+            results = await wavelink.Playable.search(track.query)
+
+            print(f"[YT RESULT TYPE] {type(results)}")
+            print(f"[YT RESULT RAW] {results}")
+
+            if results:
+                print(f"[YT RESULT LEN] {len(results)}")
 
             if results and len(results) > 0:
                 print(f"[YT FOUND] {results[0].title}")
@@ -375,13 +385,13 @@ class Music(commands.Cog):
                 return
 
             # ==========================================================
-            # PLAYLIST / ALBUM — Embed Info + Auto-Play First Track
+            # PLAYLIST / ALBUM — VERSI LAZY LOADING (SUPER CEPAT ⚡)
             # ==========================================================
             else:
                 total_tracks = len(resolved_tracks)
                 print(f"[SPOTIFY {spotify_type.upper()}] {total_tracks} tracks resolved via {source}")
 
-                # Hitung total durasi
+                # Hitung total durasi playlist
                 total_ms = sum(t.duration_ms or 0 for t in resolved_tracks)
                 total_duration = format_duration(total_ms) if total_ms > 0 else "Unknown"
 
@@ -392,98 +402,67 @@ class Music(commands.Cog):
                         thumbnail = t.artwork
                         break
 
-                embed = discord.Embed(
-                    title=f"🎵 Added {spotify_type.title()}",
-                    color=discord.Color.green(),
-                )
-                playlist_name = resolved_tracks[0].album or f"Spotify {spotify_type.title()}"
-                embed.add_field(
-                    name="Playlist",
-                    value=f"**{playlist_name}**",
-                    inline=False,
-                )
-                embed.add_field(
-                    name="Playlist Length",
-                    value=f"`{total_duration}`",
-                    inline=True,
-                )
-                embed.add_field(
-                    name="Tracks",
-                    value=f"`{total_tracks}`",
-                    inline=True,
-                )
-                if thumbnail:
-                    embed.set_thumbnail(url=thumbnail)
-                embed.set_footer(text=f"Source: {source} | Lagu pertama akan segera diputar...")
+                # 1. AMBIL LAGU PERTAMA SECARA INSTAN AGAR BOT LANGSUNG BUNYI 🎵
+                first_track = None
+                first_track_index = 0
+                for i, rt in enumerate(resolved_tracks):
+                    first_track = await self._search_single_resolved(rt)
+                    if first_track:
+                        first_track_index = i
+                        break
 
-                await loading_msg.edit(content=None, embed=embed)
-
-                # Search semua track secara concurrent
-                added, playables = await self._search_youtube_for_tracks_concurrent(
-                    resolved_tracks, player, max_concurrent=1
-                )
-                print(f"[SPOTIFY PLAYLIST] Added={added}")
-                print(f"[SPOTIFY PLAYLIST] Playables={len(playables)}")
-
-                if not playables:
-                    await interaction.followup.send("❌ Gagal menemukan lagu di YouTube.")
+                if not first_track:
+                    await loading_msg.edit(content="❌ Gagal menemukan satupun lagu dari playlist ini di YouTube.")
                     return
 
-                first_track = playables[0]
-                remaining_tracks = playables[1:]
+                # Sisa lagu yang akan kita muat di dalam background worker
+                remaining_resolved = resolved_tracks[first_track_index + 1:]
 
-                # FIX: Urutan antrean playlist Spotify agar lagu nomor 1 selalu diproses duluan
+                # 2. langsung mainkan / antrekan lagu pertama saat ini juga
                 if not player.current:
                     await player.set_volume(100)
-
-                    # Masukkan lagu sisanya ke queue dulu
-                    for t in remaining_tracks:
-                        await player.queue.put_wait(t)
-
                     await asyncio.sleep(0.3)
                     await player.play(first_track)
                 else:
                     await player.queue.put_wait(first_track)
 
-                    for t in remaining_tracks:
-                        await player.queue.put_wait(t)
+                # 3. LAZY LOADING WORKER: Isi sisa antrean di background tanpa memblokir Discord ⚡
+                async def bg_playlist_loader(player_obj, tracks_to_load):
+                    for rt_track in tracks_to_load:
+                        await asyncio.sleep(0.5)  # Jeda aman 0.5 detik biar ga kena rate-limit/ban oleh YouTube
+                        playable = await self._search_single_resolved(rt_track)
+                        if playable:
+                            await player_obj.queue.put_wait(playable)
+                            
+                            # Jaga-jaga jika player mendadak kosong/idle pas background lagi loading
+                            if not player_obj.current and player_obj.queue.count == 1:
+                                try:
+                                    await player_obj.play(player_obj.queue.get())
+                                except Exception:
+                                    pass
 
-                # Update embed dengan info final
+                # Jalankan worker di background thread asyncio
+                asyncio.create_task(bg_playlist_loader(player, remaining_resolved))
+
+                # 4. TAMPILKAN EMBED RESPONSE INSTAN (Kelebihan bot premium)
                 final_embed = discord.Embed(
-                    title=f"🎵 {spotify_type.title()} Added",
+                    title=f"🎵 {spotify_type.title()} Added (Instant Load)",
                     color=discord.Color.green(),
                 )
-                final_embed.add_field(
-                    name="Playlist",
-                    value=f"**{playlist_name}**",
-                    inline=False,
-                )
-                final_embed.add_field(
-                    name="Playlist Length",
-                    value=f"`{total_duration}`",
-                    inline=True,
-                )
-                final_embed.add_field(
-                    name="Tracks",
-                    value=f"`{added}/{total_tracks}`",
-                    inline=True,
-                )
+                playlist_name = resolved_tracks[0].album or f"Spotify {spotify_type.title()}"
+                final_embed.add_field(name="Playlist", value=f"**{playlist_name}**", inline=False)
+                final_embed.add_field(name="Tracks", value=f"`{total_tracks}` lagu didaftarkan", inline=True)
+                final_embed.add_field(name="Total Duration", value=f"`{total_duration}`", inline=True)
                 if thumbnail:
                     final_embed.set_thumbnail(url=thumbnail)
-                final_embed.set_footer(
-                    text=f"▶️ Now playing: {first_track.title[:50]}... | Source: {source}"
-                )
+                
+                # Cek status pemutaran untuk teks footer
+                status_text = f"▶️ Sekarang memutar: {first_track.title[:40]}..." if player.current == first_track else "📥 Dimasukkan ke dalam antrean"
+                final_embed.set_footer(text=f"{status_text} | ⚡ Sisa lagu dimuat di background.")
 
-                if added < total_tracks:
-                    final_embed.add_field(
-                        name="⚠️ Note",
-                        value=f"{total_tracks - added} lagu gagal dimuat",
-                        inline=False,
-                    )
-
-                await interaction.followup.send(embed=final_embed)
+                await loading_msg.edit(content=None, embed=final_embed)
                 return
-
+            
         # HANDLE URL LANGSUNG (YouTube, SoundCloud, dll)
         elif search_query.startswith("http://") or search_query.startswith("https://"):
             print("[PLAY CMD] Direct URL detected, Lavalink will auto-resolve")
