@@ -31,6 +31,7 @@ from discord.ext import commands
 import aiohttp
 
 from ..database.firebase_setup import db
+from ...utils.spam_engine import SpamEngine
 
 # ── Konstanta ──
 MAX_HISTORY_PAIRS = 5
@@ -74,6 +75,7 @@ Aturan:
 class AIChat(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self.engine = SpamEngine()
         self._cooldowns: Dict[tuple, float] = {}
 
         # API Keys
@@ -546,8 +548,30 @@ class AIChat(commands.Cog):
         guild_id = str(guild.id)
         user_id = str(user.id)
 
-        # ── [GUARD] Spam Detection — dijalankan paling awal, sebelum apa pun ──
-        # Mencegah AI dipanggil sama sekali untuk pesan spam/scam/iklan ilegal.
+        # ── [NEW] REVISI: Gatekeeper (Local Check) ──
+        # Kita buat objek tiruan (Mock) agar SpamEngine bisa membaca data pesan
+        class MockMsg:
+            def __init__(self, content, author, guild):
+                self.content = content
+                self.author = author
+                self.guild = guild
+                self.mention_everyone = False 
+        
+        mock_msg = MockMsg(user_message, user, guild)
+
+        # 1. Cek Heuristic (Keyword & Link) - LAPIS 1
+        if self.engine.is_spam_heuristic(mock_msg):
+            print(f"[AI MOD] 🚫 Spam terdeteksi via Heuristic dari user {user_id}")
+            await self._send_response(ctx, user_id, "🚫 Pesan diblokir karena terdeteksi spam/link mencurigakan.")
+            return
+
+        # 2. Cek Akun Baru (Anti-Spammer Baru) - LAPIS 2
+        if self.engine.is_new_account(mock_msg):
+            print(f"[AI MOD] 🚫 User baru ({user_id}) diblokir.")
+            await self._send_response(ctx, user_id, "🚫 Akun kamu terlalu baru untuk menggunakan fitur AI Chat.")
+            return
+
+        # 3. Guard AI Detection - LAPIS 3 (Hanya jika lolos Lapis 1 & 2)
         is_spam = await self.analyze_spam(user_message)
         if is_spam:
             print(f"[AI MOD] 🚫 Pesan spam terdeteksi dari user {user_id} (guild {guild_id})")
