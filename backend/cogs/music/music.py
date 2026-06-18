@@ -83,7 +83,7 @@ class Music(commands.Cog):
         self,
         tracks: list[ResolvedTrack],
         player: wavelink.Player,
-        max_concurrent: int = 5,
+        max_concurrent: int = 1,
     ) -> tuple[int, list[wavelink.Playable]]:
         """
         Search YouTube secara concurrent dengan semaphore.
@@ -159,9 +159,19 @@ class Music(commands.Cog):
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
         player = payload.player
+        
+        if player is None:
+            print("[TRACK START] player is None")
+            return
+    
+        if getattr(player, "guild", None) is None:
+            print("[TRACK START] guild is None")
+            return
+        
         track = payload.track
         guild_id = player.guild.id
         mp = self.get_player(guild_id)
+
         track_id = getattr(track, 'identifier', track.title)
         now = asyncio.get_event_loop().time()
         if mp._last_track_id == track_id and (now - mp._last_embed_time) < 3.0:
@@ -410,7 +420,7 @@ class Music(commands.Cog):
 
                 # Search semua track secara concurrent
                 added, playables = await self._search_youtube_for_tracks_concurrent(
-                    resolved_tracks, player, max_concurrent=5
+                    resolved_tracks, player, max_concurrent=1
                 )
                 print(f"[SPOTIFY PLAYLIST] Added={added}")
                 print(f"[SPOTIFY PLAYLIST] Playables={len(playables)}")
