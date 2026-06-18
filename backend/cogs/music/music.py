@@ -66,11 +66,17 @@ class Music(commands.Cog):
     async def _search_single_resolved(self, track: ResolvedTrack) -> wavelink.Playable | None:
         """Search satu ResolvedTrack di YouTube/Lavalink."""
         try:
+            print(f"[YT SEARCH] {track.query}")
+
             results = await wavelink.Playable.search(track.query)
+
             if results and len(results) > 0:
+                print(f"[YT FOUND] {results[0].title}")
                 return results[0]
+            print(f"[YT NOT FOUND] {track.query}")
+
         except Exception as e:
-            print(f"[YOUTUBE SEARCH ERROR] {track.name}: {e}")
+            print(f"[YOUTUBE SEARCH ERROR] {track.query}: {e}")
         return None
 
     async def _search_youtube_for_tracks_concurrent(
@@ -406,6 +412,8 @@ class Music(commands.Cog):
                 added, playables = await self._search_youtube_for_tracks_concurrent(
                     resolved_tracks, player, max_concurrent=5
                 )
+                print(f"[SPOTIFY PLAYLIST] Added={added}")
+                print(f"[SPOTIFY PLAYLIST] Playables={len(playables)}")
 
                 if not playables:
                     await interaction.followup.send("❌ Gagal menemukan lagu di YouTube.")
