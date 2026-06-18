@@ -12,7 +12,8 @@ class SpamEngine:
         self.compiled_patterns = [re.compile(p, re.IGNORECASE) for p in self.banned_patterns]
 
     def get_risk_score(self, message) -> int:
-        score = 0
+        if hasattr(message.author, 'guild_permissions') and message.author.guild_permissions.manage_messages:
+            return 0
         
         # Layer 1: Heuristic (Ringan)
         if hasattr(message, 'mention_everyone') and message.mention_everyone: 
@@ -26,8 +27,13 @@ class SpamEngine:
         # Layer 2: Account Age (User Context)
         if hasattr(message.author, 'created_at'):
             account_age = (datetime.now(timezone.utc) - message.author.created_at).days
-            if account_age < 1: # Akun baru banget
-                score += 4
+            
+            if account_age < 1:      # Kurang dari 1 hari: Sangat mencurigakan
+                score += 5
+            elif account_age < 3:    # 1-3 hari: Waspada
+                score += 3
+            elif account_age < 7:    # 3-7 hari: Sedikit mencurigakan
+                score += 2
             
         return score
 
