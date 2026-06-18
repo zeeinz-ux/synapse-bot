@@ -530,17 +530,22 @@ def ai_chat_page(guild_id: str):
 def ai_chat_toggle(guild_id):
     try:
         if request.is_json:
-            data = request.get_json()
+            # FIX: Ditambahkan 'or {}' agar jika JSON kosong, tidak menyebabkan NoneType Error
+            data = request.get_json() or {}
             enabled = data.get("enabled", False)
         else:
             enabled = request.form.get("enabled", "false").lower() == "true"
 
+        # Cek apakah database Firebase siap digunakan
         if db is None:
-            return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
+            print(f"[AI-CHAT-TOGGLE] ❌ Server melempar 500 karena 'db' bernilai None untuk Guild ID: {guild_id}")
+            return jsonify({"success": False, "message": "Firebase tidak tersedia (db is None)."}), 500
 
+        # Simpan ke Firestore
         doc_ref = db.collection("guild_settings").document(str(guild_id))
         doc_ref.set({"ai_chat_enabled": enabled}, merge=True)
 
+        print(f"[AI-CHAT-TOGGLE] ✅ Guild {guild_id} berhasil mengubah status menjadi: {enabled}")
         return jsonify({
             "success": True,
             "enabled": enabled,
@@ -548,8 +553,10 @@ def ai_chat_toggle(guild_id):
         }), 200
 
     except Exception as e:
+        # Mencetak struktur eror lengkap di console terminal / log Render kamu
+        print("🚨 [AI-CHAT-TOGGLE EROR] Terjadi masalah di dalam blok try-except:")
         traceback.print_exc()
-        return jsonify({"success": False, "message": f"Terjadi error: {str(e)}"}), 500
+        return jsonify({"success": False, "message": f"Terjadi error internal: {str(e)}"}), 500
 
 
 @app.route("/dashboard/<guild_id>/ai-chat/save", methods=["POST"])
