@@ -183,6 +183,19 @@ class SpotifyOfficialClient:
         token = await self._get_token(session)
         if not token:
             return []
+        
+        # ===== TEMP TEST =====
+        async with session.get(
+            "https://api.spotify.com/v1/tracks/72sfmdpuO5r8cBDgs7MqZZ",
+            headers={"Authorization": f"Bearer {token}"},
+        ) as resp:
+
+            print("=" * 60)
+            print("TRACK TEST")
+            print("STATUS:", resp.status)
+            print(await resp.text())
+            print("=" * 60)
+        # ===== END TEST =====
 
         tracks: List[Dict] = []
         url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
