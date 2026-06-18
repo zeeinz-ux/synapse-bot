@@ -15,7 +15,7 @@ from backend.cogs.music.queue_manager import MusicPlayer
 
 def get_db():
     try:
-        from backend.cogs.firebase_setup import db
+        from backend.cogs.database.firebase_setup import db
         return db
     except Exception as e:
         print(f"[FIREBASE LAZY IMPORT] {e}")
