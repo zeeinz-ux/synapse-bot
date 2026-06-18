@@ -3,12 +3,16 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+db = None
+
 def init_firebase():
     """Initialize Firebase Firestore with dual mode support (VS Code / Replit / Render)"""
+    global db
 
     if firebase_admin._apps:
         print("[FIREBASE] ℹ️ Firebase sudah di-init sebelumnya.")
-        return firestore.client()
+        db = firestore.client()
+        return db
 
     firebase_key = os.getenv("FIREBASE_KEY", "")
 
@@ -40,7 +44,9 @@ def init_firebase():
             print(f"         Cek path root: {os.path.join(os.path.dirname(_backend_dir), firebase_key)}")
             return None
 
+        # ← HANYA Firestore, TIDAK pakai Storage (FREE tier)
         firebase_admin.initialize_app(cred)
+
         db = firestore.client()
         print("[FIREBASE] ✅ Berhasil terhubung ke Firestore!")
         return db
@@ -49,4 +55,5 @@ def init_firebase():
         print(f"[FIREBASE] ❌ Gagal init Firebase: {e}")
         return None
 
+# Init saat import module
 db = init_firebase()

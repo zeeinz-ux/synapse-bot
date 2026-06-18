@@ -11,7 +11,7 @@
   --accent-red: #ed4245;
   --accent-yellow: #f59e0b;
   --border-color: #2a2a4a;
-  --font-family: "Segoe UI", system-ui, sans-serif;
+  --font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
 * {
@@ -27,31 +27,39 @@ body {
   line-height: 1.6;
 }
 
+/* ── Layout (serasi dengan welcome_settings.css) ─────── */
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+  width: 100%;
+  max-width: 100%;
+  padding: 1.5rem 1.5rem 3rem 0.75rem; /* atas | kanan | bawah | kiri(rapet) */
 }
 
+/* ── Header ─────────────────────────────────────────── */
 header {
-  text-align: center;
+  text-align: left;
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid var(--border-color);
 }
 
 header h1 {
-  font-size: 2.5rem;
+  font-size: 2rem;
   background: linear-gradient(90deg, var(--accent-purple), var(--accent-pink));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 0.5rem;
 }
 
+header p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Grid Stats ────────────────────────────────────── */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
   margin-bottom: 2rem;
 }
 
@@ -98,16 +106,17 @@ header h1 {
 }
 
 .big {
-  font-size: 2rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: #fff;
 }
 
+/* ── Active Players ───────────────────────────────── */
 .players {
   margin-top: 2rem;
 }
 .players h2 {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   margin-bottom: 1rem;
   color: #fff;
 }
@@ -140,7 +149,7 @@ header h1 {
 .p-info h4 {
   color: #fff;
   margin-bottom: 0.25rem;
-  font-size: 1.1rem;
+  font-size: 1rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -184,10 +193,7 @@ header h1 {
 
 .bar-fill {
   height: 100%;
-  /* ✅ BUG FIX: width harus didefinisikan di sini (base style),
-     bukan hanya di dalam media query mobile.
-     Tanpa ini, progress bar tidak muncul sama sekali di desktop. */
-  width: var(--progress);
+  width: var(--progress, 0%);
   background: linear-gradient(90deg, var(--accent-purple), var(--accent-pink));
   border-radius: 3px;
   transition: width 0.5s;
@@ -199,6 +205,7 @@ header h1 {
   margin-top: 0.25rem;
 }
 
+/* ── Footer ─────────────────────────────────────────── */
 footer {
   text-align: center;
   margin-top: 3rem;
@@ -216,42 +223,186 @@ a:hover {
   text-decoration: underline;
 }
 
-@media (max-width: 600px) {
-  .p-card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .p-art {
-    width: 100%;
-    height: 200px;
-  }
-  .p-info h4 {
-    white-space: normal;
-  }
-  /* width: var(--progress) sudah di base style di atas, tidak perlu duplikat di sini */
-<<<<<<< HEAD:web/static/css/dashboard.css
-=======
-}
-
 /* ========================================
    SIDEBAR LAYOUT COMPATIBILITY (v3.6)
    Dipakai ketika dashboard.html extends base.html
    ======================================== */
 
-/* Content wrapper dari base.html — override container defaults */
 .content-wrapper .container {
   max-width: none;
   margin: 0;
   padding: 0;
 }
 
-/* Header alignment di content area */
 .content-wrapper header {
   text-align: left;
 }
 
-/* Pastikan background konsisten dengan sidebar theme */
 .app-container {
   background: #121214;
->>>>>>> v3.6-sidebar:frontend/static/css/dashboard.css
+}
+
+/* ========================================
+   RESPONSIVE BREAKPOINTS
+   ======================================== */
+
+/* ── Mobile: ≤480px (iPhone SE, small phones) ───────── */
+@media (max-width: 480px) {
+  .container {
+    padding: 1.25rem 1rem 2.5rem 0.5rem;
+  }
+
+  header h1 {
+    font-size: 1.4rem;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .big {
+    font-size: 1.5rem;
+  }
+
+  .players h2 {
+    font-size: 1.1rem;
+  }
+
+  .p-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.875rem;
+  }
+
+  .p-art {
+    width: 100%;
+    height: 160px;
+  }
+
+  .p-info h4 {
+    white-space: normal;
+    font-size: 0.95rem;
+  }
+
+  .p-meta {
+    font-size: 0.8rem;
+  }
+
+  .badge {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+  }
+}
+
+/* ── Tablet: 481px – 768px (iPad portrait, large phones) ── */
+@media (min-width: 481px) and (max-width: 768px) {
+  .container {
+    padding: 1.35rem 1.25rem 2.75rem 0.65rem;
+  }
+
+  header h1 {
+    font-size: 1.6rem;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .card {
+    padding: 1.25rem;
+  }
+
+  .big {
+    font-size: 1.6rem;
+  }
+
+  .p-card {
+    gap: 0.875rem;
+    padding: 0.875rem;
+  }
+
+  .p-art {
+    width: 64px;
+    height: 64px;
+  }
+
+  .p-info h4 {
+    font-size: 0.95rem;
+  }
+}
+
+/* ── Small Laptop: 769px – 1024px (iPad landscape, small laptops) ── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .container {
+    padding: 1.5rem 1.5rem 3rem 0.75rem;
+  }
+
+  header h1 {
+    font-size: 1.8rem;
+  }
+
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.125rem;
+  }
+
+  .card {
+    padding: 1.35rem;
+  }
+
+  .big {
+    font-size: 1.65rem;
+  }
+
+  .p-art {
+    width: 72px;
+    height: 72px;
+  }
+}
+
+/* ── Desktop: ≥1025px (PC, large monitors) ──────────── */
+@media (min-width: 1025px) {
+  .container {
+    padding: 1.5rem 1.5rem 3rem 0.75rem;
+  }
+
+  header h1 {
+    font-size: 2rem;
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .card {
+    padding: 1.5rem;
+  }
+
+  .big {
+    font-size: 1.75rem;
+  }
+
+  .p-art {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+/* ── Ultra-wide: ≥1440px (large monitors, 4K) ─────── */
+@media (min-width: 1440px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .big {
+    font-size: 2rem;
+  }
 }

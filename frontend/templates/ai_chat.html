@@ -1,93 +1,195 @@
 {% extends "base.html" %}
-{% block title %}AI Chat — Hidden Hamlet{% endblock %}
+
+{% block title %}AI Chat Settings — Hidden Hamlet{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ai_chat.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="page-wrap">
-  <nav class="breadcrumb">
-    <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
-    <span>›</span>
-    <span>Tools</span>
-    <span>›</span>
-    <span>AI Chat</span>
-  </nav>
-  <div class="placeholder-page">
-    <div class="placeholder-icon">🧠</div>
-    <h1>AI Chat</h1>
-    <p>Chat bot AI powered by Google Gemini API. Personality customization, chat history, and context-aware conversations.</p>
-    <div class="placeholder-status">
-      <span class="status-badge">🔧 Under Development</span>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast hidden">
+  <span id="toast-message">✅ Berhasil disimpan!</span>
+</div>
+
+<!-- Header -->
+<div class="page-header">
+  <h1>🧠 AI Chat Settings</h1>
+  <p>Atur personality, channel restriction, dan kelola chat history.</p>
+</div>
+
+<!-- Status Card -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-icon">⚡</span>
+    <div class="card-title-group">
+      <h2>Status AI Chat</h2>
+      <p>Aktifkan atau nonaktifkan fitur AI Chat di server ini.</p>
     </div>
-    <div class="placeholder-hint">
-      <p>Fitur ini sedang dalam pengembangan.</p>
-      <p>Nantinya kamu bisa:</p>
-      <ul style="text-align: left; margin: 10px 0; padding-left: 20px; color: #888;">
-        <li>Atur personality AI (friendly, formal, tsundere, dll)</li>
-        <li>Lihat chat history per user/server</li>
-        <li>Setting API key & model Gemini</li>
-        <li>Lihat usage stats & analytics</li>
-      </ul>
-      <p>Silakan gunakan <a href="/dashboard/{{ guild_id }}/welcome">Welcome Settings</a> atau <a href="/dashboard">Dashboard</a> yang sudah tersedia.</p>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">Jika dimatikan, bot tidak akan merespons mention maupun command <code>/ask</code>.</p>
+    <br>
+    <label class="toggle-switch">
+      <input type="checkbox" id="ai-toggle" {% if ai_chat_enabled %}checked{% endif %}>
+      <span class="toggle-slider"></span>
+    </label>
+    <span id="toggle-label" class="toggle-label">{% if ai_chat_enabled %}Aktif{% else %}Nonaktif{% endif %}</span>
+  </div>
+</div>
+
+<!-- Personality & Channel Card -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-icon">🎭</span>
+    <div class="card-title-group">
+      <h2>Personality & Channel</h2>
+      <p>Atur gaya bicara AI dan channel restriction.</p>
+    </div>
+  </div>
+  <div class="card-body">
+
+    <div class="form-group">
+      <label for="channel-select">Channel AI Chat</label>
+      <p class="field-hint">Pilih channel khusus untuk AI Chat. Kosongkan agar AI merespons di SEMUA channel.</p>
+      <select id="channel-select" class="form-select">
+        <option value="">Semua Channel</option>
+        {% for ch in channels %}
+        <option value="{{ ch.id }}" {% if ch.id == ai_chat_channel %}selected{% endif %}>{{ ch.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="personality-select">Personality AI</label>
+      <p class="field-hint">Gaya bahasa AI akan menyesuaikan personality ini.</p>
+      <select id="personality-select" class="form-select">
+        <option value="friendly" {% if personality == 'friendly' %}selected{% endif %}>😊 Friendly (Santai & Gaul)</option>
+        <option value="formal" {% if personality == 'formal' %}selected{% endif %}>🧐 Formal (Profesional)</option>
+        <option value="tsundere" {% if personality == 'tsundere' %}selected{% endif %}>😤 Tsundere (Galak tapi peduli)</option>
+        <option value="sarcastic" {% if personality == 'sarcastic' %}selected{% endif %}>😏 Sarcastic (Nyinyir)</option>
+        <option value="wise" {% if personality == 'wise' %}selected{% endif %}>🦉 Wise (Bijaksana)</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="temperature-slider">Temperature (Kreativitas)</label>
+      <p class="field-hint">0 = Sangat deterministik. 1 = Sangat kreatif/random.</p>
+      <div class="slider-container">
+        <input type="range" id="temperature-slider" min="0" max="1" step="0.05" value="{{ temperature }}">
+        <span id="temperature-value" class="slider-value">{{ temperature }}</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>AI Engine Stack</label>
+      <p class="field-hint">Arsitektur 3-tier fallback di backend. Auto-switch tanpa restart bot.</p>
+      <div class="engine-stack-info">
+        <div class="tier-badge tier-1">⚡ Tier 1: Gemini 3.5 Flash (Google AI Studio)</div>
+        <div class="tier-arrow">↓</div>
+        <div class="tier-badge tier-2">🚀 Tier 2: Llama 3.3 70B (Groq)</div>
+        <div class="tier-arrow">↓</div>
+        <div class="tier-badge tier-3">🌐 Tier 3: Gemini 2.5 Flash (OpenRouter)</div>
+      </div>
+    </div>
+
+    <button id="save-btn" class="btn btn-primary">💾 Simpan Pengaturan</button>
+  </div>
+</div>
+
+<!-- Chat History Card -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-icon">📜</span>
+    <div class="card-title-group">
+      <h2>Chat History</h2>
+      <p>Riwayat percakapan terakhir dari user di server ini.</p>
+    </div>
+  </div>
+  <div class="card-body">
+    <div id="history-container">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <span>Memuat data...</span>
+      </div>
     </div>
   </div>
 </div>
-<style>
-  .placeholder-page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 60vh;
-    text-align: center;
-    padding: 2rem;
-  }
-  .placeholder-icon {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    opacity: 0.8;
-  }
-  .placeholder-page h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #f2f3f5;
-    margin-bottom: 0.5rem;
-  }
-  .placeholder-page p {
-    color: #a0a0a0;
-    font-size: 1rem;
-    max-width: 500px;
-    line-height: 1.6;
-  }
-  .placeholder-status {
-    margin: 1.5rem 0;
-  }
-  .status-badge {
-    display: inline-block;
-    background: #2d2d30;
-    border: 1px solid #404040;
-    color: #f0b232;
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-size: 0.875rem;
-    font-weight: 600;
-  }
-  .placeholder-hint {
-    margin-top: 1rem;
-    padding: 1rem 1.5rem;
-    background: #1a1a1c;
-    border-radius: 8px;
-    border: 1px solid #2a2a2c;
-    max-width: 500px;
-  }
-  .placeholder-hint p, .placeholder-hint li {
-    font-size: 0.875rem;
-    color: #888;
-    margin: 0.25rem 0;
-  }
-  .placeholder-hint a {
-    color: #5865f2;
-    text-decoration: none;
-  }
-  .placeholder-hint a:hover {
-    text-decoration: underline;
-  }
-</style>
+
+<!-- Info & Limitasi Card — v4.6 Triple API -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-icon">📊</span>
+    <div class="card-title-group">
+      <h2>Info & Limitasi</h2>
+      <p>Detail arsitektur AI dan batasan penggunaan.</p>
+    </div>
+  </div>
+  <div class="card-body">
+
+    <!-- Tier 1: Gemini -->
+    <div class="tier-info">
+      <div class="tier-header">
+        <span class="tier-dot tier-1-dot"></span>
+        <strong>Tier 1 — Google AI Studio</strong>
+        <span class="tier-tag primary">PRIMARY</span>
+      </div>
+      <div class="tier-details">
+        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">Gemini 2.5 Flash</span></div>
+        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">60 req/minute</span></div>
+        <div class="detail-row"><span class="detail-label">Daily Limit</span><span class="detail-value">~1,500 requests</span></div>
+        <div class="detail-row"><span class="detail-label">Circuit Breaker</span><span class="detail-value">Auto-skip 2h setelah 3x fail</span></div>
+      </div>
+    </div>
+
+    <hr class="tier-divider">
+
+    <!-- Tier 2: Groq -->
+    <div class="tier-info">
+      <div class="tier-header">
+        <span class="tier-dot tier-2-dot"></span>
+        <strong>Tier 2 — Groq</strong>
+        <span class="tier-tag backup">BACKUP</span>
+      </div>
+      <div class="tier-details">
+        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">Llama 3.3 70B Versatile</span></div>
+        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">30 req/min (Free Tier)</span></div>
+        <div class="detail-row"><span class="detail-label">Latency</span><span class="detail-value">~300-800ms (LPU)</span></div>
+        <div class="detail-row"><span class="detail-label">Timeout</span><span class="detail-value">10 detik</span></div>
+      </div>
+    </div>
+
+    <hr class="tier-divider">
+
+    <!-- Tier 3: OpenRouter -->
+    <div class="tier-info">
+      <div class="tier-header">
+        <span class="tier-dot tier-3-dot"></span>
+        <strong>Tier 3 — OpenRouter</strong>
+        <span class="tier-tag fallback">LAST RESORT</span>
+      </div>
+      <div class="tier-details">
+        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">google/gemini-2.5-flash:free</span></div>
+        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">Sesuai provider</span></div>
+        <div class="detail-row"><span class="detail-label">Fallback</span><span class="detail-value">Hanya aktif jika T1 & T2 down</span></div>
+      </div>
+    </div>
+
+    <hr class="tier-divider">
+
+    <!-- Global Limits -->
+    <div class="global-limits">
+      <div class="detail-row"><span class="detail-label">Max History</span><span class="detail-value">5 pasang Q&A per user</span></div>
+      <div class="detail-row"><span class="detail-label">Cooldown</span><span class="detail-value">5 detik per user</span></div>
+      <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value" id="ai-status-text">Checking...</span></div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/ai_chat.js') }}"></script>
 {% endblock %}
