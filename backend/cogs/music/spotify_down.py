@@ -205,7 +205,10 @@ class SpotifyOfficialClient:
 
                     if resp.status != 200:
                         body = await resp.text()
-                        logger.error("[SPOTIFY AUTH] playlist tracks HTTP %s | body=%s", resp.status, body[:300])
+                        
+                        logger.error("[SPOTIFY DEBUG] URL=%s", url)
+                        logger.error("[SPOTIFY DEBUG] STATUS=%s", resp.status)
+                        logger.error("[SPOTIFY DEBUG] BODY=%s", body[:1000])
                         break
 
                     data = await resp.json()
