@@ -42,6 +42,38 @@ class ResolvedTrack:
     query: str
     source: str
 
+    # ==========================================================
+    # UBAH / TAMBAHKAN METHOD BARU INI DI DALAM DATACLASS
+    # ==========================================================
+    def to_clean_dict(self, status: int = 200, message: str = "Track successfully resolved") -> dict:
+        """Mengonversi data track mentah menjadi format JSON terstruktur yang rapi."""
+        # Hitung durasi biar jadi format menit:detik (contoh: 02:30)
+        if self.duration_ms:
+            minutes = int((self.duration_ms / 1000) // 60)
+            seconds = int((self.duration_ms / 1000) % 60)
+            readable_dur = f"{minutes:02d}:{seconds:02d}"
+        else:
+            readable_dur = "00:00"
+
+        return {
+            "status": status,
+            "message": message,
+            "source_api": self.source,
+            "track_details": {
+                "id": self.spotify_id,
+                "title": self.name,
+                "artist": self.artists,
+                "album": self.album if self.album else "Single",
+                "duration_ms": self.duration_ms,
+                "readable_duration": readable_dur,
+                "artwork_url": self.artwork
+            },
+            "search_query": {
+                "engine": "youtube",
+                "raw_query": self.query
+            }
+        }
+
 
 # ==========================================================
 # SPOTIFYDOWN CLIENT (Unofficial)
@@ -199,13 +231,13 @@ class SpotifyOfficialClient:
             logger.error("[SPOTIFY OFFICIAL] Error fetch track %s: %s", track_id, e)
         return None
 
-    async def get_playlist_tracks(self, session: aiohttp.ClientSession, playlist_id: str) -> List[Dict]:
+    async def get_album_tracks(self, session: aiohttp.ClientSession, album_id: str) -> List[Dict]:
         token = await self._get_token(session)
         if not token: return []
 
         tracks: List[Dict] = []
-        url = f"{self.api_url}/playlists/{playlist_id}/tracks"
-        params = {"limit": 100, "offset": 0}
+        url = f"{self.api_url}/albums/{album_id}/tracks"
+        params = {"limit": 50, "offset": 0}
 
         while url:
             try:
@@ -225,15 +257,20 @@ class SpotifyOfficialClient:
                         break
 
                     data = await resp.json()
-                    for item in data.get("items", []):
-                        track = item.get("track")
-                        if track and track.get("id"):
-                            tracks.append(track)
+                    tracks.extend(data.get("items", []))
+
+                    # ==========================================================
+                    # SANGAT DISARANKAN: REM OTOMATIS DI ANGKA 100 LAGU
+                    # ==========================================================
+                    if len(tracks) >= 100:
+                        tracks = tracks[:100]  # Potong paksa pas di 100 lagu
+                        break                  # Hentikan pencarian halaman berikutnya
+                    # ==========================================================
 
                     url = data.get("next")
                     params = {}
             except Exception as e:
-                logger.error("[SPOTIFY AUTH] Exception saat fetch tracks: %s", e)
+                logger.error("[SPOTIFY AUTH] Exception saat fetch album tracks: %s", e)
                 break
 
         return tracks
