@@ -1,26 +1,9 @@
-<<<<<<< HEAD
-
-=======
-import sys
-# ==========================================================
-# FIX: Pastikan module ini selalu instance yang sama
-# ==========================================================
-if __name__ != '__main__':
-    sys.modules['backend.web.web_app'] = sys.modules.get('backend.web.web_app', sys.modules[__name__])
->>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 
 import os
 import threading
 import base64
 import traceback
 import io
-<<<<<<< HEAD
-=======
-import json
-import uuid
-import time
-from collections import deque
->>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 from flask import Flask, render_template, jsonify, request, redirect
 from datetime import datetime, timezone
 from PIL import Image
@@ -29,11 +12,7 @@ from PIL import Image
 # Import relative dari dalam backend/ folder
 # ==========================================================
 from utils.formatters import format_duration, format_uptime
-<<<<<<< HEAD
 from backend.cogs.database.firebase_setup import db
-=======
-from cogs.firebase_setup import db
->>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 
 # ==========================================================
 # Flask app — static & template folder ke frontend/
@@ -118,96 +97,24 @@ def set_guild_channels(guild_id: str, channels: list):
 def get_guild_channels(guild_id: str) -> list:
     with _guild_lock:
         return _guild_channels.get(guild_id, [])
-
-# ==========================================================
-<<<<<<< HEAD
-=======
-# Shared Music State (thread-safe) — v4.6 Music Dashboard
+    
+# =========================================================
+# Shared music state (thread-safe)
 # ==========================================================
 _music_lock = threading.Lock()
-_music_state_cache: dict = {}        # {guild_id: player_state_dict}
-_music_voice_channels: dict = {}     # {guild_id: [{id, name}]}
-_music_commands: deque = deque()     # [(scope, payload), ...]
+_music_states: dict = {}
 
 def set_music_state(guild_id: str, state: dict):
     with _music_lock:
-        _music_state_cache[guild_id] = state
+        _music_states[guild_id] = state
 
 def get_music_state(guild_id: str) -> dict:
     with _music_lock:
-        return _music_state_cache.get(guild_id, {"connected": False})
-
-def set_music_voice_channels(guild_id: str, channels: list):
-    with _music_lock:
-        _music_voice_channels[guild_id] = channels
-
-def get_music_voice_channels(guild_id: str) -> list:
-    with _music_lock:
-        return _music_voice_channels.get(guild_id, [])
-
-def push_music_command(scope: str, payload: dict) -> str:
-    cmd_id = str(uuid.uuid4())
-    with _music_lock:
-        _music_commands.append({
-            "id": cmd_id,
-            "scope": scope,
-            "payload": payload,
-            "ts": time.time(),
-        })
-    return cmd_id
-
-def pop_music_commands(max_n: int = 20) -> list:
-    with _music_lock:
-        cmds = []
-        while _music_commands and len(cmds) < max_n:
-            cmds.append(_music_commands.popleft())
-        return cmds
+        return _music_states.get(guild_id, {"connected": False})
+    
+    
 
 # ==========================================================
-# [FIX v4.6.1] Music Settings Cache (thread-safe)
-# ==========================================================
-_music_settings_lock = threading.Lock()
-_music_settings_cache: dict = {}  # {guild_id: settings_dict}
-
-def _get_music_settings(guild_id: str) -> dict:
-    """Get music settings dari cache atau Firestore."""
-    with _music_settings_lock:
-        if guild_id in _music_settings_cache:
-            return _music_settings_cache[guild_id]
-
-    # Fallback: coba baca dari Firestore
-    if db is not None:
-        try:
-            doc = db.collection("guild_settings").document(guild_id).get()
-            if doc.exists:
-                data = doc.to_dict()
-                settings = data.get("music_settings", {})
-                with _music_settings_lock:
-                    _music_settings_cache[guild_id] = settings
-                return settings
-        except Exception as e:
-            print(f"[MUSIC SETTINGS] ❌ Error reading from Firestore: {e}")
-
-    return {}
-
-def _set_music_settings(guild_id: str, settings: dict):
-    """Save music settings ke cache dan Firestore."""
-    with _music_settings_lock:
-        _music_settings_cache[guild_id] = settings
-
-    if db is not None:
-        try:
-            db.collection("guild_settings").document(guild_id).set({
-                "music_settings": settings
-            }, merge=True)
-            return True
-        except Exception as e:
-            print(f"[MUSIC SETTINGS] ❌ Error saving to Firestore: {e}")
-            return False
-    return True
-
-# ==========================================================
->>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 # Helper — baca config welcome dari Firestore
 # ==========================================================
 def _get_welcome_config(guild_id: str) -> dict:
@@ -343,7 +250,6 @@ def settings_page(guild_id: str):
     return _render_page("settings.html", active_page="settings", guild_id=guild_id)
 
 # ==========================================================
-<<<<<<< HEAD
 # ROUTES — Music (placeholder)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/music")
@@ -357,33 +263,6 @@ def music_queue(guild_id: str):
 @app.route("/dashboard/<guild_id>/music/playlists")
 def music_playlists(guild_id: str):
     return _render_page("music_settings.html", active_page="playlists", guild_id=guild_id)
-=======
-# ROUTES — Music v4.6 (Now Playing, Queue, Playlists)
-# ==========================================================
-@app.route("/dashboard/<guild_id>/music")
-def music_redirect(guild_id: str):
-    return redirect(f"/dashboard/{guild_id}/music/now-playing")
-
-@app.route("/dashboard/<guild_id>/music/now-playing")
-def music_now_playing(guild_id: str):
-    channels = get_music_voice_channels(guild_id)
-    settings = _get_music_settings(guild_id)
-    return _render_page(
-        "now_playing.html",
-        active_page="now_playing",
-        guild_id=guild_id,
-        channels=channels,
-        music_settings=settings,
-    )
-
-@app.route("/dashboard/<guild_id>/music/queue")
-def music_queue_page(guild_id: str):
-    return _render_page("queue.html", active_page="queue", guild_id=guild_id)
-
-@app.route("/dashboard/<guild_id>/music/playlists")
-def music_playlists_page(guild_id: str):
-    return _render_page("playlist.html", active_page="playlists", guild_id=guild_id)
->>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 
 # ==========================================================
 # ROUTES — Welcome / Announcements
@@ -642,145 +521,6 @@ def api_ai_chat_history(guild_id):
 
 
 # ==========================================================
-<<<<<<< HEAD
-=======
-# [FIX v4.6.1] ROUTES — Music Settings API (Save/Load)
-# ==========================================================
-
-@app.route("/api/music/settings/<guild_id>")
-def api_music_settings(guild_id):
-    """Get music settings untuk guild."""
-    try:
-        settings = _get_music_settings(guild_id)
-        return jsonify({
-            "success": True,
-            "settings": settings
-        }), 200
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"success": False, "message": str(e)}), 500
-
-
-@app.route("/api/music/settings/<guild_id>/save", methods=["POST"])
-def api_music_settings_save(guild_id):
-    """Save music settings untuk guild."""
-    try:
-        if request.is_json:
-            data = request.get_json()
-        else:
-            data = request.form.to_dict()
-
-        # Validasi dan sanitize input
-        settings = {
-            "autojoin": data.get("autojoin", False) in (True, "true", "True", "1"),
-            "mode_247": data.get("mode_247", False) in (True, "true", "True", "1"),
-            "announce": data.get("announce", True) in (True, "true", "True", "1"),
-            "default_volume": max(0, min(100, int(data.get("default_volume", 50)))),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-
-        success = _set_music_settings(guild_id, settings)
-
-        if success:
-            return jsonify({
-                "success": True,
-                "message": "Music settings saved.",
-                "settings": settings
-            }), 200
-        else:
-            return jsonify({
-                "success": False,
-                "message": "Failed to save settings."
-            }), 500
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"success": False, "message": str(e)}), 500
-
-
-# ==========================================================
-# ROUTES — Music API v4.6 (Status, Channels, Control, Queue, Playlist)
-# ==========================================================
-
-@app.route("/api/music/status")
-def api_music_status():
-    guild_id = request.args.get("guild_id", "")
-    return jsonify(get_music_state(guild_id))
-
-
-@app.route("/api/music/channels")
-def api_music_channels():
-    guild_id = request.args.get("guild_id", "")
-    return jsonify({"channels": get_music_voice_channels(guild_id)})
-
-
-@app.route("/api/music/control", methods=["POST"])
-def api_music_control():
-    data = request.get_json() or {}
-    guild_id = data.get("guild_id")
-    action = data.get("action")
-    if not guild_id or not action:
-        return jsonify({"success": False, "message": "Missing guild_id or action"}), 400
-    cmd_id = push_music_command("now_playing", data)
-    return jsonify({"success": True, "command_id": cmd_id})
-
-
-@app.route("/api/music/queue")
-def api_music_queue():
-    guild_id = request.args.get("guild_id", "")
-    state = get_music_state(guild_id)
-    return jsonify({
-        "queue": state.get("queue", []),
-        "total": state.get("queue_count", 0),
-        "duration": state.get("queue_duration", 0),
-    })
-
-
-@app.route("/api/music/queue", methods=["POST"])
-def api_music_queue_action():
-    data = request.get_json() or {}
-    guild_id = data.get("guild_id")
-    action = data.get("action")
-    if not guild_id or not action:
-        return jsonify({"success": False, "message": "Missing params"}), 400
-    cmd_id = push_music_command("queue", data)
-    return jsonify({"success": True, "command_id": cmd_id})
-
-
-@app.route("/api/music/queue/bulk", methods=["POST"])
-def api_music_queue_bulk():
-    data = request.get_json() or {}
-    guild_id = data.get("guild_id")
-    if not guild_id:
-        return jsonify({"success": False, "message": "Missing guild_id"}), 400
-    cmd_id = push_music_command("playlist", data)
-    return jsonify({"success": True, "command_id": cmd_id})
-
-
-@app.route("/api/music/playlists/sync", methods=["POST"])
-def api_music_playlists_sync():
-    data = request.get_json() or {}
-    guild_id = data.get("guild_id")
-    playlists = data.get("playlists", [])
-    if not guild_id:
-        return jsonify({"success": False, "message": "Missing guild_id"}), 400
-    try:
-        os.makedirs("data", exist_ok=True)
-        path = os.path.join("data", f"playlists_{guild_id}.json")
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump({
-                "guild_id": guild_id,
-                "synced_at": datetime.now(timezone.utc).isoformat(),
-                "playlists": playlists,
-            }, f, indent=2, ensure_ascii=False)
-        return jsonify({"success": True, "saved": len(playlists)})
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"success": False, "message": str(e)}), 500
-
-
-# ==========================================================
->>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 # ROUTES — Welcome Save (POST)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/save", methods=["POST"])
@@ -868,8 +608,4 @@ def save_welcome(guild_id: str):
     except Exception as e:
         print(f"[WELCOME-WEB] ❌ Error saat menyimpan: {e}")
         traceback.print_exc()
-<<<<<<< HEAD
         return jsonify({"success": False, "message": f"❌ Terjadi kesalahan server: {str(e)}"}), 500
-=======
-        return jsonify({"success": False, "message": f"❌ Terjadi kesalahan server: {str(e)}"}), 500
->>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
