@@ -87,7 +87,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Convert to JPEG for smaller size
         const resizedBase64 = canvas.toDataURL("image/jpeg", quality);
+<<<<<<< HEAD
+        console.log(
+          `[WELCOME] 🖼️ Resized: ${img.width}x${img.height} → ${width}x${height}, base64 length: ${resizedBase64.length}`,
+        );
+=======
         console.log(`[WELCOME] 🖼️ Resized: ${img.width}x${img.height} → ${width}x${height}, base64 length: ${resizedBase64.length}`);
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
         resolve(resizedBase64);
       };
 
@@ -377,7 +383,12 @@ document.addEventListener("DOMContentLoaded", () => {
             // Simpan yang resized untuk dikirim ke backend
             uploadedFileData = resizedBase64;
             uploadedFileName = file.name;
+<<<<<<< HEAD
+            uploadTarget =
+              zone.id === "bannerUploadZone" ? "banner_bg" : "embed_bg";
+=======
             uploadTarget = (zone.id === "bannerUploadZone") ? "banner_bg" : "embed_bg";
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 
             // ← FIX: Sync ke hidden inputs juga
             const hiddenData = document.getElementById("uploaded_file_data");
@@ -389,7 +400,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (onPreview) onPreview(resizedBase64, file.name);
 
+<<<<<<< HEAD
+            showToast(
+              "📤 Gambar dipilih. Akan di-upload saat simpan.",
+              "success",
+            );
+=======
             showToast("📤 Gambar dipilih. Akan di-upload saat simpan.", "success");
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
           })
           .catch((err) => {
             console.error("[WELCOME] ❌ Error resizing image:", err);
@@ -534,5 +552,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+<<<<<<< HEAD
+  console.log(
+    "[WELCOME] ✅ Welcome JS v3.7.2 loaded — Image Resize + Catbox Upload",
+  );
+=======
   console.log("[WELCOME] ✅ Welcome JS v3.7.2 loaded — Image Resize + Catbox Upload");
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 });

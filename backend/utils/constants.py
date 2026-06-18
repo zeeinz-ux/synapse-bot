@@ -3,6 +3,19 @@ LAVALINK_NODES = [
     {
         "uri": "https://lava-v4.ajieblogs.eu.org:443",
         "password": "https://dsc.gg/ajieblogs",
+<<<<<<< HEAD
+=======
+    },
+    # Node 2: Serenetia (Cadangan SSL, format sudah dikonversi dengan benar)
+    {
+        "uri": "https://lavalinkv4.serenetia.com:443",
+        "password": "https://seretia.link/discord",
+    },
+    # Node 3: Cadangan umum lainnya yang andal
+    {
+        "uri": "http://lava.link:80",
+        "password": "youshallnotpass",
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
     },
     # Node 2: Serenetia (Cadangan SSL, format sudah dikonversi dengan benar)
     {

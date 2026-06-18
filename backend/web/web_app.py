@@ -1,19 +1,26 @@
+<<<<<<< HEAD
+
+=======
 import sys
 # ==========================================================
 # FIX: Pastikan module ini selalu instance yang sama
 # ==========================================================
 if __name__ != '__main__':
     sys.modules['backend.web.web_app'] = sys.modules.get('backend.web.web_app', sys.modules[__name__])
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 
 import os
 import threading
 import base64
 import traceback
 import io
+<<<<<<< HEAD
+=======
 import json
 import uuid
 import time
 from collections import deque
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 from flask import Flask, render_template, jsonify, request, redirect
 from datetime import datetime, timezone
 from PIL import Image
@@ -22,7 +29,11 @@ from PIL import Image
 # Import relative dari dalam backend/ folder
 # ==========================================================
 from utils.formatters import format_duration, format_uptime
+<<<<<<< HEAD
+from backend.cogs.database.firebase_setup import db
+=======
 from cogs.firebase_setup import db
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 
 # ==========================================================
 # Flask app — static & template folder ke frontend/
@@ -109,6 +120,8 @@ def get_guild_channels(guild_id: str) -> list:
         return _guild_channels.get(guild_id, [])
 
 # ==========================================================
+<<<<<<< HEAD
+=======
 # Shared Music State (thread-safe) — v4.6 Music Dashboard
 # ==========================================================
 _music_lock = threading.Lock()
@@ -194,6 +207,7 @@ def _set_music_settings(guild_id: str, settings: dict):
     return True
 
 # ==========================================================
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 # Helper — baca config welcome dari Firestore
 # ==========================================================
 def _get_welcome_config(guild_id: str) -> dict:
@@ -329,6 +343,21 @@ def settings_page(guild_id: str):
     return _render_page("settings.html", active_page="settings", guild_id=guild_id)
 
 # ==========================================================
+<<<<<<< HEAD
+# ROUTES — Music (placeholder)
+# ==========================================================
+@app.route("/dashboard/<guild_id>/music")
+def music_settings(guild_id: str):
+    return _render_page("music_settings.html", active_page="music", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/music/queue")
+def music_queue(guild_id: str):
+    return _render_page("music_settings.html", active_page="queue", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/music/playlists")
+def music_playlists(guild_id: str):
+    return _render_page("music_settings.html", active_page="playlists", guild_id=guild_id)
+=======
 # ROUTES — Music v4.6 (Now Playing, Queue, Playlists)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/music")
@@ -354,6 +383,7 @@ def music_queue_page(guild_id: str):
 @app.route("/dashboard/<guild_id>/music/playlists")
 def music_playlists_page(guild_id: str):
     return _render_page("playlist.html", active_page="playlists", guild_id=guild_id)
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 
 # ==========================================================
 # ROUTES — Welcome / Announcements
@@ -612,6 +642,8 @@ def api_ai_chat_history(guild_id):
 
 
 # ==========================================================
+<<<<<<< HEAD
+=======
 # [FIX v4.6.1] ROUTES — Music Settings API (Save/Load)
 # ==========================================================
 
@@ -748,6 +780,7 @@ def api_music_playlists_sync():
 
 
 # ==========================================================
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 # ROUTES — Welcome Save (POST)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/save", methods=["POST"])
@@ -835,4 +868,8 @@ def save_welcome(guild_id: str):
     except Exception as e:
         print(f"[WELCOME-WEB] ❌ Error saat menyimpan: {e}")
         traceback.print_exc()
+<<<<<<< HEAD
         return jsonify({"success": False, "message": f"❌ Terjadi kesalahan server: {str(e)}"}), 500
+=======
+        return jsonify({"success": False, "message": f"❌ Terjadi kesalahan server: {str(e)}"}), 500
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1

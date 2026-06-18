@@ -7,4 +7,8 @@ PyNaCl==1.6.2
 wavelink==3.5.2
 aiohttp==3.13.5
 Pillow==12.2.0
+<<<<<<< HEAD
 requests==2.34.2
+=======
+requests==2.34.2
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1

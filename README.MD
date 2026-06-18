@@ -30,12 +30,20 @@ Chat bot AI dengan **Triple API Fallback** dan **Lightweight Circuit Breaker** �
 ### Arsitektur 3-Tier:
 
 ```
+<<<<<<< HEAD
+Tier 1: Google AI Studio (Gemini 2.5 Flash)     ← Primary
+=======
 Tier 1: Google AI Studio (Gemini 3.5 Flash)     ← Primary
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
    ↓  fail 3x berturut-turut / quota habis
    ↓  Circuit Breaker: auto-skip 2 jam
 Tier 2: Groq (Llama 3.3 70B Versatile)         ← Backup
    ↓  fail / rate limit
+<<<<<<< HEAD
+Tier 3: OpenRouter (Gemini 2.5 Flash Free)       ← Last Resort
+=======
 Tier 3: OpenRouter (Gemini 3.5 Flash Free)       ← Last Resort
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
    ↓  fail
 Error Message ke User
 ```
@@ -95,7 +103,11 @@ http://your-bot-url/dashboard/<guild_id>/ai-chat
     "channel_id": "123456789012345678",
     "personality": "friendly",
     "temperature": 0.75,
+<<<<<<< HEAD
+    "model": "gemini-2.5-flash"
+=======
     "model": "gemini-3.5-flash"
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
   }
 }
 ```
@@ -726,7 +738,11 @@ SpotifyDown API → Spotify Official → oEmbed → HTML Scrape → ytsearch
     "channel_id": "123456789012345678",
     "personality": "friendly",
     "temperature": 0.75,
+<<<<<<< HEAD
+    "model": "gemini-2.5-flash"
+=======
     "model": "gemini-3.5-flash"
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
   }
 }
 ```
@@ -903,7 +919,11 @@ git pull origin main
 | v3.5     | **+ Welcome Announcement** — Auto welcome message with embed + web dashboard settings                                                                                                                                                                                                                                                                              |
 | v3.6     | **+ Sidebar Navigation** — Frontend/backend separation, sidebar menu, 15 placeholder pages, AI Chat menu, responsive CSS, welcome v3.6 (rejoin + anti-spam + default bg + drag-drop upload)                                                                                                                                                                        |
 | v3.7.6   | **+ Dual Style Welcome** (Embed + Banner), **base64 image in Firestore** (100% free, no Catbox/Imgur/Storage), **auto-compress** image >400KB, **asyncio.Lock** anti-double welcome, **Pillow banner generation** with avatar ring, **Style text** above banner                                                                                                    |
+<<<<<<< HEAD
+| v4.4.1   | **Update Lisensi**: Mengubah lisensi dari MIT ke Hak Cipta Penuh (All Rights Reserved) untuk menegaskan status non-open-source. Memperbarui info model AI ke Gemini Flash 2.5.                                                                                                                                                                                     |
+=======
 | v4.4.1   | **Update Lisensi**: Mengubah lisensi dari MIT ke Hak Cipta Penuh (All Rights Reserved) untuk menegaskan status non-open-source. Memperbarui info model AI ke Gemini Flash 3.5.                                                                                                                                                                                     |
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
 | v4.4     | **+ AI Chat v4.4** — Google Gemini REST API + OpenRouter fallback, dual API auto-switch, personality customization, channel restriction, chat history Firestore, dashboard settings, `/ask` slash command, mention handler, anti-spam cooldown, rate limit handling                                                                                                |
 | **v4.6** | **+ AI Chat v4.6** — **Triple API Fallback** (Google AI Studio → Groq → OpenRouter), **Lightweight Circuit Breaker** (auto-skip Tier 1 selama 2 jam setelah 3x fail), **Groq LPU integration** (Llama 3.3 70B Versatile, 10s timeout), **Compact structured logging** (1 baris per tier switch), **Dashboard UI update** (3-tier info cards, engine stack display) |
 

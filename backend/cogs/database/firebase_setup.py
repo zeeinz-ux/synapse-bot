@@ -56,4 +56,8 @@ def init_firebase():
         return None
 
 # Init saat import module
+<<<<<<< HEAD:backend/cogs/database/firebase_setup.py
 db = init_firebase()
+=======
+db = init_firebase()
+>>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1:backend/cogs/firebase_setup.py
