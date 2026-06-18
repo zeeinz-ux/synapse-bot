@@ -349,10 +349,10 @@ async def _get_spotify_track_oembed(
             if resp.status == 200:
                 data = await resp.json()
 
-                print("=" * 50)
-                print(f"[OEMBED RAW] Track ID: {track_id}")
-                print(data)
-                print("=" * 50)
+                # print("=" * 50)
+                # print(f"[OEMBED RAW] Track ID: {track_id}")
+                # print(data)
+                # print("=" * 50)
 
                 title = (data.get("title") or "").strip()
                 artist = (data.get("author_name") or data.get("provider_name") or "Spotify").strip()
