@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /* ================================================================================
    JS: AI Chat Settings v4.6 — Hidden Hamlet Dashboard
    UPDATE: Triple API Tier Stack + Circuit Breaker Info
@@ -364,7 +363,7 @@
     init();
   }
 })();
-=======
+
 /* ================================================================================
    JS: AI Chat Settings v4.6 — Hidden Hamlet Dashboard
    UPDATE: Triple API Tier Stack + Circuit Breaker Info
@@ -730,4 +729,3 @@
     init();
   }
 })();
->>>>>>> 1def50041b7679583cf73b63db8bbcb48852d1e1
