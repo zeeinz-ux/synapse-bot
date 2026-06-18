@@ -250,17 +250,19 @@ def settings_page(guild_id: str):
 # ==========================================================
 # ROUTES — Music (placeholder)
 # ==========================================================
-@app.route("/dashboard/<guild_id>/music")
-def music_settings(guild_id: str):
-    return _render_page("music_settings.html", active_page="music", guild_id=guild_id)
+
+@app.route("/dashboard/<guild_id>/music/now-playing")
+def music_now_playing(guild_id: str):
+    return _render_page("now_playing.html", active_page="now_playing", guild_id=guild_id)
+
 
 @app.route("/dashboard/<guild_id>/music/queue")
 def music_queue(guild_id: str):
-    return _render_page("music_settings.html", active_page="queue", guild_id=guild_id)
+    return _render_page("queue.html", active_page="queue", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/music/playlists")
 def music_playlists(guild_id: str):
-    return _render_page("music_settings.html", active_page="playlists", guild_id=guild_id)
+    return _render_page("playlist.html", active_page="playlists", guild_id=guild_id)
 
 # ==========================================================
 # ROUTES — Welcome / Announcements
