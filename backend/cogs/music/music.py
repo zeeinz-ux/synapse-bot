@@ -64,31 +64,40 @@ class Music(commands.Cog):
     # ASYNC CONCURRENT SEARCH (Updated untuk ResolvedTrack)
     # ==========================================================
     async def _search_single_resolved(self, track: ResolvedTrack) -> wavelink.Playable | None:
-        """Search satu ResolvedTrack di YouTube/Lavalink."""
+        """Search satu ResolvedTrack di YouTube/Lavalink tanpa double prefix."""
         try:
-            print(f"[YT SEARCH] {track.query}")
+            # Ambil nama dan artis polosan
+            artists = track.artists or ""
+            name = track.name or ""
+            
+            if artists:
+                clean_query = f"{artists} - {name}"
+            else:
+                clean_query = name
 
-            results = await wavelink.Playable.search(track.query)
+            # 🛠️ ANTI-DOUBLE PREFIX: Buang semua prefix bawaan scraper jika ada yang bocor
+            for prefix in ["ytsearch:", "ytmsearch:", "scsearch:", "spsearch:"]:
+                if clean_query.lower().startswith(prefix):
+                    clean_query = clean_query[len(prefix):].strip()
+
+            print(f"[YT SEARCH] {clean_query}")
+
+            # Paksa pencarian menggunakan YouTube Music agar jauh lebih akurat
+            results = await wavelink.Playable.search(clean_query, source=wavelink.TrackSource.YouTubeMusic)
+            
             print("=" * 80)
-            print(f"[YT SEARCH] {track.query}")
-
-            results = await wavelink.Playable.search(track.query)
-
             print(f"[YT RESULT TYPE] {type(results)}")
             print(f"[YT RESULT RAW] {results}")
-
-            if results:
-                print(f"[YT RESULT LEN] {len(results)}")
 
             if results and len(results) > 0:
                 print(f"[YT FOUND] {results[0].title}")
                 return results[0]
-            print(f"[YT NOT FOUND] {track.query}")
+            print(f"[YT NOT FOUND] {clean_query}")
 
         except Exception as e:
-            print(f"[YOUTUBE SEARCH ERROR] {track.query}: {e}")
+            print(f"[YOUTUBE SEARCH ERROR] {track.name}: {e}")
         return None
-
+    
     async def _search_youtube_for_tracks_concurrent(
         self,
         tracks: list[ResolvedTrack],
@@ -352,8 +361,15 @@ class Music(commands.Cog):
                 rt = resolved_tracks[0]
                 print(f"[SPOTIFY TRACK] Resolved via {source} | Query: {rt.query}")
 
+                # 🛠️ ANTI-DOUBLE PREFIX JUGA DI SINI UNTUK LAGU SATUAN
+                clean_query = rt.query
+                for prefix in ["ytsearch:", "ytmsearch:", "scsearch:", "spsearch:"]:
+                    if clean_query.lower().startswith(prefix):
+                        clean_query = clean_query[len(prefix):].strip()
+
                 try:
-                    tracks = await wavelink.Playable.search(rt.query)
+                    # Samakan source-nya ke YouTubeMusic biar makin akurat
+                    tracks = await wavelink.Playable.search(clean_query, source=wavelink.TrackSource.YouTubeMusic)
                 except Exception as e:
                     print(f"[SPOTIFY TRACK ERROR] {e}")
                     await loading_msg.edit(content=f"❌ Gagal mencari lagu di YouTube.\n`{e}`")
@@ -375,7 +391,6 @@ class Music(commands.Cog):
                     description=f"[{track.title}]({track.uri})",
                     color=discord.Color.green(),
                 )
-                # Pakai artwork dari Spotify kalau Lavalink nggak punya
                 artwork = rt.artwork or track.artwork
                 if artwork:
                     embed.set_thumbnail(url=artwork)
