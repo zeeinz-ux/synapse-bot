@@ -40,7 +40,7 @@ DEFAULT_PERSONALITY = "friendly"
 
 # ── Tier 1: Google AI Studio ──
 GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-GOOGLE_MODEL = "gemini-3.5-flash:generateContent"
+GOOGLE_MODEL = "gemini-3.5-flash"
 
 # ── Tier 2: Groq ──
 GROQ_API_BASE = "https://api.groq.com/openai/v1"
@@ -259,14 +259,15 @@ class AIChat(commands.Cog):
             contents.append({"role": "user", "parts": [{"text": user_message}]})
 
             payload = {
-                "systemInstruction": {"parts": [{"text": system_prompt}]},
-                "contents": contents,
-                "generationConfig": {
-                    "temperature": temperature,
-                    "topP": 0.95,
-                    "maxOutputTokens": 1024,
-                },
-            }
+            # 1. Pastikan pakai "system_instruction" (pakai underscore, bukan camelCase)
+            "system_instruction": {"parts": [{"text": system_prompt}]},
+            "contents": contents,
+            "generationConfig": {
+                "temperature": temperature,
+                "topP": 0.95,
+                "maxOutputTokens": 1024,
+            },
+        }
 
             url = f"{GOOGLE_API_BASE}/models/{GOOGLE_MODEL}:generateContent?key={self.google_api_key}"
 
@@ -636,7 +637,7 @@ class AIChat(commands.Cog):
         now = datetime.now(timezone.utc).timestamp()
 
         # DEFER FIRST — sebelum cooldown check!
-        await interaction.response.defer(thinking=False)
+        await interaction.response.defer(thinking=True)
 
         key = (guild_id, user_id)
         last_used = self._cooldowns.get(key, 0)
