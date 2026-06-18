@@ -353,7 +353,7 @@ async def _get_spotify_track_oembed(
                 print(f"[OEMBED RAW] Track ID: {track_id}")
                 print(data)
                 print("=" * 50)
-                
+
                 title = (data.get("title") or "").strip()
                 artist = (data.get("author_name") or data.get("provider_name") or "Spotify").strip()
                 artwork = data.get("thumbnail_url")
@@ -557,7 +557,11 @@ class SpotifyResolver:
                     artwork=meta.get("artwork"),
                     spotify_id=track_id,
                     youtube_id=None,
-                    query=f"ytsearch:{meta['title']} {meta['artist']}",
+                    query=(
+                        f"ytsearch:{meta['artist']} - {meta['title']}"
+                        if meta.get('artist') and meta['artist'] != "Spotify"
+                        else f"ytsearch:{meta['title']}"
+                    ),
                     source="oembed_track",
                 )
             ], "oembed_track"
@@ -635,7 +639,11 @@ class SpotifyResolver:
                     artwork=artwork,
                     spotify_id=track_id,
                     youtube_id=None,
-                    query=f"ytsearch:{artist} {title}",
+                    query=(
+                        f"ytsearch:{artist} - {title}"
+                        if artist and artist != "Spotify"
+                        else f"ytsearch:{title}"
+                    ),
                     source="scrape_oembed",
                 )
 
@@ -663,7 +671,11 @@ class SpotifyResolver:
             artwork = t.get("cover", t.get("album_cover", t.get("artwork", "")))
             tid = t.get("id", "")
             yt_id = t.get("youtube_id") or t.get("yt_id")
-            query = f"https://youtube.com/watch?v={yt_id}" if yt_id else f"ytsearch:{name} {artists}"
+            query = (
+                f"https://youtube.com/watch?v={yt_id}"
+                if yt_id
+                else f"ytsearch:{artists} - {name}"
+            )
 
             result.append(
                 ResolvedTrack(
