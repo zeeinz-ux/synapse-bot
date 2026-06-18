@@ -25,7 +25,7 @@ from backend.cogs.database import firebase_setup
 # ============================================
 
 # ===== [DASHBOARD] Import Flask app dari web/ =====
-from backend.web.web_app import app, set_stats, set_guild_channels, set_music_state
+from backend.web.web_app import (app, set_stats, set_guild_channels, set_music_state, set_bot_instance)
 # ==================================================
 
 # ===== [UTILS] Shared constants =====
@@ -38,6 +38,7 @@ intents.message_content = True
 intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+set_bot_instance(bot)
 start_time = time.time()
 
 
