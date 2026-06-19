@@ -104,19 +104,19 @@ class AIChat(commands.Cog):
         print("[AI CHAT] ✅ Cog loaded. Triple API: Google → Groq → OpenRouter")
 
     async def cog_load(self):
-      if self.session and not self.session.closed:
-        return
+        if self.session and not self.session.closed:
+            return
       
-      timeout = aiohttp.ClientTimeout(
-        total=30,
-        connect=10
+        timeout = aiohttp.ClientTimeout(
+            total=30,
+            connect=10
         )
       
-      self.session = aiohttp.ClientSession(
-        timeout=timeout
+        self.session = aiohttp.ClientSession(
+            timeout=timeout
         )
       
-      print("[AI CHAT] ✅ HTTP session initialized")
+        print("[AI CHAT] ✅ HTTP session initialized")
 
     async def cog_unload(self):
         if self.session:
@@ -572,16 +572,21 @@ class AIChat(commands.Cog):
             await self._send_response(ctx, user_id, "🚫 Akun kamu terlalu baru untuk menggunakan fitur AI Chat.")
             return
 
-        # 3. Guard AI Detection - LAPIS 3 (Hanya jika lolos Lapis 1 & 2)
-        is_spam = await self.analyze_spam(user_message)
-        if is_spam:
-            print(f"[AI MOD] 🚫 Pesan spam terdeteksi dari user {user_id} (guild {guild_id})")
-            warning_text = (
-                "🚫 Pesan kamu terdeteksi sebagai **spam/scam/iklan ilegal** dan "
-                "tidak diproses oleh AI. Mohon gunakan fitur AI Chat dengan semestinya, ya!"
-            )
-            await self._send_response(ctx, user_id, warning_text)
-            return
+        # ======================================================================
+        # 🚨 [UPDATE OPTIMASI] DI-COMMENT BIAR GAK DOUBLE API CALL
+        # Karena filter spam AI sudah di-handle terpusat di moderation.py
+        # ======================================================================
+        # # 3. Guard AI Detection - LAPIS 3 (Hanya jika lolos Lapis 1 & 2)
+        # is_spam = await self.analyze_spam(user_message)
+        # if is_spam:
+        #     print(f"[AI MOD] 🚫 Pesan spam terdeteksi dari user {user_id} (guild {guild_id})")
+        #     warning_text = (
+        #         "🚫 Pesan kamu terdeteksi sebagai **spam/scam/iklan ilegal** dan "
+        #         "tidak diproses oleh AI. Mohon gunakan fitur AI Chat dengan semestinya, ya!"
+        #     )
+        #     await self._send_response(ctx, user_id, warning_text)
+        #     return
+        # ======================================================================
 
         settings = await self._get_guild_ai_settings(guild_id)
         if not settings.get("enabled", False):
@@ -637,7 +642,7 @@ class AIChat(commands.Cog):
         now = datetime.now(timezone.utc).timestamp()
 
         # DEFER FIRST — sebelum cooldown check!
-        await interaction.response.defer(thinking=False)
+        await interaction.response.defer(thinking=False )
 
         key = (guild_id, user_id)
         last_used = self._cooldowns.get(key, 0)
