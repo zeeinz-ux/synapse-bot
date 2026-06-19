@@ -362,6 +362,7 @@ class Music(commands.Cog):
                 print(f"[SPOTIFY TRACK] Resolved via {source} | Query: {rt.query}")
 
                 # 🛠️ ANTI-DOUBLE PREFIX JUGA DI SINI UNTUK LAGU SATUAN
+                # 🛠️ ANTI-DOUBLE PREFIX JUGA DI SINI UNTUK LAGU SATUAN
                 clean_query = rt.query
                 for prefix in ["ytsearch:", "ytmsearch:", "scsearch:", "spsearch:"]:
                     if clean_query.lower().startswith(prefix):
@@ -515,10 +516,26 @@ class Music(commands.Cog):
         elif search_query.startswith("http://") or search_query.startswith("https://"):
             print("[PLAY CMD] Direct URL detected, Lavalink will auto-resolve")
             pass
-        # HANDLE SEARCH QUERY
+        # 2. HANDLE SEARCH QUERY & URL LANGSUNG
         else:
-            if not any(search_query.startswith(p) for p in ["ytsearch:", "scsearch:", "spsearch:"]):
-                search_query = f"ytsearch:{search_query}"
+            prefixes = ["ytsearch:", "ytmsearch:", "scsearch:", "spsearch:"]
+            clean_input = search_query
+            for p in prefixes:
+                if clean_input.lower().startswith(p):
+                    clean_input = clean_input[len(p):].strip()
+            
+            # Sekarang cuma kasih prefix ytsearch: (atau link langsung)
+            if not (clean_input.startswith("http://") or clean_input.startswith("https://")):
+                search_query = f"ytsearch:{clean_input}"
+            else:
+                search_query = clean_input
+
+            print(f"[PLAY CMD] Searching Final Query: {search_query}")
+            try:
+                tracks = await asyncio.wait_for(wavelink.Playable.search(search_query), timeout=30.0)
+            except Exception as e:
+                await interaction.followup.send(f"❌ Gagal mencari lagu: `{e}`")
+                return
 
         # ==========================================================
         # SEARCH VIA WAVELINK (Non-Spotify flow)
