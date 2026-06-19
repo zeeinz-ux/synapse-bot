@@ -15,10 +15,10 @@ class Moderation(commands.Cog):
     async def on_message(self, message):
         # Abaikan bot & admin agar tidak terkena ban sendiri
         if message.author.bot or message.author.guild_permissions.administrator:
+            await self.bot.process_commands(message) # 🌟 1. TARUH DI SINI (Biar admin tetep bisa pake command !)
             return
 
         # 1. Filter Heuristic (Cepat & Lokal)
-        # Menggantikan list manual, sekarang menggunakan logic dari SpamEngine
         if self.engine.is_spam_heuristic(message):
             await self.handle_spam(message, "Filter Dasar: Terdeteksi kata kunci atau link mencurigakan")
             return
@@ -28,14 +28,20 @@ class Moderation(commands.Cog):
             await self.handle_spam(message, "Filter Keamanan: Akun baru mengirim pesan panjang")
             return
 
-        # 3. Filter AI (Lapis Terakhir)
-        # Hanya dijalankan jika lolos filter lokal (menghemat biaya API)
-        if len(message.content) > 10:
+        # 3. Filter AI (Lapis Terakhir) - HANYA BERJALAN JIKA SKOR HEURISTIC MENCURIGAKAN
+        # Misal: Skor di atas 0 tapi di bawah 5 (skor ban)
+        current_score = self.engine.get_risk_score(message)
+        if 0 < current_score < 5 and len(message.content) > 10:
             ai_cog = self.bot.get_cog('AIChat')
             if ai_cog:
                 is_ai_spam = await ai_cog.analyze_spam(message.content)
                 if is_ai_spam:
                     await self.handle_spam(message, "Filter AI: Terdeteksi konten mencurigakan oleh LLM")
+                    return # Berhenti di sini kalau emang terbukti spam lewat AI
+
+        # 🌟 2. TARUH DI PALING BAWAH SINI (Lapis Terakhir setelah lolos sensor spam)
+        # Jika lolos semua filter, teruskan pesan agar perintah prefix (!) bisa diproses normal
+        await self.bot.process_commands(message)
 
     async def handle_spam(self, message, reason):
         try:
