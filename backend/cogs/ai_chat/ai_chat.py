@@ -70,8 +70,11 @@ Aturan:
 • Jika ditanya hal terkait server, gunakan [CONTEXT SERVER] di bawah ini sebagai referensi UTAMA.
 
 {server_context}
-"""
 
+"""
+# FUNGSI INI WAJIB ADA: Mencegah RetryError crash, dan oper balik status gagal
+def return_failure_tuple(retry_state):
+    return "RETRY_LIMIT_EXCEEDED", False
 
 class AIChat(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -254,12 +257,14 @@ class AIChat(commands.Cog):
     # ═══════════════════════════════════════════════════════════════════════
     # TIER 1: Google AI Studio
     # ═══════════════════════════════════════════════════════════════════════
-
+    
     @tenacity.retry(
         wait=tenacity.wait_exponential(multiplier=1, min=2, max=10), 
         stop=tenacity.stop_after_attempt(3),
-        retry=tenacity.retry_if_result(lambda res: res[1] is False)
+        retry=tenacity.retry_if_result(lambda res: res[1] is False), # <--- PAKAI KOMA!
+        retry_error_callback=return_failure_tuple
     )
+
     async def _call_google_gemini(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
@@ -323,8 +328,10 @@ class AIChat(commands.Cog):
     @tenacity.retry(
         wait=tenacity.wait_exponential(multiplier=1, min=2, max=10), 
         stop=tenacity.stop_after_attempt(3),
-        retry=tenacity.retry_if_result(lambda res: res[1] is False)
+        retry=tenacity.retry_if_result(lambda res: res[1] is False),
+        retry_error_callback=return_failure_tuple 
     )
+    
     async def _call_groq(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
@@ -395,8 +402,10 @@ class AIChat(commands.Cog):
     @tenacity.retry(
         wait=tenacity.wait_exponential(multiplier=1, min=2, max=10), 
         stop=tenacity.stop_after_attempt(3),
-        retry=tenacity.retry_if_result(lambda res: res[1] is False)
+        retry=tenacity.retry_if_result(lambda res: res[1] is False),
+        retry_error_callback=return_failure_tuple
     )
+
     async def _call_openrouter(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
