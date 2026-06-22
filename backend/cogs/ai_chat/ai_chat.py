@@ -29,6 +29,7 @@ from discord import app_commands
 from discord.ext import commands
 
 import aiohttp
+import tenacity
 
 from ..database.firebase_setup import db
 from ...utils.spam_engine import SpamEngine
@@ -150,7 +151,17 @@ class AIChat(commands.Cog):
        now = datetime.now(timezone.utc).timestamp()
        # Hanya simpan user yang cooldown-nya masih aktif (< 60 detik)
        self._cooldowns = {k: v for k, v in self._cooldowns.items() if now - v < 60}
-
+       
+    
+    async def _defer_interaction(self, interaction: discord.Interaction):
+        try:
+            # Respon instan agar interaksi tidak expired
+            await interaction.response.defer(thinking=True)
+        except discord.errors.HTTPException as e:
+            if e.status == 429:
+                print(f"[AI CHAT] ⚠️ Kena Rate Limit saat defer! Bot sedang sibuk.")
+            else:
+                print(f"[AI CHAT] Error lain saat defer: {e}")
             
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -244,6 +255,11 @@ class AIChat(commands.Cog):
     # TIER 1: Google AI Studio
     # ═══════════════════════════════════════════════════════════════════════
 
+    @tenacity.retry(
+        wait=tenacity.wait_exponential(multiplier=1, min=2, max=10), 
+        stop=tenacity.stop_after_attempt(3),
+        retry=tenacity.retry_if_result(lambda res: res[1] is False)
+    )
     async def _call_google_gemini(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
@@ -259,7 +275,6 @@ class AIChat(commands.Cog):
             contents.append({"role": "user", "parts": [{"text": user_message}]})
 
             payload = {
-            # 1. Pastikan pakai "system_instruction" (pakai underscore, bukan camelCase)
             "system_instruction": {"parts": [{"text": system_prompt}]},
             "contents": contents,
             "generationConfig": {
@@ -305,6 +320,11 @@ class AIChat(commands.Cog):
     # TIER 2: Groq (Llama 3.3 70B)
     # ═══════════════════════════════════════════════════════════════════════
 
+    @tenacity.retry(
+        wait=tenacity.wait_exponential(multiplier=1, min=2, max=10), 
+        stop=tenacity.stop_after_attempt(3),
+        retry=tenacity.retry_if_result(lambda res: res[1] is False)
+    )
     async def _call_groq(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
@@ -333,8 +353,6 @@ class AIChat(commands.Cog):
             }
 
             url = f"{GROQ_API_BASE}/chat/completions"
-
-            # Groq LPU sangat cepat — timeout pendek 10s
             groq_timeout = aiohttp.ClientTimeout(total=10, connect=5)
 
             async with self.session.post(url, headers=headers, json=payload, timeout=groq_timeout) as resp:
@@ -374,6 +392,11 @@ class AIChat(commands.Cog):
     # TIER 3: OpenRouter
     # ═══════════════════════════════════════════════════════════════════════
 
+    @tenacity.retry(
+        wait=tenacity.wait_exponential(multiplier=1, min=2, max=10), 
+        stop=tenacity.stop_after_attempt(3),
+        retry=tenacity.retry_if_result(lambda res: res[1] is False)
+    )
     async def _call_openrouter(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
@@ -399,7 +422,7 @@ class AIChat(commands.Cog):
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.openrouter_api_key}",
-                "HTTP-Referer": "https://my-discord-bot-gdew.onrender.com",
+                "HTTP-Referer": "https://my-discord-bot-my-discord-bot.up.railway.app/dashboard/1290376615439892591/ai-chat",
                 "X-Title": "Hidden Hamlet Discord Bot",
             }
 
@@ -429,7 +452,7 @@ class AIChat(commands.Cog):
         except Exception as e:
             print(f"[AI CHAT] ❌ OpenRouter Exception: {type(e).__name__}")
             return "EXCEPTION", False
-
+        
     # ═══════════════════════════════════════════════════════════════════════
     # MASTER FALLBACK ENGINE (Triple Tier)
     # ═══════════════════════════════════════════════════════════════════════
@@ -634,31 +657,30 @@ class AIChat(commands.Cog):
     @app_commands.describe(pertanyaan="Apa yang mau ditanyakan?")
     async def ask(self, interaction: discord.Interaction, pertanyaan: str):
         
+        # 1. Setup Data
         guild_id = str(interaction.guild_id)
         user_id = str(interaction.user.id)
         now = datetime.now(timezone.utc).timestamp()
 
-        # 1. COOLDOWN CHECK DULUAN
+        # 2. Cooldown Check
         key = (guild_id, user_id)
         last_used = self._cooldowns.get(key, 0)
         if now - last_used < COOLDOWN_SECONDS:
             retry_after = COOLDOWN_SECONDS - (now - last_used)
-            # Karena belum di-defer, pake send_message, bukan followup
-            await interaction.response.send_message(f"⏳ Sabar bro! Tunggu **{retry_after:.1f} detik** lagi.", ephemeral=True)
+            await interaction.response.send_message(
+                f"⏳ Sabar bro! Tunggu **{retry_after:.1f} detik** lagi.", 
+                ephemeral=True
+            )
             return
 
-        # 2. DEFER SETELAH LOLOS COOLDOWN
-        try:
-            # thinking=True biar muncul status "is thinking..."
-            await interaction.response.defer(thinking=True) 
-        except discord.errors.HTTPException as e:
-            if e.status == 429:
-                print(f"[AI CHAT] ⚠️ Kena Rate Limit saat defer!")
-                return # Jangan lanjut kalau kena rate limit
+        # 3. Fast Defer (Panggil helper yang sudah kita buat)
+        # Fungsi ini akan menangani defer dan error handling 429 secara terpusat
+        await self._defer_interaction(interaction)
 
-        # 3. SET COOLDOWN & PROSES
+        # 4. Set Cooldown Setelah Lolos Defer
         self._cooldowns[key] = now
 
+        # 5. Proses AI Chat
         try:
             await self._process_ai_chat(
                 ctx=interaction,
@@ -668,11 +690,11 @@ class AIChat(commands.Cog):
             )
         except Exception as e:
             print(f"[AI CHAT] ❌ Fatal error di /ask: {e}")
-            try:
-                # Pake followup karena tadi udah di-defer
+            # Karena sudah di-defer, kita pakai followup untuk kirim pesan error
+            try:    
                 await interaction.followup.send("❌ Terjadi error internal. Coba lagi nanti ya!")
-            except Exception:
-                pass
+            except Exception as e_followup:
+                print(f"[AI CHAT] ❌ Gagal kirim error message: {e_followup}")
 
     # ═══════════════════════════════════════════════════════════════════════
     # EVENT LISTENER: Mention @HiddenHamlet
