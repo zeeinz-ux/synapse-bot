@@ -643,13 +643,6 @@ class AIChat(commands.Cog):
 
         settings = await self._get_guild_ai_settings(guild_id)
 
-        print("========== AI DEBUG ==========")
-        print(settings)
-        print(f"channel_id={message.channel.id}")
-        print(f"mentioned={is_mentioned}")
-        print(f"dedicated={is_dedicated_channel}")
-        print("==============================")
-        
         if not settings.get("enabled", False):
             await self._send_response(
                 ctx, user_id, "⚠️ AI Chat sedang dimatikan oleh admin server. Hubungi admin untuk mengaktifkannya."
@@ -772,12 +765,25 @@ class AIChat(commands.Cog):
             str(message.guild.id)
         )
 
+        # Hitung ulang untuk debug
         is_mentioned = self.bot.user in message.mentions
 
         is_dedicated_channel = self._is_dedicated_ai_channel(
             settings,
             str(message.channel.id)
         )
+
+        print("========== AI DEBUG ==========")
+        print(settings)
+        print(f"channel_id={message.channel.id}")
+        print(f"mentioned={is_mentioned}")
+        print(f"dedicated={is_dedicated_channel}")
+        print("==============================")
+
+        print("========== AI DEBUG ==========")
+        print(settings)
+        print(f"channel={message.channel.id}")
+        print("==============================")
 
         if not is_mentioned and not is_dedicated_channel:
             return
