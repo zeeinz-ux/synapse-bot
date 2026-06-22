@@ -3,10 +3,12 @@
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/dashboard_page.css') }}" />
 
+<div id="dashboard-container" data-guild-id="1290376615439892591">
+
 <header class="dash-header">
   <h1>🤖 Hidden Hamlet</h1>
   <p>Discord Bot Status Dashboard</p>
-  <p class="dash-meta">Last update: {{ s.last_updated }} • Auto-refresh 10s</p>
+  <p class="dash-meta">Last update: {{ s.last_updated }} • <span id="refresh-status">Auto-refreshing...</span></p>
 </header>
 
 <div class="grid">
@@ -36,31 +38,34 @@
 
 <div class="players">
   <h2>🎶 Now Playing</h2>
-  {% if s.players %}
-  {% for p in s.players %}
-  <div class="p-card">
-    <img src="{{ p.artwork }}" alt="artwork" class="p-art" data-fallback="https://via.placeholder.com/80?text=No+Art" />
-    <div class="p-info">
-      <h4>{{ p.track }}</h4>
-      <div class="p-meta">{{ p.author }} • {{ p.guild }}</div>
-      <div class="badges-row">
-        <span class="badge bg-q">{{ p.queue }} in queue</span>
-        <span class="badge bg-l">{{ p.listeners }} listeners</span>
-        {% if p.paused %}<span class="badge bg-p">⏸ Paused</span>{% endif %}
+  <div id="players-container">
+    {% if s.players %}
+    {% for p in s.players %}
+    <div class="p-card" data-guild-id="{{ p.guild_id }}">
+      <img src="{{ p.artwork }}" alt="artwork" class="p-art" data-fallback="https://via.placeholder.com/80?text=No+Art" />
+      <div class="p-info">
+        <h4 id="now-playing">{{ p.track }}</h4>
+        <div class="p-meta">{{ p.author }} • {{ p.guild }}</div>
+        <div class="badges-row">
+          <span class="badge bg-q"><span id="queue-count">{{ p.queue }}</span> in queue</span>
+          <span class="badge bg-l">{{ p.listeners }} listeners</span>
+          {% if p.paused %}<span class="badge bg-p">⏸ Paused</span>{% endif %}
+        </div>
+        <div class="bar"><div class="bar-fill" data-progress="{{ p.progress_percent }}"></div></div>
+        <div class="bar-text">{{ p.position_fmt }} / {{ p.duration_fmt }}</div>
       </div>
-      <div class="bar"><div class="bar-fill" data-progress="{{ p.progress_percent }}"></div></div>
-      <div class="bar-text">{{ p.position_fmt }} / {{ p.duration_fmt }}</div>
     </div>
+    {% endfor %}
+    {% else %}
+    <div class="card empty-players"><p>No active music players.</p>
+    </div>
+    {% endif %}
   </div>
-  {% endfor %}
-  {% else %}
-  <div class="card empty-players"><p>No active music players.</p></div>
-  {% endif %}
 </div>
 
 <footer class="dash-footer">
   <p>Hidden Hamlet Bot • Render.com • <a href="/api/stats">API JSON</a> • <a href="/">Home</a></p>
 </footer>
 
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</div> <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}
