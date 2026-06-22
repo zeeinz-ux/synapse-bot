@@ -33,6 +33,7 @@ import tenacity
 
 from ..database.firebase_setup import db
 from ...utils.spam_engine import SpamEngine
+from ...utils.intent_router import detect_intent
 
 # ── Konstanta ──
 MAX_HISTORY_PAIRS = 5
@@ -181,8 +182,18 @@ class AIChat(commands.Cog):
             return {
                 "enabled": data.get("ai_chat_enabled", False),
                 "channel_id": ai_chat.get("channel_id", ""),
-                "personality": ai_chat.get("personality", DEFAULT_PERSONALITY),
-                "temperature": ai_chat.get("temperature", 0.75),
+                "personality": ai_chat.get(
+                    "personality",
+                    DEFAULT_PERSONALITY
+                ),
+                "temperature": ai_chat.get(
+                    "temperature",
+                    0.75
+                ),
+                "dedicated_ai_channel": ai_chat.get(
+                    "dedicated_ai_channel",
+                    False
+                ),
             }
         except Exception as e:
             print(f"[AI CHAT] ⚠️ Error ambil settings: {e}")
@@ -193,6 +204,16 @@ class AIChat(commands.Cog):
         if not allowed_channel:
             return True
         return str(channel_id) == str(allowed_channel)
+    
+    def _is_dedicated_ai_channel(
+        self,
+        settings: dict,
+        channel_id: str
+    ) -> bool:
+        return (
+            settings.get("dedicated_ai_channel", False)
+            and str(settings.get("channel_id", "")) == str(channel_id)
+        )
 
     async def _get_chat_history(self, guild_id: str, user_id: str) -> List[Dict[str, Any]]:
         try:
@@ -642,8 +663,24 @@ class AIChat(commands.Cog):
             )
             return
 
-        personality = settings.get("personality", DEFAULT_PERSONALITY)
-        temperature = settings.get("temperature", 0.75)
+        personality = settings.get(
+            "personality",
+            DEFAULT_PERSONALITY
+        )
+
+        intent = detect_intent(user_message)
+
+        print(
+            f"[AI ROUTER] "
+            f"guild={guild_id} "
+            f"user={user_id} "
+            f"intent={intent.value}"
+        )
+
+        temperature = settings.get(
+            "temperature",
+            0.75
+        )
         history = await self._get_chat_history(guild_id, user_id)
         server_ctx = self._build_server_context(guild)
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(personality=personality, server_context=server_ctx)
@@ -657,7 +694,12 @@ class AIChat(commands.Cog):
         # sendiri gagal (misal izin channel), error akan ditangani oleh
         # try-except di level pemanggil (/ask atau on_message).
         async with typing_ctx.typing():
-            response_text = await self._call_ai(user_message, history, system_prompt, temperature)
+            response_text = await self._call_ai(
+                user_message,
+                history,
+                system_prompt,
+                temperature
+            )
 
         await self._save_chat_history(guild_id, user_id, user_message, response_text, personality)
         await self._send_response(ctx, user_id, response_text)
@@ -718,10 +760,21 @@ class AIChat(commands.Cog):
 
         # 2. Check Mention
         # Cara paling aman cek mention adalah dengan memeriksa list 'mentions'
-        if self.bot.user not in message.mentions:
+        settings = await self._get_guild_ai_settings(
+            str(message.guild.id)
+        )
+
+        is_mentioned = self.bot.user in message.mentions
+
+        is_dedicated_channel = self._is_dedicated_ai_channel(
+            settings,
+            str(message.channel.id)
+        )
+
+        if not is_mentioned and not is_dedicated_channel:
             return
 
-        settings = await self._get_guild_ai_settings(str(message.guild.id))
+        
         if not settings.get("enabled", False):
             return
 
@@ -735,7 +788,13 @@ class AIChat(commands.Cog):
         # bot punya nama tampilan yang juga muncul sebagai substring di teks user.
         if self._mention_pattern is None:
             self._mention_pattern = re.compile(rf"<@!?{self.bot.user.id}>")
-        content = self._mention_pattern.sub("", message.content).strip()
+        if is_mentioned:
+            content = self._mention_pattern.sub(
+                "",
+                message.content
+            ).strip()
+        else:
+            content = message.content.strip()
 
         if not content:
             await message.reply("Halo! Ada yang bisa kubantu? 🤖", mention_author=False)
