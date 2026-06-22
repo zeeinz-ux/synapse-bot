@@ -9,3 +9,5 @@ wavelink==3.5.2
 aiohttp==3.13.5
 Pillow==12.2.0
 requests==2.34.2
+tenacity==8.3.0
+Flask-Session==0.8.0
