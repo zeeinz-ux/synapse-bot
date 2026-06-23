@@ -43,7 +43,7 @@
 
       <!-- Desktop links -->
       <ul class="navbar-links" role="list">
-        <li><a href="/" class="active" aria-current="page">Home</a></li>
+        <li><a href="#home" class="active" aria-current="page">Home</a></li>
         <li><a href="/dashboard">Dashboard</a></li>
         <li><a href="#faq">FAQ</a></li>
         <li><a href="#commands">Commands</a></li>
@@ -83,7 +83,7 @@
 
   <!-- Mobile menu -->
   <div class="navbar-mobile" id="mobileMenu" role="dialog" aria-label="Menu mobile" aria-hidden="true">
-    <a href="/" aria-current="page">🏠 Home</a>
+    <a href="#home" aria-current="page">🏠 Home</a>
     <a href="/dashboard">📊 Dashboard</a>
     <a href="#faq">❓ FAQ</a>
     <a href="#commands">⌨️ Commands</a>
@@ -288,7 +288,7 @@
         <p class="section-sub" style="margin: 0 auto;">Temukan jawaban untuk pertanyaan umum seputar Hidden Hamlet di bawah ini.</p>
       </div>
 
-      <div class="faq-list" style="margin-top: 3rem; max-width: 800px; margin-left: auto; margin-right: auto;">
+      <div class="faq-list" style="margin-top: 3rem;">
 
         <div class="faq-item" data-reveal data-reveal-delay="1">
           <button class="faq-question" aria-expanded="false" aria-controls="faq-answer-1">
@@ -493,14 +493,8 @@
     </div>
   </section>
 
-<!-- ══════════════════════════════════════
-       FOOTER
-       ══════════════════════════════════════ -->
-    <!-- ══════════════════════════════════════
-       ABOUT ME
-       ══════════════════════════════════════ -->
-  <section class="section" id="about" aria-labelledby="about-heading">
-    <div class="section-inner">
+<section class="section" id="about" aria-labelledby="about-heading">
+    <div class="section-inner" style="max-width: 95%;">
 
       <div data-reveal style="text-align: center; margin-bottom: 0;">
         <span class="section-label">Tentang Kami</span>
@@ -508,7 +502,7 @@
         <p class="section-sub" style="margin: 0 auto;">Kenali lebih dekat bot Discord serbaguna yang siap membantu komunitas kamu.</p>
       </div>
 
-      <div class="about-card" data-reveal style="margin-top: 3rem; max-width: 800px; margin-left: auto; margin-right: auto;">
+      <div class="about-card" data-reveal style="margin-top: 3rem;">
         <div class="about-card-header">
           <div class="about-avatar">
             <img src="{{ url_for('static', filename='logo.png') }}" alt="Hidden Hamlet Logo" width="64" height="64">
@@ -520,26 +514,28 @@
         </div>
 
         <div class="about-card-body">
-          <div class="about-block">
-            <h4>🎯 Visi</h4>
-            <p>Hidden Hamlet dibangun dengan visi menjadi <strong>tulang punggung komunitas Discord</strong> — menyediakan satu bot serbaguna yang menggabungkan hiburan berkualitas, kecerdasan buatan, manajemen server yang elegan, dan pengalaman pengguna yang seamless. Kami percaya setiap server Discord berhak memiliki bot yang powerful tanpa harus membayar atau mengorbankan kualitas.</p>
-          </div>
+          <div class="about-columns">
+            <div class="about-block">
+              <h4>🎯 Visi</h4>
+              <p>Hidden Hamlet dibangun dengan visi menjadi <strong>tulang punggung komunitas Discord</strong> — menyediakan satu bot serbaguna yang menggabungkan hiburan berkualitas, kecerdasan buatan, manajemen server yang elegan, dan pengalaman pengguna yang seamless. Kami percaya setiap server Discord berhak memiliki bot yang powerful tanpa harus membayar atau mengorbankan kualitas.</p>
+            </div>
 
-          <div class="about-block">
-            <h4>👤 Developer</h4>
-            <p>Dikembangkan oleh seorang enthusiast yang passionate tentang automation dan komunitas online. Dengan pengalaman dalam ekosistem Discord dan teknologi modern, Hidden Hamlet dirancang untuk scalable, reliable, dan mudah dikustomisasi oleh siapa saja — tanpa perlu jadi programmer.</p>
-          </div>
+            <div class="about-block">
+              <h4>👤 Developer</h4>
+              <p>Dikembangkan oleh seorang enthusiast yang passionate tentang automation dan komunitas online. Dengan pengalaman dalam ekosistem Discord dan teknologi modern, Hidden Hamlet dirancang untuk scalable, reliable, dan mudah dikustomisasi oleh siapa saja — tanpa perlu jadi programmer.</p>
+            </div>
 
-          <div class="about-block">
-            <h4>🛠️ Tech Stack</h4>
-            <div class="tech-stack">
-              <span class="tech-badge">Python</span>
-              <span class="tech-badge">Discord.py</span>
-              <span class="tech-badge">Flask</span>
-              <span class="tech-badge">Lavalink</span>
-              <span class="tech-badge">Gemini AI</span>
-              <span class="tech-badge">OpenRouter</span>
-              <span class="tech-badge">Groq</span>
+            <div class="about-block">
+              <h4>🛠️ Tech Stack</h4>
+              <div class="tech-stack">
+                <span class="tech-badge">Python</span>
+                <span class="tech-badge">Discord.py</span>
+                <span class="tech-badge">Flask</span>
+                <span class="tech-badge">Lavalink</span>
+                <span class="tech-badge">Gemini AI</span>
+                <span class="tech-badge">OpenRouter</span>
+                <span class="tech-badge">Groq</span>
+              </div>
             </div>
           </div>
         </div>
@@ -557,11 +553,21 @@
     </div>
   </section>
 
+
+
+<!-- ══════════════════════════════════════
+       FOOTER
+       ══════════════════════════════════════ -->
+    <!-- ══════════════════════════════════════
+       ABOUT ME
+       ══════════════════════════════════════ -->
+  
+
 <footer class="footer">
     <div class="footer-inner">
       <span>© <span id="year"></span> Hidden Hamlet. Dibuat dengan ❤️ untuk komunitas Discord.</span>
       <ul class="footer-links">
-        <li><a href="/">Home</a></li>
+        <li><a href="#home">Home</a></li>
         <li><a href="/dashboard">Dashboard</a></li>
         <li><a href="#faq">FAQ</a></li>
         <li><a href="#commands">Commands</a></li>
@@ -581,5 +587,6 @@
 
 <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
 <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+
 </body>
 </html>
