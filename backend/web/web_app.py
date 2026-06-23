@@ -13,7 +13,7 @@ from PIL import Image
 # ==========================================================
 # Import relative dari dalam backend/ folder
 # ==========================================================
-from utils.formatters import format_duration, format_uptime
+from backend.utils.formatters import format_duration, format_uptime
 from backend.cogs.database.firebase_setup import db
 from flask_session import Session
 
