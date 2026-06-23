@@ -1,3 +1,4 @@
+gunicorn==21.0.0
 discord.py==2.7.1
 firebase-admin==7.4.0
 flask==3.1.3
@@ -8,3 +9,6 @@ wavelink==3.5.2
 aiohttp==3.13.5
 Pillow==12.2.0
 requests==2.34.2
+tenacity==8.3.0
+Flask-Session==0.8.0
+easy-pil==0.6.1
