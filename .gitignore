@@ -84,3 +84,6 @@ backend/flask_session/
 *.rar
 *.7z
 
+# Python package init files (optional - keep local)
+backend/cogs/*/__init__.py
+
