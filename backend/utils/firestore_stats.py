@@ -31,6 +31,9 @@ _local_guild_channels: Dict[str, list] = {}
 _music_states_lock = threading.Lock()
 _local_music_states: Dict[str, dict] = {}
 
+_bot_instance = None
+_bot_instance_lock = threading.Lock()
+
 COLLECTION = "bot_status"
 DOC_ID = "stats"
 
@@ -165,3 +168,12 @@ def get_music_state(guild_id: str) -> dict:
     
     with _music_states_lock:
         return _local_music_states.get(guild_id, {"connected": False})
+
+def set_bot_instance(bot):
+    global _bot_instance
+    with _bot_instance_lock:
+        _bot_instance = bot
+
+def get_bot_instance():
+    with _bot_instance_lock:
+        return _bot_instance
