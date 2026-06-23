@@ -35,6 +35,12 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# ===========================================================================
+# REVISI DI SINI: Menyambungkan database Firebase agar bisa dipakai semua Cogs
+# ===========================================================================
+bot.db = firebase_setup.db
+# ===========================================================================
+
 @tasks.loop(seconds=20.0)
 async def sync_music_to_dashboard():
     # 1. Update stats umum (guild count, dll)
@@ -67,7 +73,6 @@ async def on_ready():
     if not sync_music_to_dashboard.is_running():
         sync_music_to_dashboard.start()
         print("[TASKS] ✅ Sync stats ke dashboard aktif!")
-        
 set_bot_instance(bot)
 start_time = time.time()
 
