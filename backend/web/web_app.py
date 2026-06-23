@@ -380,8 +380,7 @@ def home():
 
 @app.route("/api/stats")
 def api_stats():
-    with _stats_lock:
-        return jsonify(dict(_bot_stats))
+    return jsonify(get_stats_snapshot())
 
 # ==========================================================
 # ROUTES — Dashboard
@@ -692,12 +691,11 @@ def api_ai_chat_history(guild_id):
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
-    # Pake lock biar datanya aman pas lagi di-update sama bot
-    with _stats_lock:
-        stats_data = {
-            "guilds": _bot_stats.get("guilds", 0),
-            "members": _bot_stats.get("members", 0)
-        }
+    s = get_stats_snapshot()
+    stats_data = {
+        "guilds": s.get("guilds", 0),
+        "members": s.get("members", 0)
+    }
     return jsonify(stats_data), 200
 
 
