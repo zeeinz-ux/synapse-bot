@@ -19,8 +19,6 @@
   <!-- Favicon placeholder -->
   <link rel="icon" href="/logo.png" />
 <base target="_blank">
-<base target="_blank">
-<base target="_blank">
 </head>
 <body>
 
@@ -47,9 +45,9 @@
       <ul class="navbar-links" role="list">
         <li><a href="/" class="active" aria-current="page">Home</a></li>
         <li><a href="/dashboard">Dashboard</a></li>
-        <li><a href="/faq">FAQ</a></li>
-        <li><a href="/commands">Commands</a></li>
-        <li><a href="/about">About Me</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#commands">Commands</a></li>
+        <li><a href="#about">About Me</a></li>
         <li><a href="https://discord.gg/kwPr32AhGH" target="_blank" rel="noopener noreferrer">Support</a></li>
       </ul>
 
@@ -87,9 +85,9 @@
   <div class="navbar-mobile" id="mobileMenu" role="dialog" aria-label="Menu mobile" aria-hidden="true">
     <a href="/" aria-current="page">🏠 Home</a>
     <a href="/dashboard">📊 Dashboard</a>
-    <a href="/faq">❓ FAQ</a>
-    <a href="/commands">⌨️ Commands</a>
-    <a href="/about">👤 About Me</a>
+    <a href="#faq">❓ FAQ</a>
+    <a href="#commands">⌨️ Commands</a>
+    <a href="#about">👤 About Me</a>
     <a href="https://discord.gg/kwPr32AhGH" target="_blank" rel="noopener noreferrer">💬 Support</a>
     <a href="/login">🔐 Login</a>
     <a href="https://discord.com/oauth2/authorize?client_id=1505849571039907900&permissions=8&scope=bot%20applications.commands"
@@ -295,68 +293,7 @@
         <div class="faq-item" data-reveal data-reveal-delay="1">
           <button class="faq-question" aria-expanded="false" aria-controls="faq-answer-1">
             <span>Apakah Hidden Hamlet gratis?</span>
-            <svg c
-<!-- ══════════════════════════════════════
-     ABOUT ME MODAL
-     ══════════════════════════════════════ -->
-<div class="modal-overlay" id="aboutModal" role="dialog" aria-modal="true" aria-labelledby="about-title" aria-hidden="true">
-  <div class="modal-card">
-    <button class="modal-close" id="modalCloseBtn" aria-label="Tutup modal">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-    </button>
-
-    <div class="modal-content">
-      <div class="modal-header">
-        <div class="modal-avatar">
-          <img src="{{ url_for('static', filename='logo.png') }}" alt="Hidden Hamlet Logo" width="64" height="64">
-        </div>
-        <div>
-          <h2 id="about-title">About Hidden Hamlet</h2>
-          <span class="modal-tag">Discord Bot</span>
-        </div>
-      </div>
-
-      <div class="modal-body">
-        <div class="about-section">
-          <h3>🎯 Visi</h3>
-          <p>Hidden Hamlet dibangun dengan visi menjadi <strong>tulang punggung komunitas Discord</strong> — menyediakan satu bot serbaguna yang menggabungkan hiburan berkualitas, kecerdasan buatan, manajemen server yang elegan, dan pengalaman pengguna yang seamless. Kami percaya setiap server Discord berhak memiliki bot yang powerful tanpa harus membayar atau mengorbankan kualitas.</p>
-        </div>
-
-        <div class="about-section">
-          <h3>👤 Developer</h3>
-          <p>Dikembangkan oleh seorang enthusiast yang passionate tentang automation dan komunitas online. Dengan pengalaman dalam ekosistem Discord dan teknologi modern, Hidden Hamlet dirancang untuk scalable, reliable, dan mudah dikustomisasi oleh siapa saja — tanpa perlu jadi programmer.</p>
-        </div>
-
-        <div class="about-section">
-          <h3>🛠️ Tech Stack</h3>
-          <div class="tech-stack">
-            <span class="tech-badge">Python</span>
-            <span class="tech-badge">Discord.py</span>
-            <span class="tech-badge">Flask</span>
-            <span class="tech-badge">Lavalink</span>
-            <span class="tech-badge">Gemini AI</span>
-            <span class="tech-badge">OpenRouter</span>
-            <span class="tech-badge">Groq</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <a href="https://discord.gg/kwPr32AhGH" target="_blank" rel="noopener noreferrer" class="btn-primary modal-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
-          </svg>
-          Join Support Server
-        </a>
-      </div>
-    </div>
-  </div>
-</div>
-
-lass="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </button>
@@ -559,13 +496,78 @@ lass="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke
 <!-- ══════════════════════════════════════
        FOOTER
        ══════════════════════════════════════ -->
-  <footer class="footer">
+    <!-- ══════════════════════════════════════
+       ABOUT ME
+       ══════════════════════════════════════ -->
+  <section class="section" id="about" aria-labelledby="about-heading">
+    <div class="section-inner">
+
+      <div data-reveal style="text-align: center; margin-bottom: 0;">
+        <span class="section-label">Tentang Kami</span>
+        <h2 class="section-title" id="about-heading">About Hidden Hamlet</h2>
+        <p class="section-sub" style="margin: 0 auto;">Kenali lebih dekat bot Discord serbaguna yang siap membantu komunitas kamu.</p>
+      </div>
+
+      <div class="about-card" data-reveal style="margin-top: 3rem; max-width: 800px; margin-left: auto; margin-right: auto;">
+        <div class="about-card-header">
+          <div class="about-avatar">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Hidden Hamlet Logo" width="64" height="64">
+          </div>
+          <div>
+            <h3>Hidden Hamlet</h3>
+            <span class="about-tag">Discord Bot</span>
+          </div>
+        </div>
+
+        <div class="about-card-body">
+          <div class="about-block">
+            <h4>🎯 Visi</h4>
+            <p>Hidden Hamlet dibangun dengan visi menjadi <strong>tulang punggung komunitas Discord</strong> — menyediakan satu bot serbaguna yang menggabungkan hiburan berkualitas, kecerdasan buatan, manajemen server yang elegan, dan pengalaman pengguna yang seamless. Kami percaya setiap server Discord berhak memiliki bot yang powerful tanpa harus membayar atau mengorbankan kualitas.</p>
+          </div>
+
+          <div class="about-block">
+            <h4>👤 Developer</h4>
+            <p>Dikembangkan oleh seorang enthusiast yang passionate tentang automation dan komunitas online. Dengan pengalaman dalam ekosistem Discord dan teknologi modern, Hidden Hamlet dirancang untuk scalable, reliable, dan mudah dikustomisasi oleh siapa saja — tanpa perlu jadi programmer.</p>
+          </div>
+
+          <div class="about-block">
+            <h4>🛠️ Tech Stack</h4>
+            <div class="tech-stack">
+              <span class="tech-badge">Python</span>
+              <span class="tech-badge">Discord.py</span>
+              <span class="tech-badge">Flask</span>
+              <span class="tech-badge">Lavalink</span>
+              <span class="tech-badge">Gemini AI</span>
+              <span class="tech-badge">OpenRouter</span>
+              <span class="tech-badge">Groq</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="about-card-footer">
+          <a href="https://discord.gg/kwPr32AhGH" target="_blank" rel="noopener noreferrer" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+            </svg>
+            Join Support Server
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+<footer class="footer">
     <div class="footer-inner">
       <span>© <span id="year"></span> Hidden Hamlet. Dibuat dengan ❤️ untuk komunitas Discord.</span>
       <ul class="footer-links">
+        <li><a href="/">Home</a></li>
         <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#commands">Commands</a></li>
+        <li><a href="#about">About Me</a></li>
         <li><a href="https://discord.gg/kwPr32AhGH" target="_blank" rel="noopener noreferrer">Support</a></li>
-        <li><a href="/login">Login</a></li>
+        <li><a href="/login">Login dengan akun Discord</a></li>
       </ul>
     </div>
   </footer>
@@ -576,8 +578,6 @@ lass="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke
      JAVASCRIPT — Navbar scroll, hamburger, scroll reveal
      Tidak ada external dependency
      ══════════════════════════════════════ -->
-
-
 
 <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
 <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
