@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 from firebase_admin import firestore
 
+
 # Hapus inisialisasi 'db' yang salah dari sini
 
 NOTIF_CHANNEL_ID = 1505826133097316434
