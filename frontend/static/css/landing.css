@@ -1495,6 +1495,21 @@ img {
   gap: 1.75rem;
 }
 
+.about-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.about-columns .about-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.about-columns .about-block p {
+  flex: 1;
+}
+
 .about-block h4 {
   font-size: 1.05rem;
   font-weight: 700;
@@ -1541,6 +1556,12 @@ img {
   }
 }
 
+@media (max-width: 900px) {
+  .about-columns {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
 @media (max-width: 480px) {
   .about-card {
     padding: 1.25rem;
