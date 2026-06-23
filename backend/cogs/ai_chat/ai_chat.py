@@ -658,11 +658,12 @@ class AIChat(commands.Cog):
             channel_id = str(ctx.channel.id)
             typing_ctx = ctx.channel
 
-        if not self._is_channel_allowed(settings, channel_id):
-            await self._send_response(
-                ctx, user_id, "⚠️ AI Chat hanya bisa digunakan di channel yang sudah diatur oleh admin."
-            )
-            return
+        # ── REVISI: Tambahkan tanda # pada 4 baris di bawah ini untuk mematikan fiturnya ──
+        # if not self._is_channel_allowed(settings, channel_id):
+        #     await self._send_response(
+        #         ctx, user_id, "⚠️ AI Chat hanya bisa digunakan di channel yang sudah diatur oleh admin."
+        #     )
+        #     return
 
         personality = settings.get(
             "personality",
@@ -773,27 +774,26 @@ class AIChat(commands.Cog):
             str(message.channel.id)
         )
 
-        print("========== AI DEBUG ==========")
-        print(settings)
-        print(f"channel_id={message.channel.id}")
-        print(f"mentioned={is_mentioned}")
-        print(f"dedicated={is_dedicated_channel}")
-        print("==============================")
+        # print("========== AI DEBUG ==========")
+        # print(settings)
+        # print(f"channel_id={message.channel.id}")
+        # print(f"mentioned={is_mentioned}")
+        # print(f"dedicated={is_dedicated_channel}")
+        # print("==============================")
 
-        print("========== AI DEBUG ==========")
-        print(settings)
-        print(f"channel={message.channel.id}")
-        print("==============================")
+        # print("========== AI DEBUG ==========")
+        # print(settings)
+        # print(f"channel={message.channel.id}")
+        # print("==============================")
 
         if not is_mentioned and not is_dedicated_channel:
             return
 
-        
         if not settings.get("enabled", False):
             return
 
-        if not self._is_channel_allowed(settings, str(message.channel.id)):
-            return
+        # if not self._is_channel_allowed(settings, str(message.channel.id)):
+        #     return
 
         # 3. Clean content
         # Pakai regex yang match persis format mention Discord (<@id> atau <@!id>)
