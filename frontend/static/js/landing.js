@@ -43,6 +43,30 @@
     });
   }
 
+  // ── Smooth scroll for anchor links & mobile menu auto-close ──
+  document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+    anchor.addEventListener("click", (e) => {
+      const targetId = anchor.getAttribute("href");
+      if (targetId === "#") return;
+      const targetEl = document.querySelector(targetId);
+      if (targetEl) {
+        e.preventDefault();
+        // Tutup mobile menu kalau terbuka
+        if (mobileMenu && mobileMenu.classList.contains("open")) {
+          mobileMenu.classList.remove("open");
+          hamburgerBtn.classList.remove("open");
+          hamburgerBtn.setAttribute("aria-expanded", "false");
+          mobileMenu.setAttribute("aria-hidden", "true");
+        }
+        // Scroll ke target section dengan offset navbar
+        const offset = 80;
+        const targetPos =
+          targetEl.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top: targetPos, behavior: "smooth" });
+      }
+    });
+  });
+
   // ── Scroll reveal ──
   const revealEls = document.querySelectorAll("[data-reveal]");
   if ("IntersectionObserver" in window && revealEls.length) {
@@ -181,56 +205,6 @@
     if (cmdCount)
       cmdCount.textContent = `Menampilkan semua ${initialCount} perintah`;
   }
-
-  // ── About Me Modal ──
-  const aboutModal = document.getElementById("aboutModal");
-  const modalCloseBtn = document.getElementById("modalCloseBtn");
-
-  // Find About Me links (navbar desktop + mobile)
-  const aboutLinks = document.querySelectorAll('a[href="/about"]');
-
-  aboutLinks.forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (aboutModal) {
-        aboutModal.classList.add("open");
-        aboutModal.setAttribute("aria-hidden", "false");
-        document.body.style.overflow = "hidden";
-      }
-    });
-  });
-
-  function closeModal() {
-    if (aboutModal) {
-      aboutModal.classList.remove("open");
-      aboutModal.setAttribute("aria-hidden", "true");
-      document.body.style.overflow = "";
-    }
-  }
-
-  if (modalCloseBtn) {
-    modalCloseBtn.addEventListener("click", closeModal);
-  }
-
-  // Close on backdrop click
-  if (aboutModal) {
-    aboutModal.addEventListener("click", (e) => {
-      if (e.target === aboutModal) {
-        closeModal();
-      }
-    });
-  }
-
-  // Close on Escape key
-  document.addEventListener("keydown", (e) => {
-    if (
-      e.key === "Escape" &&
-      aboutModal &&
-      aboutModal.classList.contains("open")
-    ) {
-      closeModal();
-    }
-  });
 
   // ── Active nav link by scroll position (updated for new sections) ──
   const allSections = document.querySelectorAll("section[id]");
