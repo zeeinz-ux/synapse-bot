@@ -1,10 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import firebase_admin
 from firebase_admin import firestore
-
-db = firestore.client()
 
 class DonationCog(commands.Cog):
     def __init__(self, bot):
@@ -16,7 +13,8 @@ class DonationCog(commands.Cog):
         metode="Metode pembayaran (contoh: QRIS, DANA, OVO, Gopay)"
     )
     async def donasi(self, interaction: discord.Interaction, nominal: int, metode: str):
-        if db is None:
+        # FIX 1: Memeriksa database melalui atribut bot (self.bot.db) yang dikirim dari main.py
+        if not hasattr(self.bot, 'db') or not self.bot.db:
             await interaction.response.send_message("❌ Database tidak aktif!", ephemeral=True)
             return
 
@@ -33,7 +31,8 @@ class DonationCog(commands.Cog):
                 "created_at": firestore.SERVER_TIMESTAMP
             }
 
-            _, doc_ref = db.collection("transactions").add(data_transaksi)
+            # FIX 2: Menggunakan self.bot.db (bukan variabel 'db' global yang bikin crash)
+            _, doc_ref = self.bot.db.collection("transactions").add(data_transaksi)
 
             await interaction.edit_original_response(
                 content=f"✅ Donasi sebesar **Rp {nominal:,}** lewat **{metode.upper()}** berhasil dicatat!\n"
