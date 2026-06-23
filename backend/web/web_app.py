@@ -42,7 +42,9 @@ Session(app)
 
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "1505849571039907900")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
-DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://192.168.1.29:8080/callback")
+DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI")
+if not DISCORD_REDIRECT_URI:
+    raise ValueError("DISCORD_REDIRECT_URI environment variable is required")
 DISCORD_API_BASE = "https://discord.com/api"
 
 def login_required(f):
