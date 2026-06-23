@@ -375,11 +375,8 @@ def _render_page(template_name: str, active_page: str, guild_id: str, **kwargs):
 # ==========================================================
 @app.route("/")
 def home():
-    return (
-        "<h1>🤖 Bot is running!</h1>"
-        '<p><a href="/dashboard">Open Dashboard</a> • '
-        '<a href="/api/stats">API JSON</a></p>'
-    )
+    # Ini bakal ngebuka file landing.html yang ada di folder templates lu
+    return render_template("landing.html")
 
 @app.route("/api/stats")
 def api_stats():
@@ -580,12 +577,15 @@ def ai_chat_save(guild_id):
             return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
 
         doc_ref = db.collection("guild_settings").document(str(guild_id))
+        
+        # IMPLEMENTASI: Menambahkan dedicated_ai_channel secara dinamis ke Firestore
         doc_ref.set({
             "ai_chat": {
                 "personality": personality,
                 "channel_id": channel_id,
                 "model": model,
                 "temperature": temperature,
+                "dedicated_ai_channel": True if channel_id else False, # True jika channel dipilih, False jika 'Semua Channel'
                 "updated_at": datetime.now(timezone.utc),
             }
         }, merge=True)
@@ -685,6 +685,20 @@ def api_ai_chat_history(guild_id):
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "message": str(e)}), 500
+
+# ==========================================================
+# API Endpoint untuk Landing Page Stats
+# ==========================================================
+
+@app.route('/api/stats', methods=['GET'])
+def get_stats():
+    # Pake lock biar datanya aman pas lagi di-update sama bot
+    with _stats_lock:
+        stats_data = {
+            "guilds": _bot_stats.get("guilds", 0),
+            "members": _bot_stats.get("members", 0)
+        }
+    return jsonify(stats_data), 200
 
 
 # ==========================================================
