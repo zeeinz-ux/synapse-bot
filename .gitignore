@@ -78,5 +78,9 @@ backup/
 # Flask session storage
 backend/flask_session/
 
-# Fonts (downloaded at build)
-frontend/static/fonts/
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
