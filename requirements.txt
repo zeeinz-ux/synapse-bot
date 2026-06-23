@@ -12,3 +12,4 @@ requests==2.34.2
 tenacity==8.3.0
 Flask-Session==0.8.0
 easy-pil==0.6.1
+honcho==1.0.1

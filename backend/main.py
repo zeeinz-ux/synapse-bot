@@ -77,19 +77,6 @@ set_bot_instance(bot)
 start_time = time.time()
 
 
-if os.environ.get("RUN_WEB") == "true":
-    import subprocess
-    import sys
-    port = int(os.environ.get("PORT", 8080))
-    subprocess.Popen([
-        sys.executable, "-m", "gunicorn",
-        "--bind", f"0.0.0.0:{port}",
-        "--workers", "2",
-        "--timeout", "120",
-        "backend.web.web_app:app"
-    ])
-
-
 # ==========================================================
 # [UPDATE] LAVALINK: PRIVATE COYEB SERVER CONNECTION
 # ==========================================================

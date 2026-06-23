@@ -1,5 +1,5 @@
 {
   "deploy": {
-    "startCommand": "python backend/main.py"
+    "startCommand": "honcho start -f Procfile"
   }
 }
