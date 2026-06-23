@@ -4,7 +4,9 @@ import base64
 import traceback
 import io
 import asyncio
-from flask import Flask, render_template, jsonify, request, redirect
+from flask import Flask, render_template, jsonify, request, redirect, session, url_for
+import requests
+from functools import wraps
 from datetime import datetime, timezone
 from PIL import Image
 
@@ -13,6 +15,7 @@ from PIL import Image
 # ==========================================================
 from utils.formatters import format_duration, format_uptime
 from backend.cogs.database.firebase_setup import db
+from flask_session import Session
 
 # ==========================================================
 # Flask app — static & template folder ke frontend/
@@ -26,6 +29,90 @@ app = Flask(
 )
 
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+app.secret_key = os.getenv("FLASK_SECRET_KEY")
+
+# Setelah app.secret_key
+app.config["SESSION_TYPE"] = "filesystem"
+Session(app)
+
+
+# ==========================================================
+# Discord OAuth2 Login
+# ==========================================================
+
+DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "1505849571039907900")
+DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
+DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://192.168.1.29:8080/callback")
+DISCORD_API_BASE = "https://discord.com/api"
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route("/login")
+def login():
+    discord_login_url = (
+        f"https://discord.com/oauth2/authorize?"
+        f"client_id={DISCORD_CLIENT_ID}&"
+        f"redirect_uri={DISCORD_REDIRECT_URI}&"
+        f"response_type=code&"
+        f"scope=identify%20guilds"
+    )
+    return redirect(discord_login_url)
+
+@app.route("/callback")
+def callback():
+    code = request.args.get("code")
+    if not code:
+        return redirect("/")
+    
+    data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": DISCORD_REDIRECT_URI,
+        "client_id": DISCORD_CLIENT_ID,
+        "client_secret": DISCORD_CLIENT_SECRET,
+    }
+    
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    response = requests.post(
+        f"{DISCORD_API_BASE}/oauth2/token",
+        data=data,
+        headers=headers
+    )
+    
+    token_data = response.json()
+    access_token = token_data.get("access_token")
+    
+    if not access_token:
+        return redirect("/")
+    
+    # Ambil data user
+    user_response = requests.get(
+        f"{DISCORD_API_BASE}/users/@me",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    
+    user = user_response.json()
+    
+    # Simpan ke session
+    session["user"] = {
+        "id": user.get("id"),
+        "username": user.get("username"),
+        "avatar": user.get("avatar"),
+        "discriminator": user.get("discriminator")
+    }
+    
+    return redirect("/dashboard")
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
 
 # ==========================================================
 # Shared stats (thread-safe)
