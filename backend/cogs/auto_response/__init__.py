@@ -1,0 +1,1 @@
+# Auto Response Cog - Hidden Hamlet Discord Bot

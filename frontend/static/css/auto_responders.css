@@ -1,0 +1,348 @@
+/* =====================================================
+   Auto Responders Page Styles - Hidden Hamlet
+   ===================================================== */
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  background: #1a1a1c;
+  border-radius: 12px;
+  border: 1px solid #2a2a2c;
+}
+
+.header-content h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f2f3f5;
+  margin: 0;
+}
+
+.header-content p {
+  color: #a0a0a0;
+  margin: 0.25rem 0 0;
+}
+
+.header-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: #c1c2c5;
+}
+
+.toggle-input {
+  display: none;
+}
+
+.toggle-slider {
+  width: 48px;
+  height: 26px;
+  background: #3f4147;
+  border-radius: 13px;
+  position: relative;
+  transition: 0.3s;
+}
+
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: 0.3s;
+}
+
+.toggle-input:checked + .toggle-slider {
+  background: #5865f2;
+}
+
+.toggle-input:checked + .toggle-slider::before {
+  transform: translateX(22px);
+}
+
+/* Content Grid */
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Cards */
+.card {
+  background: #1a1a1c;
+  border-radius: 12px;
+  border: 1px solid #2a2a2c;
+  padding: 1.5rem;
+}
+
+.card h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #f2f3f5;
+  margin: 0 0 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #2a2a2c;
+}
+
+/* Form Styles */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #c1c2c5;
+  margin-bottom: 0.375rem;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  background: #2b2d31;
+  border: 1px solid #3f4147;
+  border-radius: 6px;
+  color: #f2f3f5;
+  font-size: 0.9375rem;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #5865f2;
+}
+
+.form-group small {
+  display: block;
+  color: #80848e;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.required {
+  color: #ed4245;
+}
+
+/* Form Rows */
+.form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.form-group.half {
+  flex: 1;
+}
+
+/* Checkbox Group */
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.checkbox-group.vertical {
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  color: #c1c2c5;
+  cursor: pointer;
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #5865f2;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+/* Buttons */
+.btn {
+  padding: 0.625rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-primary {
+  background: #5865f2;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #4752c4;
+}
+
+.btn-secondary {
+  background: #3f4147;
+  color: #f2f3f5;
+}
+
+.btn-secondary:hover {
+  background: #4e5058;
+}
+
+/* List Styles */
+.ar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ar-item {
+  background: #2b2d31;
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid #3f4147;
+}
+
+.ar-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.ar-keywords {
+  font-weight: 600;
+  color: #f2f3f5;
+  font-size: 0.9375rem;
+}
+
+.ar-type-badge {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  background: #5865f2;
+  color: white;
+}
+
+.ar-response {
+  color: #b9bbbe;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.ar-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #80848e;
+}
+
+.ar-meta span {
+  background: #1a1a1c;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+}
+
+.ar-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #3f4147;
+}
+
+.ar-btn {
+  padding: 0.375rem 0.75rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.ar-btn-edit {
+  background: #3f4147;
+  color: #f2f3f5;
+}
+
+.ar-btn-edit:hover {
+  background: #4e5058;
+}
+
+.ar-btn-delete {
+  background: #da373c;
+  color: white;
+}
+
+.ar-btn-delete:hover {
+  background: #c42f33;
+}
+
+.ar-btn-toggle {
+  background: #5865f2;
+  color: white;
+}
+
+.ar-btn-toggle.off {
+  background: #3f4147;
+}
+
+/* Loading & Empty States */
+.loading,
+.empty {
+  text-align: center;
+  color: #80848e;
+  padding: 2rem;
+}
+
+.empty-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Select Multiple */
+select[multiple] {
+  height: 80px;
+}
+
+/* Hidden Elements */
+.embed-options,
+.image-options {
+  display: none;
+}
+
+.embed-options.visible,
+.image-options.visible {
+  display: block;
+}
