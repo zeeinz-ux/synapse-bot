@@ -593,42 +593,79 @@ def api_auto_responders_list(guild_id: str):
 def api_auto_responders_save(guild_id: str):
     if firestore_circuit_open():
         retry = int(firestore_retry_after())
-        return jsonify({"error": "circuit_open", "retry_after": retry}), 503
+        return jsonify({"success": False, "error": "circuit_open", "message": f"Database rate-limited. Retry in {retry}s.", "retry_after": retry}), 503
     payload = request.get_json(silent=True) or {}
     responder_id = payload.get("id")
-    config = {k: v for k, v in payload.items() if k != "id"}
+    # Frontend sends {id: ""} for new responders — generate a stable id from the keyword
     if not responder_id:
-        return jsonify({"error": "missing responder id"}), 400
+        keyword = (payload.get("keyword") or "").strip().lower()
+        if not keyword:
+            return jsonify({"success": False, "error": "missing id/keyword", "message": "Either 'id' or 'keyword' is required."}), 400
+        responder_id = "ar_" + "".join(c for c in keyword.replace(" ", "_") if c.isalnum() or c == "_")[:40]
+        if not responder_id or responder_id == "ar_":
+            responder_id = "ar_" + str(int(time.time() * 1000))
+        payload["id"] = responder_id  # echo back so frontend can update UI
+    config = {k: v for k, v in payload.items() if k != "id"}
     try:
         ok = _ar_bridge_response(
             guild_id,
             lambda: ar_save_responder(str(guild_id), str(responder_id), config),
         )
         if not ok:
-            return jsonify({"error": "save failed"}), 500
-        return jsonify({"ok": True, "id": responder_id}), 200
+            return jsonify({"success": False, "error": "save failed", "message": "Could not write to Firestore."}), 500
+        return jsonify({"success": True, "id": responder_id, "message": "Saved."}), 200
     except Exception as e:
         if _is_quota_error(e):
             trip_firestore_circuit()
         print(f"[AUTO-RESPONSE WEB] ❌ save failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e), "message": "Save failed."}), 500
 
 
 @app.route("/api/auto-responders/<guild_id>/toggle", methods=["POST"])
 def api_auto_responders_toggle(guild_id: str):
     if firestore_circuit_open():
         retry = int(firestore_retry_after())
-        return jsonify({"error": "circuit_open", "retry_after": retry}), 503
+        return jsonify({"success": False, "error": "circuit_open", "message": f"Database rate-limited. Retry in {retry}s.", "retry_after": retry}), 503
     payload = request.get_json(silent=True) or {}
+    # Two modes:
+    #   (A) GLOBAL toggle:   {"enabled": true/false}                 — affects whole feature
+    #   (B) PER-RESPONDER:   {"id": "<rid>", "enable": true/false}    — affects one responder
     responder_id = payload.get("id")
-    enable = bool(payload.get("enable", True))
+    enable = payload.get("enable")
+    if enable is None:
+        enable = payload.get("enabled", True)
+    enable = bool(enable)
+
+    # Mode A: global enabled flag (no id present)
     if not responder_id:
-        return jsonify({"error": "missing responder id"}), 400
+        try:
+            async def _set_global():
+                settings = await ar_get_guild_settings(str(guild_id))
+                # settings may be empty; we just want to flip the master flag
+                doc_ref = db.collection("guild_settings").document(str(guild_id))
+                def _blocking_set():
+                    doc_ref.set({"auto_responders_enabled": enable}, merge=True)
+                await asyncio.to_thread(_blocking_set)
+                # Also invalidate in-process cache
+                from backend.utils import auto_responder_store as _store
+                _store._settings_cache.pop(str(guild_id), None)
+                return True
+            ok = _ar_bridge_response(guild_id, _set_global)
+            if not ok:
+                return jsonify({"success": False, "error": "toggle failed", "message": "Could not update global flag."}), 500
+            return jsonify({"success": True, "id": None, "enabled": enable, "message": "Global flag updated."}), 200
+        except Exception as e:
+            if _is_quota_error(e):
+                trip_firestore_circuit()
+            print(f"[AUTO-RESPONSE WEB] ❌ global toggle failed: {e}")
+            return jsonify({"success": False, "error": str(e), "message": "Global toggle failed."}), 500
+
+    # Mode B: per-responder toggle
     try:
         settings = _ar_bridge_response(guild_id, lambda: ar_get_guild_settings(str(guild_id)))
         responders = (settings or {}).get("responders", {}) or {}
         if responder_id not in responders:
-            return jsonify({"error": "responder not found"}), 404
+            return jsonify({"success": False, "error": "responder not found", "message": f"Responder '{responder_id}' does not exist."}), 404
         cfg = dict(responders[responder_id])
         cfg["enabled"] = enable
         ok = _ar_bridge_response(
@@ -636,37 +673,37 @@ def api_auto_responders_toggle(guild_id: str):
             lambda: ar_save_responder(str(guild_id), str(responder_id), cfg),
         )
         if not ok:
-            return jsonify({"error": "toggle failed"}), 500
-        return jsonify({"ok": True, "id": responder_id, "enabled": enable}), 200
+            return jsonify({"success": False, "error": "toggle failed", "message": "Could not update responder."}), 500
+        return jsonify({"success": True, "id": responder_id, "enabled": enable, "message": "Toggled."}), 200
     except Exception as e:
         if _is_quota_error(e):
             trip_firestore_circuit()
         print(f"[AUTO-RESPONSE WEB] ❌ toggle failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e), "message": "Toggle failed."}), 500
 
 
 @app.route("/api/auto-responders/<guild_id>/delete", methods=["POST", "DELETE"])
 def api_auto_responders_delete(guild_id: str):
     if firestore_circuit_open():
         retry = int(firestore_retry_after())
-        return jsonify({"error": "circuit_open", "retry_after": retry}), 503
+        return jsonify({"success": False, "error": "circuit_open", "message": f"Database rate-limited. Retry in {retry}s.", "retry_after": retry}), 503
     payload = request.get_json(silent=True) or {}
     responder_id = payload.get("id") or request.args.get("id")
     if not responder_id:
-        return jsonify({"error": "missing responder id"}), 400
+        return jsonify({"success": False, "error": "missing responder id", "message": "id is required."}), 400
     try:
         ok = _ar_bridge_response(
             guild_id,
             lambda: ar_delete_responder(str(guild_id), str(responder_id)),
         )
         if not ok:
-            return jsonify({"error": "delete failed"}), 500
-        return jsonify({"ok": True, "id": responder_id}), 200
+            return jsonify({"success": False, "error": "delete failed", "message": "Could not delete."}), 500
+        return jsonify({"success": True, "id": responder_id, "message": "Deleted."}), 200
     except Exception as e:
         if _is_quota_error(e):
             trip_firestore_circuit()
         print(f"[AUTO-RESPONSE WEB] ❌ delete failed: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e), "message": "Delete failed."}), 500
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROUTES — AI Chat v4.5 (Gemini 2.5 Flash + OpenRouter + Temperature Support)
