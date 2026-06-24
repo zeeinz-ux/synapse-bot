@@ -13,10 +13,18 @@
 /* ═══════════════════════════════════════════════════════
    1. LAYOUT — dipakai SEMUA page
    ═══════════════════════════════════════════════════════ */
+
+/* ── Layout Reset: prevent double padding from .content-wrapper ───── */
+.content-wrapper .page-wrap {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 .page-wrap {
   width: 100%;
   max-width: 100%;
-  padding: 1.5rem 1.5rem 3rem 0.75rem; /* atas | kanan | bawah | kiri(rapet) */
+  /* padding removed — handled by .content-wrapper globally */
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -738,6 +746,63 @@ textarea.form-control {
 .banner-text {
   flex: 1;
   min-width: 0;
+}
+
+/* ── Gallery Section ── */
+.gallery-section {
+  margin-top: 0.75rem;
+}
+.gallery-toggle {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+  background: none;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, color 0.2s;
+}
+.gallery-toggle:hover {
+  border-color: var(--welcome-accent);
+  color: var(--welcome-accent);
+}
+.gallery-grid {
+  display: none;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.preview-embed-image {
+  display: none;
+}
+.preview-embed-image.active {
+  display: block;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.preview-embed-image img {
+  display: block;
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+}
+.gallery-grid.open {
+  display: grid;
+}
+.gallery-item {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+.gallery-item:hover {
+  border-color: var(--welcome-accent);
 }
 .banner-text h3 {
   font-size: 1.25rem;

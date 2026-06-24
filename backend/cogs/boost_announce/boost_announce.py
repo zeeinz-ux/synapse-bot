@@ -1,17 +1,6 @@
-# =============================================================================
-# cogs/welcome.py — Hidden Hamlet Discord Bot v3.7.6
-# Modul  : Welcome Announcement (Join Message) — Dual Style: Embed + Banner
-# Author : zeeinz-ux
-# FIX v3.7.6:
-#   - _download_image() now handles BASE64 data URLs (data:image/png;base64,...)
-#   - Auto-detect: base64 vs http URL → backward compatible
-#   - Banner generation works with Firestore base64 images (v3.7.3)
-# =============================================================================
-
 import discord
 from discord.ext import commands
 import asyncio
-import time
 import io
 import base64
 from PIL import Image, ImageDraw, ImageFont
@@ -20,35 +9,22 @@ import aiohttp
 from backend.cogs.database.firebase_setup import db
 
 
-class WelcomeCog(commands.Cog, name="Welcome"):
-    """Cog untuk mengirim pesan sambutan otomatis saat member bergabung."""
+class BoostAnnounceCog(commands.Cog, name="BoostAnnounce"):
+    """Cog untuk mengirim pesan otomatis saat member melakukan server boost."""
 
     DEFAULT_BG_IMAGE = "https://raw.githubusercontent.com/zeeinz-ux/my-discord-bot/main/frontend/static/images/default-welcome-bg.png"
     DEFAULT_BANNER_BG = "https://raw.githubusercontent.com/zeeinz-ux/my-discord-bot/main/frontend/static/images/default-welcome-bg.png"
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self._last_welcome = {}
-        self._cooldown_seconds = 30  # ← GANTI DI SINI: 0, 30, 60, 300, dll
-        self._welcome_locks = {}
-        print(f"[WELCOME] ✅ WelcomeCog v3.7.6 — Cooldown: {self._cooldown_seconds}s")
+        self._boost_locks = {}
+        print("[BOOST-ANNOUNCE] ✅ BoostAnnounceCog loaded")
 
     def _get_lock(self, guild_id: str, user_id: str) -> asyncio.Lock:
         key = f"{guild_id}:{user_id}"
-        if key not in self._welcome_locks:
-            self._welcome_locks[key] = asyncio.Lock()
-        return self._welcome_locks[key]
-
-    def _can_send_welcome(self, guild_id: str, user_id: str) -> bool:
-        key = f"{guild_id}:{user_id}"
-        now = time.time()
-        last = self._last_welcome.get(key, 0)
-        elapsed = now - last
-        if elapsed < self._cooldown_seconds:
-            print(f"[WELCOME] ⏱️ Cooldown: user {user_id} (tunggu {int(self._cooldown_seconds - elapsed)}s)")
-            return False
-        self._last_welcome[key] = now
-        return True
+        if key not in self._boost_locks:
+            self._boost_locks[key] = asyncio.Lock()
+        return self._boost_locks[key]
 
     def parse_placeholders(self, text: str, member: discord.Member) -> str:
         return (
@@ -58,7 +34,7 @@ class WelcomeCog(commands.Cog, name="Welcome"):
             .replace("{count}", str(member.guild.member_count))
         )
 
-    async def get_welcome_config(self, guild_id: str) -> dict | None:
+    async def get_boost_config(self, guild_id: str) -> dict | None:
         if db is None:
             return None
         def _fetch():
@@ -67,26 +43,23 @@ class WelcomeCog(commands.Cog, name="Welcome"):
             doc = await asyncio.to_thread(_fetch)
             if not doc.exists:
                 return None
-            cfg = doc.to_dict().get("welcome", {})
+            cfg = doc.to_dict().get("boost_announce", {})
             if not cfg.get("enabled", False):
                 return None
             return cfg
         except Exception as e:
-            print(f"[WELCOME] ❌ Firestore error: {e}")
+            print(f"[BOOST-ANNOUNCE] ❌ Firestore error: {e}")
             return None
 
-    async def _send_welcome(self, member: discord.Member):
+    async def _send_boost(self, member: discord.Member):
         guild_id = str(member.guild.id)
         user_id = str(member.id)
 
         lock = self._get_lock(guild_id, user_id)
         async with lock:
-            if not self._can_send_welcome(guild_id, user_id):
-                return
+            print(f"[BOOST-ANNOUNCE] 💎 {member.name} boosted {member.guild.name}")
 
-            print(f"[WELCOME] 🔥 {member.name} joined {member.guild.name}")
-
-            cfg = await self.get_welcome_config(guild_id)
+            cfg = await self.get_boost_config(guild_id)
             if cfg is None:
                 return
 
@@ -102,12 +75,18 @@ class WelcomeCog(commands.Cog, name="Welcome"):
             if channel is None:
                 return
 
-            # Parse message_text untuk content (mention)
-            raw_text = cfg.get("message_text", "Selamat datang {user}! 🎉")
+            raw_text = cfg.get("message_text", "{user} telah melakukan boost pada {server}! 💎")
             parsed_text = self.parse_placeholders(raw_text, member)
 
             style = cfg.get("style", "embed")
             is_embed = cfg.get("is_embed", False)
+
+            if not cfg.get("embed_color"):
+                cfg["embed_color"] = "#9B59B6"
+            if not cfg.get("banner_text"):
+                cfg["banner_text"] = "BOOSTER"
+            if not cfg.get("embed_title"):
+                cfg["embed_title"] = "💎 Server Boost!"
 
             try:
                 if style == "banner":
@@ -117,52 +96,28 @@ class WelcomeCog(commands.Cog, name="Welcome"):
                 else:
                     await self._send_plain(channel, parsed_text)
 
-                print(f"[WELCOME] 🎉 Sent to {member.guild.name}")
+                print(f"[BOOST-ANNOUNCE] ✅ Sent to #{channel.name} in {member.guild.name}")
 
             except Exception as e:
-                print(f"[WELCOME] ❌ Error: {type(e).__name__}: {e}")
-
-    @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member):
-        print(f"[WELCOME] 📥 Join: {member.name} @ {member.guild.name}")
-        await self._send_welcome(member)
+                print(f"[BOOST-ANNOUNCE] ❌ Error: {type(e).__name__}: {e}")
 
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
-        if before.guild.id != after.guild.id:
-            return
-        if before.pending and not after.pending:
-            print(f"[WELCOME] 🔄 Screening: {after.name}")
-            await self._send_welcome(after)
+        if before.premium_since is None and after.premium_since is not None:
+            print(f"[BOOST-ANNOUNCE] 📤 Boost: {after.name} @ {after.guild.name}")
+            await self._send_boost(after)
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # FIX v3.7.6: Handle BASE64 data URLs + HTTP URLs
-    # ═══════════════════════════════════════════════════════════════════════
     async def _download_image(self, url: str) -> bytes | None:
-        """
-        Download image dari URL atau decode base64 data URL.
-        Supports:
-          - data:image/png;base64,xxxxx  (base64 inline)
-          - data:image/jpeg;base64,xxxxx (base64 inline)
-          - https://example.com/img.png  (http download)
-          - http://example.com/img.png   (http download)
-        """
         if not url:
             return None
-
-        # ← FIX: Handle base64 data URL
         if url.startswith("data:image"):
             try:
-                # Parse: data:image/png;base64,xxxxx
                 header, b64_data = url.split(",", 1)
                 image_bytes = base64.b64decode(b64_data)
-                print(f"[WELCOME] ✅ Decoded base64 image: {len(image_bytes)} bytes")
                 return image_bytes
             except Exception as e:
-                print(f"[WELCOME] ⚠️ Base64 decode error: {type(e).__name__}: {e}")
+                print(f"[BOOST-ANNOUNCE] ⚠️ Base64 decode error: {type(e).__name__}: {e}")
                 return None
-
-        # ← Existing: Handle HTTP/HTTPS URL
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -173,13 +128,12 @@ class WelcomeCog(commands.Cog, name="Welcome"):
                 async with session.get(url, allow_redirects=True) as resp:
                     if resp.status == 200:
                         data = await resp.read()
-                        print(f"[WELCOME] ✅ Downloaded: {len(data)} bytes")
                         return data
                     else:
-                        print(f"[WELCOME] ⚠️ HTTP {resp.status}")
+                        print(f"[BOOST-ANNOUNCE] ⚠️ HTTP {resp.status}")
                         return None
         except Exception as e:
-            print(f"[WELCOME] ⚠️ Download error: {type(e).__name__}: {e}")
+            print(f"[BOOST-ANNOUNCE] ⚠️ Download error: {type(e).__name__}: {e}")
             return None
 
     async def _generate_banner_image(self, member: discord.Member, cfg: dict) -> discord.File | None:
@@ -187,8 +141,6 @@ class WelcomeCog(commands.Cog, name="Welcome"):
             bg_url = cfg.get("banner_bg_url", "").strip()
             if not bg_url:
                 bg_url = self.DEFAULT_BANNER_BG
-
-            print(f"[WELCOME] 🖼️ BG URL: {bg_url[:80]}...")  # Truncate kalau base64 (panjang!)
 
             bg_bytes = await self._download_image(bg_url)
             if bg_bytes:
@@ -206,7 +158,6 @@ class WelcomeCog(commands.Cog, name="Welcome"):
             overlay = Image.new("RGBA", (1200, 500), (0, 0, 0, 120))
             bg_img = Image.alpha_composite(bg_img, overlay)
 
-            # Avatar
             avatar_url = str(member.display_avatar.url)
             avatar_bytes = await self._download_image(avatar_url)
             if avatar_bytes:
@@ -232,7 +183,6 @@ class WelcomeCog(commands.Cog, name="Welcome"):
             avatar_y = 120
             bg_img.paste(ring_img, (avatar_x, avatar_y), ring_img)
 
-            # Text
             draw = ImageDraw.Draw(bg_img)
             try:
                 font_welcome = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
@@ -260,7 +210,7 @@ class WelcomeCog(commands.Cog, name="Welcome"):
                 bbox = draw.textbbox((0, 0), text, font=font)
                 return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
-            welcome_text = cfg.get("banner_text", "WELCOME").upper()
+            welcome_text = cfg.get("banner_text", "BOOSTER").upper()
             w_w, h_w = get_text_size(draw, welcome_text, font_welcome)
             x_w = (1200 - w_w) // 2
             y_w = avatar_y + ring_size + 30
@@ -285,35 +235,30 @@ class WelcomeCog(commands.Cog, name="Welcome"):
             output = io.BytesIO()
             bg_img.convert("RGB").save(output, format="PNG", optimize=True)
             output.seek(0)
-            return discord.File(output, filename=f"welcome_{member.id}.png")
+            return discord.File(output, filename=f"boost_{member.id}.png")
 
         except Exception as e:
-            print(f"[WELCOME] ❌ Banner error: {type(e).__name__}: {e}")
+            print(f"[BOOST-ANNOUNCE] ❌ Banner error: {type(e).__name__}: {e}")
             import traceback
             traceback.print_exc()
             return None
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # FIX v3.7.5: Banner dengan text di atas (seperti Koya)
-    # ═══════════════════════════════════════════════════════════════════════
     async def _send_banner(self, channel, member, cfg, parsed_text):
-        """Kirim banner + welcome text di content (seperti Koya bot)."""
         banner_file = await self._generate_banner_image(member, cfg)
         if banner_file:
-            # ← FIX: parsed_text sudah include {user} mention dari message_text config
             await channel.send(content=parsed_text, file=banner_file)
-            print(f"[WELCOME] 📤 Banner + text sent to #{channel.name}")
+            print(f"[BOOST-ANNOUNCE] 📤 Banner + text sent to #{channel.name}")
         else:
             await self._send_embed(channel, member, cfg, parsed_text)
 
     async def _send_embed(self, channel, member, cfg, parsed_text):
-        color_hex = cfg.get("embed_color", "#5865F2").lstrip("#")
+        color_hex = cfg.get("embed_color", "#9B59B6").lstrip("#")
         try:
             embed_color = discord.Color(int(color_hex, 16))
         except:
-            embed_color = discord.Color(0x5865F2)
+            embed_color = discord.Color(0x9B59B6)
 
-        raw_title = cfg.get("embed_title", "👋 Selamat Datang!")
+        raw_title = cfg.get("embed_title", "💎 Server Boost!")
         embed_title = self.parse_placeholders(raw_title, member)
 
         embed = discord.Embed(
@@ -347,4 +292,4 @@ class WelcomeCog(commands.Cog, name="Welcome"):
 
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(WelcomeCog(bot))
+    await bot.add_cog(BoostAnnounceCog(bot))

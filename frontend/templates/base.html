@@ -122,10 +122,6 @@
               <span class="nav-icon">🚫</span>
               <span class="nav-label">Ban</span>
             </a>
-            <a href="/dashboard/{{ guild_id }}/welcome/boost" class="nav-item {% if active_page == 'boost_welcome' %}active{% endif %}" data-search="boost server boost">
-              <span class="nav-icon">💎</span>
-              <span class="nav-label">Boost</span>
-            </a>
           </div>
         </div>
 
@@ -138,6 +134,10 @@
             </svg>
           </div>
           <div class="section-items">
+            <a href="/dashboard/{{ guild_id }}/welcome/boost" class="nav-item {% if active_page == 'boost_welcome' %}active{% endif %}" data-search="boost announcement pengumuman">
+              <span class="nav-icon">💎</span>
+              <span class="nav-label">Boost</span>
+            </a>
             <a href="/dashboard/{{ guild_id }}/boost" class="nav-item {% if active_page == 'boost_tracker' %}active{% endif %}" data-search="boost tracker riwayat">
               <span class="nav-icon">📊</span>
               <span class="nav-label">Riwayat Boost</span>

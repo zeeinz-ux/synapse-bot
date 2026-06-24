@@ -1,0 +1,27 @@
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="footer-brand-text">ℋ𝒾𝒹𝒹ℯ𝓃 ℋ𝒶𝓂𝓁ℯ𝓉</span>
+    </div>
+    <ul class="footer-links">
+      <li><a href="#home">Home</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="#commands">Commands</a></li>
+      <li><a href="#about">About Me</a></li>
+      <li><a href="https://discord.gg/kwPr32AhGH" target="_blank" rel="noopener noreferrer">Support</a></li>
+    </ul>
+    <div class="footer-actions">
+      {% if user %}
+      <a href="/dashboard" class="btn-footer-dashboard">🔓 Buka Dashboard</a>
+      {% else %}
+      <a href="/login" class="btn-footer-login">🔒 Buka Dashboard</a>
+      {% endif %}
+      <a href="https://discord.com/oauth2/authorize?client_id=1505849571039907900&permissions=8&scope=bot%20applications.commands"
+         target="_blank" rel="noopener noreferrer"
+         class="btn-footer-invite">Invite Bot</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>&copy; <span id="year"></span> Hidden Hamlet. Dibuat dengan &hearts; untuk komunitas Discord.</span>
+  </div>
+</footer>

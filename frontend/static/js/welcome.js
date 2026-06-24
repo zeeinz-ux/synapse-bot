@@ -37,6 +37,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const koyaAvatarRing = document.getElementById("koyaAvatarRing");
   const koyaBannerBg = document.getElementById("koyaBannerBg");
   const bannerBgUrlInput = document.getElementById("banner_bg_url");
+  const bgUrlInput = document.getElementById("bg_image_url");
+  const embedPreviewImage = document.getElementById("embedPreviewImage");
 
   // Banner upload elements
   const bannerUploadZone = document.getElementById("bannerUploadZone");
@@ -263,6 +265,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function updateEmbedPreview(url) {
+    if (!embedPreviewImage) return;
+    if (url) {
+      embedPreviewImage.classList.add("active");
+      const img = embedPreviewImage.querySelector("img");
+      if (img) img.src = url;
+    } else {
+      embedPreviewImage.classList.remove("active");
+    }
+  }
+
+  if (bgUrlInput) {
+    bgUrlInput.addEventListener("input", function () { updateEmbedPreview(this.value.trim()); });
+    if (bgUrlInput.value.trim()) updateEmbedPreview(bgUrlInput.value.trim());
+  }
+
   // ── 10. Drag & Drop Upload (Embed) ──
   setupUploadZone(
     uploadZone,
@@ -332,6 +350,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     zone.addEventListener("drop", handleDrop, false);
+
+    zone.addEventListener("click", function (e) {
+      if (e.target.closest(".upload-remove")) return;
+      input.click();
+    });
 
     function handleDrop(e) {
       const dt = e.dataTransfer;
@@ -456,6 +479,24 @@ document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(() => toast.classList.add("show"));
     setTimeout(() => toast.classList.remove("show"), 4000);
   }
+
+  // ── Gallery ──
+  document.querySelectorAll(".gallery-toggle").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const grid = document.getElementById(this.dataset.gallery);
+      if (grid) grid.classList.toggle("open");
+    });
+  });
+  document.querySelectorAll(".gallery-item").forEach(function (item) {
+    item.addEventListener("click", function () {
+      const input = document.getElementById(this.dataset.input);
+      if (input) {
+        input.value = this.src;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        document.querySelectorAll(".gallery-grid").forEach(function (g) { g.classList.remove("open"); });
+      }
+    });
+  });
 
   // ── 13. Form Submit ──
   if (welcomeForm) {

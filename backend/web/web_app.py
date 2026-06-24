@@ -135,7 +135,9 @@ def callback():
         "avatar": user.get("avatar"),
         "discriminator": user.get("discriminator")
     }
-    return redirect("/dashboard")
+    # Fetch & store user's permitted guilds
+    session["user_guilds"] = _fetch_user_guilds(access_token)
+    return redirect("/")
 
 @app.route("/logout", methods=["POST"])
 def logout():
@@ -291,20 +293,36 @@ def api_music_control():
     
 
 # ==========================================================
-# Helper — baca config welcome dari Firestore
+# Helper — baca config feature dari Firestore
 # ==========================================================
-def _get_welcome_config(guild_id: str) -> dict:
+def _get_feature_config(guild_id: str, feature_key: str = "welcome") -> dict:
     if db is None:
-        print("[WELCOME-WEB] ⚠️ Firebase tidak tersedia.")
+        print(f"[WEB-{feature_key.upper()}] ⚠️ Firebase tidak tersedia.")
         return {}
 
     try:
         doc = db.collection("guild_settings").document(guild_id).get()
         if doc.exists:
-            return doc.to_dict().get("welcome", {})
+            return doc.to_dict().get(feature_key, {})
     except Exception as e:
-        print(f"[WELCOME-WEB] ❌ Gagal baca Firestore: {e}")
+        print(f"[WEB-{feature_key.upper()}] ❌ Gagal baca Firestore: {e}")
     return {}
+
+
+def _get_welcome_config(guild_id: str) -> dict:
+    return _get_feature_config(guild_id, "welcome")
+
+
+def _get_leave_config(guild_id: str) -> dict:
+    return _get_feature_config(guild_id, "leave")
+
+
+def _get_ban_config(guild_id: str) -> dict:
+    return _get_feature_config(guild_id, "ban")
+
+
+def _get_boost_announce_config(guild_id: str) -> dict:
+    return _get_feature_config(guild_id, "boost_announce")
 
 # ==========================================================
 # Helper — Auto-compress image
@@ -405,13 +423,72 @@ def _discord_avatar_url(user: dict, size: int = 64) -> str:
 
 
 # ==========================================================
+# Helper — fetch & filter user guilds by permission
+# ==========================================================
+ADMIN_PERM = 0x8        # ADMINISTRATOR
+MANAGE_GUILD_PERM = 0x20  # MANAGE_GUILD (formerly MANAGE_SERVER)
+
+def _fetch_user_guilds(access_token: str) -> list:
+    """Fetch user's guilds from Discord and filter by admin/manager permission."""
+    resp = requests.get(
+        f"{DISCORD_API_BASE}/users/@me/guilds",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    if resp.status_code != 200:
+        return []
+    all_guilds = resp.json()
+    # Filter: only guilds where user has ADMINISTRATOR or MANAGE_GUILD
+    permitted = []
+    bot_guild_ids = {g["id"] for g in get_stats_snapshot().get("guilds_list", [])}
+    for g in all_guilds:
+        perms = int(g.get("permissions", 0))
+        has_admin = (perms & ADMIN_PERM) == ADMIN_PERM
+        has_manage = (perms & MANAGE_GUILD_PERM) == MANAGE_GUILD_PERM
+        if has_admin or has_manage:
+            # Only include guilds the bot is also in
+            if g["id"] in bot_guild_ids:
+                permitted.append({
+                    "id": g["id"],
+                    "name": g["name"],
+                    "icon": g.get("icon"),
+                    "owner": g.get("owner", False),
+                })
+    return permitted
+
+# ==========================================================
 # Helper — render template dengan sidebar context
 # ==========================================================
+def _get_filtered_stats():
+    """Return stats snapshot with guilds_list filtered to user's permitted guilds."""
+    stats = get_stats_snapshot()
+    user = session.get("user")
+    user_guilds = session.get("user_guilds") if user else None
+    if user_guilds is not None:
+        # Merge guild info from bot stats (member_count) with user's guilds
+        bot_guild_map = {g["id"]: g for g in stats.get("guilds_list", [])}
+        merged = []
+        for ug in user_guilds:
+            bg = bot_guild_map.get(ug["id"])
+            if bg:
+                merged.append({
+                    "id": ug["id"],
+                    "name": ug["name"],
+                    "member_count": bg.get("member_count", 0),
+                })
+        stats["guilds_list"] = merged
+    return stats
+
 def _render_page(template_name: str, active_page: str, guild_id: str, **kwargs):
     user = session.get("user")
+    stats = _get_filtered_stats()
+    # If user requests a guild they don't have access to, redirect to dashboard
+    if user and guild_id:
+        permitted_ids = [g["id"] for g in stats.get("guilds_list", [])]
+        if guild_id not in permitted_ids:
+            return redirect("/dashboard")
     return render_template(
         template_name,
-        s=get_stats_snapshot(),
+        s=stats,
         active_page=active_page,
         guild_id=guild_id,
         user=user,
@@ -424,8 +501,12 @@ def _render_page(template_name: str, active_page: str, guild_id: str, **kwargs):
 # ==========================================================
 @app.route("/")
 def home():
-    # Ini bakal ngebuka file landing.html yang ada di folder templates lu
-    return render_template("landing.html")
+    user = session.get("user")
+    return render_template(
+        "landing.html",
+        user=user,
+        avatar_url=_discord_avatar_url(user) if user else "",
+    )
 
 @app.route("/api/stats")
 def api_stats():
@@ -452,7 +533,7 @@ def api_firestore_health():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    s = get_stats_snapshot()
+    s = _get_filtered_stats()
     guilds = s.get("guilds_list", [])
     if guilds:
         first_id = str(guilds[0].get("id", ""))
@@ -528,17 +609,98 @@ def welcome_settings(guild_id: str):
 @app.route("/dashboard/<guild_id>/welcome/leave")
 @login_required
 def welcome_leave(guild_id: str):
-    return _render_page("welcome_settings.html", active_page="leave", guild_id=guild_id)
+    channels = get_guild_channels(guild_id)
+    current_config = _get_leave_config(guild_id)
+
+    defaults = {
+        "enabled": False,
+        "channel_id": "",
+        "message_text": "{user} telah meninggalkan {server}. Selamat jalan! 👋",
+        "is_embed": False,
+        "embed_color": "#ED4245",
+        "embed_title": "👋 Selamat Tinggal!",
+        "bg_image_url": "",
+        "style": "embed",
+        "banner_bg_url": "",
+        "banner_text": "GOODBYE",
+        "banner_subtext": "Member ke-{count} • {server}",
+        "banner_font_color": "#FFFFFF",
+        "banner_avatar_ring": True,
+    }
+
+    config = {**defaults, **current_config}
+
+    return _render_page(
+        "leave_settings.html",
+        active_page="leave",
+        guild_id=guild_id,
+        channels=channels,
+        config=config
+    )
 
 @app.route("/dashboard/<guild_id>/welcome/ban")
 @login_required
 def welcome_ban(guild_id: str):
-    return _render_page("welcome_settings.html", active_page="ban", guild_id=guild_id)
+    channels = get_guild_channels(guild_id)
+    current_config = _get_ban_config(guild_id)
+
+    defaults = {
+        "enabled": False,
+        "channel_id": "",
+        "message_text": "{user} telah di-ban dari {server}. 🚫",
+        "is_embed": False,
+        "embed_color": "#F26522",
+        "embed_title": "🚫 User Banned",
+        "bg_image_url": "",
+        "style": "embed",
+        "banner_bg_url": "",
+        "banner_text": "BANNED",
+        "banner_subtext": "Member ke-{count} • {server}",
+        "banner_font_color": "#FFFFFF",
+        "banner_avatar_ring": True,
+    }
+
+    config = {**defaults, **current_config}
+
+    return _render_page(
+        "ban_settings.html",
+        active_page="ban",
+        guild_id=guild_id,
+        channels=channels,
+        config=config
+    )
 
 @app.route("/dashboard/<guild_id>/welcome/boost")
 @login_required
 def welcome_boost(guild_id: str):
-    return _render_page("welcome_settings.html", active_page="boost_welcome", guild_id=guild_id)
+    channels = get_guild_channels(guild_id)
+    current_config = _get_boost_announce_config(guild_id)
+
+    defaults = {
+        "enabled": False,
+        "channel_id": "",
+        "message_text": "{user} telah melakukan boost pada {server}! 💎",
+        "is_embed": False,
+        "embed_color": "#9B59B6",
+        "embed_title": "💎 Server Boost!",
+        "bg_image_url": "",
+        "style": "embed",
+        "banner_bg_url": "",
+        "banner_text": "BOOSTER",
+        "banner_subtext": "Member ke-{count} • {server}",
+        "banner_font_color": "#FFFFFF",
+        "banner_avatar_ring": True,
+    }
+
+    config = {**defaults, **current_config}
+
+    return _render_page(
+        "boost_announce.html",
+        active_page="boost_welcome",
+        guild_id=guild_id,
+        channels=channels,
+        config=config
+    )
 
 # ==========================================================
 # ROUTES — Boost Tracker
@@ -1098,6 +1260,279 @@ def save_welcome(guild_id: str):
 
     except Exception as e:
         print(f"[WELCOME-WEB] ❌ Error saat menyimpan: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"❌ Terjadi kesalahan server: {str(e)}"}), 500
+
+
+# ==========================================================
+# ROUTES — Leave Save (POST)
+# ==========================================================
+@app.route("/dashboard/<guild_id>/welcome/leave/save", methods=["POST"])
+def save_welcome_leave(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
+
+    try:
+        enabled = "enabled" in request.form
+        is_embed = "is_embed" in request.form
+        style = request.form.get("style", "embed").strip()
+        banner_avatar_ring = "banner_avatar_ring" in request.form
+
+        channel_id = request.form.get("channel_id", "").strip()
+        message_text = request.form.get("message_text", "").strip()
+        embed_color = request.form.get("embed_color", "#ED4245").strip()
+        embed_title = request.form.get("embed_title", "").strip()
+        bg_image_url = request.form.get("bg_image_url", "").strip()
+
+        banner_bg_url = request.form.get("banner_bg_url", "").strip()
+        banner_text = request.form.get("banner_text", "GOODBYE").strip()
+        banner_subtext = request.form.get("banner_subtext", "Member ke-{count} • {server}").strip()
+        banner_font_color = request.form.get("banner_font_color", "#FFFFFF").strip()
+
+        uploaded_file_data = request.form.get("uploaded_file_data", "").strip()
+        uploaded_file_name = request.form.get("uploaded_file_name", "upload.png").strip()
+        upload_target = request.form.get("upload_target", "").strip()
+
+        print(f"[LEAVE-WEB] 📥 Received upload_target={upload_target}, data_length={len(uploaded_file_data)}")
+
+        if uploaded_file_data and uploaded_file_data.startswith("data:image"):
+            try:
+                header, base64_data = uploaded_file_data.split(",", 1)
+                file_bytes = base64.b64decode(base64_data)
+                print(f"[LEAVE-WEB] 📤 Processing {len(file_bytes)} bytes...")
+                safe_filename = uploaded_file_name or "leave_upload.png"
+                data_url = _image_to_base64_data_url(file_bytes, safe_filename)
+
+                if data_url:
+                    if upload_target == "banner_bg":
+                        banner_bg_url = data_url
+                        print(f"[LEAVE-WEB] ✅ Banner BG saved to Firestore (base64, {len(data_url)} chars)")
+                    else:
+                        bg_image_url = data_url
+                        print(f"[LEAVE-WEB] ✅ Embed BG saved to Firestore (base64, {len(data_url)} chars)")
+                else:
+                    print("[LEAVE-WEB] ⚠️ Base64 conversion failed")
+
+            except Exception as e:
+                print(f"[LEAVE-WEB] ❌ Error processing upload: {e}")
+                traceback.print_exc()
+
+        if not message_text:
+            return jsonify({"success": False, "message": "Teks pesan tidak boleh kosong."}), 400
+
+        if embed_color and not embed_color.startswith("#"):
+            embed_color = f"#{embed_color}"
+
+        if banner_font_color and not banner_font_color.startswith("#"):
+            banner_font_color = f"#{banner_font_color}"
+
+        payload = {
+            "leave": {
+                "enabled": enabled,
+                "channel_id": channel_id,
+                "message_text": message_text,
+                "is_embed": is_embed,
+                "embed_color": embed_color,
+                "embed_title": embed_title,
+                "bg_image_url": bg_image_url,
+                "style": style,
+                "banner_bg_url": banner_bg_url,
+                "banner_text": banner_text,
+                "banner_subtext": banner_subtext,
+                "banner_font_color": banner_font_color,
+                "banner_avatar_ring": banner_avatar_ring,
+            }
+        }
+
+        db.collection("guild_settings").document(guild_id).set(payload, merge=True)
+
+        print(f"[LEAVE-WEB] ✅ Config tersimpan untuk guild {guild_id} (style={style})")
+        return jsonify({"success": True, "message": "✅ Pengaturan Leave berhasil disimpan!"}), 200
+
+    except Exception as e:
+        print(f"[LEAVE-WEB] ❌ Error saat menyimpan: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"❌ Terjadi kesalahan server: {str(e)}"}), 500
+
+
+# ==========================================================
+# ROUTES — Ban Save (POST)
+# ==========================================================
+@app.route("/dashboard/<guild_id>/welcome/ban/save", methods=["POST"])
+def save_welcome_ban(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
+
+    try:
+        enabled = "enabled" in request.form
+        is_embed = "is_embed" in request.form
+        style = request.form.get("style", "embed").strip()
+        banner_avatar_ring = "banner_avatar_ring" in request.form
+
+        channel_id = request.form.get("channel_id", "").strip()
+        message_text = request.form.get("message_text", "").strip()
+        embed_color = request.form.get("embed_color", "#F26522").strip()
+        embed_title = request.form.get("embed_title", "").strip()
+        bg_image_url = request.form.get("bg_image_url", "").strip()
+
+        banner_bg_url = request.form.get("banner_bg_url", "").strip()
+        banner_text = request.form.get("banner_text", "BANNED").strip()
+        banner_subtext = request.form.get("banner_subtext", "Member ke-{count} • {server}").strip()
+        banner_font_color = request.form.get("banner_font_color", "#FFFFFF").strip()
+
+        uploaded_file_data = request.form.get("uploaded_file_data", "").strip()
+        uploaded_file_name = request.form.get("uploaded_file_name", "upload.png").strip()
+        upload_target = request.form.get("upload_target", "").strip()
+
+        print(f"[BAN-WEB] 📥 Received upload_target={upload_target}, data_length={len(uploaded_file_data)}")
+
+        if uploaded_file_data and uploaded_file_data.startswith("data:image"):
+            try:
+                header, base64_data = uploaded_file_data.split(",", 1)
+                file_bytes = base64.b64decode(base64_data)
+                print(f"[BAN-WEB] 📤 Processing {len(file_bytes)} bytes...")
+                safe_filename = uploaded_file_name or "ban_upload.png"
+                data_url = _image_to_base64_data_url(file_bytes, safe_filename)
+
+                if data_url:
+                    if upload_target == "banner_bg":
+                        banner_bg_url = data_url
+                        print(f"[BAN-WEB] ✅ Banner BG saved to Firestore (base64, {len(data_url)} chars)")
+                    else:
+                        bg_image_url = data_url
+                        print(f"[BAN-WEB] ✅ Embed BG saved to Firestore (base64, {len(data_url)} chars)")
+                else:
+                    print("[BAN-WEB] ⚠️ Base64 conversion failed")
+
+            except Exception as e:
+                print(f"[BAN-WEB] ❌ Error processing upload: {e}")
+                traceback.print_exc()
+
+        if not message_text:
+            return jsonify({"success": False, "message": "Teks pesan tidak boleh kosong."}), 400
+
+        if embed_color and not embed_color.startswith("#"):
+            embed_color = f"#{embed_color}"
+
+        if banner_font_color and not banner_font_color.startswith("#"):
+            banner_font_color = f"#{banner_font_color}"
+
+        payload = {
+            "ban": {
+                "enabled": enabled,
+                "channel_id": channel_id,
+                "message_text": message_text,
+                "is_embed": is_embed,
+                "embed_color": embed_color,
+                "embed_title": embed_title,
+                "bg_image_url": bg_image_url,
+                "style": style,
+                "banner_bg_url": banner_bg_url,
+                "banner_text": banner_text,
+                "banner_subtext": banner_subtext,
+                "banner_font_color": banner_font_color,
+                "banner_avatar_ring": banner_avatar_ring,
+            }
+        }
+
+        db.collection("guild_settings").document(guild_id).set(payload, merge=True)
+
+        print(f"[BAN-WEB] ✅ Config tersimpan untuk guild {guild_id} (style={style})")
+        return jsonify({"success": True, "message": "✅ Pengaturan Ban berhasil disimpan!"}), 200
+
+    except Exception as e:
+        print(f"[BAN-WEB] ❌ Error saat menyimpan: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"❌ Terjadi kesalahan server: {str(e)}"}), 500
+
+
+# ==========================================================
+# ROUTES — Boost Announce Save (POST)
+# ==========================================================
+@app.route("/dashboard/<guild_id>/welcome/boost/save", methods=["POST"])
+def save_welcome_boost(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
+
+    try:
+        enabled = "enabled" in request.form
+        is_embed = "is_embed" in request.form
+        style = request.form.get("style", "embed").strip()
+        banner_avatar_ring = "banner_avatar_ring" in request.form
+
+        channel_id = request.form.get("channel_id", "").strip()
+        message_text = request.form.get("message_text", "").strip()
+        embed_color = request.form.get("embed_color", "#9B59B6").strip()
+        embed_title = request.form.get("embed_title", "").strip()
+        bg_image_url = request.form.get("bg_image_url", "").strip()
+
+        banner_bg_url = request.form.get("banner_bg_url", "").strip()
+        banner_text = request.form.get("banner_text", "BOOSTER").strip()
+        banner_subtext = request.form.get("banner_subtext", "Member ke-{count} • {server}").strip()
+        banner_font_color = request.form.get("banner_font_color", "#FFFFFF").strip()
+
+        uploaded_file_data = request.form.get("uploaded_file_data", "").strip()
+        uploaded_file_name = request.form.get("uploaded_file_name", "upload.png").strip()
+        upload_target = request.form.get("upload_target", "").strip()
+
+        print(f"[BOOST-WEB] 📥 Received upload_target={upload_target}, data_length={len(uploaded_file_data)}")
+
+        if uploaded_file_data and uploaded_file_data.startswith("data:image"):
+            try:
+                header, base64_data = uploaded_file_data.split(",", 1)
+                file_bytes = base64.b64decode(base64_data)
+                print(f"[BOOST-WEB] 📤 Processing {len(file_bytes)} bytes...")
+                safe_filename = uploaded_file_name or "boost_upload.png"
+                data_url = _image_to_base64_data_url(file_bytes, safe_filename)
+
+                if data_url:
+                    if upload_target == "banner_bg":
+                        banner_bg_url = data_url
+                        print(f"[BOOST-WEB] ✅ Banner BG saved to Firestore (base64, {len(data_url)} chars)")
+                    else:
+                        bg_image_url = data_url
+                        print(f"[BOOST-WEB] ✅ Embed BG saved to Firestore (base64, {len(data_url)} chars)")
+                else:
+                    print("[BOOST-WEB] ⚠️ Base64 conversion failed")
+
+            except Exception as e:
+                print(f"[BOOST-WEB] ❌ Error processing upload: {e}")
+                traceback.print_exc()
+
+        if not message_text:
+            return jsonify({"success": False, "message": "Teks pesan tidak boleh kosong."}), 400
+
+        if embed_color and not embed_color.startswith("#"):
+            embed_color = f"#{embed_color}"
+
+        if banner_font_color and not banner_font_color.startswith("#"):
+            banner_font_color = f"#{banner_font_color}"
+
+        payload = {
+            "boost_announce": {
+                "enabled": enabled,
+                "channel_id": channel_id,
+                "message_text": message_text,
+                "is_embed": is_embed,
+                "embed_color": embed_color,
+                "embed_title": embed_title,
+                "bg_image_url": bg_image_url,
+                "style": style,
+                "banner_bg_url": banner_bg_url,
+                "banner_text": banner_text,
+                "banner_subtext": banner_subtext,
+                "banner_font_color": banner_font_color,
+                "banner_avatar_ring": banner_avatar_ring,
+            }
+        }
+
+        db.collection("guild_settings").document(guild_id).set(payload, merge=True)
+
+        print(f"[BOOST-WEB] ✅ Config tersimpan untuk guild {guild_id} (style={style})")
+        return jsonify({"success": True, "message": "✅ Pengaturan Boost berhasil disimpan!"}), 200
+
+    except Exception as e:
+        print(f"[BOOST-WEB] ❌ Error saat menyimpan: {e}")
         traceback.print_exc()
         return jsonify({"success": False, "message": f"❌ Terjadi kesalahan server: {str(e)}"}), 500
 
