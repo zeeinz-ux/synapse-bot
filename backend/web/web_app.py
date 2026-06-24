@@ -24,6 +24,10 @@ from backend.utils.firestore_stats import (
     set_bot_instance,
     get_bot_instance,
     get_firestore_diagnostics,
+    firestore_circuit_open,
+    trip_firestore_circuit,
+    firestore_retry_after,
+    _is_quota_error,
 )
 from flask_session import Session
 
@@ -522,6 +526,150 @@ def actions_page(guild_id: str):
 @app.route("/dashboard/<guild_id>/auto-responders")
 def auto_responders(guild_id: str):
     return _render_page("auto_responders.html", active_page="auto_responders", guild_id=guild_id)
+
+
+# ============================================================================
+# Auto-Responder API Bridge
+# ============================================================================
+# These endpoints back the /dashboard/<guild_id>/auto-responders page.
+# Frontend expects JSON; without these, all fetches return HTML 404 pages,
+# which break `resp.json()` with "Unexpected token '<'" parse errors.
+#
+# Backend logic lives in backend/cogs/auto_response/auto_response.py.
+# These thin wrappers:
+#   - Reuse the shared circuit breaker (consistent with stats/ai_chat/leveling)
+#   - Off-thread Firestore I/O via asyncio.to_thread (non-blocking)
+#   - Preserve Zero-Change contract for existing cog internal methods
+# ============================================================================
+
+def _ar_cog():
+    """Fetch the AutoResponderCog instance from the bot, or None if not loaded."""
+    bot = get_bot_instance()
+    if bot is None:
+        return None
+    return bot.get_cog("AutoResponder")
+
+
+@app.route("/api/auto-responders/<guild_id>", methods=["GET"])
+def api_auto_responders_list(guild_id: str):
+    cog = _ar_cog()
+    if cog is None:
+        return jsonify({"error": "AutoResponder cog not loaded", "responders": []}), 503
+    if firestore_circuit_open():
+        retry = int(firestore_retry_after())
+        return jsonify({"error": f"circuit_open", "retry_after": retry, "responders": []}), 503
+    try:
+        loop = asyncio.new_event_loop()
+        try:
+            responders = loop.run_until_complete(cog._list_responders(str(guild_id)))
+        finally:
+            loop.close()
+        return jsonify({"responders": responders}), 200
+    except Exception as e:
+        if _is_quota_error(e):
+            trip_firestore_circuit()
+        print(f"[AUTO-RESPONSE WEB] ❌ list failed: {e}")
+        return jsonify({"error": str(e), "responders": []}), 500
+
+
+@app.route("/api/auto-responders/<guild_id>/save", methods=["POST"])
+def api_auto_responders_save(guild_id: str):
+    cog = _ar_cog()
+    if cog is None:
+        return jsonify({"error": "AutoResponder cog not loaded"}), 503
+    if firestore_circuit_open():
+        retry = int(firestore_retry_after())
+        return jsonify({"error": "circuit_open", "retry_after": retry}), 503
+    payload = request.get_json(silent=True) or {}
+    responder_id = payload.get("id")
+    config = payload.get("config") or {k: v for k, v in payload.items() if k != "id"}
+    if not responder_id:
+        return jsonify({"error": "missing responder id"}), 400
+    try:
+        loop = asyncio.new_event_loop()
+        try:
+            ok = loop.run_until_complete(cog._save_responder(str(guild_id), str(responder_id), config))
+        finally:
+            loop.close()
+        if not ok:
+            return jsonify({"error": "save failed"}), 500
+        # Invalidate cache so the next GET sees fresh data.
+        cog._settings_cache.pop(str(guild_id), None)
+        return jsonify({"ok": True, "id": responder_id}), 200
+    except Exception as e:
+        if _is_quota_error(e):
+            trip_firestore_circuit()
+        print(f"[AUTO-RESPONSE WEB] ❌ save failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/auto-responders/<guild_id>/toggle", methods=["POST"])
+def api_auto_responders_toggle(guild_id: str):
+    cog = _ar_cog()
+    if cog is None:
+        return jsonify({"error": "AutoResponder cog not loaded"}), 503
+    if firestore_circuit_open():
+        retry = int(firestore_retry_after())
+        return jsonify({"error": "circuit_open", "retry_after": retry}), 503
+    payload = request.get_json(silent=True) or {}
+    responder_id = payload.get("id")
+    enable = bool(payload.get("enable", True))
+    if not responder_id:
+        return jsonify({"error": "missing responder id"}), 400
+    try:
+        loop = asyncio.new_event_loop()
+        try:
+            settings = loop.run_until_complete(cog._get_guild_settings(str(guild_id)))
+        finally:
+            loop.close()
+        responders = settings.get("responders", {}) or {}
+        if responder_id not in responders:
+            return jsonify({"error": "responder not found"}), 404
+        cfg = dict(responders[responder_id])
+        cfg["enabled"] = enable
+        loop = asyncio.new_event_loop()
+        try:
+            ok = loop.run_until_complete(cog._save_responder(str(guild_id), str(responder_id), cfg))
+        finally:
+            loop.close()
+        if not ok:
+            return jsonify({"error": "toggle failed"}), 500
+        cog._settings_cache.pop(str(guild_id), None)
+        return jsonify({"ok": True, "id": responder_id, "enabled": enable}), 200
+    except Exception as e:
+        if _is_quota_error(e):
+            trip_firestore_circuit()
+        print(f"[AUTO-RESPONSE WEB] ❌ toggle failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/auto-responders/<guild_id>/delete", methods=["POST", "DELETE"])
+def api_auto_responders_delete(guild_id: str):
+    cog = _ar_cog()
+    if cog is None:
+        return jsonify({"error": "AutoResponder cog not loaded"}), 503
+    if firestore_circuit_open():
+        retry = int(firestore_retry_after())
+        return jsonify({"error": "circuit_open", "retry_after": retry}), 503
+    payload = request.get_json(silent=True) or {}
+    responder_id = payload.get("id") or request.args.get("id")
+    if not responder_id:
+        return jsonify({"error": "missing responder id"}), 400
+    try:
+        loop = asyncio.new_event_loop()
+        try:
+            ok = loop.run_until_complete(cog._delete_responder(str(guild_id), str(responder_id)))
+        finally:
+            loop.close()
+        if not ok:
+            return jsonify({"error": "delete failed"}), 500
+        cog._settings_cache.pop(str(guild_id), None)
+        return jsonify({"ok": True, "id": responder_id}), 200
+    except Exception as e:
+        if _is_quota_error(e):
+            trip_firestore_circuit()
+        print(f"[AUTO-RESPONSE WEB] ❌ delete failed: {e}")
+        return jsonify({"error": str(e)}), 500
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROUTES — AI Chat v4.5 (Gemini 2.5 Flash + OpenRouter + Temperature Support)
