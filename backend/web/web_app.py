@@ -22,7 +22,8 @@ from backend.utils.firestore_stats import (
     set_music_state,
     get_music_state,
     set_bot_instance,
-    get_bot_instance
+    get_bot_instance,
+    get_firestore_diagnostics,
 )
 from flask_session import Session
 
@@ -381,6 +382,21 @@ def home():
 @app.route("/api/stats")
 def api_stats():
     return jsonify(get_stats_snapshot())
+
+
+# ==========================================================
+# Firestore health & circuit-breaker diagnostics
+# ==========================================================
+# Returns circuit-breaker state, debounce window, per-doc pending payloads,
+# and last-write timestamps. Use this from a browser/curl to confirm
+# that the 429 quota fix is in effect after deploy.
+#
+# Example:
+#   curl https://<your-render-host>/api/firestore/health
+# ==========================================================
+@app.route("/api/firestore/health")
+def api_firestore_health():
+    return jsonify(get_firestore_diagnostics()), 200
 
 # ==========================================================
 # ROUTES — Dashboard

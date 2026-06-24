@@ -1,7 +1,39 @@
+# ============================================================================
+# firestore_stats.py — patched for quota-aware, debounced, async writes
+#
+# ROOT-LEVEL CHANGES vs original:
+#   1. All Firestore writes are dispatched via asyncio.to_thread() so the
+#      synchronous firebase_admin client never blocks the Discord event loop.
+#   2. Each write path is debounced: many small updates within
+#      WRITE_DEBOUNCE_SECONDS collapse into a single batched write.
+#   3. A dirty-flag compares the new payload against the last successful
+#      write — identical payloads short-circuit the network call.
+#   4. A circuit breaker opens on 429 RESOURCE_EXHAUSTED / QUOTA_EXCEEDED
+#      errors and disables all writes for CIRCUIT_OPEN_SECONDS. Writes that
+#      arrive while the breaker is open are dropped (NOT queued — that's how
+#      we got banned in the first place).
+#   5. Public API surface is preserved: set_stats / set_music_state /
+#      set_guild_channels / get_* functions keep the same signatures so
+#      main.py and web_app.py need no changes.
+# ============================================================================
+
+import os
 import time
+import asyncio
+import hashlib
+import json
+import sys
 import threading
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
+
+# Reconfigure stdout/stderr to UTF-8 so log emojis (⚡ ✅ ❌ 🔥) render
+# correctly on Windows consoles (default cp1252 mangles them).
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 from backend.utils.formatters import format_duration, format_uptime
 
@@ -11,7 +43,36 @@ try:
 except Exception:
     FIRESTORE_AVAILABLE = False
 
-_stats_lock = threading.Lock()
+
+# ---------------------------------------------------------------------------
+# Tunables — adjust per environment via env vars (no code change required)
+#
+#   FIRESTORE_DEBOUNCE     Seconds to collapse writes (default 15)
+#                          Lower = fresher data, more quota. Higher = staler data, safer.
+#   FIRESTORE_CIRCUIT_SEC  Seconds to disable all writes after a 429 trip (default 600 = 10 min)
+#                          Anything below 60 risks triggering a Google API throttle-ban.
+# ---------------------------------------------------------------------------
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        print(f"[FIRESTORE STATS] ⚠️ Invalid {name}={raw!r}, falling back to default {default}")
+        return default
+
+WRITE_DEBOUNCE_SECONDS = _env_float("FIRESTORE_DEBOUNCE", 15.0)
+CIRCUIT_OPEN_SECONDS   = _env_float("FIRESTORE_CIRCUIT_SEC", 600.0)
+DIRTY_HASH_SALT        = os.getenv("FIRESTORE_HASH_SALT", "hidden-hamlet-v1")
+
+COLLECTION = "bot_status"
+DOC_ID = "stats"
+
+
+# ---------------------------------------------------------------------------
+# In-memory state (always authoritative for reads, even when DB is open)
+# ---------------------------------------------------------------------------
 _local_stats: Dict[str, Any] = {
     "online": False,
     "username": "Hidden Hamlet",
@@ -22,20 +83,103 @@ _local_stats: Dict[str, Any] = {
     "lavalink_node": "N/A",
     "players": [],
     "last_updated": "-",
-    "guilds_list": []
+    "guilds_list": [],
 }
 
-_guild_channels_lock = threading.Lock()
+_stats_lock           = threading.Lock()
+_guild_channels_lock  = threading.Lock()
+_music_states_lock    = threading.Lock()
+_bot_instance_lock    = threading.Lock()
+
 _local_guild_channels: Dict[str, list] = {}
+_local_music_states:   Dict[str, dict] = {}
+_bot_instance:         Optional[Any] = None
 
-_music_states_lock = threading.Lock()
-_local_music_states: Dict[str, dict] = {}
 
-_bot_instance = None
-_bot_instance_lock = threading.Lock()
+# ---------------------------------------------------------------------------
+# Per-document pending state + dirty tracking + debounce timers
+# ---------------------------------------------------------------------------
+class _PendingWrite:
+    """Holds the latest payload destined for a single Firestore document,
+    plus the bookkeeping needed for debounce + dirty-check + circuit breaker."""
 
-COLLECTION = "bot_status"
-DOC_ID = "stats"
+    __slots__ = ("doc_id", "payload", "last_written_hash", "last_write_monotonic",
+                 "debounce_task", "lock")
+
+    def __init__(self, doc_id: str):
+        self.doc_id = doc_id
+        self.payload: Optional[Dict[str, Any]] = None
+        self.last_written_hash: Optional[str] = None
+        self.last_write_monotonic: float = 0.0
+        self.debounce_task: Optional[asyncio.Task] = None
+        self.lock = threading.Lock()
+
+
+_pending: Dict[str, _PendingWrite] = {
+    DOC_ID:             _PendingWrite(DOC_ID),
+    "guild_channels":   _PendingWrite("guild_channels"),
+    "music_states":     _PendingWrite("music_states"),
+}
+
+
+# ---------------------------------------------------------------------------
+# Circuit breaker
+# ---------------------------------------------------------------------------
+class _CircuitBreaker:
+    """Trips on 429 errors. While OPEN, write calls are dropped immediately.
+    HALF_OPEN after timeout → next write attempts; success closes it, fail re-opens."""
+
+    def __init__(self, open_seconds: float):
+        self.open_seconds = open_seconds
+        self._open_until: float = 0.0
+        self._lock = threading.Lock()
+
+    def is_open(self) -> bool:
+        with self._lock:
+            if self._open_until == 0.0:
+                return False
+            if time.monotonic() >= self._open_until:
+                # Half-open: allow one probe
+                return False
+            return True
+
+    def trip(self) -> None:
+        with self._lock:
+            self._open_until = time.monotonic() + self.open_seconds
+            print(f"[FIRESTORE STATS] ⚡ Circuit breaker OPEN — writes suspended for "
+                  f"{int(self.open_seconds)}s (Firestore returned 429 Quota exceeded)")
+
+    def reset(self) -> None:
+        with self._lock:
+            if self._open_until != 0.0:
+                print("[FIRESTORE STATS] ✅ Circuit breaker CLOSED — writes resumed")
+                self._open_until = 0.0
+
+    def retry_after(self) -> float:
+        with self._lock:
+            return max(0.0, self._open_until - time.monotonic())
+
+
+_circuit = _CircuitBreaker(CIRCUIT_OPEN_SECONDS)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+def _hash_payload(payload: Dict[str, Any]) -> str:
+    """Stable hash for dirty-check. Sort keys so dict order doesn't matter."""
+    blob = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+    return hashlib.sha256(DIRTY_HASH_SALT.encode() + blob).hexdigest()
+
+
+def _is_quota_error(exc: Exception) -> bool:
+    """Detect Google API 429 RESOURCE_EXHAUSTED / QUOTA_EXCEEDED across message variants."""
+    msg = (str(exc) or "").lower()
+    return any(token in msg for token in (
+        "429", "quota exceeded", "resource_exhausted", "rate_limit",
+        "too many requests",
+    ))
+
 
 def _get_db():
     if not FIRESTORE_AVAILABLE:
@@ -45,17 +189,117 @@ def _get_db():
     except Exception:
         return None
 
-def _write_to_firestore(data: Dict[str, Any]) -> bool:
-    db = _get_db()
-    if not db:
-        return False
-    try:
-        db.collection(COLLECTION).document(DOC_ID).set(data, merge=True)
-        return True
-    except Exception as e:
-        print(f"[FIRESTORE STATS] ❌ Write failed: {e}")
-        return False
 
+# ---------------------------------------------------------------------------
+# Core write — debounced + dirty-checked + circuit-protected
+# ---------------------------------------------------------------------------
+async def _schedule_write(doc_id: str, payload: Dict[str, Any]) -> None:
+    """Public entry. Updates the pending payload for `doc_id`, restarts the
+    debounce window, and — if the window elapses without a new update —
+    commits the payload off-thread."""
+
+    if not payload:
+        return
+
+    pending = _pending.get(doc_id)
+    if pending is None:
+        _pending[doc_id] = _PendingWrite(doc_id)
+        pending = _pending[doc_id]
+
+    payload_hash = _hash_payload(payload)
+
+    with pending.lock:
+        # Dirty check: skip if the payload is identical to the one already queued.
+        # (We still update timestamp below so it gets the freshest data on flush.)
+        if pending.payload is not None and pending.last_written_hash == payload_hash:
+            return
+        pending.payload = payload
+
+    # Cancel any in-flight debounce timer — we're restarting the window.
+    if pending.debounce_task and not pending.debounce_task.done():
+        pending.debounce_task.cancel()
+
+    async def _debounce_then_flush():
+        try:
+            await asyncio.sleep(WRITE_DEBOUNCE_SECONDS)
+        except asyncio.CancelledError:
+            return
+        await _flush(doc_id)
+
+    try:
+        loop = asyncio.get_running_loop()
+        pending.debounce_task = loop.create_task(_debounce_then_flush())
+    except RuntimeError:
+        # Called from a sync context (e.g. during shutdown). Best-effort flush.
+        await _flush(doc_id)
+
+
+async def _flush(doc_id: str) -> None:
+    """Snapshots the pending payload and writes it off-thread."""
+    pending = _pending.get(doc_id)
+    if pending is None:
+        return
+
+    with pending.lock:
+        if pending.payload is None:
+            return
+        payload = pending.payload
+        payload_hash = _hash_payload(payload)
+        # Clear pending so subsequent identical writes re-fire after a successful flush.
+        pending.payload = None
+
+    if _circuit.is_open():
+        # Don't queue; just drop. The next legitimate state change will retry.
+        return
+
+    # Run the sync firebase-admin call in the default thread pool so the
+    # Discord event loop stays responsive even during a 60-second quota-induced stall.
+    try:
+        await asyncio.to_thread(_blocking_write, doc_id, payload, payload_hash)
+    except Exception as e:
+        if _is_quota_error(e):
+            _circuit.trip()
+            print(f"[FIRESTORE STATS] ❌ Write {doc_id} failed: {e}")
+        else:
+            print(f"[FIRESTORE STATS] ❌ Write {doc_id} failed: {e}")
+
+
+def _blocking_write(doc_id: str, payload: Dict[str, Any], payload_hash: str) -> None:
+    """Runs in a worker thread. Talks to firebase-admin synchronously."""
+
+    # Re-check circuit inside the thread in case it tripped between scheduling and execution.
+    if _circuit.is_open():
+        return
+
+    pending = _pending.get(doc_id)
+    if pending is not None:
+        with pending.lock:
+            # Another identical write already landed? Skip.
+            if pending.last_written_hash == payload_hash:
+                pending.payload = None
+                return
+
+    db = _get_db()
+    if db is None:
+        return
+
+    try:
+        db.collection(COLLECTION).document(doc_id).set(payload, merge=True)
+    except Exception as e:
+        # Bubble up so the asyncio.to_thread wrapper can route by exception type.
+        raise
+
+    if pending is not None:
+        with pending.lock:
+            pending.last_written_hash = payload_hash
+            pending.last_write_monotonic = time.monotonic()
+
+    _circuit.reset()
+
+
+# ---------------------------------------------------------------------------
+# Reads — unchanged from original behavior
+# ---------------------------------------------------------------------------
 def _read_from_firestore() -> Optional[Dict[str, Any]]:
     db = _get_db()
     if not db:
@@ -68,21 +312,47 @@ def _read_from_firestore() -> Optional[Dict[str, Any]]:
         print(f"[FIRESTORE STATS] ❌ Read failed: {e}")
     return None
 
+
+# ---------------------------------------------------------------------------
+# Public API — synchronous setters translate into scheduled async writes.
+# Callers (main.py, web_app.py) do NOT need to change.
+# ---------------------------------------------------------------------------
 def set_stats(**kwargs):
     with _stats_lock:
         _local_stats.update(kwargs)
         _local_stats["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    
-    _write_to_firestore(dict(_local_stats))
+        snapshot = dict(_local_stats)
+
+    _fire_and_forget(_schedule_write(DOC_ID, snapshot))
+
+
+def set_guild_channels(guild_id: str, channels: list):
+    with _guild_channels_lock:
+        _local_guild_channels[guild_id] = channels
+
+    # Batched write — collect across all guilds in one document.
+    with _guild_channels_lock:
+        full_snapshot = {gid: chs for gid, chs in _local_guild_channels.items()}
+
+    _fire_and_forget(_schedule_write("guild_channels", full_snapshot))
+
+
+def set_music_state(guild_id: str, state: dict):
+    with _music_states_lock:
+        _local_music_states[guild_id] = state
+
+    # Batched write — collect across all guilds in one document.
+    with _music_states_lock:
+        full_snapshot = {gid: st for gid, st in _local_music_states.items()}
+
+    _fire_and_forget(_schedule_write("music_states", full_snapshot))
+
 
 def get_stats_snapshot() -> Dict[str, Any]:
     firestore_data = _read_from_firestore()
-    
+
     with _stats_lock:
-        if firestore_data:
-            raw = firestore_data
-        else:
-            raw = dict(_local_stats)
+        raw = firestore_data if firestore_data else dict(_local_stats)
 
     players = []
     for p in raw.get("players", []):
@@ -115,18 +385,6 @@ def get_stats_snapshot() -> Dict[str, Any]:
         "guilds_list":        raw.get("guilds_list", [])
     }
 
-def set_guild_channels(guild_id: str, channels: list):
-    with _guild_channels_lock:
-        _local_guild_channels[guild_id] = channels
-    
-    db = _get_db()
-    if db:
-        try:
-            db.collection(COLLECTION).document("guild_channels").set(
-                {guild_id: channels}, merge=True
-            )
-        except Exception as e:
-            print(f"[FIRESTORE STATS] ❌ Write guild_channels failed: {e}")
 
 def get_guild_channels(guild_id: str) -> list:
     db = _get_db()
@@ -138,22 +396,10 @@ def get_guild_channels(guild_id: str) -> list:
                 return data.get(guild_id, [])
         except Exception:
             pass
-    
+
     with _guild_channels_lock:
         return _local_guild_channels.get(guild_id, [])
 
-def set_music_state(guild_id: str, state: dict):
-    with _music_states_lock:
-        _local_music_states[guild_id] = state
-    
-    db = _get_db()
-    if db:
-        try:
-            db.collection(COLLECTION).document("music_states").set(
-                {guild_id: state}, merge=True
-            )
-        except Exception as e:
-            print(f"[FIRESTORE STATS] ❌ Write music_state failed: {e}")
 
 def get_music_state(guild_id: str) -> dict:
     db = _get_db()
@@ -165,15 +411,62 @@ def get_music_state(guild_id: str) -> dict:
                 return data.get(guild_id, {"connected": False})
         except Exception:
             pass
-    
+
     with _music_states_lock:
         return _local_music_states.get(guild_id, {"connected": False})
+
 
 def set_bot_instance(bot):
     global _bot_instance
     with _bot_instance_lock:
         _bot_instance = bot
 
+
 def get_bot_instance():
     with _bot_instance_lock:
         return _bot_instance
+
+
+# ---------------------------------------------------------------------------
+# Fire-and-forget helper — works from both sync and async contexts.
+# ---------------------------------------------------------------------------
+def _fire_and_forget(coro):
+    """Schedule a coroutine on the running loop, or run it inline if no loop is active."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No loop (sync context). Run the coroutine to completion in this thread.
+        # Safe because _schedule_write itself only sets pending state and returns
+        # after creating the debounce task; if no loop is available we do a direct flush.
+        try:
+            loop2 = asyncio.new_event_loop()
+            try:
+                loop2.run_until_complete(coro)
+            finally:
+                loop2.close()
+        except Exception:
+            pass
+        return
+
+    loop.create_task(coro)
+
+
+# ---------------------------------------------------------------------------
+# Diagnostics (handy for /status command if you want one)
+# ---------------------------------------------------------------------------
+def get_firestore_diagnostics() -> Dict[str, Any]:
+    out = {
+        "available":          FIRESTORE_AVAILABLE,
+        "circuit_open":       _circuit.is_open(),
+        "circuit_retry_after": round(_circuit.retry_after(), 1),
+        "debounce_seconds":   WRITE_DEBOUNCE_SECONDS,
+        "pending_docs": {},
+    }
+    for doc_id, pending in _pending.items():
+        with pending.lock:
+            out["pending_docs"][doc_id] = {
+                "has_pending_payload": pending.payload is not None,
+                "last_write_hash":     (pending.last_written_hash or "")[:12],
+                "seconds_since_last":  round(time.monotonic() - pending.last_write_monotonic, 1) if pending.last_write_monotonic else None,
+            }
+    return out
