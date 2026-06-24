@@ -4,6 +4,71 @@
  * =====================================================
  */
 
+// ----------------------------------------------------------------
+// Global error handler — any uncaught exception is shown as a toast
+// instead of silently failing in the console. Helps users diagnose
+// problems without opening DevTools.
+// ----------------------------------------------------------------
+window.addEventListener('error', function (event) {
+  console.error('[Auto Responders] Uncaught error:', event.error);
+  if (typeof showAlert === 'function') {
+    showAlert(
+      'JS error: ' + (event.error?.message || event.message || 'unknown'),
+      'error',
+      6000
+    );
+  }
+});
+window.addEventListener('unhandledrejection', function (event) {
+  console.error('[Auto Responders] Unhandled promise rejection:', event.reason);
+  if (typeof showAlert === 'function') {
+    const reason = event.reason?.message || String(event.reason);
+    showAlert('Promise error: ' + reason, 'error', 6000);
+  }
+});
+
+// ----------------------------------------------------------------
+// Wrap window.fetch so every auto-responder request logs to the console
+// with the URL, method, and parsed response. This is invaluable when
+// debugging why a click "didn't do anything".
+// ----------------------------------------------------------------
+(function () {
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = async function (url, options = {}) {
+    const method = (options.method || 'GET').toUpperCase();
+    const isOurApi = typeof url === 'string' && url.includes('/api/auto-responders');
+    if (isOurApi) {
+      console.groupCollapsed(`[fetch] ${method} ${url}`);
+      try {
+        if (options.body) console.log('  body:', options.body);
+      } catch (_) {}
+    }
+    let resp;
+    try {
+      resp = await _origFetch(url, options);
+    } catch (err) {
+      if (isOurApi) {
+        console.error('  network error:', err);
+        console.groupEnd();
+      }
+      throw err;
+    }
+    if (isOurApi) {
+      console.log('  status:', resp.status);
+      // Clone so we can read the body for logging without consuming it.
+      const cloned = resp.clone();
+      try {
+        const json = await cloned.json();
+        console.log('  body:', json);
+      } catch (_) {
+        // Not JSON, ignore.
+      }
+      console.groupEnd();
+    }
+    return resp;
+  };
+})();
+
 const guildIdElement = document.getElementById('guild-id');
 const guildId = guildIdElement ? guildIdElement.value : '';
 let editingId = null;
@@ -132,15 +197,22 @@ function renderList(responders) {
     return;
   }
 
-  listEl.innerHTML = responders.map(ar => `
-    <div class="ar-item" data-id="${ar.id}">
+  listEl.innerHTML = responders.map(ar => {
+    // Build per-item DOM safely. We DO NOT use inline onclick handlers
+    // (they break on quotes/backslashes and CSP-blocked pages). Instead
+    // we use data-action + data-id + data-extra attributes, and rely on
+    // a single delegated click listener attached once in setupEventListeners.
+    const id = String(ar.id || '');
+    const keywords = Array.isArray(ar.keyword) ? ar.keyword.join(', ') : (ar.keyword || '');
+    return `
+    <div class="ar-item" data-id="${id}">
       <div class="ar-item-header">
-        <span class="ar-keywords">${Array.isArray(ar.keyword) ? ar.keyword.join(', ') : ar.keyword}</span>
-        <span class="ar-type-badge">${ar.response_type}</span>
+        <span class="ar-keywords">${escapeHtml(String(keywords))}</span>
+        <span class="ar-type-badge">${escapeHtml(String(ar.response_type || ''))}</span>
       </div>
-      <div class="ar-response">${ar.response_content || '(no response)'}</div>
+      <div class="ar-response">${escapeHtml(String(ar.response_content || '(no response)'))}</div>
       <div class="ar-meta">
-        <span>Cooldown: ${ar.cooldown_seconds}s</span>
+        <span>Cooldown: ${Number(ar.cooldown_seconds) || 0}s</span>
         ${ar.case_sensitive ? '<span>Case Sensitive</span>' : ''}
         ${ar.regex_enabled ? '<span>Regex</span>' : ''}
         ${ar.match_whole_word ? '<span>Whole Word</span>' : ''}
@@ -148,14 +220,15 @@ function renderList(responders) {
         ${ar.delete_trigger ? '<span>Delete</span>' : ''}
       </div>
       <div class="ar-actions">
-        <button class="ar-btn ar-btn-edit" onclick="editResponder('${ar.id}')">✏️ Edit</button>
-        <button class="ar-btn ar-btn-toggle ${ar.enabled ? '' : 'off'}" onclick="toggleResponder('${ar.id}', ${!ar.enabled})">
+        <button class="ar-btn ar-btn-edit"   data-action="edit"   data-id="${id}">✏️ Edit</button>
+        <button class="ar-btn ar-btn-toggle ${ar.enabled ? '' : 'off'}" data-action="toggle" data-id="${id}" data-extra="${ar.enabled ? 'false' : 'true'}">
           ${ar.enabled ? '⏸️ Disable' : '▶️ Enable'}
         </button>
-        <button class="ar-btn ar-btn-delete" onclick="deleteResponder('${ar.id}')">🗑️ Hapus</button>
+        <button class="ar-btn ar-btn-delete" data-action="delete" data-id="${id}">🗑️ Hapus</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 /**
@@ -164,6 +237,30 @@ function renderList(responders) {
 function setupEventListeners() {
   // Populate channel selects dynamically from the bot's channel cache.
   populateChannelSelects();
+
+  // Delegated click handler for the responder list. Buttons inside
+  // #ar-list use data-action / data-id / data-extra attributes instead
+  // of inline onclick handlers. This is more robust: it survives
+  // innerHTML rebuilds, doesn't break on quotes/special chars in ids,
+  // and is unaffected by strict CSP.
+  const listEl = document.getElementById('ar-list');
+  if (listEl) {
+    listEl.addEventListener('click', function (event) {
+      const btn = event.target.closest('button[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      const extra = btn.dataset.extra;
+      console.log('[Auto Responders] click', { action, id, extra });
+      if (action === 'edit') {
+        editResponder(id);
+      } else if (action === 'toggle') {
+        toggleResponder(id, extra === 'true');
+      } else if (action === 'delete') {
+        deleteResponder(id);
+      }
+    });
+  }
 
   // Global toggle
   const toggleEl = document.getElementById('global-toggle');
