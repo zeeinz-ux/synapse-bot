@@ -98,6 +98,51 @@ async def ar_get_guild_settings(guild_id: str) -> Dict[str, Any]:
         return {"enabled": False, "responders": {}}
 
 
+async def ar_get_guild_settings_fresh(guild_id: str) -> Dict[str, Any]:
+    """Read guild settings bypassing the in-process cache.
+
+    Critical for the Flask web process, which under gunicorn/uvicorn runs
+    multiple worker processes — each has its own _settings_cache, so cache
+    invalidation in one worker does NOT reach the others. A write to one
+    worker would be invisible to other workers reading from stale cache for
+    up to _DEFAULT_TTL (5 minutes). The dashboard UX cannot tolerate that.
+
+    Use this in dashboard/web handlers where freshness beats read efficiency.
+    """
+    # Import here to avoid module-level cycle issues.
+    from backend.utils.auto_responder_store import _settings_cache, _COLLECTION, _is_quota_error
+    # NOTE: we already are in this module, so direct refs work — but the
+    # explicit import above documents intent.
+    if firestore_circuit_open():
+        return {"enabled": False, "responders": {}}
+    if db is None:
+        return {"enabled": False, "responders": {}}
+
+    # Always invalidate before reading.
+    _settings_cache.pop(guild_id, None)
+
+    try:
+        doc_ref = db.collection(_COLLECTION).document(str(guild_id))
+        doc = await asyncio.to_thread(doc_ref.get)
+
+        if not doc.exists:
+            settings = {"enabled": False, "responders": {}}
+        else:
+            data = doc.to_dict() or {}
+            settings = {
+                "enabled": data.get("auto_responders_enabled", False),
+                "responders": data.get("auto_responders", {}),
+            }
+        # Re-populate cache for any subsequent read in the SAME worker.
+        _settings_cache[guild_id] = {"data": settings, "last_fetched": time.time()}
+        return settings
+    except Exception as e:
+        if _is_quota_error(e):
+            trip_firestore_circuit()
+        print(f"[AUTO-RESPONSE STORE] ⚠️ Error in fresh-fetch: {e}")
+        return {"enabled": False, "responders": {}}
+
+
 async def ar_save_responder(guild_id: str, responder_id: str, config: dict) -> bool:
     """Create or update a single responder in the guild's settings doc."""
     if firestore_circuit_open():

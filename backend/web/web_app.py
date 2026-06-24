@@ -31,6 +31,7 @@ from backend.utils.firestore_stats import (
 )
 from backend.utils.auto_responder_store import (
     ar_get_guild_settings,
+    ar_get_guild_settings_fresh,
     ar_save_responder,
     ar_delete_responder,
     ar_list_responders,
@@ -580,14 +581,23 @@ def api_auto_responders_list(guild_id: str):
     # firestore_circuit_open() because that circuit guards WRITES (free tier
     # has separate quotas: 50K reads/day vs 20K writes/day). A write-side
     # 429 should never block the dashboard from listing responders.
+    #
+    # We also bypass the in-process cache via ar_get_guild_settings_fresh().
+    # The Flask web process runs multiple worker processes under gunicorn,
+    # each with its own _settings_cache. A delete in worker A would not
+    # invalidate the cache in worker B, so the next GET could return a
+    # stale list for up to 5 minutes. Fresh-fetch reads Firestore directly.
     try:
-        settings = _ar_bridge_response(guild_id, lambda: ar_get_guild_settings(str(guild_id)))
+        settings = _ar_bridge_response(guild_id, lambda: ar_get_guild_settings_fresh(str(guild_id)))
         responders_data = settings.get("responders") or {}
         # Flatten dict-of-dicts into a list of {id, ...cfg} so the frontend
         # can iterate it directly.
         responders = [{"id": rid, **(cfg or {})} for rid, cfg in responders_data.items()]
         enabled = bool(settings.get("enabled", False))
-        return jsonify({"success": True, "enabled": enabled, "responders": responders, "count": len(responders)}), 200
+        response = jsonify({"success": True, "enabled": enabled, "responders": responders, "count": len(responders)})
+        # Prevent browser/proxy caching of dashboard lists.
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        return response, 200
     except Exception as e:
         # Reads still trip the circuit if read-quota is exhausted (very rare
         # on free tier), but we surface it as 503 with retry_after so the
@@ -673,7 +683,7 @@ def api_auto_responders_toggle(guild_id: str):
 
     # Mode B: per-responder toggle
     try:
-        settings = _ar_bridge_response(guild_id, lambda: ar_get_guild_settings(str(guild_id)))
+        settings = _ar_bridge_response(guild_id, lambda: ar_get_guild_settings_fresh(str(guild_id)))
         responders = (settings or {}).get("responders", {}) or {}
         if responder_id not in responders:
             return jsonify({"success": False, "error": "responder not found", "message": f"Responder '{responder_id}' does not exist."}), 404
