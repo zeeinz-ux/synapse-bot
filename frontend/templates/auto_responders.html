@@ -111,19 +111,16 @@
           <div class="form-group half">
             <label for="ar-include-channels">Include Channels</label>
             <select id="ar-include-channels" multiple>
-              {% for ch in channels %}
-              <option value="{{ ch.id }}">{{ ch.name }}</option>
-              {% endfor %}
+              <option disabled>⏳ Memuat channel…</option>
             </select>
-            <small>Tahan Ctrl untuk pilih banyak</small>
+            <small id="ar-include-channels-count" class="channel-counter">Memuat…</small>
           </div>
           <div class="form-group half">
             <label for="ar-exclude-channels">Exclude Channels</label>
             <select id="ar-exclude-channels" multiple>
-              {% for ch in channels %}
-              <option value="{{ ch.id }}">{{ ch.name }}</option>
-              {% endfor %}
+              <option disabled>⏳ Memuat channel…</option>
             </select>
+            <small id="ar-exclude-channels-count" class="channel-counter">Memuat…</small>
           </div>
         </div>
 

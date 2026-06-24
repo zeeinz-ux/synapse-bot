@@ -333,7 +333,55 @@
 
 /* Select Multiple */
 select[multiple] {
-  height: 80px;
+  height: 200px;
+  background: #2b2d31;
+  border: 1px solid #3f4147;
+  border-radius: 6px;
+  color: #f2f3f5;
+  padding: 0.375rem;
+  font-size: 0.875rem;
+  overflow-y: auto;
+}
+
+select[multiple] option {
+  padding: 0.375rem 0.5rem;
+  border-radius: 4px;
+  margin: 1px 0;
+  cursor: pointer;
+}
+
+select[multiple] option:hover {
+  background: #3f4147;
+}
+
+select[multiple] option:checked {
+  background: #5865f2 linear-gradient(0deg, #5865f2 0%, #5865f2 100%);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+select[multiple] option:disabled {
+  color: #80848e;
+  font-style: italic;
+}
+
+/* Channel selection counter */
+.channel-counter {
+  display: inline-block;
+  margin-top: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  background: #1a1a1c;
+  border: 1px solid #2a2a2c;
+  border-radius: 4px;
+  color: #80848e;
+  font-size: 0.75rem;
+}
+
+.channel-counter.has-selection {
+  background: #5865f2;
+  color: #ffffff;
+  border-color: #5865f2;
+  font-weight: 600;
 }
 
 /* Hidden Elements */

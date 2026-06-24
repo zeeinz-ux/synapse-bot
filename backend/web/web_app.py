@@ -707,6 +707,27 @@ def api_auto_responders_delete(guild_id: str):
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROUTES — AI Chat v4.5 (Gemini 2.5 Flash + OpenRouter + Temperature Support)
+# ============================================================================
+# Guild channel list endpoint
+# ============================================================================
+# The dashboard auto-responders page needs the list of Discord text channels
+# to populate the include/exclude channel <select> elements. The Flask web
+# process cannot talk to the Discord gateway directly, so we read the channel
+# list that the bot process already synced to Firestore (collection
+# bot_status / document guild_channels).
+#
+# Bot process writes here periodically via set_guild_channels() in
+# firestore_stats.py. This endpoint exposes that data via HTTP.
+# ============================================================================
+@app.route("/api/guilds/<guild_id>/channels", methods=["GET"])
+def api_guild_channels(guild_id: str):
+    # get_guild_channels returns [{id, name}, ...] from Firestore.
+    # If Firestore is unavailable, returns []. Always return success with
+    # whatever we have; frontend shows friendly empty-state message.
+    channels = get_guild_channels(str(guild_id))
+    return jsonify({"success": True, "channels": channels or [], "count": len(channels or [])}), 200
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.route("/dashboard/<guild_id>/ai-chat")

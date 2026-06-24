@@ -17,6 +17,69 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
+ * Fetch the bot's channel cache and populate the include/exclude channel selects.
+ * This bypasses the cross-process issue: the Flask process has no Discord
+ * gateway, so we read the channels that the bot process already synced to
+ * Firestore (collection bot_status/guild_channels).
+ */
+async function populateChannelSelects() {
+  const includeSel = document.getElementById('ar-include-channels');
+  const excludeSel = document.getElementById('ar-exclude-channels');
+  const includeCounter = document.getElementById('ar-include-channels-count');
+  const excludeCounter = document.getElementById('ar-exclude-channels-count');
+  if (!includeSel || !excludeSel) return;
+
+  // Show loading state
+  const loadingHtml = '<option disabled>⏳ Memuat channel…</option>';
+  includeSel.innerHTML = loadingHtml;
+  excludeSel.innerHTML = loadingHtml;
+  if (includeCounter) includeCounter.textContent = 'Memuat…';
+  if (excludeCounter) excludeCounter.textContent = 'Memuat…';
+
+  try {
+    const resp = await fetch(`/api/guilds/${guildId}/channels`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const channels = data.channels || [];
+
+    if (channels.length === 0) {
+      const emptyHtml = '<option disabled>⚠️ Belum ada channel terdaftar. Tunggu bot sync, atau tambahkan channel manual.</option>';
+      includeSel.innerHTML = emptyHtml;
+      excludeSel.innerHTML = emptyHtml;
+      if (includeCounter) includeCounter.textContent = 'Channel belum tersedia — coba refresh beberapa saat lagi.';
+      if (excludeCounter) excludeCounter.textContent = 'Channel belum tersedia — coba refresh beberapa saat lagi.';
+      return;
+    }
+
+    // Sort alphabetically for easier scanning
+    channels.sort((a, b) => a.name.localeCompare(b.name));
+
+    const optionsHtml = channels
+      .map((c) => `<option value="${c.id}"># ${escapeHtml(c.name)}</option>`)
+      .join('');
+    includeSel.innerHTML = optionsHtml;
+    excludeSel.innerHTML = optionsHtml;
+    if (includeCounter) includeCounter.textContent = `${channels.length} channel tersedia — tahan Ctrl/Cmd untuk pilih banyak`;
+    if (excludeCounter) excludeCounter.textContent = `${channels.length} channel tersedia — tahan Ctrl/Cmd untuk pilih banyak`;
+  } catch (err) {
+    console.error('[Auto Responders] Failed to load channels:', err);
+    const errHtml = `<option disabled>❌ Gagal memuat channel: ${escapeHtml(String(err))}</option>`;
+    includeSel.innerHTML = errHtml;
+    excludeSel.innerHTML = errHtml;
+    if (includeCounter) includeCounter.textContent = 'Gagal memuat channel.';
+    if (excludeCounter) excludeCounter.textContent = 'Gagal memuat channel.';
+  }
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
  * Load all auto responders from API
  */
 async function loadAutoResponders() {
@@ -91,6 +154,9 @@ function renderList(responders) {
  * Setup event listeners for form interactions
  */
 function setupEventListeners() {
+  // Populate channel selects dynamically from the bot's channel cache.
+  populateChannelSelects();
+
   // Global toggle
   const toggleEl = document.getElementById('global-toggle');
   if (toggleEl) {
@@ -106,6 +172,23 @@ function setupEventListeners() {
       }
     });
   }
+
+  // Channel multi-select: update visible "N dipilih" counter
+  ['ar-include-channels', 'ar-exclude-channels'].forEach((id) => {
+    const sel = document.getElementById(id);
+    const counter = document.getElementById(id + '-count');
+    if (sel && counter) {
+      const update = () => {
+        const n = sel.selectedOptions.length;
+        counter.textContent = n === 0
+          ? 'Tidak ada dipilih (berlaku untuk semua channel)'
+          : `${n} channel dipilih`;
+        counter.classList.toggle('has-selection', n > 0);
+      };
+      sel.addEventListener('change', update);
+      update();
+    }
+  });
 
   // Response type change
   const responseTypeEl = document.getElementById('ar-response-type');
