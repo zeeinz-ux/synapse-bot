@@ -92,13 +92,21 @@ async function loadAutoResponders() {
     const resp = await fetch(`/api/auto-responders/${guildId}`);
     const data = await resp.json();
 
-    if (data.success) {
+    // Be defensive about the response shape: backend may return either
+    // {success, enabled, responders} (new shape) or just {responders} (old).
+    // We treat any response that carries a `responders` array as success.
+    const responders = data.responders || [];
+    const enabled = !!data.enabled;
+    const ok = data.success === true || (Array.isArray(responders) && !data.error);
+
+    if (ok) {
       if (toggleEl) {
-        toggleEl.checked = data.enabled;
+        toggleEl.checked = enabled;
       }
-      renderList(data.responders || []);
+      renderList(responders);
     } else {
-      listEl.innerHTML = `<div class="empty">Error: ${data.message}</div>`;
+      const msg = data.message || data.error || 'Unknown error';
+      listEl.innerHTML = `<div class="empty">Error: ${escapeHtml(String(msg))}</div>`;
     }
   } catch (e) {
     listEl.innerHTML = `<div class="empty">Gagal memuat data</div>`;

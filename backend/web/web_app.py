@@ -581,8 +581,13 @@ def api_auto_responders_list(guild_id: str):
     # has separate quotas: 50K reads/day vs 20K writes/day). A write-side
     # 429 should never block the dashboard from listing responders.
     try:
-        responders = _ar_bridge_response(guild_id, lambda: ar_list_responders(str(guild_id)))
-        return jsonify({"responders": responders}), 200
+        settings = _ar_bridge_response(guild_id, lambda: ar_get_guild_settings(str(guild_id)))
+        responders_data = settings.get("responders") or {}
+        # Flatten dict-of-dicts into a list of {id, ...cfg} so the frontend
+        # can iterate it directly.
+        responders = [{"id": rid, **(cfg or {})} for rid, cfg in responders_data.items()]
+        enabled = bool(settings.get("enabled", False))
+        return jsonify({"success": True, "enabled": enabled, "responders": responders, "count": len(responders)}), 200
     except Exception as e:
         # Reads still trip the circuit if read-quota is exhausted (very rare
         # on free tier), but we surface it as 503 with retry_after so the
@@ -590,9 +595,9 @@ def api_auto_responders_list(guild_id: str):
         if _is_quota_error(e):
             trip_firestore_circuit()
             retry = int(firestore_retry_after())
-            return jsonify({"error": "circuit_open", "retry_after": retry, "responders": []}), 503
+            return jsonify({"success": False, "error": "circuit_open", "message": f"Database rate-limited. Retry in {retry}s.", "retry_after": retry, "responders": [], "enabled": False}), 503
         print(f"[AUTO-RESPONSE WEB] ❌ list failed: {e}")
-        return jsonify({"error": str(e), "responders": []}), 500
+        return jsonify({"success": False, "error": str(e), "message": "Failed to load responders.", "responders": [], "enabled": False}), 500
 
 
 @app.route("/api/auto-responders/<guild_id>/save", methods=["POST"])
