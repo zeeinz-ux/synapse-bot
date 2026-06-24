@@ -1036,3 +1036,143 @@ body {
     padding: 8px 12px;
   }
 }
+
+/* ============================================
+   TOPBAR (avatar + logout) — desktop & mobile
+   ============================================ */
+
+/* ---------- Desktop topbar ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 56px;
+  padding: 0 24px;
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--sidebar-border);
+  position: sticky;
+  top: 0;
+  z-index: 800;
+  flex-shrink: 0;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px; /* space antara avatar chip & logout button */
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  background: var(--hover-bg);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition: var(--transition);
+  max-width: 200px;
+  cursor: default;
+}
+
+.user-chip:hover {
+  background: var(--sidebar-border);
+  border-color: var(--text-muted);
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--guild-bg);
+}
+
+.user-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Logout button (shared desktop & mobile) ---------- */
+.logout-form {
+  margin: 0;
+}
+
+.logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: transparent;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+  min-height: 36px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.logout-btn:hover {
+  background: var(--hover-bg);
+  color: #ed4245; /* merah, konsisten dengan --badge-bg */
+  border-color: #ed4245;
+}
+
+.logout-btn:active {
+  transform: scale(0.97);
+}
+
+.logout-btn svg {
+  flex-shrink: 0;
+}
+
+/* ---------- Mobile: avatar + logout in mobile-header ---------- */
+.mobile-user {
+  display: none; /* default hidden; shown only ≤480px */
+  align-items: center;
+  gap: 8px; /* space antara avatar & logout di mobile */
+  margin-left: 8px;
+}
+
+.mobile-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--guild-bg);
+}
+
+.logout-btn--mobile {
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  min-height: 30px;
+  border-radius: 6px;
+}
+
+/* Show mobile-user + hide topbar on small screens */
+@media (max-width: 480px) {
+  .topbar {
+    display: none;
+  }
+
+  .mobile-user {
+    display: flex;
+  }
+
+  /* mobile-title geser kiri supaya tidak overflow */
+  .mobile-title {
+    flex: 1;
+    min-width: 0;
+  }
+}

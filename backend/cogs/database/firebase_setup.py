@@ -19,7 +19,7 @@ def init_firebase():
     firebase_key = os.getenv("FIREBASE_KEY", "").strip()
 
     if not firebase_key:
-        print("[FIREBASE] ❌ Error: Environment Variable 'FIREBASE_KEY' tidak ditemukan!")
+        print("[FIREBASE] [ERROR] Error: Environment Variable 'FIREBASE_KEY' tidak ditemukan!")
         return None
 
     try:
@@ -27,20 +27,20 @@ def init_firebase():
 
         # --- MODE 1: BASE64 ENCODED (Rekomendasi Utama untuk Render) ---
         if not firebase_key.startswith("{") and len(firebase_key) > 100:
-            print("[FIREBASE] 🔐 Mendeteksi mode Base64. Mengonversi ke JSON...")
+            print("[FIREBASE] [KEY] Mendeteksi mode Base64. Mengonversi ke JSON...")
             decoded_bytes = base64.b64decode(firebase_key)
             service_account_info = json.loads(decoded_bytes.decode("utf-8"))
             cred = credentials.Certificate(service_account_info)
 
         # --- MODE 2: RAW JSON STRING (Replit / Env String) ---
         elif firebase_key.startswith("{"):
-            print("[FIREBASE] 📄 Mendeteksi mode Raw JSON String.")
+            print("[FIREBASE] [FILE] Mendeteksi mode Raw JSON String.")
             service_account_info = json.loads(firebase_key)
             cred = credentials.Certificate(service_account_info)
 
         # --- MODE 3: FILE PATH FALLBACK (VS Code Lokal / Render Secret Files) ---
         else:
-            print("[FIREBASE] 📁 Mendeteksi mode File Path. Mencari lokasi file...")
+            print("[FIREBASE] [DIR] Mendeteksi mode File Path. Mencari lokasi file...")
             current_dir = os.path.dirname(os.path.abspath(__file__)) # backend/cogs/database
             
             # Melacak kecocokan file dari folder terdalam sampai root project
@@ -54,22 +54,22 @@ def init_firebase():
 
             for path in possible_paths:
                 if os.path.isfile(path):
-                    print(f"[FIREBASE] ✅ File ditemukan di: {path}")
+                    print(f"[FIREBASE] [OK] File ditemukan di: {path}")
                     cred = credentials.Certificate(path)
                     break
             
             if not cred:
-                print(f"[FIREBASE] ❌ File '{firebase_key}' tidak ditemukan di folder manapun!")
+                print(f"[FIREBASE] [ERROR] File '{firebase_key}' tidak ditemukan di folder manapun!")
                 return None
 
         # Hubungkan ke Firebase
         firebase_admin.initialize_app(cred)
         _db_instance = firestore.client()
-        print("[FIREBASE] 🔥 Berhasil terhubung ke Firestore!")
+        print("[FIREBASE] [FIRE] Berhasil terhubung ke Firestore!")
         return _db_instance
 
     except Exception as e:
-        print(f"[FIREBASE] ❌ Gagal total saat inisialisasi: {e}")
+        print(f"[FIREBASE] [ERROR] Gagal total saat inisialisasi: {e}")
         _db_instance = None
         return None
 

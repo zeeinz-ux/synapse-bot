@@ -268,6 +268,20 @@ async def _flush(doc_id: str) -> None:
             print(f"[FIRESTORE STATS] ❌ Write {doc_id} failed: {e}")
 
 
+async def flush_now(doc_id: str) -> None:
+    """Force immediate flush of pending payload for `doc_id`, bypassing debounce.
+    Use for critical state changes (guild join/leave) where stale reads are unacceptable."""
+    pending = _pending.get(doc_id)
+    if pending is None:
+        return
+
+    # Cancel any pending debounce timer
+    if pending.debounce_task and not pending.debounce_task.done():
+        pending.debounce_task.cancel()
+
+    await _flush(doc_id)
+
+
 def _blocking_write(doc_id: str, payload: Dict[str, Any], payload_hash: str) -> None:
     """Runs in a worker thread. Talks to firebase-admin synchronously."""
 
@@ -321,6 +335,35 @@ def _read_from_firestore() -> Optional[Dict[str, Any]]:
 # Public API — synchronous setters translate into scheduled async writes.
 # Callers (main.py, web_app.py) do NOT need to change.
 # ---------------------------------------------------------------------------
+def delete_guild_from_map(doc_id: str, guild_id: str) -> None:
+    """Remove a specific guild_id key from a map-based document in bot_status.
+    Used for guild_channels, music_states, etc. when bot leaves a guild."""
+    async def _delete():
+        db = _get_db()
+        if not db:
+            return
+        try:
+            from google.cloud.firestore import FieldValue
+            db.collection(COLLECTION).document(doc_id).update({
+                guild_id: FieldValue.delete()
+            })
+            print(f"[FIRESTORE STATS] 🗑️ Deleted guild {guild_id} from {doc_id}")
+        except Exception as e:
+            print(f"[FIRESTORE STATS] ❌ Failed to delete {guild_id} from {doc_id}: {e}")
+
+    _fire_and_forget(_delete())
+
+
+def invalidate_stats_cache() -> None:
+    """Force refresh of local stats cache by clearing guilds_list.
+    Call after guild join/remove to ensure get_stats_snapshot() reads fresh data."""
+    with _stats_lock:
+        _local_stats["guilds_list"] = []
+        _local_stats["guilds"] = 0
+        _local_stats["members"] = 0
+    print("[FIRESTORE STATS] 🔄 Local stats cache invalidated (guilds_list cleared)")
+
+
 def set_stats(**kwargs):
     with _stats_lock:
         _local_stats.update(kwargs)
@@ -503,3 +546,99 @@ def get_firestore_diagnostics() -> Dict[str, Any]:
                 "seconds_since_last":  round(time.monotonic() - pending.last_write_monotonic, 1) if pending.last_write_monotonic else None,
             }
     return out
+
+
+# ---------------------------------------------------------------------------
+# Integrity & Cleanup — Guild Lifecycle Management
+# ---------------------------------------------------------------------------
+async def _delete_subcollections(db, guild_id: str, subcollections: list) -> None:
+    """Recursively delete all documents in subcollections under guild_settings/{guild_id}."""
+    for subcoll in subcollections:
+        try:
+            subcoll_ref = db.collection("guild_settings").document(guild_id).collection(subcoll)
+            docs = await asyncio.to_thread(lambda: list(subcoll_ref.stream()))
+            for doc in docs:
+                await asyncio.to_thread(doc.reference.delete)
+            if docs:
+                print(f"[FIRESTORE CLEANUP] 🗑️ Deleted {len(docs)} docs from guild_settings/{guild_id}/{subcoll}")
+        except Exception as e:
+            print(f"[FIRESTORE CLEANUP] ❌ Failed to delete subcollection {subcoll} for {guild_id}: {e}")
+
+
+async def delete_guild_settings(guild_id: str) -> None:
+    """Delete guild_settings/{guild_id} and all its subcollections."""
+    db = _get_db()
+    if not db:
+        return
+
+    subcollections = ["ai_chat", "auto_responders", "leveling", "boost_settings"]
+
+    # 1. Delete subcollections
+    await _delete_subcollections(db, guild_id, subcollections)
+
+    # 2. Delete parent document
+    try:
+        await asyncio.to_thread(
+            db.collection("guild_settings").document(guild_id).delete
+        )
+        print(f"[FIRESTORE CLEANUP] ✅ Deleted guild_settings/{guild_id}")
+    except Exception as e:
+        print(f"[FIRESTORE CLEANUP] ❌ Failed to delete guild_settings/{guild_id}: {e}")
+
+
+async def create_guild_settings_minimal(guild_id: str, guild_name: str) -> None:
+    """Create minimal guild_settings document on guild join (eager init)."""
+    db = _get_db()
+    if not db:
+        return
+
+    try:
+        from google.cloud.firestore import SERVER_TIMESTAMP
+        await asyncio.to_thread(
+            db.collection("guild_settings").document(guild_id).set,
+            {"guild_name": guild_name, "created_at": SERVER_TIMESTAMP},
+            merge=True
+        )
+        print(f"[FIRESTORE CLEANUP] ✅ Created minimal guild_settings/{guild_id} ({guild_name})")
+    except Exception as e:
+        print(f"[FIRESTORE CLEANUP] ❌ Failed to create guild_settings/{guild_id}: {e}")
+
+
+async def integrity_sweep(bot) -> None:
+    """Scan Firestore for orphaned guild_settings documents and delete them.
+    Runs on bot startup to ensure data consistency."""
+    db = _get_db()
+    if not db:
+        print("[FIRESTORE CLEANUP] ⚠️ Firestore unavailable, skipping integrity sweep")
+        return
+
+    try:
+        # Get active guild IDs from Discord
+        active_guild_ids = {str(g.id) for g in bot.guilds}
+
+        # Get stored guild IDs from Firestore
+        stored_docs = await asyncio.to_thread(
+            lambda: list(db.collection("guild_settings").stream())
+        )
+        stored_guild_ids = {doc.id for doc in stored_docs}
+
+        # Find orphaned guilds
+        orphaned = stored_guild_ids - active_guild_ids
+
+        if not orphaned:
+            print("[FIRESTORE CLEANUP] ✅ Integrity sweep clean — no orphaned guilds")
+            return
+
+        print(f"[FIRESTORE CLEANUP] 🔍 Found {len(orphaned)} orphaned guild(s): {orphaned}")
+
+        # Delete orphaned guild settings
+        for guild_id in orphaned:
+            await delete_guild_settings(guild_id)
+            # Also clean up bot_status maps
+            delete_guild_from_map("guild_channels", guild_id)
+            delete_guild_from_map("music_states", guild_id)
+
+        print(f"[FIRESTORE CLEANUP] ✅ Integrity sweep complete — removed {len(orphaned)} orphaned guild(s)")
+
+    except Exception as e:
+        print(f"[FIRESTORE CLEANUP] ❌ Integrity sweep failed: {e}")

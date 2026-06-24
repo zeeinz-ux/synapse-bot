@@ -25,7 +25,7 @@ from backend.cogs.database import firebase_setup
 # ============================================
 
 # ===== [DASHBOARD] Import Firestore stats bridge =====
-from backend.utils.firestore_stats import set_stats, set_guild_channels, set_music_state, set_bot_instance
+from backend.utils.firestore_stats import set_stats, set_guild_channels, set_music_state, set_bot_instance, flush_now, delete_guild_from_map, delete_guild_settings, create_guild_settings_minimal, integrity_sweep, invalidate_stats_cache
 # ==================================================
 
 intents = discord.Intents.default()
@@ -64,6 +64,66 @@ async def sync_music_to_dashboard():
             set_music_state(str(guild.id), state)
         else:
             set_music_state(str(guild.id), {"connected": False})
+
+@bot.event
+async def on_guild_remove(guild):
+    """Immediate stats update + full data cleanup when bot leaves a guild."""
+    guild_id = str(guild.id)
+
+    # 1. Build COMPLETE stats payload including guilds_list
+    guilds_list = [
+        {"id": str(g.id), "name": g.name, "member_count": g.member_count or 0}
+        for g in bot.guilds
+    ]
+    stats = {
+        "online": True,
+        "guilds": len(bot.guilds),
+        "members": sum(g.member_count for g in bot.guilds),
+        "lavalink_connected": bool(wavelink.Pool.nodes),
+        "guilds_list": guilds_list,  # <-- CRITICAL: include this
+    }
+    set_stats(stats)
+    await flush_now("stats")
+
+    # 2. Invalidate local cache so get_stats_snapshot() returns fresh data immediately
+    invalidate_stats_cache()
+
+    # 3. Remove guild from map-based docs (guild_channels, music_states)
+    delete_guild_from_map("guild_channels", guild_id)
+    delete_guild_from_map("music_states", guild_id)
+
+    # 4. Recursively delete guild_settings/{guild_id} and subcollections
+    await delete_guild_settings(guild_id)
+
+    print(f"[DASHBOARD] ✅ Guild removed: {guild.name} ({guild_id}) — stats updated ({len(bot.guilds)} guilds), data cleaned")
+
+@bot.event
+async def on_guild_join(guild):
+    """Immediate stats update + minimal guild_settings init when bot joins a guild."""
+    guild_id = str(guild.id)
+
+    # 1. Build COMPLETE stats payload including guilds_list
+    guilds_list = [
+        {"id": str(g.id), "name": g.name, "member_count": g.member_count or 0}
+        for g in bot.guilds
+    ]
+    stats = {
+        "online": True,
+        "guilds": len(bot.guilds),
+        "members": sum(g.member_count for g in bot.guilds),
+        "lavalink_connected": bool(wavelink.Pool.nodes),
+        "guilds_list": guilds_list,  # <-- CRITICAL: include this
+    }
+    set_stats(stats)
+    await flush_now("stats")
+
+    # 2. Invalidate local cache
+    invalidate_stats_cache()
+
+    # 3. Create minimal guild_settings document (eager init for dashboard UX)
+    await create_guild_settings_minimal(guild_id, guild.name)
+
+    print(f"[DASHBOARD] ✅ Guild joined: {guild.name} ({guild_id}) — stats updated ({len(bot.guilds)} guilds), minimal settings created")
 
 # Jalankan task-nya pas bot nyala
 @bot.event
@@ -313,6 +373,9 @@ async def on_ready():
             print(f"  - /{cmd.name}")
     except Exception as e:
         print(f"[SYNC] ❌ Gagal sync commands: {e}")
+
+    # Integrity sweep: clean orphaned guild data from Firestore
+    await integrity_sweep(bot)
 
     if not lavalink_healthcheck.is_running():
         lavalink_healthcheck.start()

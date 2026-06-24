@@ -4,6 +4,12 @@ import base64
 import traceback
 import io
 import asyncio
+from dotenv import load_dotenv
+
+# Load .env dari folder backend/ (sebelum import yang butuh env)
+_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+load_dotenv(os.path.join(_project_root, "backend", ".env"))
+
 from flask import Flask, render_template, jsonify, request, redirect, session, url_for
 import requests
 from functools import wraps
@@ -131,7 +137,7 @@ def callback():
     }
     return redirect("/dashboard")
 
-@app.route("/logout")
+@app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return redirect("/")
@@ -371,14 +377,45 @@ def _image_to_base64_data_url(file_data: bytes, filename: str) -> str | None:
         return None
 
 # ==========================================================
+# Helper — bangun URL avatar Discord dari session user
+# ==========================================================
+def _discord_avatar_url(user: dict, size: int = 64) -> str:
+    """Bangun URL avatar Discord. Pakai default avatar jika user tidak set avatar.
+
+    - Custom avatar:   https://cdn.discordapp.com/avatars/{id}/{hash}.{ext}?size=N
+    - Default avatar:  https://cdn.discordapp.com/embed/avatars/{idx}.png?size=N
+    """
+    if not user:
+        return ""
+    avatar_hash = user.get("avatar")
+    user_id = user.get("id")
+    if avatar_hash:
+        ext = "gif" if str(avatar_hash).startswith("a_") else "png"
+        return f"https://cdn.discordapp.com/avatars/{user_id}/{avatar_hash}.{ext}?size={size}"
+    # Default avatar (index 0–4). Discord pakai discriminator % 5 (legacy)
+    # atau (id >> 22) % 5 untuk username#0 (new system).
+    try:
+        if user.get("discriminator") and user["discriminator"] != "0":
+            idx = int(user["discriminator"]) % 5
+        else:
+            idx = (int(user_id) >> 22) % 5
+    except Exception:
+        idx = 0
+    return f"https://cdn.discordapp.com/embed/avatars/{idx}.png?size={size}"
+
+
+# ==========================================================
 # Helper — render template dengan sidebar context
 # ==========================================================
 def _render_page(template_name: str, active_page: str, guild_id: str, **kwargs):
+    user = session.get("user")
     return render_template(
         template_name,
         s=get_stats_snapshot(),
         active_page=active_page,
         guild_id=guild_id,
+        user=user,
+        avatar_url=_discord_avatar_url(user) if user else "",
         **kwargs
     )
 
@@ -413,6 +450,7 @@ def api_firestore_health():
 # ROUTES — Dashboard
 # ==========================================================
 @app.route("/dashboard")
+@login_required
 def dashboard():
     s = get_stats_snapshot()
     guilds = s.get("guilds_list", [])
@@ -423,10 +461,12 @@ def dashboard():
     return _render_page("dashboard.html", active_page="main", guild_id="")
 
 @app.route("/dashboard/<guild_id>/")
+@login_required
 def dashboard_guild(guild_id: str):
     return _render_page("dashboard.html", active_page="main", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/settings")
+@login_required
 def settings_page(guild_id: str):
     return _render_page("settings.html", active_page="settings", guild_id=guild_id)
 
@@ -435,15 +475,18 @@ def settings_page(guild_id: str):
 # ==========================================================
 
 @app.route("/dashboard/<guild_id>/music/now-playing")
+@login_required
 def music_now_playing(guild_id: str):
     return _render_page("now_playing.html", active_page="now_playing", guild_id=guild_id)
 
 
 @app.route("/dashboard/<guild_id>/music/queue")
+@login_required
 def music_queue(guild_id: str):
     return _render_page("queue.html", active_page="queue", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/music/playlists")
+@login_required
 def music_playlists(guild_id: str):
     return _render_page("playlist.html", active_page="playlists", guild_id=guild_id)
 
@@ -451,6 +494,7 @@ def music_playlists(guild_id: str):
 # ROUTES — Welcome / Announcements
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome")
+@login_required
 def welcome_settings(guild_id: str):
     channels = get_guild_channels(guild_id)
     current_config = _get_welcome_config(guild_id)
@@ -482,14 +526,17 @@ def welcome_settings(guild_id: str):
     )
 
 @app.route("/dashboard/<guild_id>/welcome/leave")
+@login_required
 def welcome_leave(guild_id: str):
     return _render_page("welcome_settings.html", active_page="leave", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/welcome/ban")
+@login_required
 def welcome_ban(guild_id: str):
     return _render_page("welcome_settings.html", active_page="ban", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/welcome/boost")
+@login_required
 def welcome_boost(guild_id: str):
     return _render_page("welcome_settings.html", active_page="boost_welcome", guild_id=guild_id)
 
@@ -497,10 +544,12 @@ def welcome_boost(guild_id: str):
 # ROUTES — Boost Tracker
 # ==========================================================
 @app.route("/dashboard/<guild_id>/boost")
+@login_required
 def boost_tracker(guild_id: str):
     return _render_page("boost_settings.html", active_page="boost_tracker", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/boost/stats")
+@login_required
 def boost_stats(guild_id: str):
     return _render_page("boost_settings.html", active_page="boost_stats", guild_id=guild_id)
 
@@ -508,10 +557,12 @@ def boost_stats(guild_id: str):
 # ROUTES — Donation
 # ==========================================================
 @app.route("/dashboard/<guild_id>/donation")
+@login_required
 def donation_tracker(guild_id: str):
     return _render_page("donation_settings.html", active_page="donation", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/donation/stats")
+@login_required
 def donation_stats(guild_id: str):
     return _render_page("donation_settings.html", active_page="donation_stats", guild_id=guild_id)
 
@@ -519,18 +570,22 @@ def donation_stats(guild_id: str):
 # ROUTES — Tools
 # ==========================================================
 @app.route("/dashboard/<guild_id>/message-builder")
+@login_required
 def message_builder(guild_id: str):
     return _render_page("message_builder.html", active_page="message_builder", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/templates")
+@login_required
 def templates_page(guild_id: str):
     return _render_page("templates.html", active_page="templates", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/actions")
+@login_required
 def actions_page(guild_id: str):
     return _render_page("actions.html", active_page="actions", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/auto-responders")
+@login_required
 def auto_responders(guild_id: str):
     return _render_page("auto_responders.html", active_page="auto_responders", guild_id=guild_id)
 
@@ -768,6 +823,7 @@ def api_guild_channels(guild_id: str):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.route("/dashboard/<guild_id>/ai-chat")
+@login_required
 def ai_chat_page(guild_id: str):
     channels = get_guild_channels(guild_id)
     return _render_page(
@@ -1044,3 +1100,8 @@ def save_welcome(guild_id: str):
         print(f"[WELCOME-WEB] ❌ Error saat menyimpan: {e}")
         traceback.print_exc()
         return jsonify({"success": False, "message": f"❌ Terjadi kesalahan server: {str(e)}"}), 500
+
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)
