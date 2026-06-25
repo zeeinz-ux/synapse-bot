@@ -45,7 +45,7 @@ class Music(commands.Cog):
             self.controllers[guild_id] = MusicController(vc)
         return self.controllers[guild_id]
 
-    def get_music_player(self, guild_id: int) -> MusicPlayer:
+    def get_music_player(self, guild_id: int):
         return self.get_controller(guild_id)
 
     # ==========================================================
