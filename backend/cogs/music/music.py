@@ -72,25 +72,66 @@ class Music(commands.Cog):
 
     # ==========================================================
     # SEARCH via yt-dlp
-    # ==========================================================
+    @staticmethod
+    def _title_similarity(a: str, b: str) -> float:
+        a = a.lower().strip()
+        b = b.lower().strip()
+        if not a or not b:
+            return 0.0
+        a_words = set(a.split())
+        b_words = set(b.split())
+        intersection = a_words & b_words
+        union = a_words | b_words
+        return len(intersection) / len(union) if union else 0.0
+
     async def _search_single_resolved(self, track: ResolvedTrack) -> YtDlpTrack | None:
         try:
             query = (track.query or "").strip()
-            if not query:
-                artists = track.artists or ""
-                name = track.name or ""
-                query = f"{artists} - {name}" if artists else name
+            if query.startswith("http://") or query.startswith("https://"):
+                return await YtDlpSearcher.extract_info(query)
 
             for prefix in ["ytsearch:", "ytmsearch:", "scsearch:", "spsearch:"]:
                 if query.lower().startswith(prefix):
                     query = query[len(prefix):].strip()
 
-            if query.startswith("http://") or query.startswith("https://"):
-                return await YtDlpSearcher.extract_info(query)
+            artists = track.artists or ""
+            name = track.name or ""
+            if not query:
+                query = f"{artists} {name}"
 
-            results = await YtDlpSearcher.search(f"ytsearch:{query}")
-            if results:
-                return results[0]
+            target_dur = track.duration_ms
+
+            search_queries = []
+            if artists:
+                search_queries = [
+                    f"ytsearch:{artists} - {name}",
+                    f"ytsearch:{artists} {name} official audio",
+                    f"ytsearch:{artists} {name} lyrics",
+                    f"ytsearch:{artists} {name}",
+                ]
+            else:
+                search_queries = [f"ytsearch:{name}"]
+
+            for sq in search_queries:
+                results = await YtDlpSearcher.search(sq)
+                if not results:
+                    continue
+
+                candidates = []
+                for r in results:
+                    score = self._title_similarity(f"{artists} {name}", f"{r.author or ''} {r.title or ''}")
+                    dur_diff = abs((r.duration or 0) - (target_dur or 0)) if target_dur else 0
+                    candidates.append((r, score, dur_diff))
+
+                candidates.sort(key=lambda x: (-x[1], x[2]))
+                best, best_score, best_diff = candidates[0]
+
+                if target_dur and best_diff < 3000:
+                    return best
+                if best_score > 0.5:
+                    return best
+                if sq == search_queries[-1]:
+                    return best
 
         except Exception as e:
             print(f"[YOUTUBE SEARCH ERROR] {track.name}: {e}")
