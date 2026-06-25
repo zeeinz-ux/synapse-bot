@@ -346,9 +346,9 @@ class MusicController:
         try:
             proc = await asyncio.to_thread(
                 lambda: subprocess.Popen(
-                    ["yt-dlp", "-f", "bestaudio", "-o", "-", "--no-part", url],
+                    ["yt-dlp", "-f", "bestaudio", "-o", "-", "--no-part", "--no-progress", url],
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
                 )
             )
         except Exception as e:
@@ -377,6 +377,21 @@ class MusicController:
     def _on_track_end_wrapper(self, error):
         if error:
             print(f"[TRACK END ERROR] {error}")
+        if self._ytdlp_proc:
+            try:
+                self._ytdlp_proc.wait(timeout=3)
+            except Exception:
+                try:
+                    self._ytdlp_proc.kill()
+                    self._ytdlp_proc.wait(timeout=2)
+                except Exception:
+                    pass
+            try:
+                ytdlp_stderr = self._ytdlp_proc.stderr.read().decode("utf-8", errors="replace")
+                if ytdlp_stderr.strip():
+                    print(f"[YT-DLP STDERR] {ytdlp_stderr[:2000]}")
+            except Exception:
+                pass
         asyncio.run_coroutine_threadsafe(self._on_track_end(error), self.vc.client.loop if self.vc and self.vc.client else None)
 
     async def _on_track_end(self, error=None):
@@ -423,9 +438,9 @@ class MusicController:
         try:
             proc = await asyncio.to_thread(
                 lambda: subprocess.Popen(
-                    ["yt-dlp", "-f", "bestaudio", "-o", "-", "--no-part", url],
+                    ["yt-dlp", "-f", "bestaudio", "-o", "-", "--no-part", "--no-progress", url],
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
                 )
             )
         except Exception as e:
