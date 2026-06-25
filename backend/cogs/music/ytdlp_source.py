@@ -18,7 +18,30 @@ CACHE_DIR = "/tmp/discord_audio_cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 COOKIES_FILE = os.getenv("COOKIES_FILE", "")
-YTDLP_COOKIE_ARGS = ["--cookies", COOKIES_FILE] if COOKIES_FILE and os.path.isfile(COOKIES_FILE) else []
+COOKIES_FROM_BROWSER = os.getenv("COOKIES_FROM_BROWSER", "")
+PO_TOKEN = os.getenv("YOUTUBE_PO_TOKEN", "")
+
+# Auth args for yt-dlp CLI (priority: PO Token > Browser Cookie > Cookie File > iOS fallback)
+if PO_TOKEN:
+    YTDLP_AUTH_ARGS = ["--extractor-args", f"youtube:po_token=web+{PO_TOKEN};player_client=web"]
+elif COOKIES_FROM_BROWSER:
+    YTDLP_AUTH_ARGS = ["--cookies-from-browser", COOKIES_FROM_BROWSER]
+elif COOKIES_FILE and os.path.isfile(COOKIES_FILE):
+    YTDLP_AUTH_ARGS = ["--cookies", COOKIES_FILE]
+else:
+    # iOS client fallback — bypasses YouTube bot detection on VPS/Railway IPs
+    YTDLP_AUTH_ARGS = ["--extractor-args", "youtube:player_client=ios"]
+
+# Auth opts for yt-dlp Python library
+def _get_ytdlp_auth_opts() -> dict:
+    if PO_TOKEN:
+        return {"extractor_args": {"youtube": [f"po_token=web+{PO_TOKEN}", "player_client=web"]}}
+    elif COOKIES_FROM_BROWSER:
+        return {"cookiefile": None, "cookiesfrombrowser": (COOKIES_FROM_BROWSER,)}
+    elif COOKIES_FILE:
+        return {"cookiefile": COOKIES_FILE}
+    else:
+        return {"extractor_args": {"youtube": ["player_client=ios"]}}
 
 warnings.filterwarnings("ignore", message=".*line buffering.*binary mode.*")
 
@@ -50,6 +73,8 @@ def _find_ffmpeg() -> str:
 
 FFMPEG_PATH = _find_ffmpeg()
 
+_AUTH_OPTS = _get_ytdlp_auth_opts()
+
 YTDL_OPTS = {
     "format": "bestaudio/best",
     "quiet": True,
@@ -58,6 +83,7 @@ YTDL_OPTS = {
     "noplaylist": True,
     "socket_timeout": 10,
     "retries": 1,
+    **_AUTH_OPTS,
 }
 
 YTDL_SEARCH_OPTS = {
@@ -69,6 +95,7 @@ YTDL_SEARCH_OPTS = {
     "noplaylist": False,
     "socket_timeout": 10,
     "retries": 1,
+    **_AUTH_OPTS,
 }
 
 YTDL_PLAYLIST_OPTS = {
@@ -79,6 +106,7 @@ YTDL_PLAYLIST_OPTS = {
     "dump_single_json": True,
     "socket_timeout": 10,
     "retries": 1,
+    **_AUTH_OPTS,
 }
 
 
@@ -268,7 +296,7 @@ class MusicController:
             await loop.run_in_executor(
                 None,
                 lambda: subprocess.run(
-                    ["yt-dlp", "-f", "bestaudio", "-o", dest, "--no-part", "--no-progress", "--extract-audio", "--audio-format", "opus", url, *YTDLP_COOKIE_ARGS],
+                    ["yt-dlp", "-f", "bestaudio", "-o", dest, "--no-part", "--no-progress", "--extract-audio", "--audio-format", "opus", url, *YTDLP_AUTH_ARGS],
                     capture_output=True, timeout=120,
                 )
             )
@@ -484,7 +512,7 @@ class MusicController:
             await loop.run_in_executor(
                 None,
                 lambda: subprocess.run(
-                    ["yt-dlp", "-f", "bestaudio", "-o", dest, "--no-part", "--no-progress", "--extract-audio", "--audio-format", "opus", url, *YTDLP_COOKIE_ARGS],
+                    ["yt-dlp", "-f", "bestaudio", "-o", dest, "--no-part", "--no-progress", "--extract-audio", "--audio-format", "opus", url, *YTDLP_AUTH_ARGS],
                     capture_output=True, timeout=120,
                 )
             )
