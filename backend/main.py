@@ -1,5 +1,8 @@
 import sys
 import os
+import warnings
+
+warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*line buffering.*binary mode.*")
 
 # ==========================================================
 # FIX: Agar Python bisa menemukan package 'backend'
