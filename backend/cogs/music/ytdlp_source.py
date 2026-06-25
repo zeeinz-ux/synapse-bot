@@ -84,13 +84,14 @@ class YtDlpTrack:
 
     @classmethod
     def from_info(cls, info: dict) -> "YtDlpTrack":
-        title = info.get("title", "Unknown")
+        title = info.get("title") or "Unknown"
         uri = info.get("url") or info.get("webpage_url", "")
-        author = info.get("channel", info.get("uploader", info.get("artist", "Unknown")))
-        duration = info.get("duration", 0) * 1000
-        artwork = info.get("thumbnail", "")
-        webpage_url = info.get("webpage_url", uri)
-        stream_url = info.get("url", "")
+        author = info.get("channel") or info.get("uploader") or info.get("artist", "Unknown")
+        duration_raw = info.get("duration")
+        duration = (int(duration_raw) * 1000) if duration_raw else 0
+        artwork = info.get("thumbnail") or ""
+        webpage_url = info.get("webpage_url") or uri
+        stream_url = info.get("url") or ""
         return cls(
             title=title,
             uri=uri,

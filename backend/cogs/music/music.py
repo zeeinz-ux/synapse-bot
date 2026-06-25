@@ -522,36 +522,50 @@ class Music(commands.Cog):
 
     @app_commands.command(name="queue", description="Lihat antrian lagu")
     async def queue(self, interaction: discord.Interaction):
+        try:
+            await interaction.response.defer()
+        except Exception:
+            pass
         controller = self.get_controller(interaction.guild_id)
         voice_client = interaction.guild.voice_client
         if not voice_client:
-            await interaction.response.send_message("📭 Queue kosong.", ephemeral=True)
+            await interaction.followup.send("📭 Queue kosong.")
             return
 
         embed = discord.Embed(title="🎶 Music Queue", color=discord.Color.purple())
 
-        if controller.current_track:
-            loop_emoji = {"single": "🔁", "queue": "🔂", "off": ""}.get(controller.loop_mode, "")
-            embed.add_field(
-                name=f"▶️ Now Playing {loop_emoji}",
-                value=f"**{controller.current_track.title}**\n`{format_duration(controller.current_track.duration)}`",
-                inline=False,
-            )
+        try:
+            if controller.current_track:
+                loop_emoji = {"single": "🔁", "queue": "🔂", "off": ""}.get(controller.loop_mode, "")
+                title = controller.current_track.title or "Unknown"
+                embed.add_field(
+                    name=f"▶️ Now Playing {loop_emoji}",
+                    value=f"**{title}**\n`{format_duration(controller.current_track.duration)}`",
+                    inline=False,
+                )
 
-        items = controller.queue
-        if items:
-            total_ms = sum(t.duration or 0 for t in items)
-            queue_text = ""
-            for i, track in enumerate(items[:15], 1):
-                duration = format_duration(track.duration) if track.duration else "?"
-                queue_text += f"`{i:02d}.` {track.title[:40]}{'...' if len(track.title) > 40 else ''} (`{duration}`)\n"
+            items = controller.queue
+            if items:
+                total_ms = sum(t.duration or 0 for t in items)
+                queue_text = ""
+                for i, track in enumerate(items[:15], 1):
+                    t_title = track.title or "Unknown"
+                    duration = format_duration(track.duration) if track.duration else "?"
+                    display = t_title[:40]
+                    if len(t_title) > 40:
+                        display += "..."
+                    queue_text += f"`{i:02d}.` {display} (`{duration}`)\n"
 
-            embed.add_field(name="⏭️ Up Next", value=queue_text or "...", inline=False)
-            embed.set_footer(text=f"{len(items)} lagu | Total durasi: {format_duration(total_ms)}")
-        else:
-            embed.set_footer(text="Queue kosong — tambah lagu dengan /play")
+                embed.add_field(name="⏭️ Up Next", value=queue_text or "...", inline=False)
+                embed.set_footer(text=f"{len(items)} lagu | Total durasi: {format_duration(total_ms)}")
+            else:
+                embed.set_footer(text="Queue kosong — tambah lagu dengan /play")
+        except Exception as e:
+            print(f"[QUEUE ERROR] {e}")
+            await interaction.followup.send("❌ Gagal menampilkan queue.")
+            return
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="nowplaying", description="Info detail lagu yang sedang diputar")
     async def nowplaying(self, interaction: discord.Interaction):
