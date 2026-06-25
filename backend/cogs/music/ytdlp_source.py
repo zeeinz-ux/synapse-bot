@@ -45,6 +45,8 @@ YTDL_OPTS = {
     "no_warnings": True,
     "extract_flat": False,
     "noplaylist": True,
+    "socket_timeout": 10,
+    "retries": 1,
 }
 
 YTDL_SEARCH_OPTS = {
@@ -54,6 +56,8 @@ YTDL_SEARCH_OPTS = {
     "default_search": "ytsearch",
     "extract_flat": "in_playlist",
     "noplaylist": False,
+    "socket_timeout": 10,
+    "retries": 1,
 }
 
 YTDL_PLAYLIST_OPTS = {
@@ -62,6 +66,8 @@ YTDL_PLAYLIST_OPTS = {
     "extract_flat": "in_playlist",
     "skip_download": True,
     "dump_single_json": True,
+    "socket_timeout": 10,
+    "retries": 1,
 }
 
 
@@ -125,8 +131,16 @@ class YtDlpPlaylist:
 
 
 class YtDlpSearcher:
+    _cache: dict = {}
+    _CACHE_TTL = 300
+
     @staticmethod
     async def search(query: str) -> list:
+        cache_key = f"search:{query}"
+        cached = YtDlpSearcher._cache.get(cache_key)
+        if cached and (time.time() - cached["ts"]) < YtDlpSearcher._CACHE_TTL:
+            return cached["tracks"]
+
         if query.startswith("ytsearch:"):
             raw_query = query[len("ytsearch:"):].strip()
             actual_query = f"ytsearch5:{raw_query}"
@@ -139,7 +153,7 @@ class YtDlpSearcher:
                 None,
                 lambda: yt_dlp.YoutubeDL(YTDL_SEARCH_OPTS).extract_info(actual_query, download=False)
             )
-        except Exception as e:
+        except Exception:
             return []
 
         if not info:
@@ -152,10 +166,17 @@ class YtDlpSearcher:
                 continue
             track = YtDlpTrack.from_info(entry)
             tracks.append(track)
+
+        YtDlpSearcher._cache[cache_key] = {"ts": time.time(), "tracks": tracks}
         return tracks
 
     @staticmethod
     async def extract_info(url: str) -> Optional[YtDlpTrack]:
+        cache_key = f"info:{url}"
+        cached = YtDlpSearcher._cache.get(cache_key)
+        if cached and (time.time() - cached["ts"]) < YtDlpSearcher._CACHE_TTL:
+            return cached["track"]
+
         loop = asyncio.get_event_loop()
         try:
             info = await loop.run_in_executor(
@@ -166,7 +187,9 @@ class YtDlpSearcher:
             return None
 
         if info:
-            return YtDlpTrack.from_info(info)
+            track = YtDlpTrack.from_info(info)
+            YtDlpSearcher._cache[cache_key] = {"ts": time.time(), "track": track}
+            return track
         return None
 
     @staticmethod

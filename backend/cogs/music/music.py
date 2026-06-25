@@ -74,25 +74,22 @@ class Music(commands.Cog):
     # ==========================================================
     async def _search_single_resolved(self, track: ResolvedTrack) -> YtDlpTrack | None:
         try:
-            artists = track.artists or ""
-            name = track.name or ""
-            if artists:
-                clean_query = f"{artists} - {name}"
-            else:
-                clean_query = name
+            query = (track.query or "").strip()
+            if not query:
+                artists = track.artists or ""
+                name = track.name or ""
+                query = f"{artists} - {name}" if artists else name
 
             for prefix in ["ytsearch:", "ytmsearch:", "scsearch:", "spsearch:"]:
-                if clean_query.lower().startswith(prefix):
-                    clean_query = clean_query[len(prefix):].strip()
+                if query.lower().startswith(prefix):
+                    query = query[len(prefix):].strip()
 
-            print(f"[YT SEARCH] {clean_query}")
+            if query.startswith("http://") or query.startswith("https://"):
+                return await YtDlpSearcher.extract_info(query)
 
-            results = await YtDlpSearcher.search(f"ytsearch:{clean_query}")
-
-            if results and len(results) > 0:
-                print(f"[YT FOUND] {results[0].title}")
+            results = await YtDlpSearcher.search(f"ytsearch:{query}")
+            if results:
                 return results[0]
-            print(f"[YT NOT FOUND] {clean_query}")
 
         except Exception as e:
             print(f"[YOUTUBE SEARCH ERROR] {track.name}: {e}")
@@ -101,7 +98,7 @@ class Music(commands.Cog):
     async def _search_youtube_for_tracks_concurrent(
         self,
         tracks: list[ResolvedTrack],
-        max_concurrent: int = 1,
+        max_concurrent: int = 3,
     ) -> tuple[int, list[YtDlpTrack]]:
         added = 0
         playables: list[YtDlpTrack | None] = [None] * len(tracks)
