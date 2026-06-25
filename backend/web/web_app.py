@@ -203,41 +203,41 @@ def api_music_queue_action():
 
 @app.route("/api/music/control", methods=["POST"])
 def api_music_control():
-    data = request.get_json() or {}
-
-    guild_id = data.get("guild_id")
-    action = data.get("action")
-
-    if not guild_id:
-        return jsonify({"success": False, "message": "guild_id required"}), 400
-
-    bot = get_bot_instance()
-    if not bot:
-        return jsonify({"success": False, "message": "Bot unavailable"}), 500
-
-    guild = bot.get_guild(int(guild_id))
-    if not guild:
-        return jsonify({"success": False, "message": "Guild not found"}), 404
-
-    vc = guild.voice_client
-    if not vc:
-        return jsonify({"success": False, "message": "Player not connected"}), 404
-
-    music_cog = bot.get_cog("Music")
-    if not music_cog:
-        return jsonify({"success": False, "message": "Music cog not loaded"}), 500
-
-    controller = music_cog.get_controller(int(guild_id))
-
     try:
+        data = request.get_json() or {}
+        guild_id = data.get("guild_id")
+        action = data.get("action")
+        print(f"[CONTROL] guild_id={guild_id} action={action} data={data}")
+
+        if not guild_id:
+            return jsonify({"success": False, "message": "guild_id required"}), 400
+
+        bot = get_bot_instance()
+        if not bot:
+            return jsonify({"success": False, "message": "Bot unavailable"}), 500
+
+        guild = bot.get_guild(int(guild_id))
+        if not guild:
+            return jsonify({"success": False, "message": "Guild not found"}), 404
+
+        vc = guild.voice_client
+        music_cog = bot.get_cog("Music")
+        if not music_cog:
+            return jsonify({"success": False, "message": "Music cog not loaded"}), 500
+
+        controller = music_cog.get_controller(int(guild_id))
+
         if action == "pause":
-            asyncio.run_coroutine_threadsafe(vc.pause(), bot.loop)
+            if vc: asyncio.run_coroutine_threadsafe(vc.pause(), bot.loop)
 
         elif action == "play":
-            asyncio.run_coroutine_threadsafe(vc.resume(), bot.loop)
+            if vc: asyncio.run_coroutine_threadsafe(vc.resume(), bot.loop)
 
-        elif action == "skip":
-            asyncio.run_coroutine_threadsafe(vc.stop(), bot.loop)
+        elif action in ("skip", "next"):
+            if vc: asyncio.run_coroutine_threadsafe(vc.stop(), bot.loop)
+
+        elif action == "prev":
+            pass  # no prev track support
 
         elif action == "stop":
             asyncio.run_coroutine_threadsafe(controller.stop(), bot.loop)
@@ -245,9 +245,13 @@ def api_music_control():
         elif action == "disconnect":
             asyncio.run_coroutine_threadsafe(controller.disconnect(), bot.loop)
 
+        elif action == "clear":
+            controller.queue.clear()
+            controller._queue_history.clear()
+
         elif action == "volume":
-            volume = int(data.get("volume", 100))
-            asyncio.run_coroutine_threadsafe(controller.set_volume(volume), bot.loop)
+            vol = int(data.get("volume", 100))
+            asyncio.run_coroutine_threadsafe(controller.set_volume(vol), bot.loop)
 
         elif action == "shuffle":
             import random
@@ -255,12 +259,35 @@ def api_music_control():
             controller._queue_history.clear()
 
         elif action == "loop":
-            mode = data.get("mode", "off")
-            controller.loop_mode = mode
-            if mode == "queue":
+            current = controller.loop_mode
+            modes = ["off", "single", "queue"]
+            idx = modes.index(current) if current in modes else 0
+            controller.loop_mode = modes[(idx + 1) % 3]
+            if controller.loop_mode == "queue":
                 controller._queue_history.clear()
-            if mode == "off":
+            if controller.loop_mode == "off":
                 controller._single_loop_track = None
+
+        elif action == "join":
+            channel_id = data.get("channel_id")
+            if channel_id:
+                ch = guild.get_channel(int(channel_id))
+                if ch:
+                    async def _join():
+                        try:
+                            await ch.connect(self_deaf=False)
+                        except Exception:
+                            pass
+                    asyncio.run_coroutine_threadsafe(_join(), bot.loop)
+
+        elif action == "setting":
+            pass  # settings handled elsewhere
+
+        elif action == "seek":
+            pct = data.get("position_pct", 0)
+            if controller.current_track:
+                pos_ms = int(controller.current_track.duration * pct)
+                asyncio.run_coroutine_threadsafe(controller.seek(pos_ms), bot.loop)
 
         else:
             return jsonify({"success": False, "message": f"Unknown action: {action}"}), 400
@@ -268,6 +295,7 @@ def api_music_control():
         return jsonify({"success": True, "action": action})
 
     except Exception as e:
+        print(f"[CONTROL ERROR] {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 
