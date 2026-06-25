@@ -6,6 +6,7 @@ import time
 import os
 import random
 import re
+from typing import Optional
 import aiohttp
 from datetime import datetime, timezone
 
@@ -173,18 +174,23 @@ class Music(commands.Cog):
     # COMMANDS
     # ==========================================================
     @app_commands.command(name="play", description="Putar lagu dari URL atau search query")
-    @app_commands.describe(query="URL (YouTube/Spotify/SoundCloud) atau nama lagu")
-    async def play(self, interaction: discord.Interaction, query: str):
+    @app_commands.describe(query="URL (YouTube/Spotify/SoundCloud) atau nama lagu", channel="Voice channel tujuan (opsional, default: channel kamu sekarang)")
+    async def play(
+        self,
+        interaction: discord.Interaction,
+        query: str,
+        channel: Optional[discord.VoiceChannel] = None,
+    ):
         print(f"[PLAY CMD] Called by {interaction.user} with query: {query}")
         try:
             await interaction.response.defer()
         except Exception as e:
             print(f"[PLAY CMD] defer error: {e}")
             return
-        if not interaction.user.voice or not interaction.user.voice.channel:
-            await interaction.followup.send("❌ Kamu harus join voice channel dulu!")
+        vc = channel or (interaction.user.voice.channel if interaction.user.voice else None)
+        if not vc:
+            await interaction.followup.send("❌ Kamu harus join voice channel dulu atau tentukan channel tujuan!")
             return
-        vc = interaction.user.voice.channel
         print(f"[PLAY CMD] Voice channel: {vc.name}")
 
         voice_client = interaction.guild.voice_client
