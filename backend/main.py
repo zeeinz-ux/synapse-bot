@@ -229,6 +229,92 @@ async def update_stats():
 async def before_update_stats():
     await bot.wait_until_ready()
 
+# ===== [DASHBOARD] Control command processor (file-based IPC) =====
+CONTROL_QUEUE_DIR = "/tmp/discord_control_queue"
+
+async def _exec_control(cmd: dict):
+    guild_id = cmd.get("guild_id")
+    action = cmd.get("action")
+    data = cmd.get("data", {})
+    if not guild_id or not action:
+        return
+    guild = bot.get_guild(int(guild_id))
+    if not guild:
+        return
+    cog = bot.get_cog("Music")
+    if not cog:
+        return
+    vc = guild.voice_client
+    controller = cog.get_controller(int(guild_id))
+
+    if action == "pause":
+        if vc: await vc.pause()
+    elif action == "play":
+        if vc: await vc.resume()
+    elif action in ("skip", "next"):
+        if vc: vc.stop()
+    elif action == "stop":
+        await controller.stop()
+    elif action == "disconnect":
+        await controller.disconnect()
+    elif action == "clear":
+        controller.queue.clear()
+        controller._queue_history.clear()
+    elif action == "volume":
+        vol = int(data.get("volume", 100))
+        await controller.set_volume(vol)
+    elif action == "shuffle":
+        import random
+        random.shuffle(controller.queue)
+        controller._queue_history.clear()
+    elif action == "loop":
+        modes = ["off", "single", "queue"]
+        current = controller.loop_mode
+        idx = modes.index(current) if current in modes else 0
+        controller.loop_mode = modes[(idx + 1) % 3]
+        if controller.loop_mode == "queue":
+            controller._queue_history.clear()
+        if controller.loop_mode == "off":
+            controller._single_loop_track = None
+    elif action == "join":
+        channel_id = data.get("channel_id")
+        if channel_id:
+            ch = guild.get_channel(int(channel_id))
+            if ch:
+                try:
+                    await ch.connect(self_deaf=False)
+                except Exception:
+                    pass
+    elif action == "seek":
+        pct = data.get("position_pct", 0)
+        if controller.current_track:
+            pos_ms = int(controller.current_track.duration * pct)
+            await controller.seek(pos_ms)
+
+@tasks.loop(seconds=1)
+async def process_control_queue():
+    if not os.path.isdir(CONTROL_QUEUE_DIR):
+        return
+    try:
+        files = sorted(os.listdir(CONTROL_QUEUE_DIR))
+        for fname in files:
+            if not fname.endswith(".json"):
+                continue
+            fpath = os.path.join(CONTROL_QUEUE_DIR, fname)
+            try:
+                with open(fpath) as f:
+                    cmd = json.load(f)
+                await _exec_control(cmd)
+            except Exception as e:
+                print(f"[CONTROL QUEUE] Error processing {fname}: {e}")
+            finally:
+                try:
+                    os.remove(fpath)
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[CONTROL QUEUE] Scan error: {e}")
+
 
 @bot.event
 async def on_ready():
@@ -288,6 +374,10 @@ async def on_ready():
     if not update_stats.is_running():
         update_stats.start()
         print("[DASHBOARD] Stats updater aktif (5s).")
+
+    if not process_control_queue.is_running():
+        process_control_queue.start()
+        print("[DASHBOARD] Control queue processor aktif (1s).")
 
     print("=" * 50)
 

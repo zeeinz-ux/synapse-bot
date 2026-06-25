@@ -1,4 +1,6 @@
 import os
+import json
+import time
 import threading
 import base64
 import traceback
@@ -201,98 +203,31 @@ def api_music_queue_action():
     })
 
 
+CONTROL_QUEUE_DIR = "/tmp/discord_control_queue"
+
+def _ensure_queue_dir():
+    os.makedirs(CONTROL_QUEUE_DIR, exist_ok=True)
+
 @app.route("/api/music/control", methods=["POST"])
 def api_music_control():
     try:
         data = request.get_json() or {}
         guild_id = data.get("guild_id")
         action = data.get("action")
-        print(f"[CONTROL] guild_id={guild_id} action={action} data={data}")
 
         if not guild_id:
             return jsonify({"success": False, "message": "guild_id required"}), 400
+        if not action:
+            return jsonify({"success": False, "message": "action required"}), 400
 
-        bot = get_bot_instance()
-        if not bot:
-            return jsonify({"success": False, "message": "Bot unavailable"}), 500
+        _ensure_queue_dir()
+        cmd_id = f"{int(time.time())}_{os.urandom(4).hex()}"
+        cmd_file = os.path.join(CONTROL_QUEUE_DIR, f"{cmd_id}.json")
 
-        guild = bot.get_guild(int(guild_id))
-        if not guild:
-            return jsonify({"success": False, "message": "Guild not found"}), 404
+        with open(cmd_file, "w") as f:
+            json.dump({"guild_id": guild_id, "action": action, "data": data, "id": cmd_id}, f)
 
-        vc = guild.voice_client
-        music_cog = bot.get_cog("Music")
-        if not music_cog:
-            return jsonify({"success": False, "message": "Music cog not loaded"}), 500
-
-        controller = music_cog.get_controller(int(guild_id))
-
-        if action == "pause":
-            if vc: asyncio.run_coroutine_threadsafe(vc.pause(), bot.loop)
-
-        elif action == "play":
-            if vc: asyncio.run_coroutine_threadsafe(vc.resume(), bot.loop)
-
-        elif action in ("skip", "next"):
-            if vc: asyncio.run_coroutine_threadsafe(vc.stop(), bot.loop)
-
-        elif action == "prev":
-            pass  # no prev track support
-
-        elif action == "stop":
-            asyncio.run_coroutine_threadsafe(controller.stop(), bot.loop)
-
-        elif action == "disconnect":
-            asyncio.run_coroutine_threadsafe(controller.disconnect(), bot.loop)
-
-        elif action == "clear":
-            controller.queue.clear()
-            controller._queue_history.clear()
-
-        elif action == "volume":
-            vol = int(data.get("volume", 100))
-            asyncio.run_coroutine_threadsafe(controller.set_volume(vol), bot.loop)
-
-        elif action == "shuffle":
-            import random
-            random.shuffle(controller.queue)
-            controller._queue_history.clear()
-
-        elif action == "loop":
-            current = controller.loop_mode
-            modes = ["off", "single", "queue"]
-            idx = modes.index(current) if current in modes else 0
-            controller.loop_mode = modes[(idx + 1) % 3]
-            if controller.loop_mode == "queue":
-                controller._queue_history.clear()
-            if controller.loop_mode == "off":
-                controller._single_loop_track = None
-
-        elif action == "join":
-            channel_id = data.get("channel_id")
-            if channel_id:
-                ch = guild.get_channel(int(channel_id))
-                if ch:
-                    async def _join():
-                        try:
-                            await ch.connect(self_deaf=False)
-                        except Exception:
-                            pass
-                    asyncio.run_coroutine_threadsafe(_join(), bot.loop)
-
-        elif action == "setting":
-            pass  # settings handled elsewhere
-
-        elif action == "seek":
-            pct = data.get("position_pct", 0)
-            if controller.current_track:
-                pos_ms = int(controller.current_track.duration * pct)
-                asyncio.run_coroutine_threadsafe(controller.seek(pos_ms), bot.loop)
-
-        else:
-            return jsonify({"success": False, "message": f"Unknown action: {action}"}), 400
-
-        return jsonify({"success": True, "action": action})
+        return jsonify({"success": True, "action": action, "queued": True})
 
     except Exception as e:
         print(f"[CONTROL ERROR] {e}")
