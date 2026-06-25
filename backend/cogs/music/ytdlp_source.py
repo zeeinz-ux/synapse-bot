@@ -258,6 +258,133 @@ class YtDlpSearcher:
         return YtDlpPlaylist(name=playlist_name, tracks=tracks)
 
 
+class NowPlayingView(discord.ui.View):
+    def __init__(self, controller: "MusicController"):
+        super().__init__(timeout=None)
+        self.controller = controller
+        self._loop_emojis = {"off": "➡️", "single": "🔂", "queue": "🔁"}
+
+    async def _auth(self, i: discord.Interaction) -> bool:
+        if not i.user.voice or i.user.voice.channel.id != self.controller.vc.channel.id:
+            await i.response.send_message("Join the bot's voice channel first", ephemeral=True)
+            return False
+        return True
+
+    async def _ok(self, i: discord.Interaction, msg: str):
+        if i.response.is_done():
+            await i.followup.send(msg, ephemeral=True)
+        else:
+            await i.response.send_message(msg, ephemeral=True)
+
+    async def _sync(self):
+        if self.controller._now_playing_msg:
+            try:
+                await self.controller._now_playing_msg.edit(
+                    embed=self.controller._build_np_embed(), view=self)
+            except Exception:
+                pass
+
+    @discord.ui.button(emoji="⏸️", style=discord.ButtonStyle.secondary, custom_id="np_pause")
+    async def pause_btn(self, i: discord.Interaction, btn: discord.ui.Button):
+        if not await self._auth(i):
+            return
+        c = self.controller
+        if c._paused:
+            c.vc.resume()
+            c._paused = False
+            c._start_time = time.time() - c._paused_position
+            btn.emoji = "⏸️"
+            await self._ok(i, "▶️ Resumed")
+        else:
+            c._paused_position = time.time() - c._start_time
+            c.vc.pause()
+            c._paused = True
+            btn.emoji = "▶️"
+            await self._ok(i, "⏸️ Paused")
+        await self._sync()
+
+    @discord.ui.button(emoji="⏭️", style=discord.ButtonStyle.secondary, custom_id="np_skip")
+    async def skip_btn(self, i: discord.Interaction, btn: discord.ui.Button):
+        if not await self._auth(i):
+            return
+        if not self.controller.queue:
+            return await self._ok(i, "❌ No more tracks in queue")
+        self.controller.vc.stop()
+        await self._ok(i, f"⏭️ Skipped")
+
+    @discord.ui.button(emoji="⏹️", style=discord.ButtonStyle.danger, custom_id="np_stop")
+    async def stop_btn(self, i: discord.Interaction, btn: discord.ui.Button):
+        if not await self._auth(i):
+            return
+        await self.controller.stop()
+        await self._ok(i, "⏹️ Stopped")
+
+    @discord.ui.button(emoji="📋", style=discord.ButtonStyle.primary, custom_id="np_queue")
+    async def queue_btn(self, i: discord.Interaction, btn: discord.ui.Button):
+        if not await self._auth(i):
+            return
+        c = self.controller
+        lines = []
+        if c.current_track:
+            lines.append(f"**▶️ Now:** {c.current_track.title}")
+        for n, t in enumerate(c.queue[:10], 1):
+            lines.append(f"`{n}.` {t.title}")
+        if len(c.queue) > 10:
+            lines.append(f"*...and {len(c.queue)-10} more*")
+        await self._ok(i, "\n".join(lines) or "Queue is empty")
+
+    @discord.ui.button(emoji="🔀", style=discord.ButtonStyle.secondary, custom_id="np_shuffle")
+    async def shuffle_btn(self, i: discord.Interaction, btn: discord.ui.Button):
+        if not await self._auth(i):
+            return
+        import random
+        random.shuffle(self.controller.queue)
+        await self._ok(i, f"🔀 Shuffled {len(self.controller.queue)} tracks")
+
+    @discord.ui.button(emoji="🔊", style=discord.ButtonStyle.secondary, custom_id="np_volume")
+    async def volume_btn(self, i: discord.Interaction, btn: discord.ui.Button):
+        if not await self._auth(i):
+            return
+        class _Modal(discord.ui.Modal):
+            def __init__(self, c):
+                super().__init__(title="Volume")
+                self.c = c
+                self.input = discord.ui.TextInput(label="Volume (0-1000)", placeholder=str(c._volume), max_length=4)
+                self.add_item(self.input)
+            async def on_submit(self, m: discord.Interaction):
+                try:
+                    v = max(0, min(1000, int(self.input.value)))
+                    await self.c.set_volume(v)
+                    await m.response.send_message(f"🔊 Volume **{v}**", ephemeral=True)
+                except ValueError:
+                    await m.response.send_message("❌ Not a number", ephemeral=True)
+        await i.response.send_modal(_Modal(self.controller))
+
+    @discord.ui.button(emoji="➡️", style=discord.ButtonStyle.secondary, custom_id="np_loop")
+    async def loop_btn(self, i: discord.Interaction, btn: discord.ui.Button):
+        if not await self._auth(i):
+            return
+        c = self.controller
+        c.loop_mode = {"off": "single", "single": "queue", "queue": "off"}.get(c.loop_mode, "off")
+        btn.emoji = self._loop_emojis.get(c.loop_mode, "➡️")
+        if c.loop_mode == "queue":
+            c._queue_history.clear()
+        if c.loop_mode == "off":
+            c._single_loop_track = None
+        await self._ok(i, f"Loop: {c.loop_mode}")
+        await self._sync()
+
+    @discord.ui.button(emoji="🎲", style=discord.ButtonStyle.secondary, custom_id="np_autoplay")
+    async def autoplay_btn(self, i: discord.Interaction, btn: discord.ui.Button):
+        if not await self._auth(i):
+            return
+        c = self.controller
+        c.autoplay = not c.autoplay
+        btn.style = discord.ButtonStyle.success if c.autoplay else discord.ButtonStyle.secondary
+        await self._ok(i, f"Autoplay: {'ON' if c.autoplay else 'OFF'}")
+        await self._sync()
+
+
 class MusicController:
     def __init__(self, voice_client, text_channel=None):
         self.vc = voice_client
@@ -368,11 +495,12 @@ class MusicController:
 
     async def _update_now_playing(self):
         embed = self._build_np_embed()
+        view = NowPlayingView(self) if self.current_track else None
         try:
             if self._now_playing_msg:
-                await self._now_playing_msg.edit(embed=embed)
+                await self._now_playing_msg.edit(embed=embed, view=view)
             elif self.home:
-                self._now_playing_msg = await self.home.send(embed=embed)
+                self._now_playing_msg = await self.home.send(embed=embed, view=view)
         except discord.NotFound:
             self._now_playing_msg = None
         except discord.Forbidden:
@@ -443,13 +571,8 @@ class MusicController:
     async def _update_status(self, text: str):
         if self._now_playing_msg:
             try:
-                embed = self._now_playing_msg.embeds[0] if self._now_playing_msg.embeds else None
-                if embed:
-                    new_embed = discord.Embed(
-                        title=text,
-                        color=discord.Color.blue(),
-                    )
-                    await self._now_playing_msg.edit(embed=new_embed)
+                embed = discord.Embed(title=text, color=discord.Color.blue())
+                await self._now_playing_msg.edit(embed=embed)
             except Exception:
                 pass
         elif self.home:
@@ -570,7 +693,8 @@ class MusicController:
         if self._now_playing_msg:
             try:
                 await self._now_playing_msg.edit(
-                    embed=discord.Embed(title="⏹️ Stopped", color=discord.Color.dark_gray())
+                    embed=discord.Embed(title="⏹️ Stopped", color=discord.Color.dark_gray()),
+                    view=None,
                 )
             except Exception:
                 pass
