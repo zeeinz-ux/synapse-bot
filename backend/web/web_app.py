@@ -209,85 +209,66 @@ def api_music_control():
     action = data.get("action")
 
     if not guild_id:
-        return jsonify({
-            "success": False,
-            "message": "guild_id required"
-        }), 400
+        return jsonify({"success": False, "message": "guild_id required"}), 400
 
     bot = get_bot_instance()
-
     if not bot:
-        return jsonify({
-            "success": False,
-            "message": "Bot unavailable"
-        }), 500
+        return jsonify({"success": False, "message": "Bot unavailable"}), 500
 
     guild = bot.get_guild(int(guild_id))
-
     if not guild:
-        return jsonify({
-            "success": False,
-            "message": "Guild not found"
-        }), 404
+        return jsonify({"success": False, "message": "Guild not found"}), 404
 
-    player = guild.voice_client
+    vc = guild.voice_client
+    if not vc:
+        return jsonify({"success": False, "message": "Player not connected"}), 404
 
-    if not player:
-        return jsonify({
-            "success": False,
-            "message": "Player not connected"
-        }), 404
+    music_cog = bot.get_cog("Music")
+    if not music_cog:
+        return jsonify({"success": False, "message": "Music cog not loaded"}), 500
+
+    controller = music_cog.get_controller(int(guild_id))
 
     try:
-
         if action == "pause":
-            asyncio.run_coroutine_threadsafe(
-                player.pause(True),
-                bot.loop
-            )
+            asyncio.run_coroutine_threadsafe(vc.pause(), bot.loop)
 
         elif action == "play":
-            asyncio.run_coroutine_threadsafe(
-                player.pause(False),
-                bot.loop
-            )
+            asyncio.run_coroutine_threadsafe(vc.resume(), bot.loop)
 
         elif action == "skip":
-            asyncio.run_coroutine_threadsafe(
-                player.stop(),
-                bot.loop
-            )
+            asyncio.run_coroutine_threadsafe(vc.stop(), bot.loop)
 
         elif action == "stop":
-            asyncio.run_coroutine_threadsafe(
-                player.stop(),
-                bot.loop
-            )
+            asyncio.run_coroutine_threadsafe(controller.stop(), bot.loop)
 
         elif action == "disconnect":
-            asyncio.run_coroutine_threadsafe(
-                player.disconnect(),
-                bot.loop
-            )
+            asyncio.run_coroutine_threadsafe(controller.disconnect(), bot.loop)
 
         elif action == "volume":
             volume = int(data.get("volume", 100))
+            asyncio.run_coroutine_threadsafe(controller.set_volume(volume), bot.loop)
 
-            asyncio.run_coroutine_threadsafe(
-                player.set_volume(volume),
-                bot.loop
-            )
+        elif action == "shuffle":
+            import random
+            random.shuffle(controller.queue)
+            controller._queue_history.clear()
 
-        return jsonify({
-            "success": True,
-            "action": action
-        })
+        elif action == "loop":
+            mode = data.get("mode", "off")
+            controller.loop_mode = mode
+            if mode == "queue":
+                controller._queue_history.clear()
+            if mode == "off":
+                controller._single_loop_track = None
+
+        else:
+            return jsonify({"success": False, "message": f"Unknown action: {action}"}), 400
+
+        return jsonify({"success": True, "action": action})
 
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
     
