@@ -23,6 +23,9 @@ def _find_ffmpeg() -> str:
     for path in common_paths:
         if os.path.isfile(path):
             return path
+
+    print("[FFMPEG] ⚠️ ffmpeg tidak ditemukan di PATH. Musik mungkin tidak berfungsi.")
+    print("[FFMPEG] Install: https://ffmpeg.org/download.html")
     return "ffmpeg"
 
 
