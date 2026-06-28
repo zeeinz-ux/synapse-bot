@@ -103,16 +103,19 @@ class Music(commands.Cog):
 
             target_dur = track.duration_ms
 
+            bad_keywords = ["how to", "tutorial", "review", "guide", "spotify promo", "podcast", "thank you", "listeners"]
+
             search_queries = []
             if artists:
                 search_queries = [
-                    f"ytsearch:{artists} - {name}",
-                    f"ytsearch:{artists} {name} official audio",
+                    f"ytmsearch:{artists} - {name} official audio",
+                    f"ytmsearch:{artists} - {name}",
+                    f"ytmsearch:{artists} {name} audio",
+                    f"ytsearch:{artists} - {name} official audio",
                     f"ytsearch:{artists} {name} lyrics",
-                    f"ytsearch:{artists} {name}",
                 ]
             else:
-                search_queries = [f"ytsearch:{name}"]
+                search_queries = [f"ytmsearch:{name} audio", f"ytsearch:{name}"]
 
             for sq in search_queries:
                 results = await YtDlpSearcher.search(sq)
@@ -121,16 +124,22 @@ class Music(commands.Cog):
 
                 candidates = []
                 for r in results:
+                    lower_title = (r.title or "").lower()
+                    if any(bk in lower_title for bk in bad_keywords):
+                        continue
                     score = self._title_similarity(f"{artists} {name}", f"{r.author or ''} {r.title or ''}")
                     dur_diff = abs((r.duration or 0) - (target_dur or 0)) if target_dur else 0
                     candidates.append((r, score, dur_diff))
+
+                if not candidates:
+                    continue
 
                 candidates.sort(key=lambda x: (-x[1], x[2]))
                 best, best_score, best_diff = candidates[0]
 
                 if target_dur and best_diff < 3000:
                     return best
-                if best_score > 0.5:
+                if best_score > 0.35:
                     return best
                 if sq == search_queries[-1]:
                     return best
@@ -338,7 +347,7 @@ class Music(commands.Cog):
                         clean_query = clean_query[len(prefix):].strip()
 
                 try:
-                    tracks = await YtDlpSearcher.search(f"ytsearch:{clean_query}")
+                    tracks = await YtDlpSearcher.search(f"ytmsearch:{clean_query}")
                 except Exception as e:
                     print(f"[SPOTIFY TRACK ERROR] {e}")
                     await loading_msg.edit(content=f"❌ Gagal mencari lagu di YouTube.\n`{e}`")
@@ -518,7 +527,7 @@ class Music(commands.Cog):
         try:
             # Kita coba search dengan prefix ytsearch agar lebih stabil
             tracks = await asyncio.wait_for(
-                YtDlpSearcher.search(f"ytsearch:{clean_input}"),
+                YtDlpSearcher.search(f"ytmsearch:{clean_input}"),
                 timeout=30.0,
             )
             print(f"[PLAY CMD] Search returned: count: {len(tracks) if tracks else 0}")

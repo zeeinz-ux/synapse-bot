@@ -905,10 +905,10 @@ class MusicController:
         title_words = [w for w in (last.title or "").split() if len(w) > 3]
         if title_words:
             kw = _random.choice(title_words)
-            queries.append(f"ytsearch:{last.author} {kw}")
+            queries.append(f"ytmsearch:{last.author} {kw}")
 
         # 2. Same-author mix (original fallback)
-        queries.append(f"ytsearch:{last.author} mix")
+        queries.append(f"ytmsearch:{last.author} - {last.title}")
 
         # 3. Genre-based — guess a genre from title + author
         title_lower = (last.title or "").lower()
@@ -916,9 +916,9 @@ class MusicController:
         matched = [g for g in self._GENRE_SEEDS if g in title_lower or g in author_lower]
         if matched:
             genre = _random.choice(matched)
-            queries.append(f"ytsearch:{genre} music mix")
+            queries.append(f"ytmsearch:{genre} music")
         else:
-            queries.append(f"ytsearch:{_random.choice(self._GENRE_SEEDS)} music mix")
+            queries.append(f"ytmsearch:{_random.choice(self._GENRE_SEEDS)} music")
 
         _random.shuffle(queries)
 

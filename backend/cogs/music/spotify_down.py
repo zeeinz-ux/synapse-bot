@@ -443,7 +443,7 @@ class SpotifyResolver:
         meta = await _get_spotify_metadata_oembed(session, original_url)
         if meta and meta.get("name"):
             artist_name = meta.get("name", "")
-            query = f"ytsearch:{artist_name} top tracks"
+            query = f"ytmsearch:{artist_name} top tracks"
             return [
                 ResolvedTrack(
                     name=f"{artist_name} - Top Tracks",
@@ -500,7 +500,7 @@ class SpotifyResolver:
                     artwork=meta.get("artwork"),
                     spotify_id=playlist_id,
                     youtube_id=None,
-                    query=f"ytsearch:{meta['name']} {meta['artists']} playlist",
+                    query=f"ytmsearch:{meta['name']} {meta['artists']} playlist",
                     source="oembed",
                 )
             ], "oembed"
@@ -516,7 +516,7 @@ class SpotifyResolver:
                     artwork=meta.get("artwork"),
                     spotify_id=playlist_id,
                     youtube_id=None,
-                    query=f"ytsearch:{meta['name']} {meta['artists']} playlist",
+                    query=f"ytmsearch:{meta['name']} {meta['artists']} playlist",
                     source="html_scrape",
                 )
             ], "html_scrape"
@@ -563,7 +563,7 @@ class SpotifyResolver:
                     artwork=meta.get("artwork"),
                     spotify_id=album_id,
                     youtube_id=None,
-                    query=f"ytsearch:{meta['name']} {meta['artists']} album",
+                    query=f"ytmsearch:{meta['name']} {meta['artists']} album",
                     source="oembed",
                 )
             ], "oembed"
@@ -632,9 +632,9 @@ class SpotifyResolver:
                     spotify_id=track_id,
                     youtube_id=None,
                     query=(
-                        f"ytsearch:{meta['artist']} - {meta['title']}"
+                        f"ytmsearch:{meta['artist']} - {meta['title']}"
                         if meta.get('artist') and meta['artist'] != "Spotify"
-                        else f"ytsearch:{meta['title']}"
+                        else f"ytmsearch:{meta['title']}"
                     ),
                     source="oembed_track",
                 )
@@ -651,7 +651,7 @@ class SpotifyResolver:
                     artwork=meta.get("artwork"),
                     spotify_id=track_id,
                     youtube_id=None,
-                    query=f"ytsearch:{meta['name']} {meta['artists']}",
+                    query=f"ytmsearch:{meta['name']} {meta['artists']}",
                     source="oembed",
                 )
             ], "oembed"
@@ -713,9 +713,9 @@ class SpotifyResolver:
                     spotify_id=track_id,
                     youtube_id=None,
                     query=(
-                        f"ytsearch:{artist} - {title}"
+                        f"ytmsearch:{artist} - {title}"
                         if artist and artist != "Spotify"
-                        else f"ytsearch:{title}"
+                        else f"ytmsearch:{title}"
                     ),
                     source="scrape_oembed",
                 )
@@ -744,11 +744,11 @@ class SpotifyResolver:
             artwork = t.get("cover", t.get("album_cover", t.get("artwork", "")))
             tid = t.get("id", "")
             yt_id = t.get("youtube_id") or t.get("yt_id")
-            query = (
-                f"https://youtube.com/watch?v={yt_id}"
-                if yt_id
-                else f"ytsearch:{artists} - {name}"
-            )
+query = (
+    f"https://youtube.com/watch?v={yt_id}"
+    if yt_id
+    else f"ytmsearch:{artists} - {name}"
+)
 
             result.append(
                 ResolvedTrack(
@@ -780,7 +780,7 @@ class SpotifyResolver:
             if images:
                 artwork = images[0].get("url")
 
-        query = f"ytsearch:{artists} - {name}".strip()
+        query = f"ytmsearch:{artists} - {name}".strip()
 
         return ResolvedTrack(
             name=name,
