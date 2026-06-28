@@ -81,6 +81,21 @@
     padding: 12px;
     gap: 14px;
   }
+  #np-controls-panel {
+    flex-direction: column;
+  }
+}
+
+/* Controls panel — side-by-side on desktop, stacked on mobile */
+#np-controls-panel {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+}
+#np-controls-panel > .np-card {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Cards */
