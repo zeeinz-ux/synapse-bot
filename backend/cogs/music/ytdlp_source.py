@@ -198,9 +198,12 @@ async def _web_search_youtube(session, query: str) -> list:
     try:
         async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
             if resp.status != 200:
+                logger.warning(f"[WEB SCRAPE] HTTP {resp.status} for q={query}")
                 return []
             html = await resp.text()
+            logger.info(f"[WEB SCRAPE] q={query} → got {len(html)} bytes")
             ids = re.findall(r'/watch\?v=([a-zA-Z0-9_-]{11})', html)
+            logger.info(f"[WEB SCRAPE] q={query} → found {len(ids)} raw video IDs")
             seen = set()
             unique = []
             for vid in ids:
@@ -209,9 +212,10 @@ async def _web_search_youtube(session, query: str) -> list:
                     unique.append(f"https://youtube.com/watch?v={vid}")
                     if len(unique) >= 5:
                         break
+            logger.info(f"[WEB SCRAPE] q={query} → returning {len(unique)} unique URLs")
             return unique
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[WEB SCRAPE] Exception for q={query}: {e}")
     return []
 
 
@@ -420,6 +424,7 @@ class YtDlpSearcher:
     async def _yt_video_details(video_id: str) -> Optional[dict]:
         api_key = os.getenv("YOUTUBE_API_KEY", "")
         if not api_key:
+            logger.warning("[YT DETAILS] No API key")
             return None
         try:
             async with aiohttp.ClientSession() as session:
@@ -428,21 +433,27 @@ class YtDlpSearcher:
                                        params=params,
                                        timeout=aiohttp.ClientTimeout(total=5)) as resp:
                     if resp.status != 200:
+                        err = await resp.text()
+                        logger.warning(f"[YT DETAILS] HTTP {resp.status} for {video_id}: {err[:100]}")
                         return None
                     data = await resp.json()
                     items = data.get("items", [])
                     if not items:
+                        logger.warning(f"[YT DETAILS] No items for {video_id}")
                         return None
                     item = items[0]
                     snip = item.get("snippet", {})
                     cd = item.get("contentDetails", {})
-                    return {
+                    result = {
                         "title": snip.get("title", "Unknown"),
                         "author": snip.get("channelTitle", "Unknown"),
                         "duration": YtDlpSearcher._parse_iso8601_duration(cd.get("duration", "")),
                         "thumbnail": snip.get("thumbnails", {}).get("high", {}).get("url", ""),
                     }
-        except Exception:
+                    logger.info(f"[YT DETAILS] {video_id} → {result['title']}")
+                    return result
+        except Exception as e:
+            logger.warning(f"[YT DETAILS] Exception for {video_id}: {e}")
             return None
 
     @staticmethod
