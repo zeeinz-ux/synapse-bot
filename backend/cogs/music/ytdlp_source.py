@@ -278,15 +278,7 @@ class NowPlayingView(discord.ui.View):
         if not i.user.voice or i.user.voice.channel.id != self.controller.vc.channel.id:
             await i.response.send_message("Join the bot's voice channel first", ephemeral=True)
             return False
-        if i.user.guild_permissions.administrator:
-            return True
-        if any(r.name.lower() == "dj" for r in i.user.roles):
-            return True
-        await i.response.send_message(
-            "Kamu harus memiliki role DJ atau Administrator untuk menggunakan kontrol ini!",
-            ephemeral=True
-        )
-        return False
+        return True
 
     async def _ok(self, i: discord.Interaction, msg: str):
         if i.response.is_done():
