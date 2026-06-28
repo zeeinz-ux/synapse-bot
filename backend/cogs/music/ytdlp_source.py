@@ -758,7 +758,7 @@ class MusicController:
             source = discord.FFmpegPCMAudio(file_path, executable=FFMPEG_PATH)
             vol_source = discord.PCMVolumeTransformer(source, volume=self._volume / 100.0)
             
-            self.vc.play(vol_source, after=lambda e: print(f"[DEBUG PLAY] Selesai/Error callback: {e}"))
+            self.vc.play(vol_source, after=self._on_track_end_wrapper)
             
             print("[DEBUG PLAY] self.vc.play() berhasil dipanggil.")
             self._start_time = time.time()
