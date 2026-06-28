@@ -115,21 +115,22 @@ def _find_ffmpeg() -> str:
 FFMPEG_PATH = _find_ffmpeg()
 _AUTH_OPTS = _get_ytdlp_auth_opts()
 
+# [FIX 1] Format selector yang lebih robust dengan fallback chain
+# bestaudio/best kadang fail karena YouTube serve format merged doang
 YTDL_OPTS = {
-    "format": "bestaudio/best", 
+    "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best", 
     "quiet": True, 
     "no_warnings": True,
     "extract_flat": False, 
     "noplaylist": True, 
     "socket_timeout": 10,
     "retries": 1, 
-    "proxy": os.getenv("YTDLP_PROXY"), # TAMBAHKAN INI
+    "proxy": os.getenv("YTDLP_PROXY"),
     **_AUTH_OPTS,
 }
 
-# Ubah YTDL_SEARCH_OPTS jadi begini:
 YTDL_SEARCH_OPTS = {
-    "format": "bestaudio/best", 
+    "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best", 
     "quiet": True, 
     "no_warnings": True,
     "default_search": "ytsearch", 
@@ -137,7 +138,7 @@ YTDL_SEARCH_OPTS = {
     "noplaylist": False, 
     "socket_timeout": 10, 
     "retries": 1, 
-    "proxy": os.getenv("YTDLP_PROXY"), # TAMBAHKAN INI
+    "proxy": os.getenv("YTDLP_PROXY"),
     **_AUTH_OPTS,
 }
 
@@ -232,7 +233,6 @@ class YtDlpSearcher:
     _cache: dict = {}
     _CACHE_TTL = 300
 
-    # [AUDIT FIX 3] Sintaks dekorator ganda @staticmethod sudah dibersihkan
     @staticmethod
     def _parse_iso8601_duration(duration_str: str) -> int:
         if not duration_str:
@@ -269,7 +269,6 @@ class YtDlpSearcher:
     def _yt_api_cache_write(query: str, tracks: list):
         path = YtDlpSearcher._yt_api_cache_path(query)
         try:
-            # [AUDIT FIX 1] Menyimpan seluruh argumen wajib agar tidak TypeError saat dibaca
             data = [{
                 "title": t.title, "uri": t.uri, "author": t.author,
                 "duration": t.duration, "artwork": t.artwork,
@@ -651,8 +650,8 @@ class MusicController:
         h = hashlib.md5(url.encode()).hexdigest()
         return os.path.join(CACHE_DIR, f"{h}.opus")
 
+    # [FIX 2] Download dengan multiple format fallback dan Cobalt API yang diperbaiki
     async def _download_track(self, url: str) -> Optional[str]:
-        # [AUDIT FIX 5] Cek kemurnian URL sebelum masuk ke fungsi shell
         if not url or not isinstance(url, str) or not re.match(r'^https?://[^\s]+$', url):
             logger.error(f"[SECURITY] URL ditolak karena format mencurigakan: {url!r}")
             return None
@@ -661,56 +660,124 @@ class MusicController:
         if os.path.isfile(dest):
             return dest
 
+        # [FIX 2a] Coba yt-dlp dengan format fallback chain
+        format_attempts = [
+            "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
+            "bestaudio/best",
+            "best",
+        ]
+
+        for fmt in format_attempts:
+            try:
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    _YTDLP_EXECUTOR,
+                    lambda: subprocess.run(
+                        ["yt-dlp", "-f", fmt, "-o", dest, "--no-part", "--no-progress", 
+                         "--extract-audio", "--audio-format", "opus", url, *YTDLP_AUTH_ARGS],
+                        capture_output=True, text=True, timeout=120,
+                    )
+                )
+                if result.returncode == 0 and os.path.isfile(dest):
+                    logger.info(f"[DOWNLOAD] yt-dlp sukses dengan format: {fmt}")
+                    return dest
+                if result.returncode == 0:
+                    prefix = dest.rsplit(".", 1)[0]
+                    matches = glob.glob(prefix + ".*")
+                    if matches:
+                        os.rename(matches[0], dest)
+                        if os.path.isfile(dest):
+                            logger.info(f"[DOWNLOAD] yt-dlp sukses (renamed): {dest}")
+                            return dest
+                # Log stderr untuk debug
+                if result.stderr:
+                    logger.warning(f"[DOWNLOAD] yt-dlp format '{fmt}' stderr: {result.stderr[:200]}")
+            except Exception as e:
+                logger.warning(f"[DOWNLOAD] yt-dlp format '{fmt}' exception: {e}")
+                continue
+
+        # [FIX 2b] Cobalt API dengan endpoint baru dan parameter yang benar
+        logger.info(f"[DOWNLOAD] yt-dlp semua format gagal untuk {url[:50]}..., beralih ke Cobalt API")
+
+        cobalt_endpoints = [
+            "https://api.cobalt.tools/api/json",
+            "https://co.wuk.sh/api/json",
+        ]
+
+        for endpoint in cobalt_endpoints:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    # Cobalt API v7+ parameter format
+                    payload = {
+                        "url": url,
+                        "downloadMode": "audio",
+                        "audioFormat": "mp3",
+                        "filenamePattern": "basic",
+                    }
+                    async with session.post(
+                        endpoint,
+                        json=payload,
+                        headers={
+                            "Content-Type": "application/json",
+                            "Accept": "application/json",
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                        },
+                        timeout=aiohttp.ClientTimeout(total=30),
+                    ) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            # Cobalt v7 response format: { "status": "tunnel" | "redirect", "url": "..." }
+                            stream_url = data.get("url") or data.get("stream")
+                            if stream_url:
+                                logger.info(f"[DOWNLOAD] Cobalt ({endpoint}) mendapatkan stream URL, mengunduh ke {dest}...")
+                                async with session.get(stream_url, timeout=aiohttp.ClientTimeout(total=120)) as sr:
+                                    if sr.status == 200:
+                                        with open(dest, "wb") as f:
+                                            while True:
+                                                chunk = await sr.content.read(65536)
+                                                if not chunk:
+                                                    break
+                                                f.write(chunk)
+                                        if os.path.isfile(dest):
+                                            logger.info(f"[DOWNLOAD] Cobalt unduh sukses: {dest}")
+                                            return dest
+                        else:
+                            body = await resp.text()
+                            logger.warning(f"[DOWNLOAD] Cobalt ({endpoint}) HTTP {resp.status}: {body[:200]}")
+            except Exception as e:
+                logger.warning(f"[DOWNLOAD] Cobalt ({endpoint}) gagal untuk {url[:50]}: {e}")
+                continue
+
+        # [FIX 2c] Fallback terakhir: download langsung stream URL dari yt-dlp tanpa extract audio
+        logger.info(f"[DOWNLOAD] Cobalt API gagal, coba fallback langsung stream...")
         try:
             loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
+            info = await loop.run_in_executor(
                 _YTDLP_EXECUTOR,
-                lambda: subprocess.run(
-                    ["yt-dlp", "-f", "bestaudio", "-o", dest, "--no-part", "--no-progress", "--extract-audio", "--audio-format", "opus", url, *YTDLP_AUTH_ARGS],
-                    capture_output=True, timeout=120,
-                )
+                lambda: yt_dlp.YoutubeDL({
+                    "quiet": True, "no_warnings": True,
+                    "format": "bestaudio/best", "skip_download": True,
+                    **_AUTH_OPTS,
+                }).extract_info(url, download=False)
             )
-            if result.returncode == 0 and os.path.isfile(dest):
-                return dest
-            if result.returncode == 0:
-                prefix = dest.rsplit(".", 1)[0]
-                matches = glob.glob(prefix + ".*")
-                if matches:
-                    os.rename(matches[0], dest)
-                    if os.path.isfile(dest):
-                        return dest
-        except Exception:
-            pass
-
-        # [AUDIT FIX 6] Ganti print() ke logger agar tidak tertahan di buffer Railway
-        logger.info(f"[DOWNLOAD] yt-dlp gagal untuk {url[:50]}..., beralih ke Cobalt API")
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.cobalt.tools/api/json",
-                    json={"url": url, "aFormat": "mp3", "isAudioOnly": True, "vQuality": "max"},
-                    headers={"Content-Type": "application/json", "Accept": "application/json"},
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        stream_url = data.get("url")
-                        if stream_url:
-                            logger.info(f"[DOWNLOAD] Cobalt mendapatkan stream URL, mengunduh ke {dest}...")
-                            async with session.get(stream_url, timeout=aiohttp.ClientTimeout(total=120)) as sr:
-                                if sr.status == 200:
-                                    with open(dest, "wb") as f:
-                                        while True:
-                                            chunk = await sr.content.read(65536)
-                                            if not chunk:
-                                                break
-                                            f.write(chunk)
-                                    if os.path.isfile(dest):
-                                        logger.info(f"[DOWNLOAD] Cobalt unduh sukses: {dest}")
-                                        return dest
+            direct_url = info.get("url") if info else None
+            if direct_url:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(direct_url, timeout=aiohttp.ClientTimeout(total=120)) as sr:
+                        if sr.status == 200:
+                            with open(dest, "wb") as f:
+                                while True:
+                                    chunk = await sr.content.read(65536)
+                                    if not chunk:
+                                        break
+                                    f.write(chunk)
+                            if os.path.isfile(dest):
+                                logger.info(f"[DOWNLOAD] Direct stream fallback sukses: {dest}")
+                                return dest
         except Exception as e:
-            logger.warning(f"[DOWNLOAD] Cobalt gagal untuk {url[:50]}: {e}")
+            logger.warning(f"[DOWNLOAD] Direct stream fallback gagal: {e}")
 
+        logger.error(f"[DOWNLOAD] SEMUA metode download gagal untuk {url}")
         return None
 
     @property
@@ -832,7 +899,9 @@ class MusicController:
                     await loop.run_in_executor(
                         _YTDLP_EXECUTOR,
                         lambda u=url, d=dest: subprocess.run(
-                            ["yt-dlp", "-f", "bestaudio", "-o", d, "--no-part", "--no-progress", "--extract-audio", "--audio-format", "opus", u, *YTDLP_AUTH_ARGS],
+                            ["yt-dlp", "-f", "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best", 
+                             "-o", d, "--no-part", "--no-progress", "--extract-audio", "--audio-format", "opus", 
+                             u, *YTDLP_AUTH_ARGS],
                             capture_output=True, timeout=120,
                         )
                     )
@@ -959,7 +1028,6 @@ class MusicController:
         self.current_track = track
         self._single_loop_track = track
 
-        # [AUDIT FIX 7] Mencatat riwayat agar mode loop="queue" tidak blank
         if self.loop_mode == "queue" and track not in self._queue_history:
             self._queue_history.append(track)
 
@@ -1086,6 +1154,7 @@ class MusicController:
             asyncio.create_task(self._preload_next(next_track))
             await self.play(next_track)
 
+    # [FIX 3] Preload juga pakai format fallback yang sama
     async def _preload_next(self, track: YtDlpTrack):
         url = track.webpage_url or track.uri
         if not url or not re.match(r'^https?://[^\s]+$', url):
@@ -1095,20 +1164,39 @@ class MusicController:
             self._preloaded_file = dest
             self._preloaded_for = url
             return
-        try:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                _YTDLP_EXECUTOR,
-                lambda: subprocess.run(
-                    ["yt-dlp", "-f", "bestaudio", "-o", dest, "--no-part", "--no-progress", "--extract-audio", "--audio-format", "opus", url, *YTDLP_AUTH_ARGS],
-                    capture_output=True, timeout=120,
+
+        format_attempts = [
+            "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
+            "bestaudio/best",
+            "best",
+        ]
+
+        for fmt in format_attempts:
+            try:
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    _YTDLP_EXECUTOR,
+                    lambda: subprocess.run(
+                        ["yt-dlp", "-f", fmt, "-o", dest, "--no-part", "--no-progress", 
+                         "--extract-audio", "--audio-format", "opus", url, *YTDLP_AUTH_ARGS],
+                        capture_output=True, timeout=120,
+                    )
                 )
-            )
-            if os.path.isfile(dest):
-                self._preloaded_file = dest
-                self._preloaded_for = url
-        except Exception:
-            pass
+                if result.returncode == 0 and os.path.isfile(dest):
+                    self._preloaded_file = dest
+                    self._preloaded_for = url
+                    return
+                if result.returncode == 0:
+                    prefix = dest.rsplit(".", 1)[0]
+                    matches = glob.glob(prefix + ".*")
+                    if matches:
+                        os.rename(matches[0], dest)
+                        if os.path.isfile(dest):
+                            self._preloaded_file = dest
+                            self._preloaded_for = url
+                            return
+            except Exception:
+                continue
 
     async def _load_more_from_playlist(self, count: int = 50) -> int:
         if not self._cog or not self._playlist_tracks or self._playlist_index >= len(self._playlist_tracks):
