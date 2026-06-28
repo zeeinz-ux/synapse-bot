@@ -251,54 +251,6 @@ class Music(commands.Cog):
             await interaction.followup.send("❌ Kamu harus join voice channel dulu!")
             return
         
-        # Lanjutkan logika...
-        # Pastikan tidak ada return di tengah proses tanpa followup send
-        try:
-            voice_client = interaction.guild.voice_client
-            if not voice_client:
-                print("[DEBUG MUSIC] Membuat player baru...")
-                try:
-                    voice_client = await vc.connect(self_deaf=False)
-                except Exception as e:
-                    print(f"[PLAY ERROR] Connect error: {e}")
-                    await interaction.followup.send(f"❌ Gagal connect ke voice: {e}")
-                    return
-            elif voice_client.channel != vc:
-                print("[DEBUG MUSIC] Pindah ke channel baru...")
-                try:
-                    await voice_client.move_to(vc, self_deaf=False)
-                except Exception as e:
-                    print(f"[PLAY ERROR] Move error: {e}")
-                    await interaction.followup.send(f"❌ Gagal pindah channel: {e}")
-                    return
-
-            guild_id = interaction.guild.id
-            controller = self.get_controller(guild_id)
-            controller.vc = voice_client
-            controller.home = interaction.channel
-
-            # === LOGIC UNTUK SEARCH/PLAY (Disambung ke fungsi play controller) ===
-            # (Pastikan variabel `track` atau `first_track` sudah terisi di sini)
-            
-            # ... (logika search sebelumnya)
-
-            print(f"[DEBUG MUSIC] Memanggil controller.play untuk: {first_track.title if 'first_track' in locals() else track.title}")
-            
-            if not controller.current_track:
-                await controller.set_volume(100)
-                await asyncio.sleep(0.3)
-                track_to_play = first_track if 'first_track' in locals() else track
-                await controller.play(track_to_play)
-                print("[DEBUG MUSIC] controller.play dipanggil (start).")
-            else:
-                controller.queue.insert(0, first_track if 'first_track' in locals() else track)
-                print("[DEBUG MUSIC] controller.play dipanggil (queue).")
-
-        except Exception as e:
-            print(f"[PLAY CMD] Fatal error: {e}")
-            await interaction.followup.send(f"❌ Terjadi kesalahan fatal: {e}")
-
-
 
 
         voice_client = interaction.guild.voice_client
