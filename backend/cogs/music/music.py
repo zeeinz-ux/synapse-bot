@@ -7,9 +7,19 @@ import os
 import random
 import re
 import json
+import logging
+import sys
 from typing import Optional
 import aiohttp
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    _h = logging.StreamHandler(sys.stdout)
+    _h.setLevel(logging.INFO)
+    _h.setFormatter(logging.Formatter('%(message)s'))
+    logger.addHandler(_h)
+    logger.setLevel(logging.INFO)
 
 from backend.utils.formatters import format_duration
 from backend.cogs.music.spotify_down import SpotifyResolver, ResolvedTrack
@@ -21,7 +31,7 @@ def get_db():
         from backend.cogs.database.firebase_setup import db
         return db
     except Exception as e:
-        print(f"[FIREBASE LAZY IMPORT] {e}")
+        logger.info(f"[FIREBASE LAZY IMPORT] {e}")
         return None
 
 
@@ -124,7 +134,7 @@ def _extract_tracks_from_scripts(script_contents):
                     decoder = json.JSONDecoder()
                     data, _ = decoder.raw_decode(raw)
                     tracks = _find_spotify_tracks_in_json(data)
-                    if len(tracks) > 1:
+                    if len(tracks) >= 1:
                         return tracks
                 except (json.JSONDecodeError, ValueError, StopIteration):
                     continue
@@ -135,7 +145,7 @@ def _extract_tracks_from_scripts(script_contents):
                 decoder = json.JSONDecoder()
                 data, _ = decoder.raw_decode(content)
                 tracks = _find_spotify_tracks_in_json(data)
-                if len(tracks) > 1:
+                if len(tracks) >= 1:
                     return tracks
             except (json.JSONDecodeError, ValueError, StopIteration):
                 continue
@@ -153,8 +163,8 @@ class Music(commands.Cog):
             fallback_client_id=os.getenv("SPOTIFY_CLIENT_ID"),
             fallback_client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
         )
-        print("[SPOTIFY] SpotifyDown API resolver aktif (fallback: Official API)")
-        print(f"[DEBUG SPOTIFY] Client ID Terdeteksi: {os.getenv('SPOTIFY_CLIENT_ID')[:5]}***" if os.getenv('SPOTIFY_CLIENT_ID') else "[DEBUG SPOTIFY] Client ID TIDAK DITEMUKAN!")
+        logger.info("[SPOTIFY] SpotifyDown API resolver aktif (fallback: Official API)")
+        logger.info(f"[DEBUG SPOTIFY] Client ID Terdeteksi: {os.getenv('SPOTIFY_CLIENT_ID')[:5]}***" if os.getenv('SPOTIFY_CLIENT_ID') else "[DEBUG SPOTIFY] Client ID TIDAK DITEMUKAN!")
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -229,7 +239,7 @@ class Music(commands.Cog):
 
             target_dur = track.duration_ms
             if not query:
-                print(f"[YOUTUBE SEARCH] Empty query for track {track.spotify_id}")
+                logger.info(f"[YOUTUBE SEARCH] Empty query for track {track.spotify_id}")
                 return None
 
             # Coba beberapa variasi search, balikin hasil pertama yg lolos minimal threshold
@@ -278,9 +288,9 @@ class Music(commands.Cog):
             except Exception:
                 pass
 
-            print(f"[YOUTUBE SEARCH] All variations failed for: {artists} - {name}")
+            logger.info(f"[YOUTUBE SEARCH] All variations failed for: {artists} - {name}")
         except Exception as e:
-            print(f"[YOUTUBE SEARCH ERROR] {track.name}: {e}")
+            logger.info(f"[YOUTUBE SEARCH ERROR] {track.name}: {e}")
         return None
 
     async def _search_youtube_for_tracks_concurrent(
@@ -352,7 +362,7 @@ class Music(commands.Cog):
             after_ch = after.channel
             if before_ch and not after_ch and not controller._stopped:
                 if controller.current_track:
-                    print(f"[RECOVERY] Bot disconnected from {before_ch.name}, attempting recovery")
+                    logger.info(f"[RECOVERY] Bot disconnected from {before_ch.name}, attempting recovery")
                     controller._recovery_task = asyncio.create_task(
                         controller._connection_recovery(before_ch)
                     )
@@ -393,7 +403,7 @@ class Music(commands.Cog):
         query: str,
         channel: Optional[discord.VoiceChannel] = None,
     ):
-        print(f"[PLAY CMD] Called by {ctx.author} with query: {query}")
+        logger.info(f"[PLAY CMD] Called by {ctx.author} with query: {query}")
         await ctx.defer()
 
         vc = channel or (ctx.author.voice.channel if ctx.author.voice else None)
@@ -403,19 +413,19 @@ class Music(commands.Cog):
 
         voice_client = ctx.guild.voice_client
         if not voice_client:
-            print("[PLAY CMD] Creating new player...")
+            logger.info("[PLAY CMD] Creating new player...")
             try:
                 voice_client = await vc.connect(self_deaf=False)
             except Exception as e:
-                print(f"[PLAY CMD] Connect error: {e}")
+                logger.info(f"[PLAY CMD] Connect error: {e}")
                 await ctx.send(f"❌ Gagal connect ke voice: {e}")
                 return
         elif voice_client.channel != vc:
-            print("[PLAY CMD] Moving to new channel...")
+            logger.info("[PLAY CMD] Moving to new channel...")
             try:
                 await voice_client.move_to(vc, self_deaf=False)
             except Exception as e:
-                print(f"[PLAY CMD] Move error: {e}")
+                logger.info(f"[PLAY CMD] Move error: {e}")
                 await ctx.send(f"❌ Gagal pindah channel: {e}")
                 return
 
@@ -427,14 +437,14 @@ class Music(commands.Cog):
         # Set owner hanya sekali (saat pertama bot connect)
         if controller._owner_id is None:
             controller._owner_id = ctx.author.id
-            print(f"[PLAY CMD] Owner set: {ctx.author} (ID: {ctx.author.id})")
+            logger.info(f"[PLAY CMD] Owner set: {ctx.author} (ID: {ctx.author.id})")
 
         # Only owner can add tracks or hijack the session
         if controller.current_track and controller._owner_id != ctx.author.id:
             await ctx.send(f"❌ Hanya <@{controller._owner_id}> yang bisa menambah lagu saat ini.", ephemeral=True)
             return
 
-        print(f"[PLAY CMD] Player ready. Current: {controller.current_track}")
+        logger.info(f"[PLAY CMD] Player ready. Current: {controller.current_track}")
         search_query = query.strip()
 
         # ==========================================================
@@ -446,7 +456,7 @@ class Music(commands.Cog):
                 await ctx.send("❌ URL Spotify tidak valid.")
                 return
             spotify_type, spotify_id = spotify_info
-            print(f"[SPOTIFY] Detected {spotify_type} with ID: {spotify_id}")
+            logger.info(f"[SPOTIFY] Detected {spotify_type} with ID: {spotify_id}")
 
             loading_msg = await ctx.send(
                 f"🎵 Mengambil metadata Spotify ({spotify_type}) via SpotifyDown API..."
@@ -474,7 +484,7 @@ class Music(commands.Cog):
             # SINGLE TRACK
             if spotify_type == "track":
                 rt = resolved_tracks[0]
-                print(f"[SPOTIFY TRACK] Resolved via {source} | Query: {rt.query}")
+                logger.info(f"[SPOTIFY TRACK] Resolved via {source} | Query: {rt.query}")
 
                 clean_query = rt.query
                 for prefix in ["ytsearch:", "ytmsearch:", "scsearch:", "spsearch:"]:
@@ -484,7 +494,7 @@ class Music(commands.Cog):
                 try:
                     tracks = await YtDlpSearcher.search(f"ytmsearch:{clean_query}")
                 except Exception as e:
-                    print(f"[SPOTIFY TRACK ERROR] {e}")
+                    logger.info(f"[SPOTIFY TRACK ERROR] {e}")
                     await loading_msg.edit(content=f"❌ Gagal mencari lagu di YouTube.\n`{e}`")
                     return
 
@@ -521,7 +531,7 @@ class Music(commands.Cog):
                     rebuilt = []
 
                     # 1) Coba extract JSON dari halaman Spotify (React state)
-                    print(f"[SPOTIFY FALLBACK] Semua primary source gagal (source={source}), coba extract JSON dari page...")
+                    logger.info(f"[SPOTIFY FALLBACK] Semua primary source gagal (source={source}), coba extract JSON dari page...")
                     await loading_msg.edit(content="⏳ Membaca playlist Spotify...")
                     try:
                         html_headers = {
@@ -532,7 +542,7 @@ class Music(commands.Cog):
                         async with session.get(search_query, headers=html_headers, timeout=aiohttp.ClientTimeout(total=12)) as resp:
                             if resp.status == 200:
                                 html = await resp.text()
-                                print(f"[SPOTIFY FALLBACK] Page fetched OK ({len(html)} bytes)")
+                                logger.info(f"[SPOTIFY FALLBACK] Page fetched OK ({len(html)} bytes)")
 
                                 # Extract all script content and try to parse Spotify React state JSON
                                 script_contents = re.findall(
@@ -544,10 +554,14 @@ class Music(commands.Cog):
                                 found_tracks = _extract_tracks_from_scripts(script_contents)
 
                                 if found_tracks:
-                                    print(f"[SPOTIFY FALLBACK] Found {len(found_tracks)} tracks via JSON parsing")
+                                    logger.info(f"[SPOTIFY FALLBACK] Found {len(found_tracks)} tracks via JSON parsing")
+                                    seen_ids = set()
                                     for tid, title, artist, cover, duration_ms in found_tracks:
                                         if not title:
                                             continue
+                                        if tid and tid in seen_ids:
+                                            continue
+                                        seen_ids.add(tid)
                                         q = f"ytmsearch:{artist} - {title}" if artist and artist not in ("Unknown", "Spotify") else f"ytmsearch:{title}"
                                         rebuilt.append(ResolvedTrack(
                                             name=title,
@@ -561,18 +575,18 @@ class Music(commands.Cog):
                                             source="json_scrape",
                                         ))
                     except Exception as e:
-                        print(f"[SPOTIFY FALLBACK] JSON extract error (non-fatal): {e}")
+                        logger.info(f"[SPOTIFY FALLBACK] JSON extract error (non-fatal): {e}")
 
                     # 2) Jika JSON gagal, coba regex track ID + oEmbed
                     if len(rebuilt) <= 1:
-                        print("[SPOTIFY FALLBACK] JSON gagal, coba regex + oEmbed...")
+                        logger.info("[SPOTIFY FALLBACK] JSON gagal, coba regex + oEmbed...")
                         try:
                             async with session.get(search_query, headers=html_headers, timeout=aiohttp.ClientTimeout(total=12)) as resp:
                                 if resp.status == 200:
                                     html = await resp.text()
                                     track_ids = list(dict.fromkeys(re.findall(r'(?:spotify:track:|/track/)([A-Za-z0-9]+)', html)))
                                     if track_ids:
-                                        print(f"[SPOTIFY FALLBACK] Found {len(track_ids)} track IDs via regex")
+                                        logger.info(f"[SPOTIFY FALLBACK] Found {len(track_ids)} track IDs via regex")
                                         sem = asyncio.Semaphore(5)
                                         async def fetch_oembed(tid):
                                             async with sem:
@@ -590,13 +604,13 @@ class Music(commands.Cog):
                                                 return None
                                         oembed_results = await asyncio.gather(*[fetch_oembed(tid) for tid in track_ids])
                                         rebuilt = [rt for rt in oembed_results if rt is not None]
-                                        print(f"[SPOTIFY FALLBACK] Regex + oEmbed: {len(rebuilt)} tracks resolved")
+                                        logger.info(f"[SPOTIFY FALLBACK] Regex + oEmbed: {len(rebuilt)} tracks resolved")
                         except Exception as e:
-                            print(f"[SPOTIFY FALLBACK] Regex scrape error: {e}")
+                            logger.info(f"[SPOTIFY FALLBACK] Regex scrape error: {e}")
 
                     # 3) Jika semua gagal, coba yt-dlp extractor dengan timeout
                     if len(rebuilt) <= 1:
-                        print("[SPOTIFY FALLBACK] Semua scrape gagal, coba yt-dlp (timeout 20s)...")
+                        logger.info("[SPOTIFY FALLBACK] Semua scrape gagal, coba yt-dlp (timeout 20s)...")
                         await loading_msg.edit(content="⏳ Mencoba yt-dlp...")
                         try:
                             yt_playlist = await asyncio.wait_for(YtDlpSearcher.extract_playlist(search_query), timeout=20.0)
@@ -611,17 +625,17 @@ class Music(commands.Cog):
                                     tid = raw.get('id') or t.uri or ''
                                     rt_q = f"ytmsearch:{artists} - {name}" if artists else f"ytmsearch:{name}"
                                     rebuilt.append(ResolvedTrack(name=name, artists=artists or 'Unknown', album=yt_playlist.name, duration_ms=None, artwork=t.artwork or '', spotify_id=tid, youtube_id=None, query=rt_q, source="ytdlp_extractor"))
-                                print(f"[SPOTIFY FALLBACK] yt-dlp berhasil: {len(rebuilt)} tracks")
+                                logger.info(f"[SPOTIFY FALLBACK] yt-dlp berhasil: {len(rebuilt)} tracks")
                         except asyncio.TimeoutError:
-                            print("[SPOTIFY FALLBACK] yt-dlp timeout")
+                            logger.info("[SPOTIFY FALLBACK] yt-dlp timeout")
                         except Exception as e:
-                            print(f"[YTDLP FALLBACK ERROR] {e}")
+                            logger.info(f"[YTDLP FALLBACK ERROR] {e}")
 
                     if len(rebuilt) > 1:
                         resolved_tracks = rebuilt
                         source = "json_scrape"
                         original_total_tracks = len(resolved_tracks)
-                        print(f"[SPOTIFY FALLBACK] ✅ Total {original_total_tracks} tracks resolved via {source}")
+                        logger.info(f"[SPOTIFY FALLBACK] ✅ Total {original_total_tracks} tracks resolved via {source}")
                         await loading_msg.edit(content=f"📋 Berhasil memuat `{original_total_tracks}` lagu dari Spotify, sedang mencari di YouTube...")
                     else:
                         await loading_msg.edit(content="❌ Gagal mengambil daftar lagu dari Spotify. Coba link YouTube langsung.")
@@ -636,7 +650,7 @@ class Music(commands.Cog):
                 batch = resolved_tracks[:100]
                 total_tracks = len(batch)
                 resolved_tracks = batch
-                print(f"[SPOTIFY {spotify_type.upper()}] {original_total_tracks} total, batch pertama {total_tracks} via {source}")
+                logger.info(f"[SPOTIFY {spotify_type.upper()}] {original_total_tracks} total, batch pertama {total_tracks} via {source}")
 
                 # spotify_down → YouTube search concurrent (15 paralel)
                 total_ms = sum(t.duration_ms or 0 for t in resolved_tracks)
@@ -713,7 +727,7 @@ class Music(commands.Cog):
         is_url = search_query.startswith("http://") or search_query.startswith("https://")
 
         if is_url:
-            print(f"[PLAY CMD] Direct URL detected: {search_query}")
+            logger.info(f"[PLAY CMD] Direct URL detected: {search_query}")
 
             is_playlist_url = (
                 "/playlist?" in search_query.lower() or
@@ -728,7 +742,7 @@ class Music(commands.Cog):
                     for t in playlist.tracks[:100]:
                         controller.queue.append(t)
                         added += 1
-                    print(f"[PLAY CMD] Added {added} tracks from playlist: {playlist.name}")
+                    logger.info(f"[PLAY CMD] Added {added} tracks from playlist: {playlist.name}")
                     if not controller.current_track and controller.queue:
                         await controller.set_volume(100)
                         await asyncio.sleep(0.3)
@@ -777,31 +791,31 @@ class Music(commands.Cog):
             if clean_input.lower().startswith(p):
                 clean_input = clean_input[len(p):].strip()
 
-        print(f"[PLAY CMD] Searching/Processing: {clean_input}")
+        logger.info(f"[PLAY CMD] Searching/Processing: {clean_input}")
         try:
             # Kita coba search dengan prefix ytsearch agar lebih stabil
             tracks = await asyncio.wait_for(
                 YtDlpSearcher.search(f"ytmsearch:{clean_input}"),
                 timeout=30.0,
             )
-            print(f"[PLAY CMD] Search returned: count: {len(tracks) if tracks else 0}")
+            logger.info(f"[PLAY CMD] Search returned: count: {len(tracks) if tracks else 0}")
         except asyncio.TimeoutError:
-            print("[PLAY CMD] SEARCH TIMEOUT after 30s")
+            logger.info("[PLAY CMD] SEARCH TIMEOUT after 30s")
             await ctx.send("⏱️ Search timeout (30s). Coba lagi atau gunakan query lain.")
             return
         except Exception as e:
-            print(f"[PLAY CMD] SEARCH ERROR: {type(e).__name__}: {e}")
+            logger.info(f"[PLAY CMD] SEARCH ERROR: {type(e).__name__}: {e}")
             await ctx.send(f"❌ Gagal mencari lagu: `{e}`")
             return
 
         if not tracks:
-            print("[PLAY CMD] No tracks found")
+            logger.info("[PLAY CMD] No tracks found")
             await ctx.send("❌ Lagu tidak ditemukan.")
             return
 
         # Ambil lagu pertama sebagai hasil pencarian
         track = tracks[0]
-        print(f"[PLAY CMD] Playing track: {track.title}")
+        logger.info(f"[PLAY CMD] Playing track: {track.title}")
         controller.queue.append(track)
         
         if not controller.current_track:
@@ -928,7 +942,7 @@ class Music(commands.Cog):
             else:
                 embed.set_footer(text="Queue kosong — tambah lagu dengan /play")
         except Exception as e:
-            print(f"[QUEUE ERROR] {e}")
+            logger.info(f"[QUEUE ERROR] {e}")
             await ctx.send("❌ Gagal menampilkan queue.")
             return
 
@@ -1164,7 +1178,7 @@ class Music(commands.Cog):
             )
             await ctx.send(embed=embed)
         except Exception as e:
-            print(f"[LYRICS ERROR] {e}")
+            logger.info(f"[LYRICS ERROR] {e}")
             await ctx.send("❌ Gagal mengambil lirik. Coba judul lain.")
 
     # ==========================================================
@@ -1257,7 +1271,7 @@ class Music(commands.Cog):
                     if track:
                         return track
                 except Exception as e:
-                    print(f"[PLAYLIST CONCURRENT LOAD ERROR] {e}")
+                    logger.info(f"[PLAYLIST CONCURRENT LOAD ERROR] {e}")
                 return None
 
         tasks = [load_single_track(t) for t in track_data]
