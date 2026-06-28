@@ -23,7 +23,7 @@ COOKIES_FILE = os.getenv("COOKIES_FILE", _COOKIES_DEFAULT)
 COOKIES_FROM_BROWSER = os.getenv("COOKIES_FROM_BROWSER", "")
 PO_TOKEN = os.getenv("YOUTUBE_PO_TOKEN", "")
 
-# Auth args for yt-dlp CLI (priority: PO Token > Browser Cookie > Cookie File > iOS fallback)
+# Auth args for yt-dlp CLI (priority: PO Token > Browser Cookie > Cookie File > web client)
 _YTDLP_BASE = ["--retries", "3", "--fragment-retries", "3",
                "--add-header", "referer:youtube.com",
                "--add-header", "user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"]
@@ -35,8 +35,7 @@ elif COOKIES_FROM_BROWSER:
 elif COOKIES_FILE and os.path.isfile(COOKIES_FILE):
     _YTDLP_AUTH = ["--cookies", COOKIES_FILE]
 else:
-    # iOS client fallback — bypasses YouTube bot detection on VPS/Railway IPs
-    _YTDLP_AUTH = ["--extractor-args", "youtube:player_client=ios"]
+    _YTDLP_AUTH = ["--no-update"]
 
 YTDLP_AUTH_ARGS = _YTDLP_BASE + _YTDLP_AUTH
 
@@ -51,7 +50,7 @@ def _get_ytdlp_auth_opts() -> dict:
     elif COOKIES_FILE:
         opts["cookiefile"] = COOKIES_FILE
     else:
-        opts["extractor_args"] = {"youtube": ["player_client=ios"]}
+        opts["extractor_args"] = {"youtube": ["player_client=web"]}
     return opts
 
 warnings.filterwarnings("ignore", message=".*line buffering.*binary mode.*")
