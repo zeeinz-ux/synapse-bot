@@ -89,43 +89,25 @@ def _find_tracks_in_json(data: Any, depth: int = 0) -> List[Tuple[str, str, str,
     results: List[Tuple[str, str, str, str, Optional[int]]] = []
 
     if isinstance(data, dict):
-        # Direct trackList / tracks key
+        # Direct trackList / tracks key (Spotify embed page format)
         tl = data.get("trackList") or data.get("tracks")
         if isinstance(tl, list):
             for t in tl:
-                tid = t.get("id") or ""
+                uri = t.get("uri", "")
+                tid = uri.rsplit(":", 1)[-1] if ":" in uri else (t.get("id") or "")
                 title = t.get("title") or t.get("name") or ""
-                artist = t.get("artist") or t.get("artists") or ""
-                if isinstance(artist, list):
-                    artist = ", ".join(
-                        a.get("name", "") if isinstance(a, dict) else str(a) for a in artist
-                    )
-                if not artist and isinstance(t, dict):
-                    for k in ("author", "creator", "uploader", "channel"):
-                        v = t.get(k)
-                        if v:
-                            artist = str(v) if isinstance(v, str) else ", ".join(
-                                x.get("name", "") if isinstance(x, dict) else str(x) for x in (v if isinstance(v, list) else [v])
-                            ) if v else ""
-                            if artist:
-                                break
+                artist = t.get("subtitle") or t.get("artist") or ""
+                if not artist:
+                    al = t.get("artists")
+                    if isinstance(al, list):
+                        artist = ", ".join(
+                            a.get("name", "") if isinstance(a, dict) else str(a) for a in al
+                        )
                 cover = t.get("cover") or t.get("artwork") or ""
                 if isinstance(cover, list):
                     cover = cover[0].get("url", "") if cover else ""
                 duration = t.get("duration_ms") or t.get("duration")
                 if tid or title:
-                    if not artist and isinstance(t, dict):
-                        logger.info(
-                            "[SPOTIFY PARSE] Track keys: %s | artist=%s artists=%s author=%s name=%s id=%s track=%s album=%s",
-                            list(t.keys())[:15],
-                            t.get("artist", "MISSING"),
-                            t.get("artists", "MISSING"),
-                            t.get("author", "MISSING"),
-                            t.get("name", "MISSING"),
-                            t.get("id", "MISSING"),
-                            "TRACK_KEY" if "track" in t else "NO_TRACK_KEY",
-                            "ALBUM_KEY" if "album" in t else "NO_ALBUM_KEY",
-                        )
                     results.append((tid, title, artist, cover, duration))
 
         # Spotify items (Official API format page: {items: [{track: {...}}]})
