@@ -401,9 +401,9 @@ class Music(commands.Cog):
                 if original_total_tracks <= 1 and source in ("oembed", "html_scrape", "failed"):
                     rebuilt = []
 
-                    # 1) Coba scrape playlist page langsung (mungkin akses lebih baik dari sini)
-                    print(f"[SPOTIFY FALLBACK] Semua primary source gagal (source={source}), coba scrape langsung...")
-                    await loading_msg.edit(content="⏳ Mencoba scrape playlist Spotify...")
+                    # 1) Coba extract JSON dari halaman Spotify (React state)
+                    print(f"[SPOTIFY FALLBACK] Semua primary source gagal (source={source}), coba extract JSON dari page...")
+                    await loading_msg.edit(content="⏳ Membaca playlist Spotify...")
                     try:
                         html_headers = {
                             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
@@ -414,36 +414,116 @@ class Music(commands.Cog):
                             if resp.status == 200:
                                 html = await resp.text()
                                 print(f"[SPOTIFY FALLBACK] Page fetched OK ({len(html)} bytes)")
-                                import re
-                                track_ids = list(dict.fromkeys(re.findall(r'(?:spotify:track:|/track/)([A-Za-z0-9]+)', html)))
-                                if track_ids:
-                                    print(f"[SPOTIFY FALLBACK] Found {len(track_ids)} track IDs via regex")
-                                    sem = asyncio.Semaphore(5)
-                                    async def fetch_oembed(idx, tid):
-                                        async with sem:
-                                            try:
-                                                async with session.get(f"https://open.spotify.com/oembed?url=https://open.spotify.com/track/{tid}", timeout=aiohttp.ClientTimeout(total=8)) as r:
-                                                    if r.status == 200:
-                                                        d = await r.json()
-                                                        title = d.get("title", "").strip()
-                                                        artist = d.get("author_name", "").strip()
-                                                        if title:
-                                                            q = f"ytmsearch:{artist} - {title}" if artist and artist != "Spotify" else f"ytmsearch:{title}"
-                                                            return ResolvedTrack(name=title, artists=artist or "Unknown", album=None, duration_ms=None, artwork=d.get("thumbnail_url"), spotify_id=tid, youtube_id=None, query=q, source="scrape_oembed")
-                                            except Exception:
-                                                pass
-                                            return None
-                                    tasks = [fetch_oembed(i, tid) for i, tid in enumerate(track_ids)]
-                                    oembed_results = await asyncio.gather(*tasks)
-                                    rebuilt = [rt for rt in oembed_results if rt is not None]
-                                    print(f"[SPOTIFY FALLBACK] Scrape + oEmbed: {len(rebuilt)} tracks resolved")
-                    except Exception as e:
-                        print(f"[SPOTIFY FALLBACK] Scrape error (non-fatal): {e}")
 
-                    # 2) Jika scrape gagal, coba yt-dlp extractor dengan timeout
+                                # Coba extract JSON dari <script> tags (Spotify React state)
+                                import json
+                                script_matches = re.findall(r'<script[^>]*>\s*window\.__INITIAL_STATE__\s*=\s*({.*?});\s*</script>', html, re.DOTALL)
+                                if not script_matches:
+                                    script_matches = re.findall(r'<script[^>]*id="__NEXT_DATA__"[^>]*>({.*?})</script>', html, re.DOTALL)
+                                if not script_matches:
+                                    script_matches = re.findall(r'<script[^>]*data-testid="session"[^>]*>({.*?})</script>', html, re.DOTALL)
+                                if not script_matches:
+                                    # Fallback: cari JSON apapun dalam <script> yg mengandung "trackList" atau "items"
+                                    for m in re.finditer(r'<script[^>]*>({.*?})</script>', html, re.DOTALL):
+                                        try:
+                                            data = json.loads(m.group(1))
+                                            if isinstance(data, dict) and ('trackList' in data or 'items' in data):
+                                                script_matches = [m.group(1)]
+                                                break
+                                        except json.JSONDecodeError:
+                                            continue
+
+                                if script_matches:
+                                    raw_data = json.loads(script_matches[0])
+                                    # Navigasi ke track list
+                                    found_tracks = []
+                                    try:
+                                        items = raw_data['props']['pageProps']['state']['data']['entity']['tracks']['items']
+                                        found_tracks = [(it['track']['id'], it['track']['name'], ', '.join(a['name'] for a in it['track'].get('artists', [])), it['track'].get('album', {}).get('images', [{}])[0].get('url')) for it in items if 'track' in it and it['track'].get('id')]
+                                    except (KeyError, TypeError):
+                                        pass
+                                    if not found_tracks:
+                                        try:
+                                            items = raw_data['entities']['items']
+                                            found_tracks = [(it['id'], it['name'], ', '.join(a['name'] for a in it.get('artists', [])), '') for it in items if it.get('id')]
+                                        except (KeyError, TypeError):
+                                            pass
+                                    if not found_tracks:
+                                        try:
+                                            items = raw_data['trackList']
+                                            found_tracks = [(it.get('id', ''), it.get('title', it.get('name', '')), it.get('artist', it.get('artists', '')), it.get('cover', it.get('album_cover', ''))) for it in items if it.get('id') or it.get('title')]
+                                        except (KeyError, TypeError):
+                                            pass
+                                    if not found_tracks:
+                                        # Coba cari secara rekursif dalam JSON
+                                        def _find_tracks(obj, depth=0):
+                                            results = []
+                                            if depth > 5:
+                                                return results
+                                            if isinstance(obj, dict):
+                                                if 'trackList' in obj and isinstance(obj['trackList'], list):
+                                                    for t in obj['trackList']:
+                                                        tid = t.get('id', '')
+                                                        title = t.get('title', t.get('name', ''))
+                                                        artist = t.get('artist', t.get('artists', ''))
+                                                        if isinstance(artist, list):
+                                                            artist = ', '.join(a.get('name', '') if isinstance(a, dict) else str(a) for a in artist)
+                                                        cover = t.get('cover', t.get('artwork', ''))
+                                                        if tid or title:
+                                                            results.append((tid, title, artist, cover))
+                                                for v in obj.values():
+                                                    results.extend(_find_tracks(v, depth + 1))
+                                            elif isinstance(obj, list):
+                                                for item in obj:
+                                                    results.extend(_find_tracks(item, depth + 1))
+                                            return results
+                                        found_tracks = _find_tracks(raw_data)
+
+                                    if found_tracks:
+                                        print(f"[SPOTIFY FALLBACK] Found {len(found_tracks)} tracks via JSON parsing")
+                                        for tid, title, artist, cover in found_tracks:
+                                            if not title:
+                                                continue
+                                            q = f"ytmsearch:{artist} - {title}" if artist and artist not in ("Unknown", "Spotify") else f"ytmsearch:{title}"
+                                            rebuilt.append(ResolvedTrack(name=title, artists=artist or "Unknown", album=None, duration_ms=None, artwork=cover, spotify_id=tid, youtube_id=None, query=q, source="json_scrape"))
+                    except Exception as e:
+                        print(f"[SPOTIFY FALLBACK] JSON extract error (non-fatal): {e}")
+
+                    # 2) Jika JSON gagal, coba regex track ID + oEmbed
                     if len(rebuilt) <= 1:
-                        print("[SPOTIFY FALLBACK] Scrape gagal, coba yt-dlp Spotify extractor (timeout 20s)...")
-                        await loading_msg.edit(content="⏳ Mencoba yt-dlp Spotify extractor...")
+                        print("[SPOTIFY FALLBACK] JSON gagal, coba regex + oEmbed...")
+                        try:
+                            async with session.get(search_query, headers=html_headers, timeout=aiohttp.ClientTimeout(total=12)) as resp:
+                                if resp.status == 200:
+                                    html = await resp.text()
+                                    track_ids = list(dict.fromkeys(re.findall(r'(?:spotify:track:|/track/)([A-Za-z0-9]+)', html)))
+                                    if track_ids:
+                                        print(f"[SPOTIFY FALLBACK] Found {len(track_ids)} track IDs via regex")
+                                        sem = asyncio.Semaphore(5)
+                                        async def fetch_oembed(tid):
+                                            async with sem:
+                                                try:
+                                                    async with session.get(f"https://open.spotify.com/oembed?url=https://open.spotify.com/track/{tid}", timeout=aiohttp.ClientTimeout(total=8)) as r:
+                                                        if r.status == 200:
+                                                            d = await r.json()
+                                                            title = d.get("title", "").strip()
+                                                            artist = d.get("author_name", "").strip()
+                                                            if title:
+                                                                q = f"ytmsearch:{artist} - {title}" if artist and artist != "Spotify" else f"ytmsearch:{title}"
+                                                                return ResolvedTrack(name=title, artists=artist or "Unknown", album=None, duration_ms=None, artwork=d.get("thumbnail_url"), spotify_id=tid, youtube_id=None, query=q, source="scrape_oembed")
+                                                except Exception:
+                                                    pass
+                                                return None
+                                        oembed_results = await asyncio.gather(*[fetch_oembed(tid) for tid in track_ids])
+                                        rebuilt = [rt for rt in oembed_results if rt is not None]
+                                        print(f"[SPOTIFY FALLBACK] Regex + oEmbed: {len(rebuilt)} tracks resolved")
+                        except Exception as e:
+                            print(f"[SPOTIFY FALLBACK] Regex scrape error: {e}")
+
+                    # 3) Jika semua gagal, coba yt-dlp extractor dengan timeout
+                    if len(rebuilt) <= 1:
+                        print("[SPOTIFY FALLBACK] Semua scrape gagal, coba yt-dlp (timeout 20s)...")
+                        await loading_msg.edit(content="⏳ Mencoba yt-dlp...")
                         try:
                             yt_playlist = await asyncio.wait_for(YtDlpSearcher.extract_playlist(search_query), timeout=20.0)
                             if yt_playlist and yt_playlist.tracks and len(yt_playlist.tracks) > 1:
@@ -459,14 +539,16 @@ class Music(commands.Cog):
                                     rebuilt.append(ResolvedTrack(name=name, artists=artists or 'Unknown', album=yt_playlist.name, duration_ms=None, artwork=t.artwork or '', spotify_id=tid, youtube_id=None, query=rt_q, source="ytdlp_extractor"))
                                 print(f"[SPOTIFY FALLBACK] yt-dlp berhasil: {len(rebuilt)} tracks")
                         except asyncio.TimeoutError:
-                            print("[SPOTIFY FALLBACK] yt-dlp timeout (20s)")
+                            print("[SPOTIFY FALLBACK] yt-dlp timeout")
                         except Exception as e:
-                            print(f"[YTDLP SPOTIFY FALLBACK ERROR] {e}")
+                            print(f"[YTDLP FALLBACK ERROR] {e}")
 
                     if len(rebuilt) > 1:
                         resolved_tracks = rebuilt
-                        source = "scrape_oembed"
+                        source = "json_scrape"
                         original_total_tracks = len(resolved_tracks)
+                        print(f"[SPOTIFY FALLBACK] ✅ Total {original_total_tracks} tracks resolved via {source}")
+                        await loading_msg.edit(content=f"📋 Berhasil memuat `{original_total_tracks}` lagu dari Spotify, sedang mencari di YouTube...")
                     else:
                         await loading_msg.edit(content="❌ Gagal mengambil daftar lagu dari Spotify. Coba link YouTube langsung.")
                         return
