@@ -578,18 +578,12 @@ class Music(commands.Cog):
             await interaction.response.send_message("❌ Tidak ada lagu yang sedang diputar.", ephemeral=True)
             return
         skipped = controller.current_track
+        voice_client.stop()
         if controller.queue:
-            next_track = controller.queue.pop(0)
-            voice_client.stop()
-            await asyncio.sleep(0.2)
-            await controller.play(next_track)
             await interaction.response.send_message(
-                f"⏭️ Skipped: **{skipped.title}** | Now Playing: **{next_track.title}**"
+                f"⏭️ Skipped: **{skipped.title}**"
             )
         else:
-            voice_client.stop()
-            controller.current_track = None
-            controller._last_track_id = None
             await interaction.response.send_message(
                 f"⏭️ Skipped: **{skipped.title}** | Queue kosong."
             )
@@ -794,16 +788,9 @@ class Music(commands.Cog):
             return
         async with controller._track_lock:
             target = controller.queue.pop(index - 1)
-            new_queue = [target] + controller.queue
-            controller.queue = new_queue
+            controller.queue.insert(0, target)
         voice_client.stop()
-        await asyncio.sleep(0.3)
-        if controller.queue:
-            next_track = controller.queue.pop(0)
-            await controller.play(next_track)
-            await interaction.response.send_message(f"⏭️ Skip ke: **{next_track.title}**")
-        else:
-            await interaction.response.send_message("📭 Queue kosong setelah reorder.")
+        await interaction.response.send_message(f"⏭️ Skip ke: **{target.title}**")
 
     @app_commands.command(name="disconnect", description="Keluar dari voice channel")
     async def disconnect(self, interaction: discord.Interaction):
