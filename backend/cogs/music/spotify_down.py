@@ -744,11 +744,11 @@ class SpotifyResolver:
             artwork = t.get("cover", t.get("album_cover", t.get("artwork", "")))
             tid = t.get("id", "")
             yt_id = t.get("youtube_id") or t.get("yt_id")
-query = (
-    f"https://youtube.com/watch?v={yt_id}"
-    if yt_id
-    else f"ytmsearch:{artists} - {name}"
-)
+            query = (
+                f"https://youtube.com/watch?v={yt_id}"
+                if yt_id
+                else f"ytmsearch:{artists} - {name}"
+            )
 
             result.append(
                 ResolvedTrack(
