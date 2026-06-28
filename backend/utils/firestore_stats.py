@@ -198,9 +198,9 @@ def _get_db():
 # Core write — debounced + dirty-checked + circuit-protected
 # ---------------------------------------------------------------------------
 async def _schedule_write(doc_id: str, payload: Dict[str, Any]) -> None:
-    """Public entry. Updates the pending payload for `doc_id`, restarts the
-    debounce window, and — if the window elapses without a new update —
-    commits the payload off-thread."""
+    """Public entry. Updates the pending payload for `doc_id` and starts
+    a debounce timer if none is running. When the timer fires it commits
+    the latest payload off-thread."""
 
     if not payload:
         return
@@ -213,15 +213,15 @@ async def _schedule_write(doc_id: str, payload: Dict[str, Any]) -> None:
     payload_hash = _hash_payload(payload)
 
     with pending.lock:
-        # Dirty check: skip if the payload is identical to the one already queued.
-        # (We still update timestamp below so it gets the freshest data on flush.)
-        if pending.payload is not None and pending.last_written_hash == payload_hash:
+        # Skip identical writes when nothing is queued (already flushed).
+        if pending.payload is None and pending.last_written_hash == payload_hash:
             return
         pending.payload = payload
 
-    # Cancel any in-flight debounce timer — we're restarting the window.
+    # Don't restart the timer if one is already ticking — just replace the
+    # payload so it gets picked up when the timer fires.
     if pending.debounce_task and not pending.debounce_task.done():
-        pending.debounce_task.cancel()
+        return
 
     async def _debounce_then_flush():
         try:
@@ -234,7 +234,6 @@ async def _schedule_write(doc_id: str, payload: Dict[str, Any]) -> None:
         loop = asyncio.get_running_loop()
         pending.debounce_task = loop.create_task(_debounce_then_flush())
     except RuntimeError:
-        # Called from a sync context (e.g. during shutdown). Best-effort flush.
         await _flush(doc_id)
 
 
