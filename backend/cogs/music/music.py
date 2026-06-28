@@ -24,7 +24,7 @@ if not logger.handlers:
 from backend.utils.formatters import format_duration
 from backend.cogs.music.spotify_down import SpotifyResolver, ResolvedTrack
 
-from backend.cogs.music.ytdlp_source import YtDlpTrack, YtDlpPlaylist, YtDlpSearcher, MusicController
+from backend.cogs.music.ytdlp_source import YtDlpTrack, YtDlpPlaylist, YtDlpSearcher, MusicController, _web_search_youtube
 
 def get_db():
     try:
@@ -297,7 +297,23 @@ class Music(commands.Cog):
             except (asyncio.TimeoutError, Exception):
                 pass
 
-            logger.info(f"[YOUTUBE SEARCH] All variations failed for: {artists} - {name}")
+            logger.info(f"[YOUTUBE SEARCH] All yt-dlp search failed for: {artists} - {name}, coba web scrape...")
+            try:
+                session = await self._get_session()
+                video_url = await asyncio.wait_for(
+                    _web_search_youtube(session, (name or query)),
+                    timeout=10.0,
+                )
+                if video_url:
+                    result = await asyncio.wait_for(
+                        YtDlpSearcher.extract_info(video_url),
+                        timeout=15.0,
+                    )
+                    if result:
+                        return result
+            except (asyncio.TimeoutError, Exception):
+                pass
+            logger.info(f"[YOUTUBE SEARCH] Web scrape also failed for: {artists} - {name}")
         except Exception as e:
             logger.info(f"[YOUTUBE SEARCH ERROR] {track.name}: {e}")
         return None
@@ -506,9 +522,26 @@ class Music(commands.Cog):
                         timeout=30.0,
                     )
                 except asyncio.TimeoutError:
-                    logger.info("[SPOTIFY TRACK] YouTube search timeout (30s)")
-                    await loading_msg.edit(content="❌ Timeout mencari lagu di YouTube (30s). Coba link YouTube langsung.")
-                    return
+                    logger.info("[SPOTIFY TRACK] YouTube search timeout (30s), coba web scrape...")
+                    await loading_msg.edit(content="⏳ Search timeout, coba metode alternatif...")
+                    session = await self._get_session()
+                    video_url = await asyncio.wait_for(
+                        _web_search_youtube(session, clean_query),
+                        timeout=12.0,
+                    )
+                    if video_url:
+                        track = await asyncio.wait_for(
+                            YtDlpSearcher.extract_info(video_url),
+                            timeout=15.0,
+                        )
+                        if track:
+                            tracks = [track]
+                        else:
+                            await loading_msg.edit(content="❌ Lagu tidak ditemukan di YouTube.")
+                            return
+                    else:
+                        await loading_msg.edit(content="❌ Gagal mencari lagu di YouTube. Coba link langsung.")
+                        return
                 except Exception as e:
                     logger.info(f"[SPOTIFY TRACK ERROR] {e}")
                     await loading_msg.edit(content=f"❌ Gagal mencari lagu di YouTube.\n`{e}`")

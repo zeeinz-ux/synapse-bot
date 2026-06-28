@@ -1,6 +1,7 @@
 import asyncio
 import os
 import json
+import re
 import subprocess
 import time
 import shutil
@@ -8,6 +9,7 @@ import hashlib
 import warnings
 from dataclasses import dataclass, field
 from typing import Optional
+import aiohttp
 
 from backend.utils.formatters import format_duration
 
@@ -177,6 +179,29 @@ class YtDlpTrack:
 class YtDlpPlaylist:
     name: str
     tracks: list
+
+
+async def _web_search_youtube(session, query: str) -> Optional[str]:
+    """Web scrape YouTube search as fallback when yt-dlp search times out."""
+    from urllib.parse import quote
+
+    url = f"https://www.youtube.com/results?search_query={quote(query)}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    try:
+        async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            if resp.status != 200:
+                return None
+            html = await resp.text()
+            # Extract first video ID from ytInitialData or direct HTML
+            m = re.search(r'/watch\?v=([a-zA-Z0-9_-]{11})', html)
+            if m:
+                return f"https://youtube.com/watch?v={m.group(1)}"
+    except Exception:
+        pass
+    return None
 
 
 class YtDlpSearcher:
