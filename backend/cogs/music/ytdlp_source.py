@@ -729,6 +729,18 @@ class MusicController:
             pass
 
     async def play(self, track: YtDlpTrack):
+        # Enrich flat-extracted playlist tracks with full metadata (thumbnail, etc.)
+        if not track.artwork and (track.webpage_url or track.uri):
+            enriched = await YtDlpSearcher.extract_info(track.webpage_url or track.uri)
+            if enriched and enriched.artwork:
+                track.artwork = enriched.artwork
+                if enriched.title:
+                    track.title = enriched.title
+                if enriched.author != "Unknown":
+                    track.author = enriched.author
+                if enriched.duration:
+                    track.duration = enriched.duration
+
         self.current_track = track
         self._single_loop_track = track
         if self.vc.is_playing() or self.vc.is_paused():
