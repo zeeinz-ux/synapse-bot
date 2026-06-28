@@ -25,11 +25,19 @@
     </span>
   </div>
 
+  <!-- Disconnected Overlay -->
+  <div class="np-disconnected" id="np-disconnected" style="display:none;">
+    <div class="np-disconnected-icon">🔌</div>
+    <div class="np-disconnected-title">Bot Disconnected</div>
+    <div class="np-disconnected-desc">The bot is currently offline or unreachable. Status will refresh automatically.</div>
+  </div>
+
+  <div id="np-controls-panel">
   <!-- Left: Now Playing -->
   <div class="np-card">
     <div class="np-card-title">🎵 Now Playing</div>
 
-    <div class="np-art-wrap">
+    <div class="np-art-wrap" id="np-art-container">
       <img id="np-art" src="" alt="Album Art" style="display:none;">
       <div id="np-art-placeholder" class="np-art-placeholder">🎶</div>
     </div>
@@ -116,6 +124,8 @@
       </div>
     </div>
   </div>
+
+  </div> <!-- /np-controls-panel -->
 
   <!-- Bottom: Quick Actions -->
   <div class="np-actions">

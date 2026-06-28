@@ -1,5 +1,6 @@
 /* ============================================================
    Hidden Hamlet v4.6 — Now Playing Controller
+   Real-time sync with diff-based DOM updates
    ============================================================ */
 
 (function() {
@@ -10,38 +11,46 @@
 
   // DOM refs
   const els = {
-    status: document.getElementById('np-status'),
-    statusText: document.getElementById('np-status-text'),
-    art: document.getElementById('np-art'),
+    status:       document.getElementById('np-status'),
+    statusText:   document.getElementById('np-status-text'),
+    art:          document.getElementById('np-art'),
     artPlaceholder: document.getElementById('np-art-placeholder'),
-    title: document.getElementById('np-title'),
-    artist: document.getElementById('np-artist'),
-    progressBar: document.getElementById('np-progress-bar'),
+    title:        document.getElementById('np-title'),
+    artist:       document.getElementById('np-artist'),
     progressFill: document.getElementById('np-progress-fill'),
-    currentTime: document.getElementById('np-current'),
-    duration: document.getElementById('np-duration'),
-    btnPlay: document.getElementById('btn-play'),
-    btnPrev: document.getElementById('btn-prev'),
-    btnNext: document.getElementById('btn-next'),
-    btnStop: document.getElementById('btn-stop'),
-    volume: document.getElementById('np-volume'),
-    volValue: document.getElementById('np-vol-value'),
+    currentTime:  document.getElementById('np-current'),
+    duration:     document.getElementById('np-duration'),
+    btnPlay:      document.getElementById('btn-play'),
+    btnPrev:      document.getElementById('btn-prev'),
+    btnNext:      document.getElementById('btn-next'),
+    btnStop:      document.getElementById('btn-stop'),
+    volume:       document.getElementById('np-volume'),
+    volValue:     document.getElementById('np-vol-value'),
     channelSelect: document.getElementById('np-channel'),
     toggleAutojoin: document.getElementById('toggle-autojoin'),
-    toggle247: document.getElementById('toggle-247'),
+    toggle247:    document.getElementById('toggle-247'),
     toggleAnnounce: document.getElementById('toggle-announce'),
-    defaultVol: document.getElementById('np-default-vol'),
+    defaultVol:   document.getElementById('np-default-vol'),
     defaultVolValue: document.getElementById('np-default-vol-value'),
     btnDisconnect: document.getElementById('btn-disconnect'),
-    btnClear: document.getElementById('btn-clear'),
-    btnShuffle: document.getElementById('btn-shuffle'),
-    btnLoop: document.getElementById('btn-loop'),
-    toast: document.getElementById('np-toast'),
-    toastMsg: document.getElementById('np-toast-msg'),
+    btnClear:     document.getElementById('btn-clear'),
+    btnShuffle:   document.getElementById('btn-shuffle'),
+    btnLoop:      document.getElementById('btn-loop'),
+    toast:        document.getElementById('np-toast'),
+    toastMsg:     document.getElementById('np-toast-msg'),
+    disconnected: document.getElementById('np-disconnected'),
+    controls:     document.getElementById('np-controls-panel'),
+    progressBar:  document.getElementById('np-progress-bar'),
   };
 
+  // State
   let pollInterval = null;
   let isPlaying = false;
+  let _consecutiveErrors = 0;
+  let _prevTrackKey = '';
+  let _prevConnected = null;
+  let _prevPositionSec = -1;
+  let _prevPlaying = null;
 
   function showToast(msg) {
     els.toastMsg.textContent = msg;
@@ -67,49 +76,100 @@
     return `${m}:${s.toString().padStart(2, '0')}`;
   }
 
-  function updateStatus(connected, channelName) {
-    if (connected) {
-      els.status.className = 'np-status np-status-playing';
-      els.statusText.textContent = `Playing in #${channelName || 'unknown'}`;
-    } else {
-      els.status.className = 'np-status np-status-idle';
-      els.statusText.textContent = 'Idle — Not connected';
+  // ── Diff-based DOM update (no flicker) ──
+  function updatePlayer(data) {
+    const connected = data.connected === true;
+    const track = data.track || {};
+    const trackKey = track.title + '|' + track.artist + '|' + track.duration;
+
+    // --- Connection status (only on change) ---
+    if (connected !== _prevConnected) {
+      _prevConnected = connected;
+      showDisconnected(!connected);
+      if (connected) {
+        els.status.className = 'np-status np-status-playing';
+        els.statusText.textContent = `Playing in #${data.channel_name || 'unknown'}`;
+        els.controls.style.display = '';
+      } else {
+        els.status.className = 'np-status np-status-idle';
+        els.statusText.textContent = 'Idle — Not connected';
+        els.controls.style.display = 'none';
+      }
     }
+
+    if (!connected) {
+      isPlaying = false;
+      return;
+    }
+
+    // --- Track metadata (only when track changes) ---
+    if (trackKey !== _prevTrackKey) {
+      _prevTrackKey = trackKey;
+      _prevPositionSec = -1; // force progress update below
+
+      if (track.title) {
+        els.title.textContent = track.title;
+      }
+      if (track.artist) {
+        els.artist.textContent = track.artist;
+      }
+      els.duration.textContent = fmtTime(track.duration);
+
+      if (track.thumbnail) {
+        if (els.art.src !== track.thumbnail) {
+          els.art.src = track.thumbnail;
+        }
+        els.art.style.display = 'block';
+        els.artPlaceholder.style.display = 'none';
+      } else {
+        els.art.style.display = 'none';
+        els.artPlaceholder.style.display = 'flex';
+      }
+    }
+
+    // --- Play state (only on change) ---
+    const playing = data.playing === true;
+    if (playing !== _prevPlaying) {
+      _prevPlaying = playing;
+      isPlaying = playing;
+      els.btnPlay.textContent = playing ? '⏸' : '▶';
+    }
+
+    // --- Progress bar (always update — moves every poll) ---
+    const posSec = data.position || 0;
+    const durSec = track.duration || 0;
+    const pct = durSec ? (posSec / durSec) * 100 : 0;
+    els.progressFill.style.width = `${Math.min(pct, 100)}%`;
+    els.currentTime.textContent = fmtTime(posSec);
+    _prevPositionSec = posSec;
   }
 
-  function updatePlayer(data) {
-    const track = data.track || {};
-    isPlaying = data.playing || false;
-
-    els.title.textContent = track.title || '—';
-    els.artist.textContent = track.artist || '—';
-    els.duration.textContent = fmtTime(track.duration);
-    els.currentTime.textContent = fmtTime(data.position);
-
-    const pct = track.duration ? (data.position / track.duration) * 100 : 0;
-    els.progressFill.style.width = `${Math.min(pct, 100)}%`;
-
-    els.btnPlay.textContent = isPlaying ? '⏸' : '▶';
-
-    if (track.thumbnail) {
-      els.art.src = track.thumbnail;
-      els.art.style.display = 'block';
-      els.artPlaceholder.style.display = 'none';
+  // ── Disconnected overlay ──
+  function showDisconnected(offline) {
+    if (offline) {
+      els.disconnected.style.display = 'flex';
     } else {
-      els.art.style.display = 'none';
-      els.artPlaceholder.style.display = 'flex';
+      els.disconnected.style.display = 'none';
     }
-
-    updateStatus(data.connected, data.channel_name);
   }
 
   async function loadStatus() {
     if (!GUILD_ID) return;
     try {
       const data = await api(`status?guild_id=${GUILD_ID}`);
+      _consecutiveErrors = 0;
       updatePlayer(data);
     } catch (e) {
-      // silent fail on poll
+      _consecutiveErrors++;
+      if (_consecutiveErrors >= 3) {
+        showDisconnected(true);
+        if (_prevConnected !== false) {
+          _prevConnected = false;
+          els.status.className = 'np-status np-status-idle';
+          els.statusText.textContent = 'Bot disconnected';
+          els.controls.style.display = 'none';
+        }
+      }
     }
   }
 
@@ -139,7 +199,7 @@
     }
   }
 
-  // Cooldown map to prevent double-clicks
+  // ── Cooldown map to prevent double-clicks ──
   const _cooldowns = {};
 
   function _withCooldown(el, action, handler) {
@@ -211,7 +271,7 @@
     sendControl('seek', { position_pct: pct });
   });
 
-  // Init
+  // ── Init ──
   loadChannels();
   loadStatus();
   pollInterval = setInterval(loadStatus, 3000);

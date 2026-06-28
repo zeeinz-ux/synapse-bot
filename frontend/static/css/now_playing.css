@@ -447,3 +447,38 @@
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* Disconnected Overlay */
+.np-disconnected {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  text-align: center;
+  gap: 8px;
+  animation: fadeIn 0.3s ease;
+}
+.np-disconnected-icon {
+  font-size: 3rem;
+  margin-bottom: 8px;
+}
+.np-disconnected-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--danger);
+}
+.np-disconnected-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 360px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
