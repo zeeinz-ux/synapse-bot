@@ -80,7 +80,10 @@ class GeneralCog(commands.Cog):
                 desc = (cmd.description or cmd.short_doc or "—").split("\n")[0][:60]
                 sign = cmd.signature or ""
                 lines.append(f"`/{cmd.name} {sign}` — {desc}")
-            embed.add_field(name=f"{emoji} {cog_name}", value="\n".join(lines), inline=False)
+            value = "\n".join(lines)
+            if len(value) > 1024:
+                value = value[:1010] + "\n…"
+            embed.add_field(name=f"{emoji} {cog_name}", value=value, inline=False)
 
         embed.set_footer(text=f"Requested by {ctx.author.name}")
         await ctx.send(embed=embed, ephemeral=True)
