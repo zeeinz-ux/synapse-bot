@@ -119,33 +119,29 @@ class Music(commands.Cog):
 
             artists = track.artists or ""
             name = track.name or ""
+            has_artist = bool(artists) and artists not in ("Unknown", "Spotify", "")
             keywords = f"{artists} {name}".strip()
             if not query:
-                query = keywords
+                query = name or keywords
 
             target_dur = track.duration_ms
             if not query:
                 logger.info(f"[YOUTUBE SEARCH] Empty query for track {track.spotify_id}")
                 return None
 
-            # Coba beberapa variasi search, balikin hasil pertama yg lolos minimal threshold
             search_variations = []
 
-            # 1. Query original (dengan artist + nama)
+            # 1. Title only (most reliable when artist is Unknown)
             search_variations.append(f"ytmsearch:{query}")
 
-            # 2. Hanya nama lagu (tanpa artist) — kadang lebih akurat
-            if name and artists and name not in query:
-                search_variations.append(f"ytmsearch:{name}")
+            # 2. Artist + Title (only if we have a real artist)
+            if has_artist and name:
+                search_variations.append(f"ytmsearch:{artists} - {name}")
 
-            # 3. Official audio / music video
-            if artists:
+            # 3. Official audio / music video (only with real artist)
+            if has_artist and name:
                 search_variations.append(f"ytmsearch:{artists} - {name} official audio")
                 search_variations.append(f"ytmsearch:{artists} - {name} music video")
-
-            # 4. Artist + name (jika query berbeda)
-            if keywords and keywords != query:
-                search_variations.append(f"ytmsearch:{keywords}")
 
             attempted = set()
             for sq in search_variations:
@@ -162,17 +158,17 @@ class Music(commands.Cog):
                 if not results:
                     continue
 
+                compare = f"{artists} {name}" if has_artist else name
                 for r in results:
-                    score = self._title_similarity(f"{artists} {name}", f"{r.author or ''} {r.title or ''}")
+                    score = self._title_similarity(compare, f"{r.author or ''} {r.title or ''}")
                     dur_diff = abs((r.duration or 0) - (target_dur or 0)) if target_dur else 0
                     if score > 0.15 or not target_dur or dur_diff < 10000:
                         return r
 
-            # Fallback terakhir: ytmsearch dengan nama aja, return apapun
-            final_query = name or query
+            # Fallback: ytmsearch title-only, return whatever
             try:
                 results = await asyncio.wait_for(
-                    YtDlpSearcher.search(f"ytmsearch:{final_query}"),
+                    YtDlpSearcher.search(f"ytmsearch:{name or query}"),
                     timeout=15.0,
                 )
                 if results:
@@ -180,7 +176,8 @@ class Music(commands.Cog):
             except (asyncio.TimeoutError, Exception):
                 pass
 
-            logger.info(f"[YOUTUBE SEARCH] All yt-dlp search failed for: {artists} - {name}, coba web scrape...")
+            lbl = f"{artists} - {name}" if has_artist else name
+            logger.info(f"[YOUTUBE SEARCH] All yt-dlp search failed for: {lbl}, coba web scrape...")
             try:
                 session = await self._get_session()
                 video_url = await asyncio.wait_for(
@@ -608,8 +605,8 @@ class Music(commands.Cog):
                 controller._playlist_tracks = resolved_tracks  # all tracks
                 controller._playlist_index = 0
                 controller._playlist_total = original_total_tracks
-                # Search batch pertama (100)
-                batch = resolved_tracks[:100]
+                MAX_BATCH = 30
+                batch = resolved_tracks[:MAX_BATCH]
                 total_tracks = len(batch)
                 resolved_tracks = batch
                 logger.info(f"[SPOTIFY {spotify_type.upper()}] {original_total_tracks} total, batch pertama {total_tracks} via {source}")
@@ -627,7 +624,7 @@ class Music(commands.Cog):
                 await loading_msg.edit(content=f"⏳ Mencari {total_tracks} lagu di YouTube... (0/{total_tracks})")
 
                 playables: list[Optional[YtDlpTrack]] = [None] * total_tracks
-                sem = asyncio.Semaphore(15)
+                sem = asyncio.Semaphore(5)
 
                 async def load_one(index: int, rt: ResolvedTrack):
                     async with sem:
@@ -667,7 +664,7 @@ class Music(commands.Cog):
                     name=f"🎶 Added to Queue ({spotify_type.title()})",
                     icon_url=ctx.author.display_avatar.url
                 )
-                final_embed.add_field(name="🔢 Jumlah Lagu", value=f"`{total_tracks}` lagu" + (" (Dibatasi 100)" if original_total_tracks > 100 else ""), inline=True)
+                final_embed.add_field(name="🔢 Jumlah Lagu", value=f"`{total_tracks}` lagu" + (f" (Dibatasi {MAX_BATCH})" if original_total_tracks > MAX_BATCH else ""), inline=True)
                 final_embed.add_field(name="⏳ Total Durasi", value=f"`{total_duration}`", inline=True)
                 final_embed.add_field(name="👤 Request Oleh", value=ctx.author.mention, inline=True)
                 if thumbnail:
@@ -704,7 +701,7 @@ class Music(commands.Cog):
                 )
                 if playlist and playlist.tracks:
                     added = 0
-                    for t in playlist.tracks[:100]:
+                    for t in playlist.tracks[:MAX_BATCH]:
                         controller.queue.append(t)
                         added += 1
                     logger.info(f"[PLAY CMD] Added {added} tracks from playlist: {playlist.name}")
@@ -715,8 +712,8 @@ class Music(commands.Cog):
                         await controller.play(next_track)
                     
                     msg = f"✅ Playlist ditambahkan! ({added} lagu dari {playlist.name})"
-                    if len(playlist.tracks) > 100:
-                        msg += " (Dibatasi 100)"
+                    if len(playlist.tracks) > MAX_BATCH:
+                        msg += f" (Dibatasi {MAX_BATCH})"
                     await ctx.send(msg)
                     return
                 else:
