@@ -159,8 +159,6 @@ def api_music_status():
         return jsonify({"connected": False}), 400
 
     state = get_music_state(guild_id)
-    thumb = state.get("track", {}).get("thumbnail", "")
-    print(f"[MUSIC STATUS] guild={guild_id} connected={state.get('connected')} thumb={thumb[:60] if thumb else 'EMPTY'}")
     return jsonify(state)
 
 
