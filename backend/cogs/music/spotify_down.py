@@ -16,6 +16,7 @@ import base64
 import json
 import logging
 import re
+import sys
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote
@@ -23,6 +24,12 @@ from urllib.parse import quote
 import aiohttp
 
 logger = logging.getLogger(__name__)
+if not logger.handlers and not logging.getLogger().handlers:
+    _h = logging.StreamHandler(sys.stdout)
+    _h.setLevel(logging.DEBUG)
+    _h.setFormatter(logging.Formatter('%(message)s'))
+    logger.addHandler(_h)
+    logger.setLevel(logging.INFO)
 
 SPOTIFY_URL_PATTERNS = [
     r"(?:https?://)?(?:open\.spotify\.com/(?:intl-[a-z]{2}/)?)?(?P<type>track|playlist|album|artist)/(?P<id>[A-Za-z0-9]+)",
