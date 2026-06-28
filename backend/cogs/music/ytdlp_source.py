@@ -7,6 +7,7 @@ import time
 import shutil
 import hashlib
 import warnings
+import logging
 from dataclasses import dataclass, field
 from typing import Optional
 import aiohttp
@@ -15,6 +16,8 @@ from backend.utils.formatters import format_duration
 
 import discord
 import yt_dlp
+
+logger = logging.getLogger("discord.bot.ytdlp")
 
 CACHE_DIR = "/tmp/discord_audio_cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
@@ -25,7 +28,11 @@ COOKIES_FILE = os.getenv("COOKIES_FILE", _COOKIES_DEFAULT)
 COOKIES_FROM_BROWSER = os.getenv("COOKIES_FROM_BROWSER", "")
 PO_TOKEN = os.getenv("YOUTUBE_PO_TOKEN", "")
 
-# Auth args for yt-dlp CLI (priority: PO Token > Browser Cookie > Cookie File > web client)
+logger.info(f"[YTDLP INIT] YOUTUBE_API_KEY={'SET' if os.getenv('YOUTUBE_API_KEY') else 'NOT SET'}")
+logger.info(f"[YTDLP INIT] YOUTUBE_PO_TOKEN={'SET' if PO_TOKEN else 'NOT SET'}")
+logger.info(f"[YTDLP INIT] Auth mode: {'PO_TOKEN' if PO_TOKEN else 'COOKIES_FROM_BROWSER' if COOKIES_FROM_BROWSER else 'ANDROID_CLIENT'}")
+
+# Auth args for yt-dlp CLI (priority: PO Token > Browser Cookie > web client)
 _YTDLP_BASE = ["--retries", "3", "--fragment-retries", "3",
                "--add-header", "referer:youtube.com",
                "--add-header", "user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"]
@@ -82,6 +89,7 @@ def _find_ffmpeg() -> str:
 FFMPEG_PATH = _find_ffmpeg()
 
 _AUTH_OPTS = _get_ytdlp_auth_opts()
+logger.info(f"[YTDLP INIT] Auth opts: extractor_args={_AUTH_OPTS.get('extractor_args')}, cookies={_AUTH_OPTS.get('cookiefile')}")
 
 YTDL_OPTS = {
     "format": "bestaudio/best",
@@ -222,6 +230,7 @@ class YtDlpSearcher:
     async def _youtube_api_search(raw_query: str) -> list:
         api_key = os.getenv("YOUTUBE_API_KEY", "")
         if not api_key:
+            logger.warning("[YT API] YOUTUBE_API_KEY not set — skipping YouTube API search")
             return []
         try:
             session = aiohttp.ClientSession()
@@ -240,6 +249,8 @@ class YtDlpSearcher:
                     timeout=aiohttp.ClientTimeout(total=8),
                 ) as resp:
                     if resp.status != 200:
+                        err_text = await resp.text()
+                        logger.warning(f"[YT API] HTTP {resp.status} for q={raw_query}: {err_text[:200]}")
                         return []
                     data = await resp.json()
             finally:
@@ -247,8 +258,11 @@ class YtDlpSearcher:
 
             video_ids = []
             items = data.get("items", [])
+            logger.info(f"[YT API] q={raw_query} → {len(items)} results")
             for item in items:
                 vid = item.get("id", {}).get("videoId", "")
+                snippet = item.get("snippet", {})
+                logger.info(f"[YT API]   -> {vid} | {snippet.get('title', '?')}")
                 if vid:
                     video_ids.append(vid)
 
@@ -298,8 +312,10 @@ class YtDlpSearcher:
                     artwork=snippet.get("thumbnails", {}).get("high", {}).get("url", ""),
                 )
                 tracks.append(track)
+            logger.info(f"[YT API] Returning {len(tracks)} tracks for q={raw_query}")
             return tracks
-        except Exception:
+        except Exception as e:
+            logger.warning(f"[YT API] Exception for q={raw_query}: {e}")
             return []
 
     @staticmethod
@@ -342,9 +358,13 @@ class YtDlpSearcher:
                     return tracks
 
         # Fallback: YouTube Data API v3 (ringan, tanpa Deno)
+        logger.info(f"[YT SEARCH] yt-dlp failed for q={raw_query}, trying YouTube Data API...")
         tracks = await YtDlpSearcher._youtube_api_search(raw_query)
         if tracks:
             YtDlpSearcher._cache[cache_key] = {"ts": time.time(), "tracks": tracks}
+            logger.info(f"[YT SEARCH] YouTube API returned {len(tracks)} tracks for q={raw_query}")
+        else:
+            logger.info(f"[YT SEARCH] YouTube API returned 0 tracks for q={raw_query}")
         return tracks
 
     @staticmethod
