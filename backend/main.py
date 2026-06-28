@@ -25,6 +25,21 @@ import traceback
 
 load_dotenv()
 
+# ===== DECODE COOKIES DARI ENV (Railway secret) =====
+_cookies_b64 = os.getenv("COOKIES_BASE64")
+if _cookies_b64:
+    try:
+        _cookies_dir = os.path.join(_project_root, "cookies")
+        os.makedirs(_cookies_dir, exist_ok=True)
+        _cookies_path = os.path.join(_cookies_dir, "cookies.txt")
+        _cookies_bytes = __import__("base64").b64decode(_cookies_b64)
+        with open(_cookies_path, "wb") as _f:
+            _f.write(_cookies_bytes)
+        print(f"[COOKIES] ✅ Decoded from COOKIES_BASE64 env ({len(_cookies_bytes)} bytes)")
+    except Exception as _e:
+        print(f"[COOKIES] ❌ Gagal decode COOKIES_BASE64: {_e}")
+# ===================================================
+
 # ===== INIT FIREBASE SEBELUM LOAD COGS =====
 from backend.cogs.database import firebase_setup
 # ============================================
