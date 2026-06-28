@@ -6,6 +6,7 @@ import time
 import os
 import random
 import re
+import json
 from typing import Optional
 import aiohttp
 from datetime import datetime, timezone
@@ -22,6 +23,124 @@ def get_db():
     except Exception as e:
         print(f"[FIREBASE LAZY IMPORT] {e}")
         return None
+
+
+def _find_spotify_tracks_in_json(data, depth=0):
+    """Recursively search parsed JSON for track-like entries."""
+    if depth > 8:
+        return []
+    results = []
+
+    if isinstance(data, dict):
+        # Direct trackList key (covers SD-like format)
+        tl = data.get('trackList') or data.get('tracks')
+        if isinstance(tl, list) and len(tl) >= 1:
+            for t in tl:
+                tid = t.get('id') or t.get('uri', '').split(':')[-1] if isinstance(t.get('uri'), str) else ''
+                title = t.get('title') or t.get('name') or ''
+                artist = t.get('artist') or t.get('artists') or ''
+                if isinstance(artist, list):
+                    artist = ', '.join(
+                        a.get('name', '') if isinstance(a, dict) else str(a) for a in artist
+                    )
+                cover = t.get('cover') or t.get('artwork') or ''
+                if isinstance(cover, list):
+                    cover = cover[0].get('url', '') if cover else ''
+                duration = t.get('duration_ms') or t.get('duration')
+                if tid or title:
+                    results.append((tid, title, artist, cover, duration))
+
+        # Spotify items in entity
+        items = data.get('items')
+        if isinstance(items, list) and len(items) >= 1:
+            for it in items:
+                if isinstance(it, dict) and 'track' in it:
+                    t = it['track']
+                    if isinstance(t, dict) and t.get('id'):
+                        artists = ', '.join(a['name'] for a in t.get('artists', []) if isinstance(a, dict))
+                        images = t.get('album', {}).get('images', [])
+                        cover = images[0].get('url', '') if images else ''
+                        results.append((
+                            t['id'], t.get('name', ''),
+                            artists, cover,
+                            t.get('duration_ms'),
+                        ))
+
+        # Recurse into all values
+        for v in data.values():
+            results.extend(_find_spotify_tracks_in_json(v, depth + 1))
+
+    elif isinstance(data, list):
+        # Try items directly
+        if len(data) > 1:
+            for it in data:
+                if isinstance(it, dict) and ('track' in it or 'id' in it):
+                    t = it.get('track') or it
+                    if isinstance(t, dict) and (t.get('id') or t.get('name')):
+                        tid = t.get('id') or ''
+                        title = t.get('name') or ''
+                        artist_v = t.get('artist') or t.get('artists') or ''
+                        if isinstance(artist_v, list):
+                            artist_v = ', '.join(
+                                a.get('name', '') if isinstance(a, dict) else str(a) for a in artist_v
+                            )
+                        cover = ''
+                        albums = t.get('album')
+                        if isinstance(albums, dict):
+                            imgs = albums.get('images', [])
+                            cover = imgs[0].get('url', '') if imgs else ''
+                        results.append((
+                            tid, title, artist_v, cover,
+                            t.get('duration_ms'),
+                        ))
+                    break
+        for item in data:
+            results.extend(_find_spotify_tracks_in_json(item, depth + 1))
+
+    return results
+
+
+def _extract_tracks_from_scripts(script_contents):
+    """Try to parse React state JSON from Spotify script tags."""
+    known_vars = [
+        'window.__INITIAL_STATE__',
+        'window.__PRELOADED_STATE__',
+        'window.__remixContext',
+        'window.__spotify__',
+        'window.__data__',
+        'window.__STORE__',
+    ]
+
+    for content in script_contents:
+        content = content.strip()
+
+        # Try known variable patterns
+        for var in known_vars:
+            escaped_var = re.escape(var)
+            m = re.search(rf'{escaped_var}\s*=\s*(\S.*)', content, re.DOTALL)
+            if m:
+                raw = m.group(1).rstrip(';').strip()
+                try:
+                    decoder = json.JSONDecoder()
+                    data, _ = decoder.raw_decode(raw)
+                    tracks = _find_spotify_tracks_in_json(data)
+                    if len(tracks) > 1:
+                        return tracks
+                except (json.JSONDecodeError, ValueError, StopIteration):
+                    continue
+
+        # Try parsing whole content as JSON
+        if content.startswith('{') or content.startswith('['):
+            try:
+                decoder = json.JSONDecoder()
+                data, _ = decoder.raw_decode(content)
+                tracks = _find_spotify_tracks_in_json(data)
+                if len(tracks) > 1:
+                    return tracks
+            except (json.JSONDecodeError, ValueError, StopIteration):
+                continue
+
+    return []
 
 
 class Music(commands.Cog):
@@ -415,77 +534,32 @@ class Music(commands.Cog):
                                 html = await resp.text()
                                 print(f"[SPOTIFY FALLBACK] Page fetched OK ({len(html)} bytes)")
 
-                                # Coba extract JSON dari <script> tags (Spotify React state)
-                                import json
-                                script_matches = re.findall(r'<script[^>]*>\s*window\.__INITIAL_STATE__\s*=\s*({.*?});\s*</script>', html, re.DOTALL)
-                                if not script_matches:
-                                    script_matches = re.findall(r'<script[^>]*id="__NEXT_DATA__"[^>]*>({.*?})</script>', html, re.DOTALL)
-                                if not script_matches:
-                                    script_matches = re.findall(r'<script[^>]*data-testid="session"[^>]*>({.*?})</script>', html, re.DOTALL)
-                                if not script_matches:
-                                    # Fallback: cari JSON apapun dalam <script> yg mengandung "trackList" atau "items"
-                                    for m in re.finditer(r'<script[^>]*>({.*?})</script>', html, re.DOTALL):
-                                        try:
-                                            data = json.loads(m.group(1))
-                                            if isinstance(data, dict) and ('trackList' in data or 'items' in data):
-                                                script_matches = [m.group(1)]
-                                                break
-                                        except json.JSONDecodeError:
+                                # Extract all script content and try to parse Spotify React state JSON
+                                script_contents = re.findall(
+                                    r'<script[^>]*>(.*?)</script>',
+                                    html,
+                                    re.DOTALL | re.IGNORECASE,
+                                )
+
+                                found_tracks = _extract_tracks_from_scripts(script_contents)
+
+                                if found_tracks:
+                                    print(f"[SPOTIFY FALLBACK] Found {len(found_tracks)} tracks via JSON parsing")
+                                    for tid, title, artist, cover, duration_ms in found_tracks:
+                                        if not title:
                                             continue
-
-                                if script_matches:
-                                    raw_data = json.loads(script_matches[0])
-                                    # Navigasi ke track list
-                                    found_tracks = []
-                                    try:
-                                        items = raw_data['props']['pageProps']['state']['data']['entity']['tracks']['items']
-                                        found_tracks = [(it['track']['id'], it['track']['name'], ', '.join(a['name'] for a in it['track'].get('artists', [])), it['track'].get('album', {}).get('images', [{}])[0].get('url')) for it in items if 'track' in it and it['track'].get('id')]
-                                    except (KeyError, TypeError):
-                                        pass
-                                    if not found_tracks:
-                                        try:
-                                            items = raw_data['entities']['items']
-                                            found_tracks = [(it['id'], it['name'], ', '.join(a['name'] for a in it.get('artists', [])), '') for it in items if it.get('id')]
-                                        except (KeyError, TypeError):
-                                            pass
-                                    if not found_tracks:
-                                        try:
-                                            items = raw_data['trackList']
-                                            found_tracks = [(it.get('id', ''), it.get('title', it.get('name', '')), it.get('artist', it.get('artists', '')), it.get('cover', it.get('album_cover', ''))) for it in items if it.get('id') or it.get('title')]
-                                        except (KeyError, TypeError):
-                                            pass
-                                    if not found_tracks:
-                                        # Coba cari secara rekursif dalam JSON
-                                        def _find_tracks(obj, depth=0):
-                                            results = []
-                                            if depth > 5:
-                                                return results
-                                            if isinstance(obj, dict):
-                                                if 'trackList' in obj and isinstance(obj['trackList'], list):
-                                                    for t in obj['trackList']:
-                                                        tid = t.get('id', '')
-                                                        title = t.get('title', t.get('name', ''))
-                                                        artist = t.get('artist', t.get('artists', ''))
-                                                        if isinstance(artist, list):
-                                                            artist = ', '.join(a.get('name', '') if isinstance(a, dict) else str(a) for a in artist)
-                                                        cover = t.get('cover', t.get('artwork', ''))
-                                                        if tid or title:
-                                                            results.append((tid, title, artist, cover))
-                                                for v in obj.values():
-                                                    results.extend(_find_tracks(v, depth + 1))
-                                            elif isinstance(obj, list):
-                                                for item in obj:
-                                                    results.extend(_find_tracks(item, depth + 1))
-                                            return results
-                                        found_tracks = _find_tracks(raw_data)
-
-                                    if found_tracks:
-                                        print(f"[SPOTIFY FALLBACK] Found {len(found_tracks)} tracks via JSON parsing")
-                                        for tid, title, artist, cover in found_tracks:
-                                            if not title:
-                                                continue
-                                            q = f"ytmsearch:{artist} - {title}" if artist and artist not in ("Unknown", "Spotify") else f"ytmsearch:{title}"
-                                            rebuilt.append(ResolvedTrack(name=title, artists=artist or "Unknown", album=None, duration_ms=None, artwork=cover, spotify_id=tid, youtube_id=None, query=q, source="json_scrape"))
+                                        q = f"ytmsearch:{artist} - {title}" if artist and artist not in ("Unknown", "Spotify") else f"ytmsearch:{title}"
+                                        rebuilt.append(ResolvedTrack(
+                                            name=title,
+                                            artists=artist or "Unknown",
+                                            album=None,
+                                            duration_ms=duration_ms,
+                                            artwork=cover,
+                                            spotify_id=tid,
+                                            youtube_id=None,
+                                            query=q,
+                                            source="json_scrape",
+                                        ))
                     except Exception as e:
                         print(f"[SPOTIFY FALLBACK] JSON extract error (non-fatal): {e}")
 
