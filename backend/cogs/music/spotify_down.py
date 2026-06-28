@@ -322,6 +322,7 @@ class SpotifyOfficialClient:
                 data_payload = {
                     "grant_type": grant_type,
                     "refresh_token": self.refresh_token,
+                    "client_id": self.client_id,
                 }
                 logger.info("[SPOTIFY AUTH] Requesting user-authorized token via refresh_token")
             else:
