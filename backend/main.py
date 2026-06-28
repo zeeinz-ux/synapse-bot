@@ -2,6 +2,7 @@ import sys
 import os
 import warnings
 
+os.environ["PYTHONUNBUFFERED"] = "1"
 warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*line buffering.*binary mode.*")
 
 # ==========================================================
@@ -19,6 +20,7 @@ import threading
 from dotenv import load_dotenv
 
 import importlib
+import traceback
 
 load_dotenv()
 
@@ -41,6 +43,49 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 # REVISI DI SINI: Menyambungkan database Firebase agar bisa dipakai semua Cogs
 # ===========================================================================
 bot.db = firebase_setup.db
+
+
+# ===========================================================================
+# SETUP HOOK — muat semua cog sebelum bot connect
+# ===========================================================================
+async def setup_hook():
+    cogs_dir = os.path.join(_project_root, "backend", "cogs")
+    cog_count = 0
+
+    for root, dirs, files in os.walk(cogs_dir):
+        for filename in files:
+            if not filename.endswith(".py") or filename == "__init__.py":
+                continue
+
+            if filename in ["firebase_setup.py", "spotify_down.py"]:
+                continue
+
+            rel_path = os.path.relpath(
+                os.path.join(root, filename),
+                os.path.join(_project_root, "backend")
+            )
+            module_path = rel_path.replace(os.sep, ".")[:-3]
+
+            try:
+                full_module = f"backend.{module_path}"
+                module = importlib.import_module(full_module)
+
+                if not hasattr(module, "setup"):
+                    print(f"[COG] ⏭️ Skip non-cog: {module_path}", flush=True)
+                    continue
+
+                await bot.load_extension(full_module)
+                print(f"[COG] 📦 Loaded: {module_path}", flush=True)
+                cog_count += 1
+
+            except Exception as e:
+                print(f"[COG] ❌ Failed to load {module_path}: {e}", flush=True)
+                traceback.print_exc()
+
+    print(f"[COG] ✅ Total {cog_count} cogs loaded!", flush=True)
+    print("[STATUS] 🎵 Music: yt-dlp + FFmpeg mode (no Lavalink)", flush=True)
+
+bot.setup_hook = setup_hook
 # ===========================================================================
 
 @tasks.loop(seconds=20.0)
@@ -113,14 +158,6 @@ async def on_guild_join(guild):
 
     print(f"[DASHBOARD] ✅ Guild joined: {guild.name} ({guild_id}) — stats updated ({len(bot.guilds)} guilds), minimal settings created")
 
-# Jalankan task-nya pas bot nyala
-@bot.event
-async def on_ready():
-    # ... kode existing lu (sync command dll) ...
-    
-    if not sync_music_to_dashboard.is_running():
-        sync_music_to_dashboard.start()
-        print("[TASKS] ✅ Sync stats ke dashboard aktif!")
 set_bot_instance(bot)
 start_time = time.time()
 
@@ -349,56 +386,22 @@ async def process_control_queue():
 
 @bot.event
 async def on_ready():
-    print("=" * 50)
-    print(f"[STATUS] 🤖 {bot.user.name} SEKARANG SUDAH ONLINE!")
-    print(f"[STATUS] Terhubung ke {len(bot.guilds)} server Discord.")
-    print("=" * 50)
-
-    cogs_dir = os.path.join(_project_root, "backend", "cogs")
-    cog_count = 0
-    
-    for root, dirs, files in os.walk(cogs_dir):
-        for filename in files:
-            if not filename.endswith(".py") or filename == "__init__.py":
-                continue
-                
-            if filename in ["firebase_setup.py", "spotify_down.py"]:
-                continue
-
-            rel_path = os.path.relpath(
-                os.path.join(root, filename),
-                os.path.join(_project_root, "backend")
-            )
-            
-            module_path = rel_path.replace(os.sep, ".")[:-3]
-            
-            try:
-                full_module = f"backend.{module_path}"
-                module = importlib.import_module(full_module)
-                
-                if not hasattr(module, "setup"):
-                    print(f"[COG] ⏭️ Skip non-cog: {module_path}")
-                    continue
-                
-                await bot.load_extension(full_module)
-                print(f"[COG] 📦 Loaded: {module_path}")
-                cog_count += 1
-                
-            except Exception as e:
-                print(f"[COG] ❌ Failed to load {module_path}: {e}")
-        
-
-    print(f"[COG] ✅ Total {cog_count} cogs loaded!")
-
-    print("[STATUS] 🎵 Music: yt-dlp + FFmpeg mode (no Lavalink)")
+    print("=" * 50, flush=True)
+    print(f"[STATUS] 🤖 {bot.user.name} SEKARANG SUDAH ONLINE!", flush=True)
+    print(f"[STATUS] Terhubung ke {len(bot.guilds)} server Discord.", flush=True)
+    print("=" * 50, flush=True)
 
     try:
         synced = await bot.tree.sync()
-        print(f"[SYNC] ✅ {len(synced)} slash command(s) berhasil di-sync!")
+        print(f"[SYNC] ✅ {len(synced)} slash command(s) berhasil di-sync!", flush=True)
         for cmd in synced:
-            print(f"  - /{cmd.name}")
+            print(f"  - /{cmd.name}", flush=True)
+    except discord.HTTPException as e:
+        print(f"[SYNC] ⚠️ HTTP {e.status} — {e.text}", flush=True)
+        if e.status == 429:
+            print("[SYNC] Rate limited, commands tetap pakai yang lama", flush=True)
     except Exception as e:
-        print(f"[SYNC] ❌ Gagal sync commands: {e}")
+        print(f"[SYNC] ❌ Gagal sync commands: {e}", flush=True)
 
     await integrity_sweep(bot)
 
