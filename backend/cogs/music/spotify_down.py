@@ -486,12 +486,12 @@ class SpotifyResolver:
                 return [self._track_to_resolved(t, t.get("id", ""), "spotify_official") for t in raw], "spotify_official"
             logger.warning("[SPOTIFY RESOLVE] Official API returned empty — fallthrough")
 
-        # 2) SpotifyDown API
-        raw = await sd.get_playlist_tracks(playlist_id)
-        if raw:
-            logger.info("[SPOTIFY RESOLVE] SpotifyDown: %d tracks", len(raw))
-            return self._convert_sd_tracks(raw), "spotifydown"
-        logger.warning("[SPOTIFY RESOLVE] SpotifyDown returned empty — fallthrough")
+        # 2) SpotifyDown API — SKIP: domain mati total (DNS NXDOMAIN)
+        # raw = await sd.get_playlist_tracks(playlist_id)
+        # if raw:
+        #     logger.info("[SPOTIFY RESOLVE] SpotifyDown: %d tracks", len(raw))
+        #     return self._convert_sd_tracks(raw), "spotifydown"
+        # logger.warning("[SPOTIFY RESOLVE] SpotifyDown returned empty — fallthrough")
 
         # 3) Best-effort scrape of public playlist page -> track IDs -> track oEmbed
         scraped_tracks = await self._resolve_public_page_track_ids(
@@ -558,12 +558,12 @@ class SpotifyResolver:
                 return [self._track_to_resolved(t, t.get("id", ""), "spotify_official") for t in raw], "spotify_official"
             logger.warning("[SPOTIFY RESOLVE] Album Official API returned empty")
 
-        # 2) SpotifyDown API
-        raw = await sd.get_album_tracks(album_id)
-        if raw:
-            logger.info("[SPOTIFY RESOLVE] Album SpotifyDown: %d tracks", len(raw))
-            return self._convert_sd_tracks(raw), "spotifydown"
-        logger.warning("[SPOTIFY RESOLVE] Album SpotifyDown returned empty")
+        # 2) SpotifyDown API — SKIP: domain mati total
+        # raw = await sd.get_album_tracks(album_id)
+        # if raw:
+        #     logger.info("[SPOTIFY RESOLVE] Album SpotifyDown: %d tracks", len(raw))
+        #     return self._convert_sd_tracks(raw), "spotifydown"
+        # logger.warning("[SPOTIFY RESOLVE] Album SpotifyDown returned empty")
 
         # 3) Public page scrape
         scraped_tracks = await self._resolve_public_page_track_ids(
@@ -614,42 +614,30 @@ class SpotifyResolver:
                 return self._track_to_resolved(data, track_id, "official_api")
             return None
 
-        async def try_spotifydown():
-            yt_id = await sd.get_youtube_id(track_id)
-            if yt_id:
-                logger.info("[SPOTIFY RESOLVE] Track SpotifyDown success: yt_id=%s", yt_id)
-                return ResolvedTrack(
-                    name=track_id,
-                    artists="",
-                    album=None,
-                    duration_ms=None,
-                    artwork=None,
-                    spotify_id=track_id,
-                    youtube_id=yt_id,
-                    query=f"https://youtube.com/watch?v={yt_id}",
-                    source="spotifydown",
-                )
-            return None
+        # SpotifyDown — SKIP: domain mati total
+        # async def try_spotifydown():
+        #     yt_id = await sd.get_youtube_id(track_id)
+        #     if yt_id:
+        #         logger.info("[SPOTIFY RESOLVE] Track SpotifyDown success: yt_id=%s", yt_id)
+        #         return ResolvedTrack(
+        #             name=track_id,
+        #             artists="",
+        #             album=None,
+        #             duration_ms=None,
+        #             artwork=None,
+        #             spotify_id=track_id,
+        #             youtube_id=yt_id,
+        #             query=f"https://youtube.com/watch?v={yt_id}",
+        #             source="spotifydown",
+        #         )
+        #     return None
+        try_spotifydown = None
 
-        official_task = asyncio.create_task(try_official())
-        sd_task = asyncio.create_task(try_spotifydown())
+        result = await try_official()
+        if result:
+            return [result], "official_api"
 
-        done, pending = await asyncio.wait(
-            [official_task, sd_task],
-            return_when=asyncio.FIRST_COMPLETED,
-            timeout=8,
-        )
-
-        for task in done:
-            result = task.result()
-            if result:
-                for p in pending:
-                    p.cancel()
-                return [result], "spotifydown" if task is sd_task and result.source == "spotifydown" else "official_api"
-
-        for p in pending:
-            p.cancel()
-        logger.warning("[SPOTIFY RESOLVE] Track Official+SpotifyDown both failed for %s — oEmbed fallback", track_id)
+        logger.warning("[SPOTIFY RESOLVE] Track Official API failed for %s — oEmbed fallback", track_id)
 
         meta = await _get_spotify_track_oembed(session, track_id)
         if meta and meta.get("title"):

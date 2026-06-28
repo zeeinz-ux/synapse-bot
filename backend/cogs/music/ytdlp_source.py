@@ -769,6 +769,11 @@ class MusicController:
             print("[DEBUG PLAY] Menghentikan lagu sebelumnya.")
 
         url = track.webpage_url or track.uri
+        if not url or not isinstance(url, str) or not url.startswith("http"):
+            print(f"[ERROR PLAY] URL invalid: {url!r}")
+            await self._play_next()
+            return
+
         file_path = self._preloaded_file if self._preloaded_for == url else None
 
         if file_path and os.path.isfile(file_path):
@@ -779,20 +784,26 @@ class MusicController:
 
         if not file_path or not os.path.isfile(file_path):
             print(f"[ERROR PLAY] File tidak ditemukan/gagal download: {file_path}")
+            await self._cleanup_current_file()
             await self._play_next()
             return
 
         self._current_file = file_path
         print(f"[DEBUG PLAY] Mencoba memutar file: {file_path}")
-        
+
+        if not shutil.which("ffmpeg") and not os.path.isfile(FFMPEG_PATH):
+            print(f"[CRITICAL] FFmpeg tidak ditemukan di {FFMPEG_PATH}")
+            await self._cleanup_current_file()
+            await self._play_next()
+            return
+
         try:
-            # Audit FFmpeg: Pastikan executable benar-benar ada
             print(f"[DEBUG PLAY] Menggunakan FFmpeg di: {FFMPEG_PATH}")
             source = discord.FFmpegPCMAudio(file_path, executable=FFMPEG_PATH)
             vol_source = discord.PCMVolumeTransformer(source, volume=self._volume / 100.0)
-            
+
             self.vc.play(vol_source, after=self._on_track_end_wrapper)
-            
+
             print("[DEBUG PLAY] self.vc.play() berhasil dipanggil.")
             self._start_time = time.time()
             self._paused = False
@@ -808,6 +819,12 @@ class MusicController:
             print(f"[CRITICAL ERROR PLAY] Gagal inisialisasi FFmpeg: {e}")
             import traceback
             traceback.print_exc()
+            await self._cleanup_current_file()
+            if self.vc:
+                try:
+                    self.vc.stop()
+                except Exception:
+                    pass
             await self._play_next()
 
     async def _update_status(self, text: str):
