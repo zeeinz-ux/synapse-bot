@@ -437,14 +437,29 @@ class MusicController:
             return dest
         try:
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
+            result = await loop.run_in_executor(
                 None,
                 lambda: subprocess.run(
                     ["yt-dlp", "-f", "bestaudio", "-o", dest, "--no-part", "--no-progress", "--extract-audio", "--audio-format", "opus", url, *YTDLP_AUTH_ARGS],
                     capture_output=True, timeout=120,
                 )
             )
-            return dest if os.path.isfile(dest) else None
+            if result.returncode != 0:
+                stderr = result.stderr.decode(errors="replace")[:500] if result.stderr else ""
+                print(f"[DOWNLOAD ERROR] yt-dlp exited {result.returncode} for {url[:60]}: {stderr}")
+                return None
+            if os.path.isfile(dest):
+                return dest
+            import glob as _glob
+            prefix = dest.rsplit(".", 1)[0]
+            matches = _glob.glob(prefix + ".*")
+            if matches:
+                print(f"[DOWNLOAD] yt-dlp wrote to {matches[0]} instead of {dest}")
+                os.rename(matches[0], dest)
+                return dest if os.path.isfile(dest) else None
+            stderr = result.stderr.decode(errors="replace")[:500] if result.stderr else ""
+            print(f"[DOWNLOAD ERROR] File not found at {dest} or any {prefix}.* variant. stderr: {stderr}")
+            return None
         except Exception as e:
             print(f"[DOWNLOAD ERROR] {url[:60]}: {e}")
             return None
