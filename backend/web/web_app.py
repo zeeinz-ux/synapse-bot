@@ -153,6 +153,7 @@ def logout():
 
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
+SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI") or "https://my-discord-bot-my-discord-bot.up.railway.app/spotify-callback"
 
 @app.route("/spotify-callback")
 def spotify_callback():
@@ -166,7 +167,7 @@ def spotify_callback():
     data = {
         "grant_type": "authorization_code",
         "code": code,
-        "redirect_uri": request.base_url,
+        "redirect_uri": SPOTIFY_REDIRECT_URI,
         "client_id": SPOTIFY_CLIENT_ID,
         "client_secret": SPOTIFY_CLIENT_SECRET,
     }
