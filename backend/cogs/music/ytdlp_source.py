@@ -719,35 +719,34 @@ class MusicController:
         self._single_loop_track = track
         if self.vc.is_playing() or self.vc.is_paused():
             self.vc.stop()
+            print("[DEBUG PLAY] Menghentikan lagu sebelumnya.")
 
         url = track.webpage_url or track.uri
-
         file_path = self._preloaded_file if self._preloaded_for == url else None
+
         if file_path and os.path.isfile(file_path):
-            self._preloaded_file = None
-            self._preloaded_for = None
-            print(f"[CACHE] Using preloaded file for {track.title}")
+            print(f"[DEBUG PLAY] Menggunakan cache: {file_path}")
         else:
-            self._preloaded_file = None
-            self._preloaded_for = None
-            await self._update_status(f"⏬ Downloading {track.title}...")
+            print(f"[DEBUG PLAY] Mendownload: {url}")
             file_path = await self._download_track(url)
 
         if not file_path or not os.path.isfile(file_path):
-            print(f"[PLAY ERROR] Failed to download {track.title}")
-            if self.home:
-                try:
-                    await self.home.send(f"❌ Gagal mendownload: {track.title}")
-                except Exception:
-                    pass
+            print(f"[ERROR PLAY] File tidak ditemukan/gagal download: {file_path}")
             await self._play_next()
             return
 
         self._current_file = file_path
+        print(f"[DEBUG PLAY] Mencoba memutar file: {file_path}")
+        
         try:
+            # Audit FFmpeg: Pastikan executable benar-benar ada
+            print(f"[DEBUG PLAY] Menggunakan FFmpeg di: {FFMPEG_PATH}")
             source = discord.FFmpegPCMAudio(file_path, executable=FFMPEG_PATH)
             vol_source = discord.PCMVolumeTransformer(source, volume=self._volume / 100.0)
-            self.vc.play(vol_source, after=lambda e: self._on_track_end_wrapper(e))
+            
+            self.vc.play(vol_source, after=lambda e: print(f"[DEBUG PLAY] Selesai/Error callback: {e}"))
+            
+            print("[DEBUG PLAY] self.vc.play() berhasil dipanggil.")
             self._start_time = time.time()
             self._paused = False
             self._paused_position = 0.0
@@ -757,8 +756,11 @@ class MusicController:
             asyncio.create_task(self._sequential_preload())
             await self._update_now_playing()
             self._start_np_updater()
+            print("[DEBUG PLAY] Play command executed successfully.")
         except Exception as e:
-            print(f"[PLAY ERROR] FFmpeg failed: {e}")
+            print(f"[CRITICAL ERROR PLAY] Gagal inisialisasi FFmpeg: {e}")
+            import traceback
+            traceback.print_exc()
             await self._play_next()
 
     async def _update_status(self, text: str):

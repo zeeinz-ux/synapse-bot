@@ -7,13 +7,7 @@ from discord.ext import commands, tasks
 from discord import app_commands
 from google.cloud import firestore
 # Menggunakan absolute import agar lebih aman dan tidak pusing dengan path ../..
-from backend.cogs.database.firebase_setup import db
-from backend.utils.firestore_stats import (
-    firestore_circuit_open,
-    trip_firestore_circuit,
-    firestore_retry_after,
-    _is_quota_error,
-)
+from backend.cogs.database.firebase_setup import db 
 from easy_pil import Editor, Font
 
 class LevelingCog(commands.Cog, name="Leveling"):
@@ -26,7 +20,7 @@ class LevelingCog(commands.Cog, name="Leveling"):
         # 2 level naik: cogs -> backend
         # 3 level naik: backend -> Root
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.font_path = os.path.join(base_dir, "..", "..", "..", "frontend", "static", "fonts", "Roboto-VariableFont_wdth,wght.ttf")
+        self.font_path = os.path.join(base_dir, "..", "..", "..", "frontend", "static", "fonts", "Roboto-Bold.ttf")
         
         self.sync_loop.start()
 
@@ -40,13 +34,7 @@ class LevelingCog(commands.Cog, name="Leveling"):
 
     async def _sync_to_db(self):
         if not self._xp_buffer or db is None: return
-
-        # Skip entirely if the shared Firestore circuit breaker is open.
-        # Prevents leveling from re-triggering 429 after stats/ai_chat already tripped it.
-        if firestore_circuit_open():
-            print(f"[LEVELING] ⏸️  Circuit breaker open — skipping sync (retry in {int(firestore_retry_after())}s). XP buffer retained.")
-            return
-
+        
         batch = db.batch()
         for guild_id, users in self._xp_buffer.items():
             for user_id, data in users.items():
@@ -54,19 +42,13 @@ class LevelingCog(commands.Cog, name="Leveling"):
                     ref = db.collection("guilds").document(guild_id).collection("members").document(user_id)
                     # Atomik increment
                     batch.set(ref, {"xp": firestore.Increment(data["xp"])}, merge=True)
-
+        
         try:
             await asyncio.to_thread(batch.commit)
             self._xp_buffer.clear()
             print("[LEVELING] ✅ XP buffer synced to Firestore.")
         except Exception as e:
-            if _is_quota_error(e):
-                trip_firestore_circuit()
-                retry = firestore_retry_after()
-                print(f"[LEVELING] ❌ Gagal sync ke DB: {e}")
-                print(f"[LEVELING] ⚠️  Circuit breaker tripped for {int(retry)}s — XP buffer preserved for next sync.")
-            else:
-                print(f"[LEVELING] ❌ Gagal sync ke DB: {e}")
+            print(f"[LEVELING] ❌ Gagal sync ke DB: {e}")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):

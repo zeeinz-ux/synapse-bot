@@ -81,6 +81,7 @@ application.yml
 *-backup.py
 *-backup/
 *.bak
+*.backup
 backup/
 *backup*.py
 

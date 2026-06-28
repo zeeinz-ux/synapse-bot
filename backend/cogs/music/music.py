@@ -241,16 +241,65 @@ class Music(commands.Cog):
         channel: Optional[discord.VoiceChannel] = None,
     ):
         print(f"[PLAY CMD] Called by {interaction.user} with query: {query}")
-        try:
+        
+        # PENTING: Respons segera sebelum melakukan proses berat
+        if not interaction.response.is_done():
             await interaction.response.defer()
-        except Exception as e:
-            print(f"[PLAY CMD] defer error: {e}")
-            return
+
         vc = channel or (interaction.user.voice.channel if interaction.user.voice else None)
         if not vc:
-            await interaction.followup.send("❌ Kamu harus join voice channel dulu atau tentukan channel tujuan!")
+            await interaction.followup.send("❌ Kamu harus join voice channel dulu!")
             return
-        print(f"[PLAY CMD] Voice channel: {vc.name}")
+        
+        # Lanjutkan logika...
+        # Pastikan tidak ada return di tengah proses tanpa followup send
+        try:
+            voice_client = interaction.guild.voice_client
+            if not voice_client:
+                print("[DEBUG MUSIC] Membuat player baru...")
+                try:
+                    voice_client = await vc.connect(self_deaf=False)
+                except Exception as e:
+                    print(f"[PLAY ERROR] Connect error: {e}")
+                    await interaction.followup.send(f"❌ Gagal connect ke voice: {e}")
+                    return
+            elif voice_client.channel != vc:
+                print("[DEBUG MUSIC] Pindah ke channel baru...")
+                try:
+                    await voice_client.move_to(vc, self_deaf=False)
+                except Exception as e:
+                    print(f"[PLAY ERROR] Move error: {e}")
+                    await interaction.followup.send(f"❌ Gagal pindah channel: {e}")
+                    return
+
+            guild_id = interaction.guild.id
+            controller = self.get_controller(guild_id)
+            controller.vc = voice_client
+            controller.home = interaction.channel
+
+            # === LOGIC UNTUK SEARCH/PLAY (Disambung ke fungsi play controller) ===
+            # (Pastikan variabel `track` atau `first_track` sudah terisi di sini)
+            
+            # ... (logika search sebelumnya)
+
+            print(f"[DEBUG MUSIC] Memanggil controller.play untuk: {first_track.title if 'first_track' in locals() else track.title}")
+            
+            if not controller.current_track:
+                await controller.set_volume(100)
+                await asyncio.sleep(0.3)
+                track_to_play = first_track if 'first_track' in locals() else track
+                await controller.play(track_to_play)
+                print("[DEBUG MUSIC] controller.play dipanggil (start).")
+            else:
+                controller.queue.insert(0, first_track if 'first_track' in locals() else track)
+                print("[DEBUG MUSIC] controller.play dipanggil (queue).")
+
+        except Exception as e:
+            print(f"[PLAY CMD] Fatal error: {e}")
+            await interaction.followup.send(f"❌ Terjadi kesalahan fatal: {e}")
+
+
+
 
         voice_client = interaction.guild.voice_client
         if not voice_client:
@@ -356,8 +405,10 @@ class Music(commands.Cog):
 
             # PLAYLIST / ALBUM
             else:
+                original_total_tracks = len(resolved_tracks)
+                resolved_tracks = resolved_tracks[:50]
                 total_tracks = len(resolved_tracks)
-                print(f"[SPOTIFY {spotify_type.upper()}] {total_tracks} tracks resolved via {source}")
+                print(f"[SPOTIFY {spotify_type.upper()}] {original_total_tracks} total, limited to {total_tracks} resolved via {source}")
 
                 total_ms = sum(t.duration_ms or 0 for t in resolved_tracks)
                 total_duration = format_duration(total_ms) if total_ms > 0 else "Unknown"
@@ -411,7 +462,7 @@ class Music(commands.Cog):
                     name=f"🎶 Added to Queue ({spotify_type.title()})",
                     icon_url=interaction.user.display_avatar.url
                 )
-                final_embed.add_field(name="🔢 Jumlah Lagu", value=f"`{total_tracks} Lagu`", inline=True)
+                final_embed.add_field(name="🔢 Jumlah Lagu", value=f"`{total_tracks}` lagu" + (" (Dibatasi 50)" if original_total_tracks > 50 else ""), inline=True)
                 final_embed.add_field(name="⏳ Total Durasi", value=f"`{total_duration}`", inline=True)
                 final_embed.add_field(name="👤 Request Oleh", value=interaction.user.mention, inline=True)
                 if thumbnail:
@@ -445,7 +496,7 @@ class Music(commands.Cog):
                 playlist = await YtDlpSearcher.extract_playlist(search_query)
                 if playlist and playlist.tracks:
                     added = 0
-                    for t in playlist.tracks:
+                    for t in playlist.tracks[:50]:
                         controller.queue.append(t)
                         added += 1
                     print(f"[PLAY CMD] Added {added} tracks from playlist: {playlist.name}")
@@ -454,7 +505,11 @@ class Music(commands.Cog):
                         await asyncio.sleep(0.3)
                         next_track = controller.queue.pop(0)
                         await controller.play(next_track)
-                    await interaction.followup.send(f"✅ Playlist ditambahkan! ({added} lagu dari {playlist.name})")
+                    
+                    msg = f"✅ Playlist ditambahkan! ({added} lagu dari {playlist.name})"
+                    if len(playlist.tracks) > 50:
+                        msg += " (Dibatasi 50)"
+                    await interaction.followup.send(msg)
                     return
                 else:
                     await interaction.followup.send("❌ Gagal memuat playlist.")
@@ -482,21 +537,25 @@ class Music(commands.Cog):
                 return
 
         # ==========================================================
-        # HANDLE SEARCH QUERY
+        # HANDLE SEARCH QUERY (atau URL yang bukan playlist)
         # ==========================================================
+        # Jika bukan URL playlist, kita anggap sebagai search query
         clean_input = search_query
+        
+        # Cek apakah ini sebenarnya search query yang disamarkan (misal: "ytsearch:...")
         prefixes = ["ytsearch:", "ytmsearch:", "scsearch:", "spsearch:"]
         for p in prefixes:
             if clean_input.lower().startswith(p):
                 clean_input = clean_input[len(p):].strip()
 
-        print(f"[PLAY CMD] Searching: ytsearch:{clean_input}")
+        print(f"[PLAY CMD] Searching/Processing: {clean_input}")
         try:
+            # Kita coba search dengan prefix ytsearch agar lebih stabil
             tracks = await asyncio.wait_for(
                 YtDlpSearcher.search(f"ytsearch:{clean_input}"),
                 timeout=30.0,
             )
-            print(f"[PLAY CMD] Search returned: {type(tracks)} | count: {len(tracks) if hasattr(tracks, '__len__') else 'N/A'}")
+            print(f"[PLAY CMD] Search returned: count: {len(tracks) if tracks else 0}")
         except asyncio.TimeoutError:
             print("[PLAY CMD] SEARCH TIMEOUT after 30s")
             await interaction.followup.send("⏱️ Search timeout (30s). Coba lagi atau gunakan query lain.")
@@ -511,9 +570,11 @@ class Music(commands.Cog):
             await interaction.followup.send("❌ Lagu tidak ditemukan.")
             return
 
+        # Ambil lagu pertama sebagai hasil pencarian
         track = tracks[0]
-        print(f"[PLAY CMD] Single track: {track.title}")
+        print(f"[PLAY CMD] Playing track: {track.title}")
         controller.queue.append(track)
+        
         if not controller.current_track:
             await controller.set_volume(100)
             await asyncio.sleep(0.3)
@@ -528,6 +589,8 @@ class Music(commands.Cog):
             if track.artwork:
                 embed.set_thumbnail(url=track.artwork)
             await interaction.followup.send(embed=embed)
+            return
+
 
     @app_commands.command(name="pause", description="Pause lagu yang sedang diputar")
     async def pause(self, interaction: discord.Interaction):
