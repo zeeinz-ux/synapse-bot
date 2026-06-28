@@ -232,35 +232,30 @@ class Music(commands.Cog):
     # ==========================================================
     # COMMANDS
     # ==========================================================
-    @app_commands.command(name="play", description="Putar lagu dari URL atau search query")
+    @commands.hybrid_command(name="play", description="Putar lagu dari URL atau search query", aliases=["p"])
     @app_commands.describe(query="URL (YouTube/Spotify/SoundCloud) atau nama lagu", channel="Voice channel tujuan (opsional, default: channel kamu sekarang)")
     async def play(
         self,
-        interaction: discord.Interaction,
+        ctx: commands.Context,
         query: str,
         channel: Optional[discord.VoiceChannel] = None,
     ):
-        print(f"[PLAY CMD] Called by {interaction.user} with query: {query}")
-        
-        # PENTING: Respons segera sebelum melakukan proses berat
-        if not interaction.response.is_done():
-            await interaction.response.defer()
+        print(f"[PLAY CMD] Called by {ctx.author} with query: {query}")
+        await ctx.defer()
 
-        vc = channel or (interaction.user.voice.channel if interaction.user.voice else None)
+        vc = channel or (ctx.author.voice.channel if ctx.author.voice else None)
         if not vc:
-            await interaction.followup.send("❌ Kamu harus join voice channel dulu!")
+            await ctx.send("❌ Kamu harus join voice channel dulu!")
             return
-        
 
-
-        voice_client = interaction.guild.voice_client
+        voice_client = ctx.guild.voice_client
         if not voice_client:
             print("[PLAY CMD] Creating new player...")
             try:
                 voice_client = await vc.connect(self_deaf=False)
             except Exception as e:
                 print(f"[PLAY CMD] Connect error: {e}")
-                await interaction.followup.send(f"❌ Gagal connect ke voice: {e}")
+                await ctx.send(f"❌ Gagal connect ke voice: {e}")
                 return
         elif voice_client.channel != vc:
             print("[PLAY CMD] Moving to new channel...")
@@ -268,13 +263,13 @@ class Music(commands.Cog):
                 await voice_client.move_to(vc, self_deaf=False)
             except Exception as e:
                 print(f"[PLAY CMD] Move error: {e}")
-                await interaction.followup.send(f"❌ Gagal pindah channel: {e}")
+                await ctx.send(f"❌ Gagal pindah channel: {e}")
                 return
 
-        guild_id = interaction.guild.id
+        guild_id = ctx.guild.id
         controller = self.get_controller(guild_id)
         controller.vc = voice_client
-        controller.home = interaction.channel
+        controller.home = ctx.channel
 
         print(f"[PLAY CMD] Player ready. Current: {controller.current_track}")
         search_query = query.strip()
@@ -285,12 +280,12 @@ class Music(commands.Cog):
         if self._is_spotify_url(search_query):
             spotify_info = self._extract_spotify_id(search_query)
             if not spotify_info:
-                await interaction.followup.send("❌ URL Spotify tidak valid.")
+                await ctx.send("❌ URL Spotify tidak valid.")
                 return
             spotify_type, spotify_id = spotify_info
             print(f"[SPOTIFY] Detected {spotify_type} with ID: {spotify_id}")
 
-            loading_msg = await interaction.followup.send(
+            loading_msg = await ctx.send(
                 f"🎵 Mengambil metadata Spotify ({spotify_type}) via SpotifyDown API..."
             )
 
@@ -412,11 +407,11 @@ class Music(commands.Cog):
                 )
                 final_embed.set_author(
                     name=f"🎶 Added to Queue ({spotify_type.title()})",
-                    icon_url=interaction.user.display_avatar.url
+                    icon_url=ctx.author.display_avatar.url
                 )
                 final_embed.add_field(name="🔢 Jumlah Lagu", value=f"`{total_tracks}` lagu" + (" (Dibatasi 50)" if original_total_tracks > 50 else ""), inline=True)
                 final_embed.add_field(name="⏳ Total Durasi", value=f"`{total_duration}`", inline=True)
-                final_embed.add_field(name="👤 Request Oleh", value=interaction.user.mention, inline=True)
+                final_embed.add_field(name="👤 Request Oleh", value=ctx.author.mention, inline=True)
                 if thumbnail:
                     final_embed.set_thumbnail(url=thumbnail)
                 status_text = f"▶️ Sekarang Memutar: {first_track.title[:35]}..."
@@ -461,10 +456,10 @@ class Music(commands.Cog):
                     msg = f"✅ Playlist ditambahkan! ({added} lagu dari {playlist.name})"
                     if len(playlist.tracks) > 50:
                         msg += " (Dibatasi 50)"
-                    await interaction.followup.send(msg)
+                    await ctx.send(msg)
                     return
                 else:
-                    await interaction.followup.send("❌ Gagal memuat playlist.")
+                    await ctx.send("❌ Gagal memuat playlist.")
                     return
 
             track = await YtDlpSearcher.extract_info(search_query)
@@ -482,10 +477,10 @@ class Music(commands.Cog):
                 )
                 if track.artwork:
                     embed.set_thumbnail(url=track.artwork)
-                await interaction.followup.send(embed=embed)
+                await ctx.send(embed=embed)
                 return
             else:
-                await interaction.followup.send("❌ Gagal memproses URL.")
+                await ctx.send("❌ Gagal memproses URL.")
                 return
 
         # ==========================================================
@@ -510,16 +505,16 @@ class Music(commands.Cog):
             print(f"[PLAY CMD] Search returned: count: {len(tracks) if tracks else 0}")
         except asyncio.TimeoutError:
             print("[PLAY CMD] SEARCH TIMEOUT after 30s")
-            await interaction.followup.send("⏱️ Search timeout (30s). Coba lagi atau gunakan query lain.")
+            await ctx.send("⏱️ Search timeout (30s). Coba lagi atau gunakan query lain.")
             return
         except Exception as e:
             print(f"[PLAY CMD] SEARCH ERROR: {type(e).__name__}: {e}")
-            await interaction.followup.send(f"❌ Gagal mencari lagu: `{e}`")
+            await ctx.send(f"❌ Gagal mencari lagu: `{e}`")
             return
 
         if not tracks:
             print("[PLAY CMD] No tracks found")
-            await interaction.followup.send("❌ Lagu tidak ditemukan.")
+            await ctx.send("❌ Lagu tidak ditemukan.")
             return
 
         # Ambil lagu pertama sebagai hasil pencarian
@@ -540,78 +535,78 @@ class Music(commands.Cog):
             )
             if track.artwork:
                 embed.set_thumbnail(url=track.artwork)
-            await interaction.followup.send(embed=embed)
+            await ctx.send(embed=embed)
             return
 
 
-    @app_commands.command(name="pause", description="Pause lagu yang sedang diputar")
-    async def pause(self, interaction: discord.Interaction):
-        voice_client = interaction.guild.voice_client
+    @commands.hybrid_command(name="pause", description="Pause lagu yang sedang diputar")
+    async def pause(self, ctx: commands.Context):
+        voice_client = ctx.guild.voice_client
         if not voice_client or not voice_client.is_playing():
-            await interaction.response.send_message("❌ Tidak ada lagu yang sedang diputar.", ephemeral=True)
+            await ctx.send("❌ Tidak ada lagu yang sedang diputar.", ephemeral=True)
             return
         voice_client.pause()
-        controller = self.get_controller(interaction.guild_id)
+        controller = self.get_controller(ctx.guild.id)
         controller._paused = True
         controller._paused_position = time.time() - controller._start_time
         await controller._update_now_playing()
-        await interaction.response.send_message("⏸️ Lagu di-pause.")
+        await ctx.send("⏸️ Lagu di-pause.")
 
-    @app_commands.command(name="resume", description="Lanjutkan lagu yang di-pause")
-    async def resume(self, interaction: discord.Interaction):
-        voice_client = interaction.guild.voice_client
+    @commands.hybrid_command(name="resume", description="Lanjutkan lagu yang di-pause")
+    async def resume(self, ctx: commands.Context):
+        voice_client = ctx.guild.voice_client
         if not voice_client or not voice_client.is_paused():
-            await interaction.response.send_message("❌ Tidak ada lagu yang di-pause.", ephemeral=True)
+            await ctx.send("❌ Tidak ada lagu yang di-pause.", ephemeral=True)
             return
         voice_client.resume()
-        controller = self.get_controller(interaction.guild_id)
+        controller = self.get_controller(ctx.guild.id)
         controller._paused = False
         controller._start_time = time.time() - controller._paused_position
         await controller._update_now_playing()
-        await interaction.response.send_message("▶️ Lagu dilanjutkan.")
+        await ctx.send("▶️ Lagu dilanjutkan.")
 
-    @app_commands.command(name="skip", description="Skip ke lagu berikutnya")
-    async def skip(self, interaction: discord.Interaction):
-        controller = self.get_controller(interaction.guild_id)
-        voice_client = interaction.guild.voice_client
+    @commands.hybrid_command(name="skip", description="Skip ke lagu berikutnya")
+    async def skip(self, ctx: commands.Context):
+        controller = self.get_controller(ctx.guild.id)
+        voice_client = ctx.guild.voice_client
         if not voice_client or not controller.current_track:
-            await interaction.response.send_message("❌ Tidak ada lagu yang sedang diputar.", ephemeral=True)
+            await ctx.send("❌ Tidak ada lagu yang sedang diputar.", ephemeral=True)
             return
         skipped = controller.current_track
         voice_client.stop()
         if controller.queue:
-            await interaction.response.send_message(
+            await ctx.send(
                 f"⏭️ Skipped: **{skipped.title}**"
             )
         else:
-            await interaction.response.send_message(
+            await ctx.send(
                 f"⏭️ Skipped: **{skipped.title}** | Queue kosong."
             )
 
-    @app_commands.command(name="stop", description="Stop lagu, clear queue, keluar voice channel")
-    async def stop(self, interaction: discord.Interaction):
-        controller = self.get_controller(interaction.guild_id)
-        voice_client = interaction.guild.voice_client
+    @commands.hybrid_command(name="stop", description="Stop lagu, clear queue, keluar voice channel")
+    async def stop(self, ctx: commands.Context):
+        controller = self.get_controller(ctx.guild.id)
+        voice_client = ctx.guild.voice_client
         if not voice_client:
-            await interaction.response.send_message("❌ Bot tidak ada di voice channel.", ephemeral=True)
+            await ctx.send("❌ Bot tidak ada di voice channel.", ephemeral=True)
             return
         await controller.stop()
-        await interaction.response.send_message("⏹️ Music player dihentikan dan queue di-clear.")
+        await ctx.send("⏹️ Music player dihentikan dan queue di-clear.")
 
-    @app_commands.command(name="queue", description="Lihat antrian lagu")
-    async def queue(self, interaction: discord.Interaction):
+    @commands.hybrid_command(name="queue", description="Lihat antrian lagu")
+    async def queue(self, ctx: commands.Context):
         try:
-            await interaction.response.defer()
+            await ctx.defer()
         except Exception:
             pass
-        controller = self.get_controller(interaction.guild_id)
-        voice_client = interaction.guild.voice_client
+        controller = self.get_controller(ctx.guild.id)
+        voice_client = ctx.guild.voice_client
         if not voice_client:
-            await interaction.followup.send("📭 Queue kosong.")
+            await ctx.send("📭 Queue kosong.")
             return
 
         if not controller.home:
-            controller.home = interaction.channel
+            controller.home = ctx.channel
         await controller._update_now_playing()
 
         embed = discord.Embed(title="🎶 Music Queue", color=discord.Color.purple())
@@ -644,83 +639,83 @@ class Music(commands.Cog):
                 embed.set_footer(text="Queue kosong — tambah lagu dengan /play")
         except Exception as e:
             print(f"[QUEUE ERROR] {e}")
-            await interaction.followup.send("❌ Gagal menampilkan queue.")
+            await ctx.send("❌ Gagal menampilkan queue.")
             return
 
-        await interaction.followup.send(embed=embed)
+        await ctx.send(embed=embed)
 
-    @app_commands.command(name="nowplaying", description="Info detail lagu yang sedang diputar")
-    async def nowplaying(self, interaction: discord.Interaction):
-        controller = self.get_controller(interaction.guild_id)
-        voice_client = interaction.guild.voice_client
+    @commands.hybrid_command(name="nowplaying", description="Info detail lagu yang sedang diputar")
+    async def nowplaying(self, ctx: commands.Context):
+        controller = self.get_controller(ctx.guild.id)
+        voice_client = ctx.guild.voice_client
         if not voice_client or not controller.current_track:
-            await interaction.response.send_message("❌ Tidak ada lagu yang sedang diputar.", ephemeral=True)
+            await ctx.send("❌ Tidak ada lagu yang sedang diputar.", ephemeral=True)
             return
 
         try:
-            await interaction.response.defer(ephemeral=True)
+            await ctx.defer(ephemeral=True)
         except Exception:
             pass
 
         if not controller.home:
-            controller.home = interaction.channel
+            controller.home = ctx.channel
         await controller._update_now_playing()
-        await interaction.followup.send("▶️ Cek pesan **Now Playing** di atas untuk info lengkap.", ephemeral=True)
+        await ctx.send("▶️ Cek pesan **Now Playing** di atas untuk info lengkap.", ephemeral=True)
 
-    @app_commands.command(name="volume", description="Atur volume bot (0-1000)")
+    @commands.hybrid_command(name="volume", description="Atur volume bot (0-1000)")
     @app_commands.describe(level="Volume level 0-1000 (default 100)")
-    async def volume(self, interaction: discord.Interaction, level: int):
+    async def volume(self, ctx: commands.Context, level: int):
         if not 0 <= level <= 1000:
-            await interaction.response.send_message("❌ Volume harus antara 0-1000.", ephemeral=True)
+            await ctx.send("❌ Volume harus antara 0-1000.", ephemeral=True)
             return
-        voice_client = interaction.guild.voice_client
+        voice_client = ctx.guild.voice_client
         if not voice_client:
-            await interaction.response.send_message("❌ Bot tidak ada di voice channel.", ephemeral=True)
+            await ctx.send("❌ Bot tidak ada di voice channel.", ephemeral=True)
             return
-        controller = self.get_controller(interaction.guild_id)
+        controller = self.get_controller(ctx.guild.id)
         await controller.set_volume(level)
-        await interaction.response.send_message(f"🔊 Volume diatur ke **{level}%**.")
+        await ctx.send(f"🔊 Volume diatur ke **{level}%**.")
 
-    @app_commands.command(name="loop", description="Atur mode loop lagu/queue")
+    @commands.hybrid_command(name="loop", description="Atur mode loop lagu/queue")
     @app_commands.describe(mode="Pilih mode loop")
     @app_commands.choices(mode=[
         app_commands.Choice(name="Off", value="off"),
         app_commands.Choice(name="Single (Lagu Ini)", value="single"),
         app_commands.Choice(name="Queue (Semua Lagu)", value="queue"),
     ])
-    async def loop(self, interaction: discord.Interaction, mode: app_commands.Choice[str]):
-        controller = self.get_controller(interaction.guild_id)
+    async def loop(self, ctx: commands.Context, mode: app_commands.Choice[str]):
+        controller = self.get_controller(ctx.guild.id)
         controller.loop_mode = mode.value
         if mode.value == "queue":
             controller._queue_history.clear()
         if mode.value == "off":
             controller._single_loop_track = None
-        await interaction.response.send_message(f"🔁 Loop mode: **{mode.name}**")
+        await ctx.send(f"🔁 Loop mode: **{mode.name}**")
 
-    @app_commands.command(name="shuffle", description="Acak antrian lagu")
-    async def shuffle(self, interaction: discord.Interaction):
-        controller = self.get_controller(interaction.guild_id)
+    @commands.hybrid_command(name="shuffle", description="Acak antrian lagu")
+    async def shuffle(self, ctx: commands.Context):
+        controller = self.get_controller(ctx.guild.id)
         if not controller.queue:
-            await interaction.response.send_message("📭 Queue kosong, tidak ada yang bisa diacak.", ephemeral=True)
+            await ctx.send("📭 Queue kosong, tidak ada yang bisa diacak.", ephemeral=True)
             return
         random.shuffle(controller.queue)
         controller._queue_history.clear()
-        await interaction.response.send_message(f"🔀 Queue diacak! ({len(controller.queue)} lagu)")
+        await ctx.send(f"🔀 Queue diacak! ({len(controller.queue)} lagu)")
 
-    @app_commands.command(name="autoplay", description="Toggle autoplay: bot cari lagu serupa ketika queue habis")
-    async def autoplay(self, interaction: discord.Interaction):
-        controller = self.get_controller(interaction.guild_id)
+    @commands.hybrid_command(name="autoplay", description="Toggle autoplay: bot cari lagu serupa ketika queue habis")
+    async def autoplay(self, ctx: commands.Context):
+        controller = self.get_controller(ctx.guild.id)
         controller.autoplay = not controller.autoplay
         status = "ON ✅" if controller.autoplay else "OFF ❌"
-        await interaction.response.send_message(f"🤖 Autoplay sekarang: **{status}**")
+        await ctx.send(f"🤖 Autoplay sekarang: **{status}**")
 
-    @app_commands.command(name="seek", description="Skip ke posisi tertentu dalam lagu")
+    @commands.hybrid_command(name="seek", description="Skip ke posisi tertentu dalam lagu")
     @app_commands.describe(position="Format: 1:30 atau 90 (detik)")
-    async def seek(self, interaction: discord.Interaction, position: str):
-        controller = self.get_controller(interaction.guild_id)
-        voice_client = interaction.guild.voice_client
+    async def seek(self, ctx: commands.Context, position: str):
+        controller = self.get_controller(ctx.guild.id)
+        voice_client = ctx.guild.voice_client
         if not voice_client or not controller.current_track:
-            await interaction.response.send_message("❌ Tidak ada lagu yang sedang diputar.", ephemeral=True)
+            await ctx.send("❌ Tidak ada lagu yang sedang diputar.", ephemeral=True)
             return
         total_seconds = 0
         try:
@@ -733,116 +728,116 @@ class Music(commands.Cog):
             else:
                 total_seconds = int(position)
         except ValueError:
-            await interaction.response.send_message("❌ Format salah. Gunakan `1:30` atau `90`.", ephemeral=True)
+            await ctx.send("❌ Format salah. Gunakan `1:30` atau `90`.", ephemeral=True)
             return
         ms = total_seconds * 1000
         if controller.current_track.duration and ms > controller.current_track.duration:
-            await interaction.response.send_message("❌ Posisi melebihi durasi lagu.", ephemeral=True)
+            await ctx.send("❌ Posisi melebihi durasi lagu.", ephemeral=True)
             return
 
         await controller.seek(ms)
-        await interaction.response.send_message(f"⏩ Skip ke `{format_duration(ms)}`.")
+        await ctx.send(f"⏩ Skip ke `{format_duration(ms)}`.")
 
-    @app_commands.command(name="remove", description="Hapus lagu dari queue berdasarkan nomor")
+    @commands.hybrid_command(name="remove", description="Hapus lagu dari queue berdasarkan nomor")
     @app_commands.describe(index="Nomor lagu di /queue")
-    async def remove(self, interaction: discord.Interaction, index: int):
-        controller = self.get_controller(interaction.guild_id)
+    async def remove(self, ctx: commands.Context, index: int):
+        controller = self.get_controller(ctx.guild.id)
         if not controller.queue:
-            await interaction.response.send_message("📭 Queue kosong.", ephemeral=True)
+            await ctx.send("📭 Queue kosong.", ephemeral=True)
             return
         if index < 1:
-            await interaction.response.send_message("❌ Nomor harus mulai dari 1.", ephemeral=True)
+            await ctx.send("❌ Nomor harus mulai dari 1.", ephemeral=True)
             return
         if index > len(controller.queue):
-            await interaction.response.send_message(f"❌ Queue cuma ada {len(controller.queue)} lagu.", ephemeral=True)
+            await ctx.send(f"❌ Queue cuma ada {len(controller.queue)} lagu.", ephemeral=True)
             return
         async with controller._track_lock:
             removed = controller.queue.pop(index - 1)
-        await interaction.response.send_message(f"🗑️ Dihapus dari queue: **{removed.title}**")
+        await ctx.send(f"🗑️ Dihapus dari queue: **{removed.title}**")
 
-    @app_commands.command(name="move", description="Pindah posisi lagu di queue")
+    @commands.hybrid_command(name="move", description="Pindah posisi lagu di queue")
     @app_commands.describe(from_index="Posisi asal", to_index="Posisi tujuan")
-    async def move(self, interaction: discord.Interaction, from_index: int, to_index: int):
-        controller = self.get_controller(interaction.guild_id)
+    async def move(self, ctx: commands.Context, from_index: int, to_index: int):
+        controller = self.get_controller(ctx.guild.id)
         if not controller.queue:
-            await interaction.response.send_message("📭 Queue kosong.", ephemeral=True)
+            await ctx.send("📭 Queue kosong.", ephemeral=True)
             return
         if not (1 <= from_index <= len(controller.queue)) or not (1 <= to_index <= len(controller.queue)):
-            await interaction.response.send_message(f"❌ Index harus antara 1 dan {len(controller.queue)}.", ephemeral=True)
+            await ctx.send(f"❌ Index harus antara 1 dan {len(controller.queue)}.", ephemeral=True)
             return
         async with controller._track_lock:
             track = controller.queue.pop(from_index - 1)
             controller.queue.insert(to_index - 1, track)
-        await interaction.response.send_message(f"↔️ Dipindah: **{track.title}** ke posisi `{to_index}`")
+        await ctx.send(f"↔️ Dipindah: **{track.title}** ke posisi `{to_index}`")
 
-    @app_commands.command(name="skipto", description="Skip ke lagu nomor tertentu di queue")
+    @commands.hybrid_command(name="skipto", description="Skip ke lagu nomor tertentu di queue")
     @app_commands.describe(index="Nomor lagu di /queue")
-    async def skipto(self, interaction: discord.Interaction, index: int):
-        controller = self.get_controller(interaction.guild_id)
-        voice_client = interaction.guild.voice_client
+    async def skipto(self, ctx: commands.Context, index: int):
+        controller = self.get_controller(ctx.guild.id)
+        voice_client = ctx.guild.voice_client
         if not voice_client or not controller.queue:
-            await interaction.response.send_message("📭 Queue kosong.", ephemeral=True)
+            await ctx.send("📭 Queue kosong.", ephemeral=True)
             return
         if not (1 <= index <= len(controller.queue)):
-            await interaction.response.send_message(f"❌ Index harus antara 1 dan {len(controller.queue)}.", ephemeral=True)
+            await ctx.send(f"❌ Index harus antara 1 dan {len(controller.queue)}.", ephemeral=True)
             return
         async with controller._track_lock:
             target = controller.queue.pop(index - 1)
             controller.queue.insert(0, target)
         voice_client.stop()
-        await interaction.response.send_message(f"⏭️ Skip ke: **{target.title}**")
+        await ctx.send(f"⏭️ Skip ke: **{target.title}**")
 
-    @app_commands.command(name="disconnect", description="Keluar dari voice channel")
-    async def disconnect(self, interaction: discord.Interaction):
-        controller = self.get_controller(interaction.guild_id)
-        voice_client = interaction.guild.voice_client
+    @commands.hybrid_command(name="disconnect", description="Keluar dari voice channel")
+    async def disconnect(self, ctx: commands.Context):
+        controller = self.get_controller(ctx.guild.id)
+        voice_client = ctx.guild.voice_client
         if not voice_client:
-            await interaction.response.send_message("❌ Bot tidak di voice channel.", ephemeral=True)
+            await ctx.send("❌ Bot tidak di voice channel.", ephemeral=True)
             return
         await controller.disconnect()
-        await interaction.response.send_message("🔌 Keluar dari voice channel.")
+        await ctx.send("🔌 Keluar dari voice channel.")
 
-    @app_commands.command(name="clearqueue", description="Kosongkan queue tanpa menghentikan lagu yang sedang diputar")
-    async def clearqueue(self, interaction: discord.Interaction):
-        controller = self.get_controller(interaction.guild_id)
+    @commands.hybrid_command(name="clearqueue", description="Kosongkan queue tanpa menghentikan lagu yang sedang diputar")
+    async def clearqueue(self, ctx: commands.Context):
+        controller = self.get_controller(ctx.guild.id)
         if not controller.queue:
-            await interaction.response.send_message("📭 Queue sudah kosong.", ephemeral=True)
+            await ctx.send("📭 Queue sudah kosong.", ephemeral=True)
             return
         controller.queue.clear()
         controller._queue_history.clear()
-        await interaction.response.send_message("🧹 Queue dikosongkan. Lagu yang sedang diputar tetap jalan.")
+        await ctx.send("🧹 Queue dikosongkan. Lagu yang sedang diputar tetap jalan.")
 
-    @app_commands.command(name="replay", description="Putar ulang lagu dari awal")
-    async def replay(self, interaction: discord.Interaction):
-        controller = self.get_controller(interaction.guild_id)
-        voice_client = interaction.guild.voice_client
+    @commands.hybrid_command(name="replay", description="Putar ulang lagu dari awal")
+    async def replay(self, ctx: commands.Context):
+        controller = self.get_controller(ctx.guild.id)
+        voice_client = ctx.guild.voice_client
         if not voice_client or not controller.current_track:
-            await interaction.response.send_message("❌ Tidak ada lagu yang sedang diputar.", ephemeral=True)
+            await ctx.send("❌ Tidak ada lagu yang sedang diputar.", ephemeral=True)
             return
         await controller.play(controller.current_track)
-        await interaction.response.send_message("🔁 Replay dari awal.")
+        await ctx.send("🔁 Replay dari awal.")
 
-    @app_commands.command(name="lyrics", description="Cari lirik lagu yang sedang diputar atau dari judul")
+    @commands.hybrid_command(name="lyrics", description="Cari lirik lagu yang sedang diputar atau dari judul")
     @app_commands.describe(query="Judul lagu (opsional, default: lagu yang sedang diputar)")
-    async def lyrics(self, interaction: discord.Interaction, query: str = None):
+    async def lyrics(self, ctx: commands.Context, query: str = None):
         if not query:
-            controller = self.get_controller(interaction.guild_id)
+            controller = self.get_controller(ctx.guild.id)
             if controller.current_track:
                 query = f"{controller.current_track.title} {controller.current_track.author or ''}"
         if not query:
-            await interaction.response.send_message("❌ Tidak ada lagu yang diputar. Berikan judul!")
+            await ctx.send("❌ Tidak ada lagu yang diputar. Berikan judul!")
             return
-        await interaction.response.defer()
+        await ctx.defer()
         try:
             async with aiohttp.ClientSession() as session:
                 url = f"https://lrclib.net/api/search?q={query.strip().replace(' ', '%20')}"
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     if resp.status != 200:
-                        await interaction.followup.send("❌ Lirik tidak ditemukan.")
+                        await ctx.send("❌ Lirik tidak ditemukan.")
                         return
                     data = await resp.json()
             if not data:
-                await interaction.followup.send("❌ Lirik tidak ditemukan.")
+                await ctx.send("❌ Lirik tidak ditemukan.")
                 return
             song = data[0]
             title = song.get('trackName', 'Unknown')
@@ -855,24 +850,24 @@ class Music(commands.Cog):
                 description=f"by **{artist}**\n\n```{plain}```",
                 color=discord.Color.pink(),
             )
-            await interaction.followup.send(embed=embed)
+            await ctx.send(embed=embed)
         except Exception as e:
             print(f"[LYRICS ERROR] {e}")
-            await interaction.followup.send("❌ Gagal mengambil lirik. Coba judul lain.")
+            await ctx.send("❌ Gagal mengambil lirik. Coba judul lain.")
 
     # ==========================================================
     # PLAYLIST GROUP
     # ==========================================================
-    playlist = app_commands.Group(name="playlist", description="Simpan dan muat playlist lagu")
+    playlist = commands.Group(name="playlist", description="Simpan dan muat playlist lagu")
 
     @playlist.command(name="save", description="Simpan queue saat ini sebagai playlist")
     @app_commands.describe(name="Nama playlist")
-    async def playlist_save(self, interaction: discord.Interaction, name: str):
+    async def playlist_save(self, ctx: commands.Context, name: str):
         db = get_db()
         if db is None:
-            await interaction.response.send_message("❌ Fitur playlist tidak tersedia (Firebase tidak terhubung).", ephemeral=True)
+            await ctx.send("❌ Fitur playlist tidak tersedia (Firebase tidak terhubung).", ephemeral=True)
             return
-        controller = self.get_controller(interaction.guild_id)
+        controller = self.get_controller(ctx.guild.id)
         tracks = []
         if controller.current_track:
             tracks.append({
@@ -891,50 +886,50 @@ class Music(commands.Cog):
                 "length": track.duration or 0,
             })
         if not tracks:
-            await interaction.response.send_message("📭 Tidak ada lagu untuk disimpan.", ephemeral=True)
+            await ctx.send("📭 Tidak ada lagu untuk disimpan.", ephemeral=True)
             return
-        doc_id = f"{interaction.guild_id}_{interaction.user.id}_{name}"
+        doc_id = f"{ctx.guild.id}_{ctx.author.id}_{name}"
         get_db().collection("playlists").document(doc_id).set({
-            "guild_id": str(interaction.guild_id),
-            "user_id": str(interaction.user.id),
+            "guild_id": str(ctx.guild.id),
+            "user_id": str(ctx.author.id),
             "name": name,
             "tracks": tracks,
             "created_at": datetime.now(timezone.utc),
         })
-        await interaction.response.send_message(f"💾 Playlist **{name}** disimpan! ({len(tracks)} lagu)")
+        await ctx.send(f"💾 Playlist **{name}** disimpan! ({len(tracks)} lagu)")
 
     @playlist.command(name="load", description="Muat playlist ke queue")
     @app_commands.describe(name="Nama playlist")
-    async def playlist_load(self, interaction: discord.Interaction, name: str):
+    async def playlist_load(self, ctx: commands.Context, name: str):
         db = get_db()
         if db is None:
-            await interaction.response.send_message("❌ Fitur playlist tidak tersedia (Firebase tidak terhubung).", ephemeral=True)
+            await ctx.send("❌ Fitur playlist tidak tersedia (Firebase tidak terhubung).", ephemeral=True)
             return
-        await interaction.response.defer()
-        doc_id = f"{interaction.guild_id}_{interaction.user.id}_{name}"
+        await ctx.defer()
+        doc_id = f"{ctx.guild.id}_{ctx.author.id}_{name}"
         doc = get_db().collection("playlists").document(doc_id).get()
         if not doc.exists:
-            await interaction.followup.send(f"❌ Playlist **{name}** tidak ditemukan.")
+            await ctx.send(f"❌ Playlist **{name}** tidak ditemukan.")
             return
         data = doc.to_dict()
         track_data = data.get("tracks", [])
         if not track_data:
-            await interaction.followup.send("📭 Playlist kosong.")
+            await ctx.send("📭 Playlist kosong.")
             return
-        if not interaction.user.voice or not interaction.user.voice.channel:
-            await interaction.followup.send("❌ Kamu harus join voice channel dulu!")
+        if not ctx.author.voice or not ctx.author.voice.channel:
+            await ctx.send("❌ Kamu harus join voice channel dulu!")
             return
-        vc = interaction.user.voice.channel
-        voice_client = interaction.guild.voice_client
+        vc = ctx.author.voice.channel
+        voice_client = ctx.guild.voice_client
         if not voice_client:
             voice_client = await vc.connect(self_deaf=False)
-            controller = self.get_controller(interaction.guild_id)
+            controller = self.get_controller(ctx.guild.id)
             controller.vc = voice_client
-            controller.home = interaction.channel
+            controller.home = ctx.channel
         elif voice_client.channel != vc:
             await voice_client.move_to(vc, self_deaf=False)
 
-        controller = self.get_controller(interaction.guild_id)
+        controller = self.get_controller(ctx.guild.id)
         added = 0
         failed = 0
         semaphore = asyncio.Semaphore(5)
@@ -969,17 +964,17 @@ class Music(commands.Cog):
         msg = f"📂 Playlist **{name}** dimuat! ({added} lagu ditambahkan)"
         if failed:
             msg += f" | {failed} gagal dimuat"
-        await interaction.followup.send(msg)
+        await ctx.send(msg)
 
     @playlist.command(name="list", description="Lihat daftar playlist-mu")
-    async def playlist_list(self, interaction: discord.Interaction):
+    async def playlist_list(self, ctx: commands.Context):
         db = get_db()
         if db is None:
-            await interaction.response.send_message("❌ Fitur playlist tidak tersedia (Firebase tidak terhubung).", ephemeral=True)
+            await ctx.send("❌ Fitur playlist tidak tersedia (Firebase tidak terhubung).", ephemeral=True)
             return
         playlists = (get_db().collection("playlists")
-            .where("guild_id", "==", str(interaction.guild_id))
-            .where("user_id", "==", str(interaction.user.id))
+            .where("guild_id", "==", str(ctx.guild.id))
+            .where("user_id", "==", str(ctx.author.id))
             .stream())
         embed = discord.Embed(title="📂 Playlist-mu", color=discord.Color.blue())
         count = 0
@@ -995,23 +990,23 @@ class Music(commands.Cog):
             count += 1
         if count == 0:
             embed.description = "📭 Belum ada playlist. Gunakan `/playlist save` untuk membuat satu."
-        await interaction.response.send_message(embed=embed)
+        await ctx.send(embed=embed)
 
     @playlist.command(name="delete", description="Hapus playlist")
     @app_commands.describe(name="Nama playlist yang mau dihapus")
-    async def playlist_delete(self, interaction: discord.Interaction, name: str):
+    async def playlist_delete(self, ctx: commands.Context, name: str):
         db = get_db()
         if db is None:
-            await interaction.response.send_message("❌ Fitur playlist tidak tersedia (Firebase tidak terhubung).", ephemeral=True)
+            await ctx.send("❌ Fitur playlist tidak tersedia (Firebase tidak terhubung).", ephemeral=True)
             return
-        doc_id = f"{interaction.guild_id}_{interaction.user.id}_{name}"
+        doc_id = f"{ctx.guild.id}_{ctx.author.id}_{name}"
         doc_ref = get_db().collection("playlists").document(doc_id)
         doc = doc_ref.get()
         if not doc.exists:
-            await interaction.response.send_message(f"❌ Playlist **{name}** tidak ditemukan.", ephemeral=True)
+            await ctx.send(f"❌ Playlist **{name}** tidak ditemukan.", ephemeral=True)
             return
         doc_ref.delete()
-        await interaction.response.send_message(f"🗑️ Playlist **{name}** dihapus.")
+        await ctx.send(f"🗑️ Playlist **{name}** dihapus.")
 
 
 async def setup(bot: commands.Bot):

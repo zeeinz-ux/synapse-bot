@@ -278,7 +278,15 @@ class NowPlayingView(discord.ui.View):
         if not i.user.voice or i.user.voice.channel.id != self.controller.vc.channel.id:
             await i.response.send_message("Join the bot's voice channel first", ephemeral=True)
             return False
-        return True
+        if i.user.guild_permissions.administrator:
+            return True
+        if any(r.name.lower() == "dj" for r in i.user.roles):
+            return True
+        await i.response.send_message(
+            "Kamu harus memiliki role DJ atau Administrator untuk menggunakan kontrol ini!",
+            ephemeral=True
+        )
+        return False
 
     async def _ok(self, i: discord.Interaction, msg: str):
         if i.response.is_done():
@@ -826,11 +834,10 @@ class MusicController:
                 return
             if self.autoplay and self._single_loop_track:
                 try:
-                    query = f"ytsearch:{self._single_loop_track.author} mix"
-                    results = await YtDlpSearcher.search(query)
-                    if results:
-                        asyncio.create_task(self._preload_next(results[0]))
-                        await self.play(results[0])
+                    next_track = await self._autoplay_search()
+                    if next_track:
+                        asyncio.create_task(self._preload_next(next_track))
+                        await self.play(next_track)
                         return
                 except Exception as e:
                     print(f"[AUTOPLAY ERROR] {e}")
@@ -868,6 +875,66 @@ class MusicController:
                 self._preloaded_for = url
         except Exception:
             pass
+
+    # ── Genre‑aware autoplay ──
+    _GENRE_SEEDS = [
+        "pop", "rock", "lofi", "electronic", "anime",
+        "hip hop", "r&b", "jazz", "classical", "indie",
+        "metal", "country", "folk", "blues", "reggae",
+    ]
+    _AUTOPLAY_BAD_KEYWORDS = [
+        "tutorial", "podcast", "unboxing", "interview", "review",
+        "reaction", "asmr", "lecture", "speech", "commentary",
+        "vlog", "gameplay", "let's play", "livestream", "stream",
+    ]
+
+    async def _autoplay_search(self) -> Optional["YtDlpTrack"]:
+        last = self._single_loop_track
+        if not last:
+            return None
+
+        import random as _random
+        queries = []
+
+        # 1. Related-video style: author + a descriptive keyword from the title
+        title_words = [w for w in (last.title or "").split() if len(w) > 3]
+        if title_words:
+            kw = _random.choice(title_words)
+            queries.append(f"ytsearch:{last.author} {kw}")
+
+        # 2. Same-author mix (original fallback)
+        queries.append(f"ytsearch:{last.author} mix")
+
+        # 3. Genre-based — guess a genre from title + author
+        title_lower = (last.title or "").lower()
+        author_lower = (last.author or "").lower()
+        matched = [g for g in self._GENRE_SEEDS if g in title_lower or g in author_lower]
+        if matched:
+            genre = _random.choice(matched)
+            queries.append(f"ytsearch:{genre} music mix")
+        else:
+            queries.append(f"ytsearch:{_random.choice(self._GENRE_SEEDS)} music mix")
+
+        _random.shuffle(queries)
+
+        for q in queries:
+            try:
+                results = await YtDlpSearcher.search(q)
+            except Exception:
+                continue
+            if not results:
+                continue
+            for r in results:
+                dur = r.duration or 0
+                if dur < 30000 or dur > 600000:
+                    continue
+                title_l = (r.title or "").lower()
+                if any(bad in title_l for bad in self._AUTOPLAY_BAD_KEYWORDS):
+                    continue
+                if r.uri == getattr(last, "uri", None):
+                    continue
+                return r
+        return None
 
     async def seek(self, position_ms: int):
         if not self.current_track or not self.vc:

@@ -1,6 +1,5 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 import platform
 import time
 
@@ -9,14 +8,12 @@ class GeneralCog(commands.Cog):
         self.bot = bot
         self.start_time = time.time()
 
-    @app_commands.command(name="ping", description="Cek latency bot")
-    async def ping(self, interaction: discord.Interaction):
-        # Latency ke Discord gateway
+    @commands.hybrid_command(name="ping", description="Cek latency bot")
+    async def ping(self, ctx: commands.Context):
         ws_latency = round(self.bot.latency * 1000)
 
-        # Latency ke message (round-trip)
         start = time.time()
-        await interaction.response.send_message("🏓 Pong!", ephemeral=True)
+        msg = await ctx.send("🏓 Pong!", ephemeral=True)
         end = time.time()
         rt_latency = round((end - start) * 1000)
 
@@ -27,12 +24,12 @@ class GeneralCog(commands.Cog):
         embed.add_field(name="🌐 WebSocket Latency", value=f"`{ws_latency}ms`", inline=True)
         embed.add_field(name="📨 Round-Trip Latency", value=f"`{rt_latency}ms`", inline=True)
         embed.add_field(name="⏱️ Uptime", value=self.get_uptime(), inline=False)
-        embed.set_footer(text=f"Requested by {interaction.user.name}")
+        embed.set_footer(text=f"Requested by {ctx.author.name}")
 
-        await interaction.edit_original_response(embed=embed)
+        await msg.edit(content=None, embed=embed)
 
-    @app_commands.command(name="stats", description="Lihat statistik bot")
-    async def stats(self, interaction: discord.Interaction):
+    @commands.hybrid_command(name="stats", description="Lihat statistik bot")
+    async def stats(self, ctx: commands.Context):
         embed = discord.Embed(
             title="📊 Bot Statistics",
             color=discord.Color.blue()
@@ -43,9 +40,9 @@ class GeneralCog(commands.Cog):
         embed.add_field(name="🌐 Servers", value=str(len(self.bot.guilds)), inline=True)
         embed.add_field(name="👥 Users", value=str(sum(g.member_count for g in self.bot.guilds)), inline=True)
         embed.add_field(name="⏱️ Uptime", value=self.get_uptime(), inline=True)
-        embed.set_footer(text=f"Requested by {interaction.user.name}")
+        embed.set_footer(text=f"Requested by {ctx.author.name}")
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await ctx.send(embed=embed, ephemeral=True)
 
     def get_uptime(self):
         uptime = int(time.time() - self.start_time)
@@ -53,53 +50,40 @@ class GeneralCog(commands.Cog):
         minutes, seconds = divmod(remainder, 60)
         return f"{hours}h {minutes}m {seconds}s"
 
-    @app_commands.command(name="help", description="Menampilkan daftar semua command")
-    async def slash_help(self, interaction: discord.Interaction):
+    @commands.hybrid_command(name="help", description="Menampilkan daftar semua command")
+    async def slash_help(self, ctx: commands.Context):
         embed = discord.Embed(
             title="📋 Daftar Slash Command",
-            description="Gunakan `/` untuk melihat semua command yang tersedia:",
+            description=f"Total **{len(self.bot.commands)}** command terdaftar. Gunakan `/` untuk trigger:",
             color=discord.Color.blue()
         )
 
-        # General Commands
-        embed.add_field(
-            name="🌐 General",
-            value="`/ping` — Cek latency bot\n"
-                  "`/stats` — Statistik bot\n"
-                  "`/help` — Tampilkan pesan ini",
-            inline=False
-        )
+        cog_emoji = {
+            "Music": "🎵",
+            "GeneralCog": "🌐",
+            "Leveling": "⭐",
+            "Boost": "🚀",
+            "AutoResponder": "🤖",
+            "AIChat": "🧠",
+            "Donation": "💰",
+        }
 
-        # Music Commands
-        embed.add_field(
-            name="🎵 Music",
-            value="`/play <query>` — Putar lagu dari YouTube/Spotify\n"
-                  "`/pause` — Pause lagu\n"
-                  "`/resume` — Lanjutkan lagu\n"
-                  "`/skip` — Skip lagu\n"
-                  "`/stop` — Stop & keluar voice channel\n"
-                  "`/queue` — Lihat antrian lagu\n"
-                  "`/nowplaying` — Lagu yang sedang diputar",
-            inline=False
-        )
+        cogs: dict[str, list[commands.Command]] = {}
+        for cmd in sorted(self.bot.commands, key=lambda c: c.name):
+            cog_name = cmd.cog.qualified_name if cmd.cog else "Other"
+            cogs.setdefault(cog_name, []).append(cmd)
 
-        # Boost Commands
-        embed.add_field(
-            name="🚀 Boost Tracker",
-            value="`/cekboost [@user]` — Cek riwayat boost\n"
-                  "`/testboost [@user]` — Simulasi boost (Admin only)",
-            inline=False
-        )
+        for cog_name, cmds in sorted(cogs.items()):
+            emoji = cog_emoji.get(cog_name, "📦")
+            lines = []
+            for cmd in cmds:
+                desc = (cmd.description or cmd.short_doc or "—").split("\n")[0][:60]
+                sign = cmd.signature or ""
+                lines.append(f"`/{cmd.name} {sign}` — {desc}")
+            embed.add_field(name=f"{emoji} {cog_name}", value="\n".join(lines), inline=False)
 
-        # Donation Commands
-        embed.add_field(
-            name="💰 Donation",
-            value="`/donasi <nominal> <metode>` — Catat donasi",
-            inline=False
-        )
-
-        embed.set_footer(text=f"Requested by {interaction.user.name}")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        embed.set_footer(text=f"Requested by {ctx.author.name}")
+        await ctx.send(embed=embed, ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(GeneralCog(bot))

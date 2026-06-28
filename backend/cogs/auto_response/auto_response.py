@@ -386,14 +386,14 @@ class AutoResponderCog(commands.Cog, name="AutoResponder"):
     # ═══════════════════════════════════════════════════════════════════════
     # SLASH COMMANDS: Management
     # ═══════════════════════════════════════════════════════════════════════
-    @app_commands.command(name="ar-list", description="Lihat semua auto-responder di server ini")
-    async def ar_list(self, interaction: discord.Interaction):
+    @commands.hybrid_command(name="ar-list", description="Lihat semua auto-responder di server ini")
+    async def ar_list(self, ctx: commands.Context):
         """List semua auto-responder."""
-        guild_id = str(interaction.guild_id)
+        guild_id = str(ctx.guild.id)
         responders = await self._list_responders(guild_id)
 
         if not responders:
-            await interaction.response.send_message(
+            await ctx.send(
                 "📭 Belum ada auto-responder. Buat dengan `/ar-add`!",
                 ephemeral=True
             )
@@ -420,9 +420,9 @@ class AutoResponderCog(commands.Cog, name="AutoResponder"):
                 inline=False
             )
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await ctx.send(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="ar-add", description="Tambah auto-responder baru")
+    @commands.hybrid_command(name="ar-add", description="Tambah auto-responder baru")
     @app_commands.describe(
         keyword="Keyword yang memicu response",
         response="Response yang ingin dikirim",
@@ -437,7 +437,7 @@ class AutoResponderCog(commands.Cog, name="AutoResponder"):
     ])
     async def ar_add(
         self,
-        interaction: discord.Interaction,
+        ctx: commands.Context,
         keyword: str,
         response: str,
         response_type: app_commands.Choice[str] = None,
@@ -446,14 +446,14 @@ class AutoResponderCog(commands.Cog, name="AutoResponder"):
     ):
         """Tambah auto-responder baru."""
         # Check permissions
-        if not interaction.user.guild_permissions.manage_messages:
-            await interaction.response.send_message(
+        if not ctx.author.guild_permissions.manage_messages:
+            await ctx.send(
                 "❌ Kamu butuh izin `Manage Messages` untuk membuat auto-responder.",
                 ephemeral=True
             )
             return
 
-        guild_id = str(interaction.guild_id)
+        guild_id = str(ctx.guild.id)
         responder_id = f"ar_{int(time.time() * 1000)}"
 
         config = {
@@ -470,28 +470,28 @@ class AutoResponderCog(commands.Cog, name="AutoResponder"):
 
         if success:
             self._settings_cache.pop(guild_id, None) # Invalidate Cache
-            await interaction.response.send_message(
+            await ctx.send(
                 f"✅ Auto-responder dibuat!\n🔑 Keyword: `{keyword}`\n💬 Response: {response}",
                 ephemeral=True
             )
         else:
-            await interaction.response.send_message(
+            await ctx.send(
                 "❌ Gagal membuat auto-responder. Pastikan Firebase terhubung.",
                 ephemeral=True
             )
 
-    @app_commands.command(name="ar-remove", description="Hapus auto-responder")
+    @commands.hybrid_command(name="ar-remove", description="Hapus auto-responder")
     @app_commands.describe(keyword="Keyword yang mau dihapus")
-    async def ar_remove(self, interaction: discord.Interaction, keyword: str):
+    async def ar_remove(self, ctx: commands.Context, keyword: str):
         """Hapus auto-responder berdasarkan keyword."""
-        if not interaction.user.guild_permissions.manage_messages:
-            await interaction.response.send_message(
+        if not ctx.author.guild_permissions.manage_messages:
+            await ctx.send(
                 "❌ Kamu butuh izin `Manage Messages`.",
                 ephemeral=True
             )
             return
 
-        guild_id = str(interaction.guild_id)
+        guild_id = str(ctx.guild.id)
         settings = await self._get_guild_settings(guild_id)
         responders = settings.get("responders", {})
 
@@ -508,28 +508,28 @@ class AutoResponderCog(commands.Cog, name="AutoResponder"):
         if found_id:
             await self._delete_responder(guild_id, found_id)
             self._settings_cache.pop(guild_id, None) # Invalidate Cache
-            await interaction.response.send_message(
+            await ctx.send(
                 f"✅ Auto-responder dengan keyword `{keyword}` dihapus!",
                 ephemeral=True
             )
         else:
-            await interaction.response.send_message(
+            await ctx.send(
                 f"❌ Tidak ada auto-responder dengan keyword `{keyword}`.",
                 ephemeral=True
             )
 
-    @app_commands.command(name="ar-toggle", description="Aktifkan/nonaktifkan auto-responder")
+    @commands.hybrid_command(name="ar-toggle", description="Aktifkan/nonaktifkan auto-responder")
     @app_commands.describe(keyword="Keyword yang mau diaktifkan/nonaktifkan", enable="Aktifkan?")
-    async def ar_toggle(self, interaction: discord.Interaction, keyword: str, enable: bool):
+    async def ar_toggle(self, ctx: commands.Context, keyword: str, enable: bool):
         """Toggle auto-responder."""
-        if not interaction.user.guild_permissions.manage_messages:
-            await interaction.response.send_message(
+        if not ctx.author.guild_permissions.manage_messages:
+            await ctx.send(
                 "❌ Kamu butuh izin `Manage Messages`.",
                 ephemeral=True
             )
             return
 
-        guild_id = str(interaction.guild_id)
+        guild_id = str(ctx.guild.id)
         settings = await self._get_guild_settings(guild_id)
         responders = settings.get("responders", {})
 
@@ -549,12 +549,12 @@ class AutoResponderCog(commands.Cog, name="AutoResponder"):
             await self._save_responder(guild_id, found_id, config)
             self._settings_cache.pop(guild_id, None) # Invalidate Cache
             status = "diaktifkan" if enable else "dinonaktifkan"
-            await interaction.response.send_message(
+            await ctx.send(
                 f"✅ Auto-responder `{keyword}` {status}!",
                 ephemeral=True
             )
         else:
-            await interaction.response.send_message(
+            await ctx.send(
                 f"❌ Tidak ada auto-responder dengan keyword `{keyword}`.",
                 ephemeral=True
             )

@@ -105,16 +105,16 @@ class BoostCog(commands.Cog):
     # ==========================================================================
     # SLASH COMMAND: /cekboost
     # ==========================================================================
-    @app_commands.command(name="cekboost", description="Cek riwayat boost user di database")
+    @commands.hybrid_command(name="cekboost", description="Cek riwayat boost user di database")
     @app_commands.describe(member="User yang mau dicek (kosongkan = diri sendiri)")
-    async def cekboost(self, interaction: discord.Interaction, member: discord.Member = None):
+    async def cekboost(self, ctx: commands.Context, member: discord.Member = None):
         if not hasattr(self.bot, 'db') or not self.bot.db:
-            return await interaction.response.send_message("❌ Koneksi database tidak tersedia.", ephemeral=True)
+            return await ctx.send("❌ Koneksi database tidak tersedia.", ephemeral=True)
 
         if member is None:
-            member = interaction.user
+            member = ctx.author
 
-        await interaction.response.send_message("⏳ Mengambil data boost...", ephemeral=True)
+        msg = await ctx.send("⏳ Mengambil data boost...", ephemeral=True)
 
         try:
             boosts_ref = self.bot.db.collection("boosts")
@@ -122,9 +122,7 @@ class BoostCog(commands.Cog):
             docs = list(query.stream())
 
             if not docs:
-                await interaction.edit_original_response(
-                    content=f"📭 {member.mention} belum pernah boost server ini."
-                )
+                await msg.edit(content=f"📭 {member.mention} belum pernah boost server ini.")
                 return
 
             total_boosts = len(docs)
@@ -139,33 +137,33 @@ class BoostCog(commands.Cog):
             embed.add_field(name="✅ Status Aktif", value=str(active_boosts), inline=True)
             embed.add_field(name="❌ Status Expired", value=str(expired_boosts), inline=True)
             embed.set_thumbnail(url=member.display_avatar.url)
-            embed.set_footer(text=f"Requested by {interaction.user.name}")
+            embed.set_footer(text=f"Requested by {ctx.author.name}")
 
-            await interaction.edit_original_response(content=None, embed=embed)
+            await msg.edit(content=None, embed=embed)
 
         except Exception as e:
-            await interaction.edit_original_response(content="❌ Gagal mengambil data boost.")
+            await msg.edit(content="❌ Gagal mengambil data boost.")
             print(f"[ERROR] ❌ {e}")
 
     # ==========================================================================
     # SLASH COMMAND: /testboost (Admin Only)
     # ==========================================================================
-    @app_commands.command(name="testboost", description="Simulasi boost untuk testing (Admin only)")
+    @commands.hybrid_command(name="testboost", description="Simulasi boost untuk testing (Admin only)")
     @app_commands.describe(member="User yang mau di-simulasi boost (kosongkan = diri sendiri)")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def testboost(self, interaction: discord.Interaction, member: discord.Member = None):
+    @commands.has_permissions(administrator=True)
+    async def testboost(self, ctx: commands.Context, member: discord.Member = None):
         if not hasattr(self.bot, 'db') or not self.bot.db:
-            return await interaction.response.send_message("❌ Koneksi database tidak tersedia.", ephemeral=True)
+            return await ctx.send("❌ Koneksi database tidak tersedia.", ephemeral=True)
 
         if member is None:
-            member = interaction.user
+            member = ctx.author
 
-        await interaction.response.send_message("⏳ Memproses simulasi boost...", ephemeral=True)
+        msg = await ctx.send("⏳ Memproses simulasi boost...", ephemeral=True)
 
         try:
             data_boost = {
                 "user_id": str(member.id),
-                "guild_id": str(interaction.guild_id),
+                "guild_id": str(ctx.guild.id),
                 "type": "server_boost",
                 "boosted_at": firestore.SERVER_TIMESTAMP,
                 "status": "active",
@@ -179,28 +177,28 @@ class BoostCog(commands.Cog):
             if log_channel:
                 embed = discord.Embed(
                     title="🧪 Simulasi Boost (Test)",
-                    description=f"{member.mention} di-simulasi **boost** oleh {interaction.user.mention}",
+                    description=f"{member.mention} di-simulasi **boost** oleh {ctx.author.mention}",
                     color=discord.Color.gold()
                 )
                 embed.add_field(name="👤 Target", value=member.mention, inline=True)
-                embed.add_field(name="🧪 Tester", value=interaction.user.mention, inline=True)
+                embed.add_field(name="🧪 Tester", value=ctx.author.mention, inline=True)
                 embed.add_field(name="🆔 Dokumen", value=f"`{doc_ref.id}`", inline=False)
                 embed.set_footer(text="Ini hanya simulasi testing")
                 await log_channel.send(embed=embed)
 
-            await interaction.edit_original_response(
+            await msg.edit(
                 content=f"✅ **Simulasi boost berhasil!**\n👤 User: {member.mention}\n🆔 ID Dokumen: `{doc_ref.id}`"
             )
             print(f"[TEST] ✅ Simulasi boost untuk {member.name} berhasil.")
 
         except Exception as e:
-            await interaction.edit_original_response(content="❌ Gagal simulasi boost.")
+            await msg.edit(content="❌ Gagal simulasi boost.")
             print(f"[ERROR] ❌ {e}")
 
     @testboost.error
-    async def testboost_error(self, interaction: discord.Interaction, error):
-        if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message(
+    async def testboost_error(self, ctx: commands.Context, error):
+        if isinstance(error, commands.MissingPermissions):
+            await ctx.send(
                 "❌ Kamu tidak punya izin! (Admin only)", ephemeral=True
             )
 

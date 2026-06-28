@@ -25,7 +25,6 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 import discord
-from discord import app_commands
 from discord.ext import commands
 
 import aiohttp
@@ -161,7 +160,7 @@ class AIChat(commands.Cog):
        now = datetime.now(timezone.utc).timestamp()
        # Hanya simpan user yang cooldown-nya masih aktif (< 60 detik)
        self._cooldowns = {k: v for k, v in self._cooldowns.items() if now - v < 60}
-       
+        
     
     async def _defer_interaction(self, interaction: discord.Interaction):
         try:
@@ -727,13 +726,12 @@ class AIChat(commands.Cog):
         await self._save_chat_history(guild_id, user_id, user_message, response_text, personality)
         await self._send_response(ctx, user_id, response_text)
 
-    @app_commands.command(name="ask", description="Tanya apa saja ke AI Hidden Hamlet")
-    @app_commands.describe(pertanyaan="Apa yang mau ditanyakan?")
-    async def ask(self, interaction: discord.Interaction, pertanyaan: str):
+    @commands.hybrid_command(name="ask", description="Tanya apa saja ke AI Hidden Hamlet")
+    async def ask(self, ctx: commands.Context, pertanyaan: str):
         
         # 1. Setup Data
-        guild_id = str(interaction.guild_id)
-        user_id = str(interaction.user.id)
+        guild_id = str(ctx.guild.id)
+        user_id = str(ctx.author.id)
         now = datetime.now(timezone.utc).timestamp()
 
         # 2. Cooldown Check
@@ -741,15 +739,14 @@ class AIChat(commands.Cog):
         last_used = self._cooldowns.get(key, 0)
         if now - last_used < COOLDOWN_SECONDS:
             retry_after = COOLDOWN_SECONDS - (now - last_used)
-            await interaction.response.send_message(
+            await ctx.send(
                 f"⏳ Sabar bro! Tunggu **{retry_after:.1f} detik** lagi.", 
                 ephemeral=True
             )
             return
 
-        # 3. Fast Defer (Panggil helper yang sudah kita buat)
-        # Fungsi ini akan menangani defer dan error handling 429 secara terpusat
-        await self._defer_interaction(interaction)
+        # 3. Defer
+        await ctx.defer()
 
         # 4. Set Cooldown Setelah Lolos Defer
         self._cooldowns[key] = now
@@ -757,16 +754,15 @@ class AIChat(commands.Cog):
         # 5. Proses AI Chat
         try:
             await self._process_ai_chat(
-                ctx=interaction,
+                ctx=ctx,
                 user_message=pertanyaan,
-                guild=interaction.guild,
-                user=interaction.user,
+                guild=ctx.guild,
+                user=ctx.author,
             )
         except Exception as e:
             print(f"[AI CHAT] ❌ Fatal error di /ask: {e}")
-            # Karena sudah di-defer, kita pakai followup untuk kirim pesan error
             try:    
-                await interaction.followup.send("❌ Terjadi error internal. Coba lagi nanti ya!")
+                await ctx.send("❌ Terjadi error internal. Coba lagi nanti ya!")
             except Exception as e_followup:
                 print(f"[AI CHAT] ❌ Gagal kirim error message: {e_followup}")
 

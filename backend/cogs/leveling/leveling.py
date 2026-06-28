@@ -4,7 +4,6 @@ import random
 import os
 import asyncio
 from discord.ext import commands, tasks
-from discord import app_commands
 from google.cloud import firestore
 # Menggunakan absolute import agar lebih aman dan tidak pusing dengan path ../..
 from backend.cogs.database.firebase_setup import db 
@@ -68,15 +67,15 @@ class LevelingCog(commands.Cog, name="Leveling"):
         self._xp_buffer[gid][uid]["xp"] += xp_gain
         self._xp_buffer[gid][uid]["last_msg"] = now
 
-    @app_commands.command(name="rank", description="Lihat kartu level Anda")
-    async def rank(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+    @commands.hybrid_command(name="rank", description="Lihat kartu level Anda")
+    async def rank(self, ctx: commands.Context):
+        await ctx.defer()
         # TODO: Implementasi easy-pil render di sini
-        await interaction.followup.send("Fitur kartu rank sedang dalam pengembangan visual!")
+        await ctx.send("Fitur kartu rank sedang dalam pengembangan visual!")
 
-    @app_commands.command(name="leaderboard", description="Top 10 member server")
-    async def leaderboard(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Fitur leaderboard sedang dalam pengembangan!")
+    @commands.hybrid_command(name="leaderboard", description="Top 10 member server")
+    async def leaderboard(self, ctx: commands.Context):
+        await ctx.send("Fitur leaderboard sedang dalam pengembangan!")
 
 async def setup(bot):
     await bot.add_cog(LevelingCog(bot))
