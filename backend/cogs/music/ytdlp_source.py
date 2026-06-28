@@ -404,9 +404,10 @@ class NowPlayingView(discord.ui.View):
 
 
 class MusicController:
-    def __init__(self, voice_client, text_channel=None):
+    def __init__(self, voice_client, text_channel=None, cog=None):
         self.vc = voice_client
         self.home = text_channel
+        self._cog = cog
         self.queue = []
         self.current_track: Optional[YtDlpTrack] = None
         self.loop_mode = "off"
@@ -434,6 +435,10 @@ class MusicController:
         self._stopped: bool = False
         self._state_file: str = f"/tmp/discord_player_state.json"
         self._owner_id: Optional[int] = None
+        self._playlist_url: Optional[str] = None
+        self._playlist_tracks: list = []
+        self._playlist_index: int = 0
+        self._playlist_total: int = 0
 
     def set_owner(self, user_id: int):
         if self._owner_id is None:
@@ -839,7 +844,18 @@ class MusicController:
                 next_track = self.queue.pop(0)
                 asyncio.create_task(self._preload_next(next_track))
                 await self.play(next_track)
+                # Auto-load lebih banyak dari playlist kalo sisa dikit
+                if len(self.queue) < 5 and self._playlist_tracks and self._playlist_index < len(self._playlist_tracks):
+                    asyncio.create_task(self._load_more_from_playlist())
                 return
+            # Queue kosong — coba load batch berikutnya dari playlist
+            if self._playlist_tracks and self._playlist_index < len(self._playlist_tracks):
+                loaded = await self._load_more_from_playlist()
+                if loaded > 0:
+                    next_track = self.queue.pop(0)
+                    asyncio.create_task(self._preload_next(next_track))
+                    await self.play(next_track)
+                    return
             if self.autoplay and self._single_loop_track:
                 try:
                     next_track = await self._autoplay_search()
@@ -883,6 +899,26 @@ class MusicController:
                 self._preloaded_for = url
         except Exception:
             pass
+
+    async def _load_more_from_playlist(self, count: int = 50) -> int:
+        if not self._cog or not self._playlist_tracks or self._playlist_index >= len(self._playlist_tracks):
+            return 0
+        batch = self._playlist_tracks[self._playlist_index:self._playlist_index + count]
+        if not batch:
+            return 0
+        self._playlist_index += len(batch)
+        sem = asyncio.Semaphore(15)
+        results: list = []
+        async def _search(rt):
+            async with sem:
+                r = await self._cog._search_single_resolved(rt)
+                if r:
+                    results.append(r)
+        await asyncio.gather(*[_search(rt) for rt in batch])
+        for r in results:
+            self.queue.append(r)
+        print(f"[PLAYLIST AUTO] Loaded {len(results)} more tracks (total searched: {self._playlist_index}/{len(self._playlist_tracks)})")
+        return len(results)
 
     # ── Genre‑aware autoplay ──
     _GENRE_SEEDS = [

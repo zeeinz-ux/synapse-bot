@@ -49,7 +49,7 @@ class Music(commands.Cog):
                 if g.id == guild_id:
                     vc = g.voice_client
                     break
-            self.controllers[guild_id] = MusicController(vc)
+            self.controllers[guild_id] = MusicController(vc, cog=self)
         return self.controllers[guild_id]
 
     def get_music_player(self, guild_id: int):
@@ -377,9 +377,16 @@ class Music(commands.Cog):
             # PLAYLIST / ALBUM
             else:
                 original_total_tracks = len(resolved_tracks)
-                resolved_tracks = resolved_tracks[:100]
-                total_tracks = len(resolved_tracks)
-                print(f"[SPOTIFY {spotify_type.upper()}] {original_total_tracks} total, limited to {total_tracks} resolved via {source}")
+                # Simpen semua resolved tracks buat auto-load nanti
+                controller._playlist_url = search_query
+                controller._playlist_tracks = resolved_tracks  # all tracks
+                controller._playlist_index = 0
+                controller._playlist_total = original_total_tracks
+                # Search batch pertama (100)
+                batch = resolved_tracks[:100]
+                total_tracks = len(batch)
+                resolved_tracks = batch
+                print(f"[SPOTIFY {spotify_type.upper()}] {original_total_tracks} total, batch pertama {total_tracks} via {source}")
 
                 # spotify_down → YouTube search concurrent (15 paralel)
                 total_ms = sum(t.duration_ms or 0 for t in resolved_tracks)
