@@ -34,10 +34,8 @@ if PO_TOKEN:
     _YTDLP_AUTH = ["--extractor-args", f"youtube:po_token=web+{PO_TOKEN};player_client=web"]
 elif COOKIES_FROM_BROWSER:
     _YTDLP_AUTH = ["--cookies-from-browser", COOKIES_FROM_BROWSER]
-elif COOKIES_FILE and os.path.isfile(COOKIES_FILE):
-    _YTDLP_AUTH = ["--cookies", COOKIES_FILE]
 else:
-    _YTDLP_AUTH = ["--extractor-args", "youtube:player_client=android"]
+    _YTDLP_AUTH = ["--extractor-args", "youtube:player_client=android;player_skip=webpage"]
 
 YTDLP_AUTH_ARGS = _YTDLP_BASE + _YTDLP_AUTH
 
@@ -49,10 +47,8 @@ def _get_ytdlp_auth_opts() -> dict:
     elif COOKIES_FROM_BROWSER:
         opts["cookiefile"] = None
         opts["cookiesfrombrowser"] = (COOKIES_FROM_BROWSER,)
-    elif COOKIES_FILE:
-        opts["cookiefile"] = COOKIES_FILE
     else:
-        opts["extractor_args"] = {"youtube": ["player_client=android"]}
+        opts["extractor_args"] = {"youtube": ["player_client=android", "player_skip=webpage"]}
     return opts
 
 warnings.filterwarnings("ignore", message=".*line buffering.*binary mode.*")
