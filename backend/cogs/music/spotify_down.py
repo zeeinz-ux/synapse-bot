@@ -93,6 +93,15 @@ def _find_tracks_in_json(data: Any, depth: int = 0) -> List[Tuple[str, str, str,
                     artist = ", ".join(
                         a.get("name", "") if isinstance(a, dict) else str(a) for a in artist
                     )
+                if not artist and isinstance(t, dict):
+                    for k in ("author", "creator", "uploader", "channel"):
+                        v = t.get(k)
+                        if v:
+                            artist = str(v) if isinstance(v, str) else ", ".join(
+                                x.get("name", "") if isinstance(x, dict) else str(x) for x in (v if isinstance(v, list) else [v])
+                            ) if v else ""
+                            if artist:
+                                break
                 cover = t.get("cover") or t.get("artwork") or ""
                 if isinstance(cover, list):
                     cover = cover[0].get("url", "") if cover else ""
@@ -110,6 +119,15 @@ def _find_tracks_in_json(data: Any, depth: int = 0) -> List[Tuple[str, str, str,
                         artists = ", ".join(
                             a["name"] for a in t.get("artists", []) if isinstance(a, dict)
                         )
+                        if not artists:
+                            for k in ("author", "creator", "uploader", "channel"):
+                                v = t.get(k)
+                                if v:
+                                    artists = str(v) if isinstance(v, str) else ", ".join(
+                                        x.get("name", "") if isinstance(x, dict) else str(x) for x in (v if isinstance(v, list) else [v])
+                                    )
+                                    if artists:
+                                        break
                         images = t.get("album", {}).get("images", [])
                         cover = images[0].get("url", "") if images else ""
                         results.append((
@@ -172,6 +190,10 @@ def _extract_tracks_from_scripts(script_contents: List[str]) -> List[Tuple[str, 
                     data, _ = decoder.raw_decode(raw)
                     tracks = _find_tracks_in_json(data)
                     if len(tracks) >= 1:
+                        logger.debug(
+                            "[SPOTIFY JSON] Matched %s -> %d tracks from %d bytes",
+                            var, len(tracks), len(raw[:200]),
+                        )
                         return tracks
                 except (json.JSONDecodeError, ValueError):
                     continue
@@ -241,6 +263,12 @@ async def _scrape_embed_page(
                 return None
 
             logger.info("[SPOTIFY EMBED] Extracted %d tracks", len(found))
+            if found:
+                sample = found[0]
+                logger.info(
+                    "[SPOTIFY EMBED] Sample track: tid=%s title=%s artist=%s",
+                    sample[0], sample[1][:40], sample[2][:40],
+                )
             return [
                 {
                     "spotify_id": tid,
