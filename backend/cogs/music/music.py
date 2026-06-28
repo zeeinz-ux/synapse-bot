@@ -907,7 +907,10 @@ class Music(commands.Cog):
     # ==========================================================
     # PLAYLIST GROUP
     # ==========================================================
-    playlist = commands.Group(name="playlist", description="Simpan dan muat playlist lagu")
+    @commands.group(name="playlist", description="Simpan dan muat playlist lagu")
+    async def playlist(self, ctx: commands.Context):
+        if ctx.invoked_subcommand is None:
+            await ctx.send("Gunakan: `save`, `load`, `delete`, atau `list`")
 
     @playlist.command(name="save", description="Simpan queue saat ini sebagai playlist")
     @app_commands.describe(name="Nama playlist")
