@@ -139,11 +139,33 @@
     }
   }
 
-  // Event bindings
-  els.btnPlay.addEventListener('click', () => sendControl(isPlaying ? 'pause' : 'play'));
-  els.btnPrev.addEventListener('click', () => sendControl('prev'));
-  els.btnNext.addEventListener('click', () => sendControl('skip'));
-  els.btnStop.addEventListener('click', () => sendControl('stop'));
+  // Cooldown map to prevent double-clicks
+  const _cooldowns = {};
+
+  function _withCooldown(el, action, handler) {
+    el.addEventListener('click', (e) => {
+      if (_cooldowns[action]) return;
+      _cooldowns[action] = true;
+      el.style.opacity = '0.6';
+      handler(e);
+      setTimeout(() => { _cooldowns[action] = false; el.style.opacity = ''; }, 1000);
+    });
+  }
+
+  // Optimistic toggle for play/pause
+  function _togglePlayBtn() {
+    isPlaying = !isPlaying;
+    els.btnPlay.textContent = isPlaying ? '⏸' : '▶';
+  }
+
+  _withCooldown(els.btnPlay, 'playtoggle', () => {
+    const action = isPlaying ? 'pause' : 'play';
+    _togglePlayBtn();
+    sendControl(action);
+  });
+  _withCooldown(els.btnPrev, 'prev', () => sendControl('prev'));
+  _withCooldown(els.btnNext, 'skip', () => sendControl('skip'));
+  _withCooldown(els.btnStop, 'stop', () => sendControl('stop'));
 
   els.volume.addEventListener('input', (e) => {
     const val = e.target.value;
@@ -171,12 +193,16 @@
   bindToggle(els.toggle247, '247_mode');
   bindToggle(els.toggleAnnounce, 'announce');
 
-  els.btnDisconnect.addEventListener('click', () => sendControl('disconnect'));
+  _withCooldown(els.btnDisconnect, 'disconnect', () => sendControl('disconnect'));
   els.btnClear.addEventListener('click', () => {
-    if (confirm('Clear entire queue?')) sendControl('clear');
+    if (confirm('Clear entire queue?')) {
+      sendControl('clear');
+      els.btnClear.style.opacity = '0.6';
+      setTimeout(() => els.btnClear.style.opacity = '', 1000);
+    }
   });
-  els.btnShuffle.addEventListener('click', () => sendControl('shuffle'));
-  els.btnLoop.addEventListener('click', () => sendControl('loop'));
+  _withCooldown(els.btnShuffle, 'shuffle', () => sendControl('shuffle'));
+  _withCooldown(els.btnLoop, 'loop', () => sendControl('loop'));
 
   // Progress bar seek
   els.progressBar.addEventListener('click', (e) => {

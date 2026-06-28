@@ -263,9 +263,15 @@ async def _exec_control(cmd: dict):
     controller = cog.get_controller(int(guild_id))
 
     if action == "pause":
-        if vc: await vc.pause()
+        if vc and vc.is_playing():
+            controller._paused_position = time.time() - controller._start_time
+            controller._paused = True
+            vc.pause()
     elif action == "play":
-        if vc: await vc.resume()
+        if vc and vc.is_paused():
+            controller._paused = False
+            controller._start_time = time.time() - controller._paused_position
+            vc.resume()
     elif action in ("skip", "next"):
         if vc: vc.stop()
     elif action == "stop":
@@ -305,6 +311,16 @@ async def _exec_control(cmd: dict):
         if controller.current_track:
             pos_ms = int(controller.current_track.duration * pct)
             await controller.seek(pos_ms)
+    elif action == "setting":
+        key = data.get("key")
+        value = data.get("value")
+        if key and bot.db:
+            try:
+                bot.db.collection("guild_settings").document(guild_id).set(
+                    {key: value}, merge=True
+                )
+            except Exception as e:
+                print(f"[SETTING] Write error: {e}")
 
 @tasks.loop(seconds=1)
 async def process_control_queue():
