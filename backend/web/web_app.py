@@ -158,8 +158,23 @@ def api_music_status():
     if not guild_id:
         return jsonify({"connected": False}), 400
 
-    state = get_music_state(guild_id)
+    state = _read_music_state_fast(guild_id)
+    if state is None:
+        state = get_music_state(guild_id)
     return jsonify(state)
+
+
+MUSIC_STATE_DIR = "/tmp/discord_music_state"
+
+def _read_music_state_fast(guild_id: str) -> dict | None:
+    try:
+        path = os.path.join(MUSIC_STATE_DIR, f"{guild_id}.json")
+        if os.path.isfile(path):
+            with open(path) as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return None
 
 
 @app.route("/api/music/channels")

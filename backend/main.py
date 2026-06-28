@@ -199,7 +199,7 @@ async def update_stats():
                         })
                         queue_total_ms += (t.duration or 0)
 
-                    set_music_state(guild_id_str, {
+                    music_data = {
                         "connected": True,
                         "playing": not controller.paused,
                         "paused": controller.paused,
@@ -217,9 +217,12 @@ async def update_stats():
                         "queue_count": len(queue_list),
                         "queue_duration": queue_total_ms // 1000,
                         "listeners": listeners,
-                    })
+                    }
+                    set_music_state(guild_id_str, music_data)
+                    _write_music_state_fast(guild_id_str, music_data)
                 else:
                     set_music_state(guild_id_str, {"connected": False})
+                    _write_music_state_fast(guild_id_str, {"connected": False})
 
     except Exception as e:
         print(f"[DASHBOARD STATS ERROR] {e}")
@@ -228,6 +231,18 @@ async def update_stats():
 @update_stats.before_loop
 async def before_update_stats():
     await bot.wait_until_ready()
+
+# ===== [DASHBOARD] Fast music state file (bypasses Firestore debounce) =====
+MUSIC_STATE_DIR = "/tmp/discord_music_state"
+
+def _write_music_state_fast(guild_id: str, state: dict):
+    try:
+        os.makedirs(MUSIC_STATE_DIR, exist_ok=True)
+        path = os.path.join(MUSIC_STATE_DIR, f"{guild_id}.json")
+        with open(path, "w") as f:
+            json.dump(state, f)
+    except Exception as e:
+        print(f"[MUSIC STATE FILE] Write error: {e}")
 
 # ===== [DASHBOARD] Control command processor (file-based IPC) =====
 CONTROL_QUEUE_DIR = "/tmp/discord_control_queue"
