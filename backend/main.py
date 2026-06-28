@@ -154,12 +154,12 @@ async def update_stats():
                     })
 
         for guild in bot.guilds:
-            text_channels = [
+            voice_channels = [
                 {"id": str(ch.id), "name": ch.name}
-                for ch in guild.text_channels
-                if ch.permissions_for(guild.me).send_messages
+                for ch in guild.voice_channels
+                if ch.permissions_for(guild.me).connect
             ]
-            set_guild_channels(str(guild.id), text_channels)
+            set_guild_channels(str(guild.id), voice_channels)
 
         guilds_list = [
             {"id": str(g.id), "name": g.name, "member_count": g.member_count or 0}
