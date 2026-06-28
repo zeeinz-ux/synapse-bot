@@ -225,7 +225,10 @@ class Music(commands.Cog):
         try:
             query = (track.query or "").strip()
             if query.startswith("http://") or query.startswith("https://"):
-                return await YtDlpSearcher.extract_info(query)
+                try:
+                    return await asyncio.wait_for(YtDlpSearcher.extract_info(query), timeout=20.0)
+                except (asyncio.TimeoutError, Exception):
+                    return None
 
             for prefix in ["ytsearch:", "ytmsearch:", "scsearch:", "spsearch:"]:
                 if query.lower().startswith(prefix):
@@ -267,8 +270,11 @@ class Music(commands.Cog):
                     continue
                 attempted.add(sq)
                 try:
-                    results = await YtDlpSearcher.search(sq)
-                except Exception:
+                    results = await asyncio.wait_for(
+                        YtDlpSearcher.search(sq),
+                        timeout=15.0,
+                    )
+                except (asyncio.TimeoutError, Exception):
                     continue
                 if not results:
                     continue
@@ -282,10 +288,13 @@ class Music(commands.Cog):
             # Fallback terakhir: ytmsearch dengan nama aja, return apapun
             final_query = name or query
             try:
-                results = await YtDlpSearcher.search(f"ytmsearch:{final_query}")
+                results = await asyncio.wait_for(
+                    YtDlpSearcher.search(f"ytmsearch:{final_query}"),
+                    timeout=15.0,
+                )
                 if results:
                     return results[0]
-            except Exception:
+            except (asyncio.TimeoutError, Exception):
                 pass
 
             logger.info(f"[YOUTUBE SEARCH] All variations failed for: {artists} - {name}")
@@ -492,7 +501,14 @@ class Music(commands.Cog):
                         clean_query = clean_query[len(prefix):].strip()
 
                 try:
-                    tracks = await YtDlpSearcher.search(f"ytmsearch:{clean_query}")
+                    tracks = await asyncio.wait_for(
+                        YtDlpSearcher.search(f"ytmsearch:{clean_query}"),
+                        timeout=30.0,
+                    )
+                except asyncio.TimeoutError:
+                    logger.info("[SPOTIFY TRACK] YouTube search timeout (30s)")
+                    await loading_msg.edit(content="❌ Timeout mencari lagu di YouTube (30s). Coba link YouTube langsung.")
+                    return
                 except Exception as e:
                     logger.info(f"[SPOTIFY TRACK ERROR] {e}")
                     await loading_msg.edit(content=f"❌ Gagal mencari lagu di YouTube.\n`{e}`")
@@ -736,7 +752,10 @@ class Music(commands.Cog):
             )
 
             if is_playlist_url:
-                playlist = await YtDlpSearcher.extract_playlist(search_query)
+                playlist = await asyncio.wait_for(
+                    YtDlpSearcher.extract_playlist(search_query),
+                    timeout=30.0,
+                )
                 if playlist and playlist.tracks:
                     added = 0
                     for t in playlist.tracks[:100]:
@@ -758,7 +777,11 @@ class Music(commands.Cog):
                     await ctx.send("❌ Gagal memuat playlist.")
                     return
 
-            track = await YtDlpSearcher.extract_info(search_query)
+            try:
+                track = await asyncio.wait_for(YtDlpSearcher.extract_info(search_query), timeout=30.0)
+            except asyncio.TimeoutError:
+                await ctx.send("❌ Timeout memuat lagu (30s).")
+                return
             if track:
                 controller.queue.append(track)
                 if not controller.current_track:
