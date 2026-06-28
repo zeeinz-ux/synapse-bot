@@ -377,7 +377,7 @@ class Music(commands.Cog):
             # PLAYLIST / ALBUM
             else:
                 original_total_tracks = len(resolved_tracks)
-                resolved_tracks = resolved_tracks[:50]
+                resolved_tracks = resolved_tracks[:100]
                 total_tracks = len(resolved_tracks)
                 print(f"[SPOTIFY {spotify_type.upper()}] {original_total_tracks} total, limited to {total_tracks} resolved via {source}")
 
@@ -434,7 +434,7 @@ class Music(commands.Cog):
                     name=f"🎶 Added to Queue ({spotify_type.title()})",
                     icon_url=ctx.author.display_avatar.url
                 )
-                final_embed.add_field(name="🔢 Jumlah Lagu", value=f"`{total_tracks}` lagu" + (" (Dibatasi 50)" if original_total_tracks > 50 else ""), inline=True)
+                final_embed.add_field(name="🔢 Jumlah Lagu", value=f"`{total_tracks}` lagu" + (" (Dibatasi 100)" if original_total_tracks > 100 else ""), inline=True)
                 final_embed.add_field(name="⏳ Total Durasi", value=f"`{total_duration}`", inline=True)
                 final_embed.add_field(name="👤 Request Oleh", value=ctx.author.mention, inline=True)
                 if thumbnail:
@@ -468,7 +468,7 @@ class Music(commands.Cog):
                 playlist = await YtDlpSearcher.extract_playlist(search_query)
                 if playlist and playlist.tracks:
                     added = 0
-                    for t in playlist.tracks[:50]:
+                    for t in playlist.tracks[:100]:
                         controller.queue.append(t)
                         added += 1
                     print(f"[PLAY CMD] Added {added} tracks from playlist: {playlist.name}")
@@ -479,8 +479,8 @@ class Music(commands.Cog):
                         await controller.play(next_track)
                     
                     msg = f"✅ Playlist ditambahkan! ({added} lagu dari {playlist.name})"
-                    if len(playlist.tracks) > 50:
-                        msg += " (Dibatasi 50)"
+                    if len(playlist.tracks) > 100:
+                        msg += " (Dibatasi 100)"
                     await ctx.send(msg)
                     return
                 else:
