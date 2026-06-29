@@ -5,6 +5,7 @@ import warnings
 import subprocess
 import atexit
 import shutil
+import asyncio  # [PHASE 6a fix] required by _memory_monitor's asyncio.sleep + create_task
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*line buffering.*binary mode.*")
@@ -73,9 +74,6 @@ def _start_pot_server():
     except Exception as e:
         print(f"[POT] ❌ Failed to start: {e}")
 
-    # [DIAG] Confirm _start_pot_server returned
-    print(f"[DIAG] _start_pot_server returned (pot_bin={shutil.which('bgutil-pot')})", flush=True)
-
 def _stop_pot_server():
     global _pot_server_proc
     if _pot_server_proc and _pot_server_proc.poll() is None:
@@ -116,8 +114,6 @@ def _fetch_po_token():
     print("[POT TOKEN] ❌ Failed to fetch PO token after 5 attempts")
 
 _fetch_po_token()
-# [DIAG] Confirm _fetch_po_token returned
-print(f"[DIAG] _fetch_po_token returned", flush=True)
 # ============================================================
 
 # ===== INIT FIREBASE SEBELUM LOAD COGS =====
@@ -133,18 +129,12 @@ intents.members = True
 intents.message_content = True
 intents.voice_states = True
 
-# [DIAG] Confirm before bot construction
-print(f"[DIAG] Before bot construction", flush=True)
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
-# [DIAG] Confirm after bot construction
-print(f"[DIAG] Bot constructed: {bot}", flush=True)
 
 # ===========================================================================
 # REVISI DI SINI: Menyambungkan database Firebase agar bisa dipakai semua Cogs
 # ===========================================================================
 bot.db = firebase_setup.db
-# [DIAG] Confirm firebase loaded
-print(f"[DIAG] firebase_setup imported, db={bot.db}", flush=True)
 
 
 # ===========================================================================
