@@ -1,71 +1,106 @@
 {% extends "base.html" %}
 {% block title %}Hidden Hamlet — Dashboard{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/dashboard.css') }}" />
-
-<div id="dashboard-container" data-guild-id="1290376615439892591">
-
-<header class="dash-header">
-  <h1>🤖 Hidden Hamlet</h1>
-  <p>Discord Bot Status Dashboard</p>
-  <p class="dash-meta">Last update: {{ s.last_updated }} • <span id="refresh-status">Auto-refreshing...</span></p>
-</header>
-
-<div class="grid">
-  <div class="card">
-    <h3><span class="dot {% if s.online %}dot-on{% else %}dot-off{% endif %}"></span> Bot Status</h3>
-    <div class="big">{{ s.username }}</div>
-    <p class="dash-sub">Uptime: {{ s.uptime_fmt }}</p>
-  </div>
-  <div class="card">
-    <h3>📊 Statistics</h3>
-    <div class="big">{{ s.guilds }}</div>
-    <p class="dash-sub">Servers</p>
-    <div class="big big-sm">{{ s.members }}</div>
-    <p class="dash-sub">Total Members</p>
-  </div>
-  <div class="card">
-    <h3><span class="dot {% if s.lavalink_connected %}dot-on{% else %}dot-off{% endif %}"></span> Lavalink</h3>
-    <div class="big big-md">{% if s.lavalink_connected %}Connected{% else %}Disconnected{% endif %}</div>
-    <p class="dash-sub break-all">{{ s.lavalink_node }}</p>
-  </div>
-  <div class="card">
-    <h3>🎵 Active Players</h3>
-    <div class="big">{{ s.players|length }}</div>
-    <p class="dash-sub">Guilds currently playing music</p>
-  </div>
-</div>
-
-<div class="players">
-  <h2>🎶 Now Playing</h2>
-  <div id="players-container">
-    {% if s.players %}
-    {% for p in s.players %}
-    <div class="p-card" data-guild-id="{{ p.guild_id }}">
-      <img src="{{ p.artwork }}" alt="artwork" class="p-art" data-fallback="https://via.placeholder.com/80?text=No+Art" />
-      <div class="p-info">
-        <h4 id="now-playing">{{ p.track }}</h4>
-        <div class="p-meta">{{ p.author }} • {{ p.guild }}</div>
-        <div class="badges-row">
-          <span class="badge bg-q"><span id="queue-count">{{ p.queue }}</span> in queue</span>
-          <span class="badge bg-l">{{ p.listeners }} listeners</span>
-          {% if p.paused %}<span class="badge bg-p">⏸ Paused</span>{% endif %}
-        </div>
-        <div class="bar"><div class="bar-fill" data-progress="{{ p.progress_percent }}"></div></div>
-        <div class="bar-text">{{ p.position_fmt }} / {{ p.duration_fmt }}</div>
+<div class="dash-wrap">
+  <header class="dash-hero">
+    <div class="dash-hero-text">
+      <h1>🤖 Hidden Hamlet</h1>
+      <p>Bot Status &amp; Now Playing</p>
+      <div class="dash-hero-meta">
+        <span class="dash-hero-update">Last update: {{ s.last_updated }}</span>
+        <span class="dash-hero-refresh" id="refreshStatus">🔄 Auto-refresh</span>
       </div>
     </div>
-    {% endfor %}
+    <div class="dash-hero-status">
+      <span class="status-dot {% if s.online %}dot-on{% else %}dot-off{% endif %}"></span>
+      <span class="status-label">{{ s.username }}</span>
+      <span class="status-uptime">{{ s.uptime_fmt }}</span>
+    </div>
+  </header>
+
+  <!-- Stats Grid -->
+  <div class="dash-grid">
+    <div class="dash-card dash-card-accent">
+      <div class="dash-card-icon">📊</div>
+      <div class="dash-card-body">
+        <div class="dash-card-value">{{ s.guilds }}</div>
+        <div class="dash-card-label">Servers</div>
+      </div>
+    </div>
+    <div class="dash-card dash-card-accent2">
+      <div class="dash-card-icon">👥</div>
+      <div class="dash-card-body">
+        <div class="dash-card-value">{{ s.members }}</div>
+        <div class="dash-card-label">Members</div>
+      </div>
+    </div>
+    <div class="dash-card dash-card-accent3">
+      <div class="dash-card-icon">🎵</div>
+      <div class="dash-card-body">
+        <div class="dash-card-value">{{ s.players|length }}</div>
+        <div class="dash-card-label">Active Players</div>
+      </div>
+    </div>
+    <div class="dash-card dash-card-accent4">
+      <div class="dash-card-icon">🔊</div>
+      <div class="dash-card-body">
+        <div class="dash-card-value">{% if s.lavalink_connected %}Connected{% else %}Disconnected{% endif %}</div>
+        <div class="dash-card-label">Lavalink</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Now Playing -->
+  <section class="dash-section">
+    <h2 class="dash-section-title">🎶 Now Playing</h2>
+    {% if s.players %}
+    <div class="dash-player-list">
+      {% for p in s.players %}
+      <div class="dash-player" data-guild-id="{{ p.guild_id }}">
+        <img src="{{ p.artwork }}" alt="" class="dash-player-art" data-fallback="https://via.placeholder.com/80?text=No+Art" loading="lazy">
+        <div class="dash-player-info">
+          <h3 class="dash-player-track" id="now-playing">{{ p.track }}</h3>
+          <div class="dash-player-meta">{{ p.author }} • {{ p.guild }}</div>
+          <div class="dash-player-badges">
+            <span class="dash-badge dash-badge-queue">{{ p.queue }} in queue</span>
+            <span class="dash-badge dash-badge-listeners">{{ p.listeners }} listeners</span>
+            {% if p.paused %}<span class="dash-badge dash-badge-paused">⏸ Paused</span>{% endif %}
+          </div>
+          <div class="dash-progress">
+            <div class="dash-progress-bar">
+              <div class="dash-progress-fill" data-progress="{{ p.progress_percent }}"></div>
+            </div>
+            <div class="dash-progress-text">{{ p.position_fmt }} / {{ p.duration_fmt }}</div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
     {% else %}
-    <div class="card empty-players"><p>No active music players.</p>
+    <div class="dash-empty">
+      <div class="dash-empty-icon">🎵</div>
+      <h3>No Active Players</h3>
+      <p>There are no music players currently active.</p>
     </div>
     {% endif %}
-  </div>
+  </section>
+
+  <!-- Server List -->
+  <section class="dash-section">
+    <h2 class="dash-section-title">🖥 Connected Servers</h2>
+    <div class="dash-server-grid">
+      {% for g in s.guilds_list %}
+      <a href="/dashboard/{{ g.id }}/" class="dash-server-card">
+        <div class="dash-server-name">{{ g.name }}</div>
+        <div class="dash-server-count">{{ g.member_count }} members</div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  <footer class="dash-footer">
+    <p>Hidden Hamlet Bot • <a href="/api/stats">API JSON</a> • <a href="/">Home</a></p>
+  </footer>
 </div>
-
-<footer class="dash-footer">
-  <p>Hidden Hamlet Bot • Render.com • <a href="/api/stats">API JSON</a> • <a href="/">Home</a></p>
-</footer>
-
-</div> <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}

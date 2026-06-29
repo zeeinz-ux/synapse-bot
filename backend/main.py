@@ -120,7 +120,7 @@ from backend.cogs.database import firebase_setup
 # ============================================
 
 # ===== [DASHBOARD] Import Firestore stats bridge =====
-from backend.utils.firestore_stats import set_stats, set_guild_channels, set_music_state, set_bot_instance, flush_now, delete_guild_from_map, delete_guild_settings, create_guild_settings_minimal, integrity_sweep, invalidate_stats_cache
+from backend.utils.firestore_stats import set_stats, set_guild_channels, set_guild_roles, set_music_state, set_bot_instance, flush_now, delete_guild_from_map, delete_guild_settings, create_guild_settings_minimal, integrity_sweep, invalidate_stats_cache
 # ==================================================
 
 intents = discord.Intents.default()
@@ -289,6 +289,16 @@ async def update_stats():
             ]
             set_guild_channels(str(guild.id), voice_channels)
 
+            text_channels = [
+                {"id": str(ch.id), "name": ch.name}
+                for ch in guild.text_channels
+                if ch.permissions_for(guild.me).send_messages
+            ]
+            set_guild_roles(str(guild.id), [
+                {"id": str(r.id), "name": r.name, "color": r.color.value, "position": r.position}
+                for r in guild.roles if r.name != "@everyone"
+            ])
+
         guilds_list = [
             {"id": str(g.id), "name": g.name, "member_count": g.member_count or 0}
             for g in bot.guilds
@@ -439,6 +449,43 @@ async def _exec_control(cmd: dict):
         if controller.current_track:
             pos_ms = int(controller.current_track.duration * pct)
             await controller.seek(pos_ms)
+    elif action == "send_message":
+        channel_id = data.get("channel_id")
+        embed_data = data.get("embed")
+        content = data.get("content", "")
+        if channel_id and embed_data:
+            ch = guild.get_channel(int(channel_id))
+            if ch:
+                try:
+                    embed = discord.Embed(
+                        title=embed_data.get("title", ""),
+                        description=embed_data.get("description", ""),
+                        color=int(embed_data.get("color", "5865f2"), 16),
+                    )
+                    if embed_data.get("author_name"):
+                        embed.set_author(
+                            name=embed_data["author_name"],
+                            icon_url=embed_data.get("author_icon") or discord.Embed.Empty,
+                        )
+                    if embed_data.get("thumbnail"):
+                        embed.set_thumbnail(url=embed_data["thumbnail"])
+                    if embed_data.get("image"):
+                        embed.set_image(url=embed_data["image"])
+                    if embed_data.get("footer_text"):
+                        embed.set_footer(
+                            text=embed_data["footer_text"],
+                            icon_url=embed_data.get("footer_icon") or discord.Embed.Empty,
+                        )
+                    for field in embed_data.get("fields", []):
+                        embed.add_field(
+                            name=field.get("name", ""),
+                            value=field.get("value", ""),
+                            inline=field.get("inline", False),
+                        )
+                    await ch.send(content=content or None, embed=embed)
+                    print(f"[CONTROL] ✅ Message sent to #{ch.name} ({channel_id})")
+                except Exception as e:
+                    print(f"[CONTROL] ❌ Send message error: {e}")
     elif action == "setting":
         key = data.get("key")
         value = data.get("value")

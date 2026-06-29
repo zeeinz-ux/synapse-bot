@@ -393,6 +393,83 @@ def api_boost_stats(guild_id: str):
 
 
 # ==========================================================
+# API — Donation Tracker
+# ==========================================================
+
+@app.route("/api/donations/<guild_id>/history")
+def api_donation_history(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "donations": [], "message": "Firebase unavailable"}), 200
+    try:
+        docs = list(db.collection("transactions")
+                     .where("guild_id", "==", str(guild_id))
+                     .order_by("created_at", direction=firestore.Query.DESCENDING)
+                     .limit(50).stream())
+        donations = []
+        for doc in docs:
+            d = doc.to_dict()
+            created = d.get("created_at")
+            donations.append({
+                "id": doc.id,
+                "user_id": d.get("user_id", ""),
+                "amount": d.get("amount", 0),
+                "payment_method": d.get("payment_method", ""),
+                "status": d.get("status", "pending"),
+                "note": d.get("note", ""),
+                "created_at": created.isoformat() if hasattr(created, "isoformat") else str(created or ""),
+            })
+        return jsonify({"success": True, "donations": donations, "count": len(donations)}), 200
+    except Exception as e:
+        traceback.print_exc()
+        print(f"[DONATION API] ❌ history error: {e}")
+        return jsonify({"success": False, "donations": [], "message": str(e)}), 500
+
+
+@app.route("/api/donations/<guild_id>/stats")
+def api_donation_stats(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        docs = list(db.collection("transactions")
+                     .where("guild_id", "==", str(guild_id))
+                     .stream())
+        total_count = len(docs)
+        total_amount = 0
+        completed_count = 0
+        user_amounts = {}
+        method_counts = {}
+
+        for doc in docs:
+            d = doc.to_dict()
+            amt = d.get("amount", 0)
+            status = d.get("status", "pending")
+            uid = d.get("user_id", "unknown")
+            method = d.get("payment_method", "unknown")
+
+            total_amount += amt
+            if status == "completed":
+                completed_count += 1
+
+            user_amounts[uid] = user_amounts.get(uid, 0) + amt
+            method_counts[method] = method_counts.get(method, 0) + 1
+
+        top_donors = sorted(user_amounts.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        return jsonify({
+            "success": True,
+            "total_count": total_count,
+            "total_amount": total_amount,
+            "completed_count": completed_count,
+            "average_amount": round(total_amount / total_count, 2) if total_count else 0,
+            "top_donors": [{"user_id": uid, "total": amt} for uid, amt in top_donors],
+            "method_breakdown": [{"method": m, "count": c} for m, c in method_counts.items()],
+        }), 200
+    except Exception as e:
+        print(f"[DONATION API] ❌ stats error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+# ==========================================================
 # Helper — baca config feature dari Firestore
 # ==========================================================
 def _get_feature_config(guild_id: str, feature_key: str = "welcome") -> dict:
@@ -646,6 +723,91 @@ def dashboard():
 def dashboard_guild(guild_id: str):
     return _render_page("dashboard.html", active_page="main", guild_id=guild_id)
 
+# ==========================================================
+# API — Settings
+# ==========================================================
+
+@app.route("/api/settings/<guild_id>/info")
+def api_settings_info(guild_id: str):
+    try:
+        stats = get_stats_snapshot()
+        guild_info = {}
+        for g in stats.get("guilds_list", []):
+            if g["id"] == guild_id:
+                guild_info = g
+                break
+        return jsonify({"success": True, "guild": guild_info}), 200
+    except Exception as e:
+        print(f"[SETTINGS API] info error: {e}")
+        return jsonify({"success": False, "guild": {}}), 500
+
+
+@app.route("/api/settings/<guild_id>/features")
+def api_settings_features(guild_id: str):
+    if db is None:
+        return jsonify({"success": True, "features": {}}), 200
+    try:
+        doc = db.collection("guild_settings").document(guild_id).get()
+        data = doc.to_dict() if doc.exists else {}
+        features = {
+            "welcome": bool(data.get("welcome", {}).get("enabled", False)),
+            "leave": bool(data.get("leave", {}).get("enabled", False)),
+            "ban": bool(data.get("ban", {}).get("enabled", False)),
+            "boost_announce": bool(data.get("boost_announce", {}).get("enabled", False)),
+            "auto_responders": bool(data.get("auto_responders_enabled", False)),
+            "ai_chat": bool(data.get("ai_chat", {}).get("enabled", False)),
+            "level_rewards": bool(data.get("level_rewards", {}).get("enabled", False)),
+            "moderation": bool(data.get("moderation_config", {}).get("enabled", True)),
+        }
+        return jsonify({"success": True, "features": features}), 200
+    except Exception as e:
+        print(f"[SETTINGS API] features error: {e}")
+        return jsonify({"success": False, "features": {}}), 500
+
+
+@app.route("/api/settings/<guild_id>/save", methods=["POST"])
+def api_settings_save(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        payload = request.get_json() or {}
+        data = {}
+        if "log_channel" in payload:
+            data["log_channel"] = payload["log_channel"]
+        if "bot_language" in payload:
+            data["bot_language"] = payload["bot_language"]
+        if data:
+            db.collection("guild_settings").document(guild_id).set(data, merge=True)
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        print(f"[SETTINGS API] save error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/settings/<guild_id>/reset", methods=["POST"])
+def api_settings_reset(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        payload = request.get_json() or {}
+        feature = payload.get("feature", "")
+        valid = ["welcome", "leave", "ban", "boost_announce", "auto_responders", "ai_chat", "level_rewards", "moderation_config"]
+        if not feature:
+            return jsonify({"success": False, "message": "Feature name required"}), 400
+        field = feature
+        if feature == "auto_responders":
+            field = "auto_responders_enabled"
+            db.collection("guild_settings").document(guild_id).update({field: firestore.DELETE_FIELD})
+            db.collection("guild_settings").document(guild_id).update({"auto_responders": firestore.DELETE_FIELD})
+            return jsonify({"success": True}), 200
+        if field in valid:
+            db.collection("guild_settings").document(guild_id).update({field: firestore.DELETE_FIELD})
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        print(f"[SETTINGS API] reset error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @app.route("/dashboard/<guild_id>/settings")
 @login_required
 def settings_page(guild_id: str):
@@ -829,6 +991,113 @@ def donation_stats(guild_id: str):
     return _render_page("donation_settings.html", active_page="donation_stats", guild_id=guild_id)
 
 # ==========================================================
+# API — Message Builder
+# ==========================================================
+
+@app.route("/api/message-builder/<guild_id>/channels")
+def api_mb_channels(guild_id: str):
+    try:
+        bot_guilds = current_app.config.get("BOT_GUILDS", {})
+        guild_data = bot_guilds.get(str(guild_id))
+        if not guild_data:
+            return jsonify({"success": False, "channels": []}), 200
+        channels = []
+        if "channels" in guild_data:
+            for ch in guild_data["channels"]:
+                ch_type = ch.get("type", 0)
+                if ch_type == 0:
+                    channels.append({"id": str(ch["id"]), "name": ch.get("name", "unknown")})
+        channels.sort(key=lambda c: c["name"])
+        return jsonify({"success": True, "channels": channels}), 200
+    except Exception as e:
+        print(f"[MB API] ❌ channels error: {e}")
+        return jsonify({"success": False, "channels": []}), 500
+
+
+@app.route("/api/message-builder/<guild_id>/templates", methods=["GET"])
+def api_mb_templates_list(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "templates": []}), 200
+    try:
+        doc = db.collection("guild_settings").document(guild_id).get()
+        templates = doc.to_dict().get("message_templates", {}) if doc.exists else {}
+        result = []
+        for tid, tpl in templates.items():
+            tpl["id"] = tid
+            result.append(tpl)
+        result.sort(key=lambda t: t.get("updated_at", ""), reverse=True)
+        return jsonify({"success": True, "templates": result}), 200
+    except Exception as e:
+        print(f"[MB API] ❌ templates list error: {e}")
+        return jsonify({"success": False, "templates": []}), 500
+
+
+@app.route("/api/message-builder/<guild_id>/templates", methods=["POST"])
+def api_mb_templates_save(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        data = request.get_json() or {}
+        template_id = data.get("id") or str(int(time.time() * 1000))
+        template = {
+            "name": data.get("name", "Untitled"),
+            "embed": data.get("embed", {}),
+            "content": data.get("content", ""),
+            "updated_at": int(time.time()),
+        }
+        db.collection("guild_settings").document(guild_id).set(
+            {f"message_templates.{template_id}": template}, merge=True
+        )
+        return jsonify({"success": True, "id": template_id}), 200
+    except Exception as e:
+        print(f"[MB API] ❌ templates save error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/message-builder/<guild_id>/templates/<template_id>", methods=["DELETE"])
+def api_mb_templates_delete(guild_id: str, template_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        db.collection("guild_settings").document(guild_id).update(
+            {f"message_templates.{template_id}": firestore.DELETE_FIELD}
+        )
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        print(f"[MB API] ❌ templates delete error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/message-builder/<guild_id>/send", methods=["POST"])
+def api_mb_send(guild_id: str):
+    try:
+        data = request.get_json() or {}
+        channel_id = data.get("channel_id")
+        embed = data.get("embed", {})
+        content = data.get("content", "")
+        if not channel_id:
+            return jsonify({"success": False, "message": "channel_id required"}), 400
+        _ensure_queue_dir()
+        cmd_id = f"{int(time.time())}_{os.urandom(4).hex()}"
+        cmd_file = os.path.join(CONTROL_QUEUE_DIR, f"{cmd_id}.json")
+        with open(cmd_file, "w") as f:
+            json.dump({
+                "guild_id": guild_id,
+                "action": "send_message",
+                "data": {
+                    "channel_id": channel_id,
+                    "embed": embed,
+                    "content": content,
+                },
+                "id": cmd_id,
+            }, f)
+        return jsonify({"success": True, "queued": True}), 200
+    except Exception as e:
+        print(f"[MB API] ❌ send error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+# ==========================================================
 # ROUTES — Tools
 # ==========================================================
 @app.route("/dashboard/<guild_id>/message-builder")
@@ -836,10 +1105,262 @@ def donation_stats(guild_id: str):
 def message_builder(guild_id: str):
     return _render_page("message_builder.html", active_page="message_builder", guild_id=guild_id)
 
+
+# ==========================================================
+# API — Templates (unified: message / announcement / auto_response)
+# ==========================================================
+
+@app.route("/api/templates/<guild_id>", methods=["GET"])
+def api_templates_list(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "templates": []}), 200
+    try:
+        doc = db.collection("guild_settings").document(guild_id).get()
+        templates = doc.to_dict().get("templates", {}) if doc.exists else {}
+        result = []
+        for tid, tpl in templates.items():
+            tpl["id"] = tid
+            result.append(tpl)
+        result.sort(key=lambda t: t.get("updated_at", 0), reverse=True)
+        return jsonify({"success": True, "templates": result}), 200
+    except Exception as e:
+        print(f"[TEMPLATES API] ❌ list error: {e}")
+        return jsonify({"success": False, "templates": []}), 500
+
+
+@app.route("/api/templates/<guild_id>", methods=["POST"])
+def api_templates_save(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        data = request.get_json() or {}
+        template_id = data.get("id") or str(int(time.time() * 1000))
+        template = {
+            "name": data.get("name", "Untitled"),
+            "type": data.get("type", "message"),
+            "embed": data.get("embed", {}),
+            "content": data.get("content", ""),
+            "keywords": data.get("keywords", []),
+            "response_type": data.get("response_type", "text"),
+            "updated_at": int(time.time()),
+        }
+        db.collection("guild_settings").document(guild_id).set(
+            {f"templates.{template_id}": template}, merge=True
+        )
+        return jsonify({"success": True, "id": template_id}), 200
+    except Exception as e:
+        print(f"[TEMPLATES API] ❌ save error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/templates/<guild_id>/<template_id>", methods=["DELETE"])
+def api_templates_delete(guild_id: str, template_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        db.collection("guild_settings").document(guild_id).update(
+            {f"templates.{template_id}": firestore.DELETE_FIELD}
+        )
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        print(f"[TEMPLATES API] ❌ delete error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/templates/<guild_id>/apply-announcement", methods=["POST"])
+def api_templates_apply_announcement(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        data = request.get_json() or {}
+        target = data.get("target", "welcome")
+        embed = data.get("embed", {})
+        content = data.get("content", "")
+
+        feature_key = {"welcome": "welcome", "leave": "leave", "ban": "ban", "boost": "boost_announce"}.get(target)
+        if not feature_key:
+            return jsonify({"success": False, "message": "Invalid target"}), 400
+
+        config = {
+            "style": "embed",
+            "message_text": content,
+            "embed_title": embed.get("title", ""),
+            "embed_color": f"#{embed.get('color', '5865f2')}",
+        }
+
+        db.collection("guild_settings").document(guild_id).set(
+            {feature_key: config}, merge=True
+        )
+        return jsonify({"success": True, "target": target}), 200
+    except Exception as e:
+        print(f"[TEMPLATES API] ❌ apply error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/templates/<guild_id>/add-autoresponder", methods=["POST"])
+def api_templates_add_autoresponder(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        data = request.get_json() or {}
+        keywords = data.get("keywords", [])
+        embed = data.get("embed", {})
+        content = data.get("content", "")
+
+        if not keywords:
+            return jsonify({"success": False, "message": "Keywords required"}), 400
+
+        keyword = keywords[0]
+        responder_id = "ar_" + "".join(c for c in keyword.replace(" ", "_") if c.isalnum() or c == "_")[:40]
+
+        config = {
+            "keyword": keyword,
+            "keywords": keywords,
+            "response_type": "embed" if embed else "text",
+            "text": content,
+            "embed": embed,
+            "case_sensitive": False,
+            "regex": False,
+            "whole_word": True,
+        }
+
+        db.collection("guild_settings").document(guild_id).set(
+            {f"auto_responders.{responder_id}": config}, merge=True
+        )
+        db.collection("guild_settings").document(guild_id).set(
+            {"auto_responders_enabled": True}, merge=True
+        )
+        return jsonify({"success": True, "id": responder_id}), 200
+    except Exception as e:
+        print(f"[TEMPLATES API] ❌ add-autoresponder error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @app.route("/dashboard/<guild_id>/templates")
 @login_required
 def templates_page(guild_id: str):
     return _render_page("templates.html", active_page="templates", guild_id=guild_id)
+
+# ==========================================================
+# API — Actions (Level Rewards + Moderation Config)
+# ==========================================================
+
+@app.route("/api/actions/<guild_id>/roles")
+def api_actions_roles(guild_id: str):
+    try:
+        roles = get_guild_roles(str(guild_id))
+        roles.sort(key=lambda r: r.get("position", 0), reverse=True)
+        return jsonify({"success": True, "roles": roles}), 200
+    except Exception as e:
+        print(f"[ACTIONS API] ❌ roles error: {e}")
+        return jsonify({"success": False, "roles": []}), 500
+
+
+@app.route("/api/actions/<guild_id>/channels")
+def api_actions_channels(guild_id: str):
+    try:
+        chs = get_guild_channels(str(guild_id))
+        return jsonify({"success": True, "channels": chs}), 200
+    except Exception as e:
+        print(f"[ACTIONS API] ❌ channels error: {e}")
+        return jsonify({"success": False, "channels": []}), 500
+
+
+@app.route("/api/actions/<guild_id>/level-rewards", methods=["GET"])
+def api_actions_level_rewards_get(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "enabled": False, "rewards": [], "notify_channel": ""}), 200
+    try:
+        doc = db.collection("guild_settings").document(guild_id).get()
+        config = doc.to_dict().get("level_rewards", {}) if doc.exists else {}
+        rewards_list = []
+        for lvl, role_id in config.get("rewards", {}).items():
+            rewards_list.append({"level": int(lvl), "role_id": role_id})
+        rewards_list.sort(key=lambda r: r["level"])
+        return jsonify({
+            "success": True,
+            "enabled": config.get("enabled", False),
+            "rewards": rewards_list,
+            "notify_channel": config.get("notify_channel", ""),
+        }), 200
+    except Exception as e:
+        print(f"[ACTIONS API] ❌ level-rewards get error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/actions/<guild_id>/level-rewards", methods=["POST"])
+def api_actions_level_rewards_save(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        data = request.get_json() or {}
+        rewards_map = {}
+        for r in data.get("rewards", []):
+            lvl = r.get("level")
+            rid = r.get("role_id")
+            if lvl and rid:
+                rewards_map[str(lvl)] = str(rid)
+        config = {
+            "enabled": data.get("enabled", False),
+            "rewards": rewards_map,
+            "notify_channel": data.get("notify_channel", ""),
+        }
+        db.collection("guild_settings").document(guild_id).set(
+            {"level_rewards": config}, merge=True
+        )
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        print(f"[ACTIONS API] ❌ level-rewards save error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/actions/<guild_id>/moderation", methods=["GET"])
+def api_actions_moderation_get(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "enabled": True}), 200
+    try:
+        doc = db.collection("guild_settings").document(guild_id).get()
+        config = doc.to_dict().get("moderation_config", {}) if doc.exists else {}
+        return jsonify({
+            "success": True,
+            "enabled": config.get("enabled", True),
+            "strike_1": config.get("strike_1", {"action": "timeout", "duration_hours": 1}),
+            "strike_2": config.get("strike_2", {"action": "kick"}),
+            "strike_3": config.get("strike_3", {"action": "ban"}),
+            "report_channel": config.get("report_channel", ""),
+            "filter_heuristic": config.get("filter_heuristic", True),
+            "filter_new_account": config.get("filter_new_account", True),
+            "filter_ai": config.get("filter_ai", True),
+        }), 200
+    except Exception as e:
+        print(f"[ACTIONS API] ❌ moderation get error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/actions/<guild_id>/moderation", methods=["POST"])
+def api_actions_moderation_save(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        data = request.get_json() or {}
+        config = {
+            "enabled": data.get("enabled", True),
+            "strike_1": data.get("strike_1", {"action": "timeout", "duration_hours": 1}),
+            "strike_2": data.get("strike_2", {"action": "kick"}),
+            "strike_3": data.get("strike_3", {"action": "ban"}),
+            "report_channel": data.get("report_channel", ""),
+            "filter_heuristic": data.get("filter_heuristic", True),
+            "filter_new_account": data.get("filter_new_account", True),
+            "filter_ai": data.get("filter_ai", True),
+        }
+        db.collection("guild_settings").document(guild_id).set(
+            {"moderation_config": config}, merge=True
+        )
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        print(f"[ACTIONS API] ❌ moderation save error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
 
 @app.route("/dashboard/<guild_id>/actions")
 @login_required

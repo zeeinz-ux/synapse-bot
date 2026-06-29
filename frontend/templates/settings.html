@@ -1,83 +1,84 @@
 {% extends "base.html" %}
 {% block title %}Bot Settings — Hidden Hamlet{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}" />
+{% endblock %}
 {% block content %}
 <div class="page-wrap">
   <nav class="breadcrumb">
     <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
     <span>›</span>
-    <span>Bot Settings</span>
+    <span>Settings</span>
   </nav>
-  <div class="placeholder-page">
-    <div class="placeholder-icon">⚙️</div>
-    <h1>Bot Settings</h1>
-    <p>Pengaturan global bot: prefix, permissions, default language, dan konfigurasi lainnya.</p>
-    <div class="placeholder-status">
-      <span class="status-badge">🔧 Under Development</span>
+
+  <div class="set-header">
+    <div>
+      <h1>⚙️ Settings</h1>
+      <p>Kelola pengaturan server, fitur, dan konfigurasi bot.</p>
     </div>
-    <div class="placeholder-hint">
-      <p>Fitur ini sedang dalam pengembangan.</p>
-      <p>Silakan gunakan <a href="/dashboard/{{ guild_id }}/welcome">Welcome Settings</a> atau <a href="/dashboard">Dashboard</a> yang sudah tersedia.</p>
+  </div>
+
+  <!-- Server Info -->
+  <div class="set-section">
+    <div class="set-section-title">🖥 Server Info</div>
+    <div class="set-server-info">
+      <div class="set-server-icon" id="setServerIcon"></div>
+      <div>
+        <div class="set-server-name" id="setServerName">—</div>
+        <div class="set-server-id" id="setServerId">—</div>
+      </div>
+    </div>
+    <div class="set-info-grid">
+      <div class="set-info-item">
+        <div class="set-info-label">Member</div>
+        <div class="set-info-value" id="setMemberCount">—</div>
+      </div>
+      <div class="set-info-item">
+        <div class="set-info-label">Bot Status</div>
+        <div class="set-info-value">🟢 Online</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature Overview -->
+  <div class="set-section">
+    <div class="set-section-title">📊 Status Fitur</div>
+    <div class="set-feature-grid" id="featuresList">
+      <div style="color:#555;font-size:0.85rem;">Memuat...</div>
+    </div>
+  </div>
+
+  <!-- Logging -->
+  <div class="set-section">
+    <div class="set-section-title">📝 Logging</div>
+    <div class="set-field">
+      <label>Channel log bot events</label>
+      <select id="logChannel">
+        <option value="">— Tidak ada —</option>
+      </select>
+    </div>
+    <div class="set-save-bar">
+      <button class="btn-save-settings" id="saveLoggingBtn">💾 Simpan</button>
+    </div>
+  </div>
+
+  <!-- Reset -->
+  <div class="set-section">
+    <div class="set-section-title">↻ Reset Feature</div>
+    <p style="color:#888;font-size:0.85rem;margin:0 0 1rem;">Reset fitur tertentu ke pengaturan default (kosong).</p>
+    <div class="set-reset-grid">
+      <button class="btn-reset-feature" data-feature="welcome" data-name="Welcome">👋 Welcome</button>
+      <button class="btn-reset-feature" data-feature="leave" data-name="Leave">👋 Leave</button>
+      <button class="btn-reset-feature" data-feature="ban" data-name="Ban">🔨 Ban</button>
+      <button class="btn-reset-feature" data-feature="boost_announce" data-name="Boost">🚀 Boost</button>
+      <button class="btn-reset-feature" data-feature="auto_responders" data-name="Auto Responder">🤖 Auto Responder</button>
+      <button class="btn-reset-feature" data-feature="ai_chat" data-name="AI Chat">🧠 AI Chat</button>
+      <button class="btn-reset-feature" data-feature="level_rewards" data-name="Level Rewards">🎖 Level Rewards</button>
+      <button class="btn-reset-feature" data-feature="moderation_config" data-name="Moderasi">🛡 Moderasi</button>
     </div>
   </div>
 </div>
-<style>
-  .placeholder-page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 60vh;
-    text-align: center;
-    padding: 2rem;
-  }
-  .placeholder-icon {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    opacity: 0.8;
-  }
-  .placeholder-page h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #f2f3f5;
-    margin-bottom: 0.5rem;
-  }
-  .placeholder-page p {
-    color: #a0a0a0;
-    font-size: 1rem;
-    max-width: 400px;
-    line-height: 1.6;
-  }
-  .placeholder-status {
-    margin: 1.5rem 0;
-  }
-  .status-badge {
-    display: inline-block;
-    background: #2d2d30;
-    border: 1px solid #404040;
-    color: #f0b232;
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-size: 0.875rem;
-    font-weight: 600;
-  }
-  .placeholder-hint {
-    margin-top: 1rem;
-    padding: 1rem 1.5rem;
-    background: #1a1a1c;
-    border-radius: 8px;
-    border: 1px solid #2a2a2c;
-  }
-  .placeholder-hint p {
-    font-size: 0.875rem;
-    color: #888;
-    margin: 0.25rem 0;
-  }
-  .placeholder-hint a {
-    color: #5865f2;
-    text-decoration: none;
-  }
-  .placeholder-hint a:hover {
-    text-decoration: underline;
-  }
-</style>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/settings.js') }}"></script>
 {% endblock %}

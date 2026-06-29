@@ -1,83 +1,103 @@
 {% extends "base.html" %}
-{% block title %}Donation Tracker — Hidden Hamlet{% endblock %}
+{% block title %}{% if active_page == 'donation_stats' %}Donasi Statistik{% else %}Riwayat Donasi{% endif %} — Hidden Hamlet{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/donation_settings.css') }}" />
+{% endblock %}
 {% block content %}
 <div class="page-wrap">
   <nav class="breadcrumb">
     <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
     <span>›</span>
-    <span>Donation Tracker</span>
+    {% if active_page == 'donation_stats' %}
+      <a href="/dashboard/{{ guild_id }}/donation">Donation Tracker</a>
+      <span>›</span>
+      <span>Statistik</span>
+    {% else %}
+      <span>Donation Tracker</span>
+    {% endif %}
   </nav>
-  <div class="placeholder-page">
-    <div class="placeholder-icon">💰</div>
-    <h1>Donation Tracker</h1>
-    <p>Kelola riwayat donasi, top donor, dan statistik kontribusi server.</p>
-    <div class="placeholder-status">
-      <span class="status-badge">🔧 Under Development</span>
+
+  <div class="donation-header">
+    <div>
+      <h1>{% if active_page == 'donation_stats' %}📈 Statistik Donasi{% else %}💳 Riwayat Donasi{% endif %}</h1>
+      <p>Kelola riwayat donasi, top donor, dan statistik kontribusi server.</p>
     </div>
-    <div class="placeholder-hint">
-      <p>Fitur ini sedang dalam pengembangan.</p>
-      <p>Silakan gunakan <a href="/dashboard/{{ guild_id }}/welcome">Welcome Settings</a> atau <a href="/dashboard">Dashboard</a> yang sudah tersedia.</p>
+    <div class="donation-header-right">
+      <a href="/dashboard/{{ guild_id }}/donation" class="btn-donation {% if active_page == 'donation' %}active{% endif %}">
+        💳 Riwayat
+      </a>
+      <a href="/dashboard/{{ guild_id }}/donation/stats" class="btn-donation {% if active_page == 'donation_stats' %}active{% endif %}">
+        📈 Statistik
+      </a>
     </div>
   </div>
+
+  {% if active_page == 'donation_stats' %}
+  <div class="donation-stats-grid" id="donationStatsGrid">
+    <div class="donation-stat-card donation-stat-total">
+      <div class="donation-stat-value" id="statTotalCount">—</div>
+      <div class="donation-stat-label">Total Transaksi</div>
+    </div>
+    <div class="donation-stat-card donation-stat-amount">
+      <div class="donation-stat-value" id="statTotalAmount">—</div>
+      <div class="donation-stat-label">Total Donasi</div>
+    </div>
+    <div class="donation-stat-card donation-stat-average">
+      <div class="donation-stat-value" id="statAverage">—</div>
+      <div class="donation-stat-label">Rata-rata</div>
+    </div>
+    <div class="donation-stat-card donation-stat-completed">
+      <div class="donation-stat-value" id="statCompleted">—</div>
+      <div class="donation-stat-label">Selesai</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+    <div class="card">
+      <div class="card-header"><h2>🏆 Top Donor</h2></div>
+      <div class="card-body">
+        <ul class="top-donors-list" id="topDonorsBody">
+          <li style="padding:1.25rem;text-align:center;color:#888;">Memuat...</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h2>💳 Metode Pembayaran</h2></div>
+      <div class="card-body">
+        <ul class="method-list" id="methodBody">
+          <li style="padding:1.25rem;text-align:center;color:#888;">Memuat...</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-header">
+      <h2>💳 Riwayat Donasi</h2>
+      <span class="badge" id="donationCount">Memuat...</span>
+    </div>
+    <div class="card-body">
+      <table class="donation-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Amount</th>
+            <th>Metode</th>
+            <th>Status</th>
+            <th>Tanggal</th>
+            <th>Catatan</th>
+          </tr>
+        </thead>
+        <tbody id="donationHistoryBody">
+          <tr><td colspan="7" class="loading">Memuat...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 </div>
-<style>
-  .placeholder-page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 60vh;
-    text-align: center;
-    padding: 2rem;
-  }
-  .placeholder-icon {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    opacity: 0.8;
-  }
-  .placeholder-page h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #f2f3f5;
-    margin-bottom: 0.5rem;
-  }
-  .placeholder-page p {
-    color: #a0a0a0;
-    font-size: 1rem;
-    max-width: 400px;
-    line-height: 1.6;
-  }
-  .placeholder-status {
-    margin: 1.5rem 0;
-  }
-  .status-badge {
-    display: inline-block;
-    background: #2d2d30;
-    border: 1px solid #404040;
-    color: #f0b232;
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-size: 0.875rem;
-    font-weight: 600;
-  }
-  .placeholder-hint {
-    margin-top: 1rem;
-    padding: 1rem 1.5rem;
-    background: #1a1a1c;
-    border-radius: 8px;
-    border: 1px solid #2a2a2c;
-  }
-  .placeholder-hint p {
-    font-size: 0.875rem;
-    color: #888;
-    margin: 0.25rem 0;
-  }
-  .placeholder-hint a {
-    color: #5865f2;
-    text-decoration: none;
-  }
-  .placeholder-hint a:hover {
-    text-decoration: underline;
-  }
-</style>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/donation_settings.js') }}"></script>
 {% endblock %}

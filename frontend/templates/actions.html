@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Actions — Hidden Hamlet{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/actions.css') }}" />
+{% endblock %}
 {% block content %}
 <div class="page-wrap">
   <nav class="breadcrumb">
@@ -7,77 +10,105 @@
     <span>›</span>
     <span>Actions</span>
   </nav>
-  <div class="placeholder-page">
-    <div class="placeholder-icon">⚡</div>
-    <h1>Actions</h1>
-    <p>Auto-action: jika X terjadi, lakukan Y. Contoh: member join → kasih role welcome.</p>
-    <div class="placeholder-status">
-      <span class="status-badge">🔧 Under Development</span>
+
+  <div class="act-header">
+    <div>
+      <h1>⚡ Auto Actions</h1>
+      <p>Atur aksi otomatis: level rewards dan konfigurasi moderasi.</p>
     </div>
-    <div class="placeholder-hint">
-      <p>Fitur ini sedang dalam pengembangan.</p>
-      <p>Silakan gunakan <a href="/dashboard/{{ guild_id }}/welcome">Welcome Settings</a> atau <a href="/dashboard">Dashboard</a> yang sudah tersedia.</p>
+  </div>
+
+  <!-- Level Rewards -->
+  <div class="act-section">
+    <div class="act-section-title">🎖 Level Rewards</div>
+    <div class="act-toggle-row">
+      <span style="color:#d0d0d0;font-size:0.9rem;">Aktifkan level rewards</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="levelRewardEnabled">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="act-field">
+      <label>Notifikasi channel (opsional)</label>
+      <select id="levelNotifyChannel">
+        <option value="">— Tidak ada —</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom:0.5rem;font-size:0.8rem;font-weight:600;color:#888;">Level → Role</div>
+    <div id="rewardsList">
+      <div style="color:#555;font-size:0.85rem;padding:0.5rem 0;">Belum ada reward.</div>
+    </div>
+    <button type="button" class="btn-add-reward" id="addRewardBtn" style="margin-top:0.5rem;">+ Tambah Reward</button>
+
+    <div class="act-save-bar">
+      <button class="btn-save-actions" id="saveLevelRewardsBtn">💾 Simpan</button>
+    </div>
+  </div>
+
+  <!-- Moderation Auto-Actions -->
+  <div class="act-section">
+    <div class="act-section-title">🛡 Moderasi Otomatis</div>
+    <div class="act-toggle-row">
+      <span style="color:#d0d0d0;font-size:0.9rem;">Aktifkan moderasi otomatis</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="modEnabled">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="act-field">
+      <label>Channel laporan</label>
+      <select id="modReportChannel">
+        <option value="">— Default —</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom:0.75rem;font-size:0.8rem;font-weight:600;color:#888;">Tindakan per Strike</div>
+    <div class="strike-grid">
+      <div class="strike-card">
+        <h4>Strike 1</h4>
+        <select class="strike-action" id="strike1Action">
+          <option value="timeout">Timeout</option>
+          <option value="kick">Kick</option>
+          <option value="ban">Ban</option>
+        </select>
+        <input type="number" id="strike1Duration" placeholder="Jam" value="1" min="1">
+      </div>
+      <div class="strike-card">
+        <h4>Strike 2</h4>
+        <select class="strike-action" id="strike2Action">
+          <option value="timeout">Timeout</option>
+          <option value="kick">Kick</option>
+          <option value="ban">Ban</option>
+        </select>
+        <input type="number" id="strike2Duration" placeholder="Jam" value="1" min="1">
+      </div>
+      <div class="strike-card">
+        <h4>Strike 3+</h4>
+        <select class="strike-action" id="strike3Action">
+          <option value="timeout">Timeout</option>
+          <option value="kick">Kick</option>
+          <option value="ban">Ban</option>
+        </select>
+        <input type="number" id="strike3Duration" placeholder="Jam" value="1" min="1">
+      </div>
+    </div>
+
+    <div style="margin-top:1rem;font-size:0.8rem;font-weight:600;color:#888;">Filter</div>
+    <div class="filter-grid">
+      <span class="filter-tag active" id="filterHeuristic">Heuristic</span>
+      <span class="filter-tag active" id="filterNewAccount">New Account</span>
+      <span class="filter-tag active" id="filterAi">AI</span>
+    </div>
+
+    <div class="act-save-bar">
+      <button class="btn-save-actions" id="saveModerationBtn">💾 Simpan</button>
     </div>
   </div>
 </div>
-<style>
-  .placeholder-page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 60vh;
-    text-align: center;
-    padding: 2rem;
-  }
-  .placeholder-icon {
-    font-size: 4rem;
-    margin-bottom: 1rem;
-    opacity: 0.8;
-  }
-  .placeholder-page h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #f2f3f5;
-    margin-bottom: 0.5rem;
-  }
-  .placeholder-page p {
-    color: #a0a0a0;
-    font-size: 1rem;
-    max-width: 400px;
-    line-height: 1.6;
-  }
-  .placeholder-status {
-    margin: 1.5rem 0;
-  }
-  .status-badge {
-    display: inline-block;
-    background: #2d2d30;
-    border: 1px solid #404040;
-    color: #f0b232;
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-size: 0.875rem;
-    font-weight: 600;
-  }
-  .placeholder-hint {
-    margin-top: 1rem;
-    padding: 1rem 1.5rem;
-    background: #1a1a1c;
-    border-radius: 8px;
-    border: 1px solid #2a2a2c;
-  }
-  .placeholder-hint p {
-    font-size: 0.875rem;
-    color: #888;
-    margin: 0.25rem 0;
-  }
-  .placeholder-hint a {
-    color: #5865f2;
-    text-decoration: none;
-  }
-  .placeholder-hint a:hover {
-    text-decoration: underline;
-  }
-</style>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/actions.js') }}"></script>
 {% endblock %}

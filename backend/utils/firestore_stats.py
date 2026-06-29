@@ -92,10 +92,12 @@ _local_stats: Dict[str, Any] = {
 
 _stats_lock           = threading.Lock()
 _guild_channels_lock  = threading.Lock()
+_guild_roles_lock     = threading.Lock()
 _music_states_lock    = threading.Lock()
 _bot_instance_lock    = threading.Lock()
 
 _local_guild_channels: Dict[str, list] = {}
+_local_guild_roles:    Dict[str, list] = {}
 _local_music_states:   Dict[str, dict] = {}
 _bot_instance:         Optional[Any] = None
 
@@ -122,6 +124,7 @@ class _PendingWrite:
 _pending: Dict[str, _PendingWrite] = {
     DOC_ID:             _PendingWrite(DOC_ID),
     "guild_channels":   _PendingWrite("guild_channels"),
+    "guild_roles":      _PendingWrite("guild_roles"),
     "music_states":     _PendingWrite("music_states"),
 }
 
@@ -445,6 +448,28 @@ def get_guild_channels(guild_id: str) -> list:
 
     with _guild_channels_lock:
         return _local_guild_channels.get(guild_id, [])
+
+
+def set_guild_roles(guild_id: str, roles: list):
+    with _guild_roles_lock:
+        _local_guild_roles[guild_id] = roles
+    with _guild_roles_lock:
+        full_snapshot = {gid: rs for gid, rs in _local_guild_roles.items()}
+    _fire_and_forget(_schedule_write("guild_roles", full_snapshot))
+
+
+def get_guild_roles(guild_id: str) -> list:
+    db = _get_db()
+    if db:
+        try:
+            doc = db.collection(COLLECTION).document("guild_roles").get()
+            if doc.exists:
+                data = doc.to_dict()
+                return data.get(guild_id, [])
+        except Exception:
+            pass
+    with _guild_roles_lock:
+        return _local_guild_roles.get(guild_id, [])
 
 
 def get_music_state(guild_id: str) -> dict:
