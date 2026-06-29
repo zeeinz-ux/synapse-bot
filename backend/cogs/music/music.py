@@ -658,20 +658,19 @@ class Music(commands.Cog):
                 )
                 await loading_msg.edit(content=None, embed=final_embed)
 
-                # Kirim sisa resolve ke background
+                # Kirim sisa resolve ke background — urut sesuai playlist
                 async def _resolve_remaining():
                     sem = asyncio.Semaphore(5)
-                    results: list[YtDlpTrack] = []
+                    results: list[Optional[YtDlpTrack]] = [None] * len(remaining)
 
-                    async def load_one(rt: ResolvedTrack):
+                    async def load_one(idx: int, rt: ResolvedTrack):
                         async with sem:
-                            r = await self._search_single_resolved(rt)
-                            if r:
-                                results.append(r)
+                            results[idx] = await self._search_single_resolved(rt)
 
-                    await asyncio.gather(*[load_one(rt) for rt in remaining])
+                    await asyncio.gather(*[load_one(i, rt) for i, rt in enumerate(remaining)])
                     for r in results:
-                        controller.queue.append(r)
+                        if r:
+                            controller.queue.append(r)
                     skipped = len(remaining) - len(results)
                     logger.info(f"[PLAYLIST BG] Selesai: {len(results)} ditemukan, {skipped} skipped")
 
