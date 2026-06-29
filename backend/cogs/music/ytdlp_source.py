@@ -92,6 +92,84 @@ def _get_ytdlp_auth_opts() -> dict:
         opts["extractor_args"] = {"youtube": ["player_client=mweb,web"]}
     return opts
 
+# [PHASE 8] YouTube player_client fallback chain.
+# Different player clients have different bot-detection thresholds. When one
+# gets blocked with "Sign in to confirm you're not a bot", we try the next.
+# Order matters: start with the most reliable for our setup, fall back to
+# exotic clients (android_vr, tv) which YouTube tends to monitor less.
+# Each tuple: (client_name, requires_po_token)
+_DEFAULT_PLAYER_CLIENT_FALLBACKS = [
+    ("mweb", True),     # mobile web - first try, paired with web PO token
+    ("web", True),      # desktop web - needs PO token
+    ("android_vr", False),  # Android VR - rarely blocked, no PO token needed
+    ("android", False),     # Android app - good fallback
+    ("ios", False),         # iOS app - sometimes works
+    ("tv_embedded", False), # TV embedded player - very basic
+]
+
+
+def _get_player_client_fallbacks() -> list:
+    """[PHASE 8] Read YOUTUBE_CLIENT_FALLBACKS env var or use default chain.
+    Format: comma-separated client names, e.g. "mweb,android_vr,android".
+    Returns list of (name, requires_po_token) tuples.
+    """
+    env_val = os.getenv("YOUTUBE_CLIENT_FALLBACKS", "").strip()
+    if not env_val:
+        return list(_DEFAULT_PLAYER_CLIENT_FALLBACKS)
+    # Map of known clients -> whether they need PO token
+    client_po_map = {name: needs_po for name, needs_po in _DEFAULT_PLAYER_CLIENT_FALLBACKS}
+    parsed = []
+    for raw in env_val.split(","):
+        name = raw.strip()
+        if not name:
+            continue
+        needs_po = client_po_map.get(name, False)
+        parsed.append((name, needs_po))
+    return parsed if parsed else list(_DEFAULT_PLAYER_CLIENT_FALLBACKS)
+
+
+def _build_ytdlp_opts_for_client(client_name: str, needs_po: bool, base_opts: dict) -> dict:
+    """[PHASE 8] Build yt-dlp options for a specific player_client.
+    Clones base_opts and overrides extractor_args. If needs_po and PO_TOKEN
+    is available, prepends po_token=<client>+<token>.
+    """
+    opts = dict(base_opts)  # shallow copy
+    extractor_args = []
+    if needs_po and PO_TOKEN:
+        extractor_args.append(f"po_token={client_name}+{PO_TOKEN}")
+    extractor_args.append(f"player_client={client_name}")
+    opts["extractor_args"] = {"youtube": extractor_args}
+    return opts
+
+
+def _extract_info_with_fallback(url: str, base_opts: dict) -> Optional[dict]:
+    """[PHASE 8] Try extract_info with each player_client in fallback chain.
+    Returns info dict on first success, None if all fail.
+    Logs which client worked so we can see in production.
+    """
+    fallbacks = _get_player_client_fallbacks()
+    last_error: Optional[Exception] = None
+    for client_name, needs_po in fallbacks:
+        opts = _build_ytdlp_opts_for_client(client_name, needs_po, base_opts)
+        try:
+            info = yt_dlp.YoutubeDL(opts).extract_info(url, download=False)
+            if info:
+                # info can be a playlist; we only want single video here.
+                if "entries" in info and info["entries"]:
+                    info = info["entries"][0]
+                if info and info.get("url"):
+                    logger.info(f"[yt-dlp] extract_info OK with client={client_name}")
+                    return info
+        except Exception as e:
+            last_error = e
+            logger.debug(f"[yt-dlp] client={client_name} failed: {type(e).__name__}: {str(e)[:120]}")
+            continue
+    if last_error:
+        logger.warning(f"[yt-dlp] All {len(fallbacks)} player_clients failed for {url[:60]}: {last_error}")
+    else:
+        logger.warning(f"[yt-dlp] All {len(fallbacks)} player_clients returned no info for {url[:60]}")
+    return None
+
 warnings.filterwarnings("ignore", message=".*line buffering.*binary mode.*")
 
 def _find_ffmpeg() -> str:
@@ -428,9 +506,11 @@ class YtDlpSearcher:
         loop = asyncio.get_event_loop()
         info = None
         try:
+            # [PHASE 8] Use sequential player_client fallback so direct URL
+            # /play with bot-detected videos still gets metadata.
             info = await loop.run_in_executor(
                 _YTDLP_EXECUTOR,
-                lambda: yt_dlp.YoutubeDL(YTDL_OPTS).extract_info(url, download=False)
+                lambda: _extract_info_with_fallback(url, YTDL_OPTS)
             )
         except Exception:
             pass
@@ -826,14 +906,20 @@ class MusicController:
         async with _DOWNLOAD_SEMAPHORE:
             try:
                 loop = asyncio.get_event_loop()
+                # [PHASE 8] Sequential player_client fallback. Instead of
+                # hard-coding mweb,web, try each client in turn until one
+                # returns a usable stream URL. _extract_info_with_fallback
+                # is synchronous, run it in the executor so we don't block
+                # the event loop while yt-dlp retries each client.
+                base_ytdlp_opts = {
+                    "quiet": True, "no_warnings": True,
+                    "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
+                    "skip_download": True,
+                    **_AUTH_OPTS,
+                }
                 info = await loop.run_in_executor(
                     _YTDLP_EXECUTOR,
-                    lambda: yt_dlp.YoutubeDL({
-                        "quiet": True, "no_warnings": True,
-                        "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
-                        "skip_download": True,
-                        **_AUTH_OPTS,
-                    }).extract_info(url, download=False)
+                    lambda: _extract_info_with_fallback(url, base_ytdlp_opts)
                 )
                 if not info:
                     logger.error(f"[DOWNLOAD] yt-dlp extract_info returned None")
@@ -1503,13 +1589,18 @@ class MusicController:
         async with _DOWNLOAD_SEMAPHORE:
             try:
                 loop = asyncio.get_event_loop()
+                # [PHASE 8] Same sequential fallback chain as _download_track.
+                # Preload should also try multiple player_clients before
+                # giving up — otherwise a bot-detected video blocks the
+                # next-track preload even when an exotic client would work.
+                base_ytdlp_opts = {
+                    "quiet": True, "no_warnings": True,
+                    "format": "bestaudio/best", "skip_download": True,
+                    **_AUTH_OPTS,
+                }
                 info = await loop.run_in_executor(
                     _YTDLP_EXECUTOR,
-                    lambda: yt_dlp.YoutubeDL({
-                        "quiet": True, "no_warnings": True,
-                        "format": "bestaudio/best", "skip_download": True,
-                        **_AUTH_OPTS,
-                    }).extract_info(url, download=False)
+                    lambda: _extract_info_with_fallback(url, base_ytdlp_opts)
                 )
                 direct_url = info.get("url") if info else None
                 if not direct_url:
