@@ -1519,6 +1519,7 @@ class MusicController:
         # [PHASE 1] Drop stale callbacks. If a newer play() has already
         # bumped the generation, this callback belongs to a ffmpeg process
         # that was forcibly replaced and must not chain into _on_track_end.
+        logger.info(f"[TRACK END WRAPPER] fired gen={generation}, current={self._play_generation}")
         if self._play_generation != generation:
             logger.debug(f"[TRACK END] Stale callback (gen={generation}, current={self._play_generation}), ignored.")
             return
@@ -1532,9 +1533,11 @@ class MusicController:
         if self._play_generation != generation:
             logger.debug(f"[TRACK END] Stale at entry (gen={generation}, current={self._play_generation}), ignored.")
             return
+        logger.info(f"[TRACK END] entered gen={generation}, queue_len={len(self.queue)}, loop_mode={self.loop_mode}")
         self._stop_watchdog()
         self._save_state()
         await asyncio.sleep(0.3)
+        logger.info(f"[TRACK END] after sleep, queue_len={len(self.queue)}, single_loop={'set' if self._single_loop_track else 'None'}")
         async with self._track_lock:
             if self.loop_mode == "single" and self._single_loop_track:
                 await self.play(self._single_loop_track)
@@ -1544,6 +1547,7 @@ class MusicController:
                 self._queue_history.clear()
             if self.queue:
                 next_track = self.queue.pop(0)
+                logger.info(f"[NEXT TRACK] Playing '{next_track.title}' (queue has {len(self.queue)} more)")
                 asyncio.create_task(self._preload_next(next_track))
                 await self.play(next_track)
                 if len(self.queue) < 5 and self._playlist_tracks and self._playlist_index < len(self._playlist_tracks):
