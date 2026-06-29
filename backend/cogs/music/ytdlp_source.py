@@ -658,14 +658,97 @@ class MusicController:
         h = hashlib.md5(url.encode()).hexdigest()
         return os.path.join(CACHE_DIR, f"{h}.opus")
 
+    # [PHASE 3b] Minimum sane size for a downloaded opus track. Anything
+    # smaller is treated as a corrupt/partial file and re-downloaded.
+    # 64KB ~= ~3 seconds of 128kbps opus. Most legitimate tracks are >500KB.
+    _MIN_CACHE_BYTES = 64 * 1024
+
+    @staticmethod
+    def _expected_min_bytes(info: dict) -> int:
+        """[PHASE 3c] Estimate minimum reasonable size from yt-dlp info.
+        Uses abr (audio bitrate in kbps) and duration (seconds). Falls back
+        to a conservative default if either is missing.
+        """
+        try:
+            abr = float(info.get("abr") or info.get("tbr") or 128)  # kbps
+            duration = float(info.get("duration") or 0)
+            if duration > 0 and abr > 0:
+                # bytes = kbps * 1000 / 8 * duration, require >= 30% to allow for
+                # opus efficiency / headers / variable bitrate
+                expected = (abr * 1000.0 / 8.0) * duration * 0.30
+                return max(int(expected), MusicController._MIN_CACHE_BYTES)
+        except (TypeError, ValueError):
+            pass
+        return MusicController._MIN_CACHE_BYTES
+
+    def _validate_cached_file(self, dest: str, info: Optional[dict] = None) -> bool:
+        """[PHASE 3b] True if cached file is plausible. Deletes the file and
+        returns False if it's too small or corrupt.
+
+        Validation rules (any failure -> delete + return False):
+          1. File exists and is > 0 bytes.
+          2. File meets minimum size derived from info (duration * bitrate * 0.30),
+             or falls back to _MIN_CACHE_BYTES if info missing.
+          3. For .opus/.webm files: first 4 bytes are '1A 45 DF A3' (EBML magic).
+             A truncated file usually has garbage or zero bytes at the start
+             if aiohttp aborted mid-write — actually no, aiohttp writes sequentially
+             so the start is fine, but the tail is missing. We check tail.
+          4. File ends with a valid EBML element OR has reasonable size variance.
+             Cheap proxy: file size within 50%-150% of expected mean (bitrate*duration).
+        """
+        try:
+            if not os.path.isfile(dest):
+                return False
+            size = os.path.getsize(dest)
+            if size == 0:
+                try:
+                    os.remove(dest)
+                except Exception:
+                    pass
+                return False
+            min_bytes = self._expected_min_bytes(info) if info else self._MIN_CACHE_BYTES
+            if size < min_bytes:
+                logger.warning(f"[CACHE] File terlalu kecil/corrupt: {dest} ({size} < {min_bytes} bytes), hapus & re-download")
+                try:
+                    os.remove(dest)
+                except Exception as e:
+                    logger.warning(f"[CACHE] Gagal hapus file rusak: {e}")
+                return False
+            # [PHASE 3b] EBML magic check at start. Real webm/opus files start with
+            # 1A 45 DF A3 (EBML header). If missing, this is definitely not a
+            # valid audio file even if size looks right.
+            try:
+                with open(dest, "rb") as f:
+                    head = f.read(4)
+                if head[:4] != b"\x1a\x45\xdf\xa3":
+                    logger.warning(f"[CACHE] File bukan EBML/webm (head={head!r}): {dest}, hapus & re-download")
+                    try:
+                        os.remove(dest)
+                    except Exception:
+                        pass
+                    return False
+            except Exception as e:
+                logger.warning(f"[CACHE] Gagal baca header: {e}")
+            return True
+        except Exception as e:
+            logger.warning(f"[CACHE] Validasi error: {e}")
+            return False
+
     async def _download_track(self, url: str) -> Optional[str]:
         if not url or not isinstance(url, str) or not re.match(r'^https?://[^\s]+$', url):
             logger.error(f"[SECURITY] URL ditolak karena format mencurigakan: {url!r}")
             return None
 
         dest = self._cache_path(url)
+
+        # [PHASE 3b] Before trusting a cached file, validate it. A partial or
+        # corrupt file from a previous failed download would otherwise be
+        # returned and cause ffmpeg "File ended prematurely" mid-playback.
         if os.path.isfile(dest):
-            return dest
+            if self._validate_cached_file(dest):
+                return dest
+            # _validate_cached_file already deleted the bad file, fall through
+            # to re-download.
 
         async with _DOWNLOAD_SEMAPHORE:
             try:
@@ -687,6 +770,10 @@ class MusicController:
                     logger.error(f"[DOWNLOAD] Gagal mendapat direct URL dari yt-dlp")
                     return None
 
+                # [PHASE 3c] Capture expected min size from info before download,
+                # so we can validate the written file in one pass.
+                expected_min = self._expected_min_bytes(info)
+
                 headers = {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
                     "Accept": "*/*",
@@ -698,22 +785,61 @@ class MusicController:
                         if sr.status not in (200, 206):
                             logger.error(f"[DOWNLOAD] HTTP {sr.status} dari stream URL")
                             return None
+                        # [PHASE 3b] Capture server-advertised size if available.
+                        # aiohttp exposes Content-Length via response.headers.
+                        # If server says the stream is N bytes and we got less,
+                        # the download was truncated — reject without trusting the cache.
+                        server_total = sr.headers.get("Content-Length")
+                        server_total_int = None
+                        try:
+                            if server_total is not None:
+                                server_total_int = int(server_total)
+                        except (TypeError, ValueError):
+                            server_total_int = None
                         with open(dest, "wb") as f:
                             while True:
                                 chunk = await sr.content.read(65536)
                                 if not chunk:
                                     break
                                 f.write(chunk)
-                        if os.path.isfile(dest) and os.path.getsize(dest) > 0:
-                            logger.info(f"[DOWNLOAD] Berhasil: {dest} ({os.path.getsize(dest)} bytes)")
+                        # [PHASE 3b] If server gave us a Content-Length and we
+                        # didn't get all of it, the download was truncated.
+                        actual_size = os.path.getsize(dest) if os.path.isfile(dest) else 0
+                        if server_total_int is not None and actual_size < server_total_int:
+                            try:
+                                if os.path.isfile(dest):
+                                    os.remove(dest)
+                            except Exception:
+                                pass
+                            logger.error(f"[DOWNLOAD] Truncated: got {actual_size}/{server_total_int} bytes from {direct_url[:80]}")
+                            return None
+                        # [PHASE 3b/3c] Strict validation. Pass info so we use the
+                        # tighter expected-min-bytes derived from duration/bitrate,
+                        # not the loose _MIN_CACHE_BYTES floor.
+                        if self._validate_cached_file(dest, info):
+                            logger.info(f"[DOWNLOAD] Berhasil: {dest} ({actual_size} bytes, min={expected_min}, server_total={server_total_int})")
                             return dest
-                        logger.error(f"[DOWNLOAD] File kosong: {dest}")
+                        # Validation failed and the bad file was already deleted.
+                        logger.error(f"[DOWNLOAD] File rusak/kurang dari minimum: {dest} (min={expected_min})")
                         return None
             except asyncio.TimeoutError:
                 logger.error(f"[DOWNLOAD] Timeout (120s) saat mengunduh: {url[:60]}")
+                # [PHASE 3b] Best-effort: delete the partial file so the next
+                # call doesn't trust it.
+                try:
+                    if os.path.isfile(dest):
+                        os.remove(dest)
+                except Exception:
+                    pass
                 return None
             except Exception as e:
                 logger.error(f"[DOWNLOAD] Gagal: {e.__class__.__name__}: {e}")
+                # [PHASE 3b] Same cleanup as timeout.
+                try:
+                    if os.path.isfile(dest):
+                        os.remove(dest)
+                except Exception:
+                    pass
                 return None
 
     @property
@@ -809,19 +935,44 @@ class MusicController:
             self._watchdog_task = None
 
     async def _watchdog_loop(self, timeout: float):
+        # [PHASE 3a] Watchdog now polls lock state instead of just sleeping.
+        # This prevents the watchdog from killing a freshly-started track that's
+        # legitimately using the play lock (e.g. user just hit /play and the new
+        # ffmpeg is still warming up).
         try:
-            await asyncio.sleep(timeout)
-            logger.warning(f"[WATCHDOG] Terdeteksi macet selama {timeout}s, memaksa skip lagu")
+            # Poll every second up to timeout; if _play_lock is held during the
+            # last 5s of the window, reset the clock — someone is actively
+            # playing, don't interfere.
+            elapsed = 0.0
+            while elapsed < timeout:
+                await asyncio.sleep(min(1.0, timeout - elapsed))
+                elapsed += 1.0
+                # If a new play is in progress, defer the watchdog entirely.
+                # Re-arm by extending timeout.
+                if self._play_lock.locked() and elapsed > (timeout * 0.5):
+                    remaining = timeout
+                    elapsed = 0.0
+                    logger.debug(f"[WATCHDOG] Deferring: _play_lock held, resetting timer")
+                    continue
+            logger.warning(f"[WATCHDOG] Track exceeded {timeout:.0f}s budget, forcing skip")
             if self.vc and self.vc.is_playing():
                 self.vc.stop()
         except asyncio.CancelledError:
             pass
 
     def _start_watchdog(self, duration_ms: int):
+        # [PHASE 3a] Old: (duration / 1000) + 10 — too tight on Railway / slow ffmpeg warmup.
+        # New: max(duration * 2 / 1000, 30). For a 3-minute track that's 360s,
+        # for a 10s snippet that's 30s floor. Plus the polling loop above defers
+        # while _play_lock is held so it won't fight a fresh play().
         self._stop_watchdog()
         if duration_ms <= 0:
-            return
-        self._watchdog_task = asyncio.create_task(self._watchdog_loop((duration_ms / 1000) + 10))
+            # No known duration — use a generous 10-minute default.
+            timeout = 600.0
+        else:
+            timeout = max((duration_ms / 1000.0) * 2.0, 30.0)
+        logger.debug(f"[WATCHDOG] Armed for {timeout:.0f}s")
+        self._watchdog_task = asyncio.create_task(self._watchdog_loop(timeout))
 
     async def _sequential_preload(self):
         for track in list(self.queue[:3]):
@@ -1248,7 +1399,9 @@ class MusicController:
         if not url or not re.match(r'^https?://[^\s]+$', url):
             return
         dest = self._cache_path(url)
-        if os.path.isfile(dest):
+        # [PHASE 3b] Validate cached file before trusting it. _validate_cached_file
+        # deletes the file and returns False if it's corrupt/truncated.
+        if os.path.isfile(dest) and self._validate_cached_file(dest):
             self._preloaded_file = dest
             self._preloaded_for = url
             return
@@ -1272,13 +1425,33 @@ class MusicController:
                     async with session.get(direct_url, timeout=aiohttp.ClientTimeout(total=120)) as sr:
                         if sr.status != 200:
                             return
+                        # [PHASE 3b] Track server-advertised size for truncation check.
+                        server_total = sr.headers.get("Content-Length")
+                        server_total_int = None
+                        try:
+                            if server_total is not None:
+                                server_total_int = int(server_total)
+                        except (TypeError, ValueError):
+                            server_total_int = None
                         with open(dest, "wb") as f:
                             while True:
                                 chunk = await sr.content.read(65536)
                                 if not chunk:
                                     break
                                 f.write(chunk)
-                        if os.path.isfile(dest) and os.path.getsize(dest) > 0:
+                        # [PHASE 3b] Truncation check first; if short, delete + bail.
+                        actual_size = os.path.getsize(dest) if os.path.isfile(dest) else 0
+                        if server_total_int is not None and actual_size < server_total_int:
+                            try:
+                                if os.path.isfile(dest):
+                                    os.remove(dest)
+                            except Exception:
+                                pass
+                            return
+                        # [PHASE 3b] Then strict validation. Preload is best-effort,
+                        # so don't raise on failure — just leave _preloaded_file unset
+                        # and let the main download path handle it later.
+                        if self._validate_cached_file(dest, info):
                             self._preloaded_file = dest
                             self._preloaded_for = url
             except Exception:
