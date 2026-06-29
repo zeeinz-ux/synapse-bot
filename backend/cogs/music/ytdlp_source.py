@@ -2,13 +2,11 @@ import asyncio
 import os
 import json
 import re
-import subprocess
 import time
 import shutil
 import hashlib
 import warnings
 import logging
-import glob
 import random
 import traceback
 from concurrent.futures import ThreadPoolExecutor
@@ -56,23 +54,7 @@ logger.info(f"[YTDLP INIT] YOUTUBE_API_KEY={'SET' if os.getenv('YOUTUBE_API_KEY'
 logger.info(f"[YTDLP INIT] YOUTUBE_PO_TOKEN={'SET' if PO_TOKEN else 'NOT SET'}")
 logger.info(f"[YTDLP INIT] Cookie File Terdeteksi={'YA' if os.path.isfile(COOKIES_FILE) else 'TIDAK'}")
 
-_YTDLP_BASE = [
-    "--retries", "3", "--fragment-retries", "3",
-    "--add-header", "referer:youtube.com",
-    "--add-header", "user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-]
 
-if PO_TOKEN:
-    _YTDLP_AUTH = ["--extractor-args", f"youtube:po_token=web+{PO_TOKEN};player_client=mweb,web"]
-elif COOKIES_FROM_BROWSER:
-    _YTDLP_AUTH = ["--cookies-from-browser", COOKIES_FROM_BROWSER]
-elif os.path.isfile(COOKIES_FILE):
-    _YTDLP_AUTH = ["--cookies", COOKIES_FILE, "--extractor-args", "youtube:player_client=mweb,web"]
-else:
-    _YTDLP_AUTH = ["--extractor-args", "youtube:player_client=mweb,web", "--throttled-rate", "100"]
-
-_YTDLP_PROXY_FLAG = [] if os.getenv("YTDLP_PROXY") else ["--proxy", ""]
-YTDLP_AUTH_ARGS = _YTDLP_BASE + _YTDLP_AUTH + _YTDLP_PROXY_FLAG
 
 def _get_ytdlp_auth_opts() -> dict:
     # [AUDIT FIX 4] Memaksa koneksi IPv4 (0.0.0.0) agar tidak diblokir Datacenter Ban IPv6
@@ -654,7 +636,6 @@ class MusicController:
         h = hashlib.md5(url.encode()).hexdigest()
         return os.path.join(CACHE_DIR, f"{h}.opus")
 
-    # [FIX 2] Download dengan multiple format fallback dan Cobalt API yang diperbaiki
     async def _download_track(self, url: str) -> Optional[str]:
         if not url or not isinstance(url, str) or not re.match(r'^https?://[^\s]+$', url):
             logger.error(f"[SECURITY] URL ditolak karena format mencurigakan: {url!r}")
@@ -665,44 +646,6 @@ class MusicController:
             return dest
 
         async with _DOWNLOAD_SEMAPHORE:
-
-            # [FIX 2a] Coba yt-dlp dengan format fallback chain
-            format_attempts = [
-                "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
-                "bestaudio/best",
-                "best",
-            ]
-
-            for fmt in format_attempts:
-                try:
-                    loop = asyncio.get_event_loop()
-                    result = await loop.run_in_executor(
-                        _YTDLP_EXECUTOR,
-                        lambda: subprocess.run(
-                            ["yt-dlp", "-f", fmt, "-o", dest, "--no-part", "--no-progress", 
-                             "--extract-audio", "--audio-format", "opus", url, *YTDLP_AUTH_ARGS],
-                            capture_output=True, text=True, timeout=120,
-                        )
-                    )
-                    if result.returncode == 0 and os.path.isfile(dest):
-                        logger.info(f"[DOWNLOAD] yt-dlp sukses dengan format: {fmt}")
-                        return dest
-                    if result.returncode == 0:
-                        prefix = dest.rsplit(".", 1)[0]
-                        matches = glob.glob(prefix + ".*")
-                        if matches:
-                            os.rename(matches[0], dest)
-                            if os.path.isfile(dest):
-                                logger.info(f"[DOWNLOAD] yt-dlp sukses (renamed): {dest}")
-                                return dest
-                    if result.stderr:
-                        logger.warning(f"[DOWNLOAD] yt-dlp format '{fmt}' stderr: {result.stderr[:200]}")
-                except Exception as e:
-                    logger.warning(f"[DOWNLOAD] yt-dlp format '{fmt}' exception: {e}")
-                    continue
-
-            # [FIX 2b] Fallback: download langsung stream URL dari yt-dlp tanpa extract audio
-            logger.info(f"[DOWNLOAD] yt-dlp semua format gagal, coba fallback langsung stream...")
             try:
                 loop = asyncio.get_event_loop()
                 info = await loop.run_in_executor(
@@ -714,24 +657,29 @@ class MusicController:
                     }).extract_info(url, download=False)
                 )
                 direct_url = info.get("url") if info else None
-                if direct_url:
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get(direct_url, timeout=aiohttp.ClientTimeout(total=120)) as sr:
-                            if sr.status == 200:
-                                with open(dest, "wb") as f:
-                                    while True:
-                                        chunk = await sr.content.read(65536)
-                                        if not chunk:
-                                            break
-                                        f.write(chunk)
-                                if os.path.isfile(dest):
-                                    logger.info(f"[DOWNLOAD] Direct stream fallback sukses: {dest}")
-                                    return dest
-            except Exception as e:
-                logger.warning(f"[DOWNLOAD] Direct stream fallback gagal: {e}")
+                if not direct_url:
+                    logger.error(f"[DOWNLOAD] Gagal mendapat direct URL dari yt-dlp")
+                    return None
 
-            logger.error(f"[DOWNLOAD] SEMUA metode download gagal untuk {url}")
-            return None
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(direct_url, timeout=aiohttp.ClientTimeout(total=120)) as sr:
+                        if sr.status != 200:
+                            logger.error(f"[DOWNLOAD] HTTP {sr.status} dari stream URL")
+                            return None
+                        with open(dest, "wb") as f:
+                            while True:
+                                chunk = await sr.content.read(65536)
+                                if not chunk:
+                                    break
+                                f.write(chunk)
+                        if os.path.isfile(dest) and os.path.getsize(dest) > 0:
+                            logger.info(f"[DOWNLOAD] Berhasil: {dest}")
+                            return dest
+                        logger.error(f"[DOWNLOAD] File kosong: {dest}")
+                        return None
+            except Exception as e:
+                logger.error(f"[DOWNLOAD] Gagal: {e}")
+                return None
 
     @property
     def channel(self):
@@ -841,28 +789,8 @@ class MusicController:
         self._watchdog_task = asyncio.create_task(self._watchdog_loop((duration_ms / 1000) + 10))
 
     async def _sequential_preload(self):
-        if _DOWNLOAD_SEMAPHORE.locked():
-            return
         for track in list(self.queue[:3]):
-            url = track.webpage_url or track.uri
-            if not url or not re.match(r'^https?://[^\s]+$', url):
-                continue
-            dest = self._cache_path(url)
-            if not os.path.isfile(dest):
-                async with _DOWNLOAD_SEMAPHORE:
-                    try:
-                        loop = asyncio.get_event_loop()
-                        await loop.run_in_executor(
-                            _YTDLP_EXECUTOR,
-                            lambda u=url, d=dest: subprocess.run(
-                                ["yt-dlp", "-f", "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best", 
-                                 "-o", d, "--no-part", "--no-progress", "--extract-audio", "--audio-format", "opus", 
-                                 u, *YTDLP_AUTH_ARGS],
-                                capture_output=True, timeout=120,
-                            )
-                        )
-                    except Exception:
-                        pass
+            await self._preload_next(track)
 
     async def pause_for(self, reason: str = "manual"):
         if self._paused:
@@ -1146,38 +1074,35 @@ class MusicController:
             return
 
         async with _DOWNLOAD_SEMAPHORE:
-            format_attempts = [
-                "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
-                "bestaudio/best",
-                "best",
-            ]
+            try:
+                loop = asyncio.get_event_loop()
+                info = await loop.run_in_executor(
+                    _YTDLP_EXECUTOR,
+                    lambda: yt_dlp.YoutubeDL({
+                        "quiet": True, "no_warnings": True,
+                        "format": "bestaudio/best", "skip_download": True,
+                        **_AUTH_OPTS,
+                    }).extract_info(url, download=False)
+                )
+                direct_url = info.get("url") if info else None
+                if not direct_url:
+                    return
 
-            for fmt in format_attempts:
-                try:
-                    loop = asyncio.get_event_loop()
-                    result = await loop.run_in_executor(
-                        _YTDLP_EXECUTOR,
-                        lambda: subprocess.run(
-                            ["yt-dlp", "-f", fmt, "-o", dest, "--no-part", "--no-progress", 
-                             "--extract-audio", "--audio-format", "opus", url, *YTDLP_AUTH_ARGS],
-                            capture_output=True, timeout=120,
-                        )
-                    )
-                    if result.returncode == 0 and os.path.isfile(dest):
-                        self._preloaded_file = dest
-                        self._preloaded_for = url
-                        return
-                    if result.returncode == 0:
-                        prefix = dest.rsplit(".", 1)[0]
-                        matches = glob.glob(prefix + ".*")
-                        if matches:
-                            os.rename(matches[0], dest)
-                            if os.path.isfile(dest):
-                                self._preloaded_file = dest
-                                self._preloaded_for = url
-                                return
-                except Exception:
-                    continue
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(direct_url, timeout=aiohttp.ClientTimeout(total=120)) as sr:
+                        if sr.status != 200:
+                            return
+                        with open(dest, "wb") as f:
+                            while True:
+                                chunk = await sr.content.read(65536)
+                                if not chunk:
+                                    break
+                                f.write(chunk)
+                        if os.path.isfile(dest) and os.path.getsize(dest) > 0:
+                            self._preloaded_file = dest
+                            self._preloaded_for = url
+            except Exception:
+                pass
 
     async def _load_more_from_playlist(self, count: int = 50) -> int:
         if not self._cog or not self._playlist_tracks or self._playlist_index >= len(self._playlist_tracks):

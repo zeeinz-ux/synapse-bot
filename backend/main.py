@@ -85,6 +85,34 @@ def _stop_pot_server():
 
 atexit.register(_stop_pot_server)
 _start_pot_server()
+
+def _fetch_po_token():
+    if os.getenv("YOUTUBE_PO_TOKEN"):
+        print(f"[POT TOKEN] ✅ Using manual YOUTUBE_PO_TOKEN from env")
+        return
+    payload = json.dumps({"content_binding": ""}).encode()
+    for i in range(5):
+        try:
+            req = urllib.request.Request(
+                "http://127.0.0.1:4416/get_pot",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                token = data.get("poToken", "")
+                if token:
+                    os.environ["YOUTUBE_PO_TOKEN"] = token
+                    print(f"[POT TOKEN] ✅ Auto-fetched PO token ({len(token)} chars)")
+                    return
+        except Exception as e:
+            print(f"[POT TOKEN] ⚠️ Attempt {i+1}/5 failed: {e}")
+            if i < 4:
+                time.sleep(1)
+    print("[POT TOKEN] ❌ Failed to fetch PO token after 5 attempts")
+
+_fetch_po_token()
 # ============================================================
 
 # ===== INIT FIREBASE SEBELUM LOAD COGS =====
