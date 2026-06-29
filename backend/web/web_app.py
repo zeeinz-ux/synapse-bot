@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 load_dotenv(os.path.join(_project_root, "backend", ".env"))
 
-from flask import Flask, render_template, jsonify, request, redirect, session, url_for
+from flask import Flask, render_template, jsonify, request, redirect, session, url_for, current_app
 import requests
 from functools import wraps
 from datetime import datetime, timezone
@@ -22,6 +22,7 @@ from PIL import Image
 # Import relative dari dalam backend/ folder
 # ==========================================================
 from backend.utils.formatters import format_duration, format_uptime
+from firebase_admin import firestore
 from backend.cogs.database.firebase_setup import db
 from backend.utils.firestore_stats import (
     get_stats_snapshot,
@@ -36,6 +37,8 @@ from backend.utils.firestore_stats import (
     trip_firestore_circuit,
     firestore_retry_after,
     _is_quota_error,
+    set_guild_roles,
+    get_guild_roles,
 )
 from backend.utils.auto_responder_store import (
     ar_get_guild_settings,
