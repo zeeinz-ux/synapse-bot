@@ -661,8 +661,11 @@ class Music(commands.Cog):
                 final_embed.add_field(name="👤 Request Oleh", value=ctx.author.mention, inline=True)
                 if thumbnail:
                     final_embed.set_thumbnail(url=thumbnail)
+                # [UI] Drop "▶️ Sekarang Memutar: ..." prefix — the now-playing
+                # embed auto-pops and conveys the same info. Keep the
+                # background-resolve hint since it's status, not duplicate.
                 final_embed.set_footer(
-                    text=f"▶️ Sekarang Memutar: {first_playable.title[:35]}... | ⏳ Mencari sisa lagu di background...",
+                    text=f"⏳ Mencari sisa lagu di background...",
                     icon_url=self.bot.user.display_avatar.url
                 )
                 await loading_msg.edit(content=None, embed=final_embed)
@@ -685,9 +688,15 @@ class Music(commands.Cog):
 
                     try:
                         embed = final_embed.copy()
-                        status = f"▶️ Sekarang Memutar: {first_playable.title[:35]}..."
+                        # [UI] Drop "▶️ Sekarang Memutar: ..." prefix when
+                        # background resolve finishes. Keep the skipped-count
+                        # warning if applicable, otherwise leave a neutral
+                        # status (the now-playing embed already shows what's
+                        # playing).
                         if skipped:
-                            status += f"\n⚠️ {skipped} lagu tidak ditemukan di YouTube"
+                            status = f"⚠️ {skipped} lagu tidak ditemukan di YouTube"
+                        else:
+                            status = f"✅ Semua lagu berhasil dimuat"
                         embed.set_footer(text=status, icon_url=self.bot.user.display_avatar.url)
                         await loading_msg.edit(embed=embed)
                     except Exception:
