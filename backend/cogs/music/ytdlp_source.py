@@ -5,6 +5,7 @@ import re
 import time
 import shutil
 import hashlib
+import subprocess
 import warnings
 import logging
 import random
@@ -49,6 +50,21 @@ else:
 
 COOKIES_FROM_BROWSER = os.getenv("COOKIES_FROM_BROWSER", "")
 PO_TOKEN = os.getenv("YOUTUBE_PO_TOKEN", "")
+
+# Auto-generate PO token via bgutil-pot jika tidak di-set via env var
+if not PO_TOKEN:
+    try:
+        _result = subprocess.run(
+            ["bgutil-pot", "generate", "web"],
+            capture_output=True, text=True, timeout=30
+        )
+        if _result.returncode == 0:
+            _token = _result.stdout.strip()
+            if _token:
+                PO_TOKEN = _token
+                logger.info(f"[YTDLP INIT] PO token auto-generated via bgutil-pot")
+    except Exception as _e:
+        logger.info(f"[YTDLP INIT] bgutil-pot not available or failed: {_e}")
 
 logger.info(f"[YTDLP INIT] YOUTUBE_API_KEY={'SET' if os.getenv('YOUTUBE_API_KEY') else 'NOT SET'}")
 logger.info(f"[YTDLP INIT] YOUTUBE_PO_TOKEN={'SET' if PO_TOKEN else 'NOT SET'}")
