@@ -975,7 +975,11 @@ class MusicController:
         self._watchdog_task = asyncio.create_task(self._watchdog_loop(timeout))
 
     async def _sequential_preload(self):
-        for track in list(self.queue[:3]):
+        # [PHASE 4] Lower from 3 -> 2 tracks ahead. Each preloaded .opus
+        # is 3-5MB; 3 tracks = ~15MB disk I/O in flight, plus the aiohttp
+        # session holds ~2MB per request. Less eager preloading reduces
+        # memory pressure on Railway free tier (512MB).
+        for track in list(self.queue[:2]):
             await self._preload_next(track)
 
     async def pause_for(self, reason: str = "manual"):

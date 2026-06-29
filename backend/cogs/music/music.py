@@ -11,6 +11,7 @@ import sys
 from typing import Optional
 import aiohttp
 from datetime import datetime, timezone
+import gc  # [PHASE 4] explicit garbage collection after heavy yt-dlp batches
 
 logger = logging.getLogger(__name__)
 if not logger.handlers:
@@ -22,6 +23,11 @@ if not logger.handlers:
 
 # Batas maksimum penarikan lagu dalam satu batch playlist (YouTube & Spotify)
 MAX_BATCH = 100
+# [PHASE 4] Cap the queue to prevent unbounded growth. Each YtDlpTrack is
+# small (~2KB) but with preloaded .opus files in cache and references to
+# search coroutines, memory can spiral. 200 covers any realistic user
+# session (a 4-hour playlist is ~100 tracks). Beyond that, refuse and log.
+MAX_QUEUE_SIZE = 200
 
 from backend.utils.formatters import format_duration
 from backend.cogs.music.spotify_down import SpotifyResolver, ResolvedTrack, _extract_tracks_from_scripts
@@ -197,7 +203,7 @@ class Music(commands.Cog):
     async def _search_youtube_for_tracks_concurrent(
         self,
         tracks: list[ResolvedTrack],
-        max_concurrent: int = 3,
+        max_concurrent: int = 2,
     ) -> tuple[int, list[YtDlpTrack]]:
         added = 0
         playables: list[YtDlpTrack | None] = [None] * len(tracks)
@@ -239,7 +245,7 @@ class Music(commands.Cog):
                     pass
                 if home:
                     try:
-                        await home.send("⏸️ Auto-paused — no one in voice channel")
+                        await home.send("⏸️ Auto-paused - no one in voice channel")
                     except Exception:
                         pass
 
@@ -268,7 +274,7 @@ class Music(commands.Cog):
                 if existing is not None and not existing.done():
                     logger.debug(f"[RECOVERY] Already in flight for {before_ch.name}, skipping")
                     return
-                # No current_track? Nothing to recover — log only.
+                # No current_track? Nothing to recover - log only.
                 if not controller.current_track and not os.path.isfile(controller._state_file):
                     logger.info(f"[RECOVERY] Bot left {before_ch.name} but no track/state, skipping")
                     return
@@ -437,7 +443,8 @@ class Music(commands.Cog):
                     return
 
                 track = tracks[0]
-                controller.queue.append(track)
+                if len(controller.queue) < MAX_QUEUE_SIZE:
+                    controller.queue.append(track)
                 if not controller.current_track:
                     await controller.set_volume(100)
                     await asyncio.sleep(0.3)
@@ -538,7 +545,7 @@ class Music(commands.Cog):
                                     track_ids = list(dict.fromkeys(re.findall(r'(?:spotify:track:|/track/)([A-Za-z0-9]+)', html)))
                                     if track_ids:
                                         logger.info(f"[SPOTIFY FALLBACK] Found {len(track_ids)} track IDs via regex")
-                                        sem = asyncio.Semaphore(5)
+                                        sem = asyncio.Semaphore(2)
                                         async def fetch_oembed(tid):
                                             async with sem:
                                                 try:
@@ -587,7 +594,7 @@ class Music(commands.Cog):
                         # 4) Fallback terakhir: query tiap track dari oEmbed playlist metadata
                         # (only if yt-dlp also failed)
                         if len(rebuilt) <= 1:
-                            logger.info("[SPOTIFY FALLBACK] Semua gagal — user dikasih opsi YouTube langsung")
+                            logger.info("[SPOTIFY FALLBACK] Semua gagal - user dikasih opsi YouTube langsung")
                             await loading_msg.edit(content=(
                                 "❌ Gagal mengambil daftar lagu dari Spotify.\n"
                                 "Spotify memblokir akses dari server dan API masih dalam mode Sandbox.\n"
@@ -661,7 +668,7 @@ class Music(commands.Cog):
                 final_embed.add_field(name="👤 Request Oleh", value=ctx.author.mention, inline=True)
                 if thumbnail:
                     final_embed.set_thumbnail(url=thumbnail)
-                # [UI] Drop "▶️ Sekarang Memutar: ..." prefix — the now-playing
+                # [UI] Drop "▶️ Sekarang Memutar: ..." prefix - the now-playing
                 # embed auto-pops and conveys the same info. Keep the
                 # background-resolve hint since it's status, not duplicate.
                 final_embed.set_footer(
@@ -670,9 +677,12 @@ class Music(commands.Cog):
                 )
                 await loading_msg.edit(content=None, embed=final_embed)
 
-                # Kirim sisa resolve ke background — urut sesuai playlist
+                # Kirim sisa resolve ke background - urut sesuai playlist
+                # [PHASE 4] Lower concurrency from 5 -> 2 to reduce yt-dlp
+                # subprocess memory pressure. Railway free tier is 512MB; each
+                # yt-dlp subprocess holds ~50-80MB while running.
                 async def _resolve_remaining():
-                    sem = asyncio.Semaphore(5)
+                    sem = asyncio.Semaphore(2)
                     results: list[Optional[YtDlpTrack]] = [None] * len(remaining)
 
                     async def load_one(idx: int, rt: ResolvedTrack):
@@ -681,10 +691,15 @@ class Music(commands.Cog):
 
                     await asyncio.gather(*[load_one(i, rt) for i, rt in enumerate(remaining)])
                     for r in results:
-                        if r:
+                        if r and len(controller.queue) < MAX_QUEUE_SIZE:
                             controller.queue.append(r)
                     skipped = len(remaining) - len(results)
-                    logger.info(f"[PLAYLIST BG] Selesai: {len(results)} ditemukan, {skipped} skipped")
+                    # [PHASE 4] Force GC to reclaim aiohttp session + yt-dlp
+                    # subprocess memory after a 100-track batch. Without this,
+                    # Railway free tier (512MB) gets OOM-killed around the
+                    # 14-minute mark.
+                    collected = gc.collect()
+                    logger.info(f"[PLAYLIST BG] Selesai: {len(results)} ditemukan, {skipped} skipped (gc freed {collected} objects)")
 
                     try:
                         embed = final_embed.copy()
@@ -733,7 +748,8 @@ class Music(commands.Cog):
                         YtDlpSearcher.extract_info(_first_url), timeout=30.0
                     )
                     if first_track:
-                        controller.queue.append(first_track)
+                        if len(controller.queue) < MAX_QUEUE_SIZE:
+                            controller.queue.append(first_track)
                         await controller.set_volume(100)
                         await asyncio.sleep(0.3)
                         next_track = controller.queue.pop(0)
@@ -747,20 +763,24 @@ class Music(commands.Cog):
                                 for _t in _playlist.tracks[:MAX_BATCH]:
                                     if _t.uri == _first_url or _t.webpage_url == first_track.webpage_url:
                                         continue
-                                    controller.queue.append(_t)
-                                    _count += 1
+                                    if len(controller.queue) < MAX_QUEUE_SIZE:
+                                        controller.queue.append(_t)
+                                        _count += 1
+                                    else:
+                                        logger.info(f"[PLAY CMD] Queue penuh ({MAX_QUEUE_SIZE}), skip sisa playlist")
+                                        break
                                 logger.info(f"[PLAY CMD] Background: added {_count} more tracks from {_playlist.name}")
 
                         asyncio.create_task(_resolve_remaining_yt())
 
-                        # [UI] Skip user-facing text reply — the now-playing embed
+                        # [UI] Skip user-facing text reply - the now-playing embed
                         # already shows up automatically via _update_now_playing(),
                         # and the background resolve logs its own progress. No
                         # duplicate "Memutar: ... Sisa playlist..." text spam.
-                        logger.info(f"[PLAY CMD] First track playing: {first_track.title} — background resolve scheduled")
+                        logger.info(f"[PLAY CMD] First track playing: {first_track.title} - background resolve scheduled")
                         return
                     # fallthrough: fallback ke extract playlist biasa
-                
+
                 playlist = await asyncio.wait_for(
                     YtDlpSearcher.extract_playlist(search_query),
                     timeout=30.0,
@@ -768,15 +788,18 @@ class Music(commands.Cog):
                 if playlist and playlist.tracks:
                     added = 0
                     for t in playlist.tracks[:MAX_BATCH]:
-                        controller.queue.append(t)
-                        added += 1
+                        if len(controller.queue) < MAX_QUEUE_SIZE:
+                            controller.queue.append(t)
+                            added += 1
+                        else:
+                            break
                     logger.info(f"[PLAY CMD] Added {added} tracks from playlist: {playlist.name}")
                     if not controller.current_track and controller.queue:
                         await controller.set_volume(100)
                         await asyncio.sleep(0.3)
                         next_track = controller.queue.pop(0)
                         await controller.play(next_track)
-                    
+
                     msg = f"✅ Playlist ditambahkan! ({added} lagu dari {playlist.name})"
                     if len(playlist.tracks) > MAX_BATCH:
                         msg += f" (Dibatasi {MAX_BATCH})"
@@ -792,7 +815,8 @@ class Music(commands.Cog):
                 await ctx.send("❌ Timeout memuat lagu (30s).")
                 return
             if track:
-                controller.queue.append(track)
+                if len(controller.queue) < MAX_QUEUE_SIZE:
+                    controller.queue.append(track)
                 if not controller.current_track:
                     await controller.set_volume(100)
                     await asyncio.sleep(0.3)
@@ -816,7 +840,7 @@ class Music(commands.Cog):
         # ==========================================================
         # Jika bukan URL playlist, kita anggap sebagai search query
         clean_input = search_query
-        
+
         # Cek apakah ini sebenarnya search query yang disamarkan (misal: "ytsearch:...")
         prefixes = ["ytsearch:", "ytmsearch:", "scsearch:", "spsearch:"]
         for p in prefixes:
@@ -848,8 +872,9 @@ class Music(commands.Cog):
         # Ambil lagu pertama sebagai hasil pencarian
         track = tracks[0]
         logger.info(f"[PLAY CMD] Playing track: {track.title}")
-        controller.queue.append(track)
-        
+        if len(controller.queue) < MAX_QUEUE_SIZE:
+            controller.queue.append(track)
+
         if not controller.current_track:
             await controller.set_volume(100)
             await asyncio.sleep(0.3)
@@ -972,7 +997,7 @@ class Music(commands.Cog):
                 embed.add_field(name="⏭️ Up Next", value=queue_text or "...", inline=False)
                 embed.set_footer(text=f"{len(items)} lagu | Total durasi: {format_duration(total_ms)}")
             else:
-                embed.set_footer(text="Queue kosong — tambah lagu dengan /play")
+                embed.set_footer(text="Queue kosong - tambah lagu dengan /play")
         except Exception as e:
             logger.info(f"[QUEUE ERROR] {e}")
             await ctx.send("❌ Gagal menampilkan queue.")
@@ -1293,7 +1318,8 @@ class Music(commands.Cog):
         controller = self.get_controller(ctx.guild.id)
         added = 0
         failed = 0
-        semaphore = asyncio.Semaphore(5)
+        # [PHASE 4] Lower concurrency from 5 -> 2 for memory.
+        semaphore = asyncio.Semaphore(2)
 
         async def load_single_track(t):
             nonlocal added, failed
@@ -1311,8 +1337,11 @@ class Music(commands.Cog):
 
         for p in playables:
             if p:
-                controller.queue.append(p)
-                added += 1
+                if len(controller.queue) < MAX_QUEUE_SIZE:
+                    controller.queue.append(p)
+                    added += 1
+                else:
+                    break
             else:
                 failed += 1
 
