@@ -305,7 +305,83 @@ def api_music_control():
         return jsonify({"success": False, "message": str(e)}), 500
 
 
-    
+# ==========================================================
+# API — Boost Tracker
+# ==========================================================
+
+@app.route("/api/boosts/<guild_id>/history")
+def api_boost_history(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "boosts": [], "message": "Firebase unavailable"}), 200
+    try:
+        docs = db.collection("boosts").where("guild_id", "==", str(guild_id)).stream()
+        boosts = []
+        for doc in docs:
+            d = doc.to_dict()
+            boosted_at = d.get("boosted_at")
+            unboosted_at = d.get("unboosted_at")
+            boosts.append({
+                "id": doc.id,
+                "user_id": d.get("user_id", ""),
+                "type": d.get("type", "server_boost"),
+                "status": d.get("status", "active"),
+                "boosted_at": boosted_at.isoformat() if hasattr(boosted_at, "isoformat") else str(boosted_at or ""),
+                "unboosted_at": unboosted_at.isoformat() if hasattr(unboosted_at, "isoformat") else str(unboosted_at or ""),
+                "note": d.get("note", ""),
+            })
+        boosts.sort(key=lambda b: b["boosted_at"], reverse=True)
+        return jsonify({"success": True, "boosts": boosts, "count": len(boosts)}), 200
+    except Exception as e:
+        print(f"[BOOST API] ❌ history error: {e}")
+        return jsonify({"success": False, "boosts": [], "message": str(e)}), 500
+
+
+@app.route("/api/boosts/<guild_id>/stats")
+def api_boost_stats(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        docs = list(db.collection("boosts").where("guild_id", "==", str(guild_id)).stream())
+        total = len(docs)
+        active = sum(1 for d in docs if d.to_dict().get("status") == "active")
+        expired = total - active
+
+        user_counts = {}
+        for d in docs:
+            uid = d.to_dict().get("user_id", "unknown")
+            user_counts[uid] = user_counts.get(uid, 0) + 1
+        top = sorted(user_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        tiers = [(0, "None"), (2, "Tier 1"), (7, "Tier 2"), (14, "Tier 3")]
+        current_tier = "None"
+        next_tier = "Tier 1"
+        next_at = 2
+        for i, (req, label) in enumerate(tiers):
+            if active >= req:
+                current_tier = label
+                if i + 1 < len(tiers):
+                    next_tier = tiers[i + 1][1]
+                    next_at = tiers[i + 1][0]
+                else:
+                    next_tier = "MAX"
+                    next_at = active
+        progress = min(active / next_at * 100, 100) if next_at > 0 else 100
+
+        return jsonify({
+            "success": True,
+            "total": total,
+            "active": active,
+            "expired": expired,
+            "current_tier": current_tier,
+            "next_tier": next_tier,
+            "next_at": next_at,
+            "progress": round(progress, 1),
+            "top_users": [{"user_id": uid, "count": c} for uid, c in top],
+        }), 200
+    except Exception as e:
+        print(f"[BOOST API] ❌ stats error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
 
 # ==========================================================
 # Helper — baca config feature dari Firestore
