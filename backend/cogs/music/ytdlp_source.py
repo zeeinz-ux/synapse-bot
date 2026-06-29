@@ -622,6 +622,11 @@ class MusicController:
         self._last_embed_time = 0.0
         self._alone_task = None
         self._track_lock = asyncio.Lock()
+        # [PHASE 1] Play lifecycle lock — prevents cascading re-entry when
+        # vc.stop() in one play() invocation triggers _on_track_end callbacks
+        # from a previous ffmpeg process that race the new play().
+        self._play_lock = asyncio.Lock()
+        self._play_generation: int = 0
         self._queue_history = []
         self._single_loop_track = None
         self._guild_id = None
@@ -668,18 +673,28 @@ class MusicController:
                     _YTDLP_EXECUTOR,
                     lambda: yt_dlp.YoutubeDL({
                         "quiet": True, "no_warnings": True,
-                        "format": "bestaudio/best", "skip_download": True,
+                        "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
+                        "skip_download": True,
                         **_AUTH_OPTS,
                     }).extract_info(url, download=False)
                 )
-                direct_url = info.get("url") if info else None
+                if not info:
+                    logger.error(f"[DOWNLOAD] yt-dlp extract_info returned None")
+                    return None
+                direct_url = info.get("url")
                 if not direct_url:
                     logger.error(f"[DOWNLOAD] Gagal mendapat direct URL dari yt-dlp")
                     return None
 
-                async with aiohttp.ClientSession() as session:
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                    "Accept": "*/*",
+                    "Accept-Language": "en-US,en;q=0.5",
+                    "Range": "bytes=0-",
+                }
+                async with aiohttp.ClientSession(headers=headers) as session:
                     async with session.get(direct_url, timeout=aiohttp.ClientTimeout(total=120)) as sr:
-                        if sr.status != 200:
+                        if sr.status not in (200, 206):
                             logger.error(f"[DOWNLOAD] HTTP {sr.status} dari stream URL")
                             return None
                         with open(dest, "wb") as f:
@@ -689,12 +704,15 @@ class MusicController:
                                     break
                                 f.write(chunk)
                         if os.path.isfile(dest) and os.path.getsize(dest) > 0:
-                            logger.info(f"[DOWNLOAD] Berhasil: {dest}")
+                            logger.info(f"[DOWNLOAD] Berhasil: {dest} ({os.path.getsize(dest)} bytes)")
                             return dest
                         logger.error(f"[DOWNLOAD] File kosong: {dest}")
                         return None
+            except asyncio.TimeoutError:
+                logger.error(f"[DOWNLOAD] Timeout (120s) saat mengunduh: {url[:60]}")
+                return None
             except Exception as e:
-                logger.error(f"[DOWNLOAD] Gagal: {e}")
+                logger.error(f"[DOWNLOAD] Gagal: {e.__class__.__name__}: {e}")
                 return None
 
     @property
@@ -914,6 +932,14 @@ class MusicController:
             pass
 
     async def play(self, track: YtDlpTrack):
+        # [PHASE 1] Acquire play lifecycle lock — if another play() is already
+        # in flight, queue or wait instead of running concurrently. This kills
+        # the cascading re-entry loop where vc.stop() schedules _on_track_end
+        # callbacks from dying ffmpeg processes that race the new play().
+        async with self._play_lock:
+            await self._play_locked(track)
+
+    async def _play_locked(self, track: YtDlpTrack):
         if not track.artwork and (track.webpage_url or track.uri):
             enriched = await YtDlpSearcher.extract_info(track.webpage_url or track.uri)
             if enriched:
@@ -924,6 +950,12 @@ class MusicController:
                 if enriched.duration:
                     track.duration = enriched.duration
 
+        # [PHASE 1] Bump generation BEFORE any vc.stop() so any in-flight
+        # _on_track_end callback from a dying ffmpeg process will see a
+        # stale generation and bail out instead of recursively re-entering play().
+        self._play_generation += 1
+        my_generation = self._play_generation
+
         self.current_track = track
         self._single_loop_track = track
 
@@ -931,6 +963,10 @@ class MusicController:
             self._queue_history.append(track)
 
         if self.vc.is_playing() or self.vc.is_paused():
+            # [PHASE 1] Mark slot as transitioning BEFORE stopping the old
+            # ffmpeg. If its _on_track_end fires while we're still setting
+            # up the new track, the generation check will reject it.
+            self.current_track = None
             self.vc.stop()
             logger.info("[DEBUG PLAY] Menghentikan lagu sebelumnya.")
 
@@ -993,7 +1029,9 @@ class MusicController:
             source = discord.FFmpegPCMAudio(file_path, executable=FFMPEG_PATH)
             vol_source = discord.PCMVolumeTransformer(source, volume=self._volume / 100.0)
 
-            self.vc.play(vol_source, after=self._on_track_end_wrapper)
+            # [PHASE 1] Bind generation to the after= callback via closure so
+            # stale callbacks from a previous ffmpeg can be detected and dropped.
+            self.vc.play(vol_source, after=lambda err, gen=my_generation: self._on_track_end_wrapper(err, gen))
 
             self._start_time = time.time()
             self._paused = False
@@ -1026,13 +1064,25 @@ class MusicController:
         except Exception:
             pass
 
-    def _on_track_end_wrapper(self, error):
+    def _on_track_end_wrapper(self, error, generation: int = 0):
         if error:
             logger.error(f"[TRACK END ERROR] {error}")
+        # [PHASE 1] Drop stale callbacks. If a newer play() has already
+        # bumped the generation, this callback belongs to a ffmpeg process
+        # that was forcibly replaced and must not chain into _on_track_end.
+        if self._play_generation != generation:
+            logger.debug(f"[TRACK END] Stale callback (gen={generation}, current={self._play_generation}), ignored.")
+            return
         loop = self.vc.client.loop if (self.vc and hasattr(self.vc, "client") and self.vc.client) else asyncio.get_event_loop()
-        asyncio.run_coroutine_threadsafe(self._on_track_end(error), loop)
+        asyncio.run_coroutine_threadsafe(self._on_track_end(error, generation), loop)
 
-    async def _on_track_end(self, error=None):
+    async def _on_track_end(self, error=None, generation: int = 0):
+        # [PHASE 1] Re-check generation at coroutine-entry time. Between
+        # the wrapper's check and now, a newer play() could have run and
+        # bumped the generation. If so, this callback is stale — drop it.
+        if self._play_generation != generation:
+            logger.debug(f"[TRACK END] Stale at entry (gen={generation}, current={self._play_generation}), ignored.")
+            return
         self._stop_watchdog()
         self._save_state()
         await asyncio.sleep(0.3)
@@ -1197,7 +1247,11 @@ class MusicController:
         try:
             source = discord.FFmpegPCMAudio(file_path, executable=FFMPEG_PATH, before_options=f"-ss {position_sec} -noaccurate_seek")
             vol_source = discord.PCMVolumeTransformer(source, volume=self._volume / 100.0)
-            self.vc.play(vol_source, after=self._on_track_end_wrapper)
+            # [PHASE 1] Bump generation on seek too so the ffmpeg-restart's
+            # _on_track_end callback belongs to this play() invocation.
+            self._play_generation += 1
+            seek_gen = self._play_generation
+            self.vc.play(vol_source, after=lambda err, gen=seek_gen: self._on_track_end_wrapper(err, gen))
             self._start_time = time.time() - position_sec
             self._paused = False
             self._pause_reason = "none"
