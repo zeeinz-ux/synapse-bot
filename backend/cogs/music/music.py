@@ -744,8 +744,11 @@ class Music(commands.Cog):
 
                         asyncio.create_task(_resolve_remaining_yt())
 
-                        msg = f"✅ **Memutar:** {first_track.title}\n📁 Sisa playlist sedang dimuat di latar belakang..."
-                        await ctx.send(msg)
+                        # [UI] Skip user-facing text reply — the now-playing embed
+                        # already shows up automatically via _update_now_playing(),
+                        # and the background resolve logs its own progress. No
+                        # duplicate "Memutar: ... Sisa playlist..." text spam.
+                        logger.info(f"[PLAY CMD] First track playing: {first_track.title} — background resolve scheduled")
                         return
                     # fallthrough: fallback ke extract playlist biasa
                 
