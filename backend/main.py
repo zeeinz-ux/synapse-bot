@@ -2,6 +2,9 @@ import sys
 import os
 import json
 import warnings
+import subprocess
+import atexit
+import shutil
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*line buffering.*binary mode.*")
@@ -38,6 +41,39 @@ if _cookies_raw:
     except Exception as _e:
         print(f"[COOKIES] ❌ Gagal write cookies: {_e}")
 # ===================================================
+
+# ===== RUST POT PROVIDER — bypass YouTube bot detection =====
+_pot_server_proc: subprocess.Popen | None = None
+
+def _start_pot_server():
+    global _pot_server_proc
+    pot_bin = shutil.which("bgutil-pot")
+    if not pot_bin:
+        print("[POT] bgutil-pot binary not found — YouTube bot detection may fail")
+        return
+    try:
+        _pot_server_proc = subprocess.Popen(
+            [pot_bin, "server", "--host", "127.0.0.1", "--port", "4416"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        print(f"[POT] ✅ Server started (PID {_pot_server_proc.pid}) — PO tokens active")
+    except Exception as e:
+        print(f"[POT] ❌ Failed to start: {e}")
+
+def _stop_pot_server():
+    global _pot_server_proc
+    if _pot_server_proc and _pot_server_proc.poll() is None:
+        _pot_server_proc.terminate()
+        try:
+            _pot_server_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            _pot_server_proc.kill()
+        print("[POT] Server stopped")
+
+atexit.register(_stop_pot_server)
+_start_pot_server()
+# ============================================================
 
 # ===== INIT FIREBASE SEBELUM LOAD COGS =====
 from backend.cogs.database import firebase_setup
