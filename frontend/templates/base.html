@@ -29,7 +29,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="bot-brand">
-          <div class="bot-avatar"><img src="{{ url_for('static', filename='logo-2.png') }}" alt="Hidden Hamlet" width="48" height="48" style="border-radius: 12px;"></div>
+          <div class="bot-avatar"><img src="{{ url_for('static', filename='logo-2.png') }}" alt="Hidden Hamlet"></div>
           <div class="bot-info">
             <h1 class="bot-name">Hidden Hamlet</h1>
             <span class="bot-status {% if s.online %}online{% else %}offline{% endif %}">
@@ -117,7 +117,6 @@
             <a href="/dashboard/{{ guild_id }}/welcome" class="nav-item {% if active_page == 'welcome' %}active{% endif %}" data-search="welcome join sambutan">
               <span class="nav-icon">👋</span>
               <span class="nav-label">Join</span>
-              <span class="nav-tag new">New</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/welcome/leave" class="nav-item {% if active_page == 'leave' %}active{% endif %}" data-search="leave keluar goodbye">
               <span class="nav-icon">👋</span>
@@ -187,27 +186,22 @@
             <a href="/dashboard/{{ guild_id }}/ai-chat" class="nav-item {% if active_page == 'ai_chat' %}active{% endif %}" data-search="ai chat bot gemini artificial intelligence">
               <span class="nav-icon">🧠</span>
               <span class="nav-label">AI Chat</span>
-              <span class="nav-tag new">New</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/message-builder" class="nav-item {% if active_page == 'message_builder' %}active{% endif %}" data-search="message builder custom">
               <span class="nav-icon">✏️</span>
               <span class="nav-label">Message Builder</span>
-              <span class="nav-tag soon">Soon</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/templates" class="nav-item {% if active_page == 'templates' %}active{% endif %}" data-search="template templat">
               <span class="nav-icon">📄</span>
               <span class="nav-label">Templates</span>
-              <span class="nav-tag soon">Soon</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/actions" class="nav-item {% if active_page == 'actions' %}active{% endif %}" data-search="actions tindakan">
               <span class="nav-icon">⚡</span>
               <span class="nav-label">Actions</span>
-              <span class="nav-tag soon">Soon</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/auto-responders" class="nav-item {% if active_page == 'auto_responders' %}active{% endif %}" data-search="auto responder otomatis">
               <span class="nav-icon">🤖</span>
               <span class="nav-label">Auto Responders</span>
-              <span class="nav-tag new">New</span>
             </a>
             <!-- Settings: posisi PALING BAWAH di Tools -->
             <a href="/dashboard/{{ guild_id }}/settings" class="nav-item {% if active_page == 'settings' %}active{% endif %}" data-search="settings pengaturan konfigurasi">

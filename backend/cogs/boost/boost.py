@@ -1,4 +1,5 @@
 import discord
+import asyncio
 from discord.ext import commands
 from discord import app_commands
 from firebase_admin import firestore
@@ -11,6 +12,14 @@ NOTIF_CHANNEL_ID = 1505826133097316434
 class BoostCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    async def _auto_delete(self, doc_ref, delay=60):
+        await asyncio.sleep(delay)
+        try:
+            doc_ref.delete()
+            print(f"[BOOST] Auto-deleted test boost {doc_ref.id}")
+        except Exception as e:
+            print(f"[BOOST] Auto-delete error: {e}")
 
     # ==========================================================================
     # EVENT: AUTO DETEKSI BOOST/UNBOOST
@@ -167,10 +176,12 @@ class BoostCog(commands.Cog):
                 "type": "server_boost",
                 "boosted_at": firestore.SERVER_TIMESTAMP,
                 "status": "active",
+                "test": True,
                 "note": "Manual slash command test"
             }
 
             _, doc_ref = self.bot.db.collection("boosts").add(data_boost)
+            asyncio.create_task(self._auto_delete(doc_ref))
 
             # Kirim notif ke channel
             log_channel = self.bot.get_channel(NOTIF_CHANNEL_ID)
@@ -187,7 +198,7 @@ class BoostCog(commands.Cog):
                 await log_channel.send(embed=embed)
 
             await msg.edit(
-                content=f"✅ **Simulasi boost berhasil!**\n👤 User: {member.mention}\n🆔 ID Dokumen: `{doc_ref.id}`"
+                content=f"✅ **Simulasi boost berhasil!**\n👤 User: {member.mention}\n🆔 ID Dokumen: `{doc_ref.id}`\n⏳ Akan dihapus otomatis dalam 60 detik."
             )
             print(f"[TEST] ✅ Simulasi boost untuk {member.name} berhasil.")
 

@@ -57,10 +57,31 @@
       document.body.style.overflow = "hidden";
     });
 
-    sidebarOverlay.addEventListener("click", function () {
+    function closeMobileMenu() {
       sidebar.classList.remove("open");
       sidebarOverlay.classList.remove("active");
-      document.body.style.overflow = "";
+      // Wait for transition to finish before restoring scroll
+      setTimeout(function () {
+        document.body.style.overflow = "";
+      }, 350);
+    }
+
+    sidebarOverlay.addEventListener("click", closeMobileMenu);
+
+    // Close on Escape key
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && sidebar.classList.contains("open")) {
+        closeMobileMenu();
+      }
+    });
+
+    // Close on nav item click
+    sidebar.querySelectorAll(".nav-item").forEach(function (item) {
+      item.addEventListener("click", function () {
+        if (sidebar.classList.contains("open")) {
+          closeMobileMenu();
+        }
+      });
     });
   }
 

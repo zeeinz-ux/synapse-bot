@@ -113,15 +113,22 @@ body {
 }
 
 .bot-avatar {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   background: var(--accent);
-  border-radius: 10px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.1rem;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.bot-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .bot-info {
@@ -657,7 +664,6 @@ body {
 
 /* ---------- Sidebar Overlay ---------- */
 .sidebar-overlay {
-  display: none;
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
@@ -665,12 +671,15 @@ body {
   -webkit-backdrop-filter: blur(2px);
   z-index: 1050;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  pointer-events: none;
 }
 
 .sidebar-overlay.active {
-  display: block;
   opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 /* ============================================
@@ -686,6 +695,7 @@ body {
     z-index: 1100;
     border-right: none;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .sidebar.open {
