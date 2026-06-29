@@ -20,6 +20,9 @@ if not logger.handlers:
     logger.addHandler(_h)
     logger.setLevel(logging.INFO)
 
+# Batas maksimum penarikan lagu dalam satu batch playlist (YouTube & Spotify)
+MAX_BATCH = 100
+
 from backend.utils.formatters import format_duration
 from backend.cogs.music.spotify_down import SpotifyResolver, ResolvedTrack, _extract_tracks_from_scripts
 
@@ -175,6 +178,15 @@ class Music(commands.Cog):
                             return result
                     except Exception:
                         continue
+                # Fallback: create track from URL directly (no metadata needed for playback)
+                if video_urls:
+                    track = YtDlpTrack(
+                        title=name or query,
+                        uri=video_urls[0],
+                        webpage_url=video_urls[0],
+                    )
+                    logger.info(f"[YOUTUBE SEARCH] Web scrape fallback track: {video_urls[0][:40]}")
+                    return track
             except (asyncio.TimeoutError, Exception):
                 pass
             logger.info(f"[YOUTUBE SEARCH] Web scrape also failed for: {artists} - {name}")
@@ -589,7 +601,6 @@ class Music(commands.Cog):
                 controller._playlist_tracks = resolved_tracks  # all tracks
                 controller._playlist_index = 0
                 controller._playlist_total = original_total_tracks
-                MAX_BATCH = 30
                 batch = resolved_tracks[:MAX_BATCH]
                 total_tracks = len(batch)
                 resolved_tracks = batch
@@ -605,40 +616,28 @@ class Music(commands.Cog):
                         thumbnail = t.artwork
                         break
 
-                await loading_msg.edit(content=f"⏳ Mencari {total_tracks} lagu di YouTube... (0/{total_tracks})")
+                await loading_msg.edit(content=f"⏳ Mencari lagu pertama di YouTube...")
 
-                playables: list[Optional[YtDlpTrack]] = [None] * total_tracks
-                sem = asyncio.Semaphore(5)
+                # [CARI CEPAT] Resolve track pertama dulu, langsung play
+                first_resolved = resolved_tracks[0]
+                first_playable = await self._search_single_resolved(first_resolved)
 
-                async def load_one(index: int, rt: ResolvedTrack):
-                    async with sem:
-                        playables[index] = await self._search_single_resolved(rt)
-                    if (index + 1) % 5 == 0 or index == total_tracks - 1:
-                        done = sum(1 for p in playables if p is not None)
-                        try:
-                            await loading_msg.edit(content=f"⏳ Mencari {total_tracks} lagu di YouTube... ({done}/{total_tracks})")
-                        except Exception:
-                            pass
-
-                await asyncio.gather(*[load_one(i, rt) for i, rt in enumerate(resolved_tracks)])
-
-                valid = [p for p in playables if p is not None]
-                if not valid:
-                    await loading_msg.edit(content="❌ Gagal menemukan satupun lagu dari playlist ini di YouTube.")
+                if not first_playable:
+                    await loading_msg.edit(content="❌ Gagal menemukan lagu pertama dari playlist ini di YouTube.")
                     return
 
-                first_track = valid[0]
-                controller.queue.extend(valid[1:])
-
+                # Play lagu pertama langsung
+                controller.queue.extend([])
                 if not controller.current_track:
                     await controller.set_volume(100)
                     await asyncio.sleep(0.3)
-                    await controller.play(first_track)
+                    await controller.play(first_playable)
                 else:
-                    controller.queue.insert(0, first_track)
+                    controller.queue.insert(0, first_playable)
 
+                # [BACKGROUND] Resolve sisa lagu di background, setelah sentuh ke user
                 playlist_name = resolved_tracks[0].album or f"Spotify {spotify_type.title()}"
-                skipped = total_tracks - len(valid)
+                remaining = resolved_tracks[1:]
 
                 final_embed = discord.Embed(
                     description=f"📁 **{playlist_name}**",
@@ -648,20 +647,45 @@ class Music(commands.Cog):
                     name=f"🎶 Added to Queue ({spotify_type.title()})",
                     icon_url=ctx.author.display_avatar.url
                 )
-                final_embed.add_field(name="🔢 Jumlah Lagu", value=f"`{total_tracks}` lagu" + (f" (Dibatasi {MAX_BATCH})" if original_total_tracks > MAX_BATCH else ""), inline=True)
+                final_embed.add_field(name="🔢 Jumlah Lagu", value=f"`{original_total_tracks}` lagu" + (f" (Dibatasi {MAX_BATCH})" if original_total_tracks > MAX_BATCH else ""), inline=True)
                 final_embed.add_field(name="⏳ Total Durasi", value=f"`{total_duration}`", inline=True)
                 final_embed.add_field(name="👤 Request Oleh", value=ctx.author.mention, inline=True)
                 if thumbnail:
                     final_embed.set_thumbnail(url=thumbnail)
-                status_text = f"▶️ Sekarang Memutar: {first_track.title[:35]}..."
-                if skipped:
-                    status_text += f"\n⚠️ {skipped} lagu tidak ditemukan di YouTube"
                 final_embed.set_footer(
-                    text=status_text,
+                    text=f"▶️ Sekarang Memutar: {first_playable.title[:35]}... | ⏳ Mencari sisa lagu di background...",
                     icon_url=self.bot.user.display_avatar.url
                 )
-
                 await loading_msg.edit(content=None, embed=final_embed)
+
+                # Kirim sisa resolve ke background
+                async def _resolve_remaining():
+                    sem = asyncio.Semaphore(5)
+                    results: list[YtDlpTrack] = []
+
+                    async def load_one(rt: ResolvedTrack):
+                        async with sem:
+                            r = await self._search_single_resolved(rt)
+                            if r:
+                                results.append(r)
+
+                    await asyncio.gather(*[load_one(rt) for rt in remaining])
+                    for r in results:
+                        controller.queue.append(r)
+                    skipped = len(remaining) - len(results)
+                    logger.info(f"[PLAYLIST BG] Selesai: {len(results)} ditemukan, {skipped} skipped")
+
+                    try:
+                        embed = final_embed.copy()
+                        status = f"▶️ Sekarang Memutar: {first_playable.title[:35]}..."
+                        if skipped:
+                            status += f"\n⚠️ {skipped} lagu tidak ditemukan di YouTube"
+                        embed.set_footer(text=status, icon_url=self.bot.user.display_avatar.url)
+                        await loading_msg.edit(embed=embed)
+                    except Exception:
+                        pass
+
+                asyncio.create_task(_resolve_remaining())
                 return
 
         # ==========================================================
