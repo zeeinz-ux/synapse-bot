@@ -854,8 +854,15 @@ class Music(commands.Cog):
                         bg_task_yt = asyncio.create_task(_resolve_remaining_yt())
                         controller._bg_resolve_task = bg_task_yt
 
-                        # Silent clear: send ephemeral to dismiss "thinking..." state
-                        await ctx.send("✅ Memutar...", ephemeral=True)
+                        # Clear interaction "thinking..." state without visible message
+                        try:
+                            if ctx.interaction:
+                                await ctx.interaction.followup.send("\u200b")
+                            else:
+                                m = await ctx.send("\u200b")
+                                await m.delete()
+                        except Exception:
+                            pass
                         logger.info(f"[PLAY CMD] First track playing: {first_track.title} - background resolve scheduled")
                         return
                     # fallthrough: fallback ke extract playlist biasa
