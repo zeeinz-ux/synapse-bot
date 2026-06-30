@@ -179,17 +179,22 @@ class Music(commands.Cog):
                             timeout=15.0,
                         )
                         if result:
-                            return result
+                            score = self._title_similarity(compare, f"{result.author or ''} {result.title or ''}")
+                            dur_diff = abs((result.duration or 0) - (target_dur or 0)) if target_dur else 0
+                            if score > 0.15 or not target_dur or dur_diff < 10000:
+                                return result
+                            logger.debug(f"[WEB SCRAPE] Skipped low-similarity {result.title} (score={score:.2f})")
                     except Exception:
                         continue
                 # Fallback: create track from URL directly (no metadata needed for playback)
                 if video_urls:
+                    logger.warning(f"[YOUTUBE SEARCH] No matching video found for {lbl}, taking first URL as last resort")
                     track = YtDlpTrack(
                         title=name or query,
                         uri=video_urls[0],
                         webpage_url=video_urls[0],
                     )
-                    logger.info(f"[YOUTUBE SEARCH] Web scrape fallback track: {video_urls[0][:40]}")
+                    logger.info(f"[YOUTUBE SEARCH] Web scrape last-resort: {video_urls[0][:40]}")
                     return track
             except (asyncio.TimeoutError, Exception):
                 pass
