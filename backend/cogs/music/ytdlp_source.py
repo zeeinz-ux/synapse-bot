@@ -29,6 +29,8 @@ _YTDLP_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ytdlp_wo
 # [OOM FIX] Periodically renew the executor to purge yt-dlp thread-local state
 # and class-level caches that accumulate across extract_info calls.
 _YTDLP_EXECUTOR_LOCK = threading.Lock()
+_STREAM_PLAY_COUNT = 0
+_STREAM_RENEW_INTERVAL = 10  # renew executor every N tracks during playback
 
 def renew_executor() -> None:
     """Shut down the old executor and create a fresh one.
@@ -1539,8 +1541,13 @@ class MusicController:
             is_stream = False
         else:
             # Try streaming directly via FFmpeg (no download wait)
-            logger.info(f"[DEBUG PLAY] Mencoba stream langsung: {url}")
-            stream_url = await self._get_direct_url(url)
+            # [OOM] Reuse stream_url from bg resolve to avoid 2nd extract_info call
+            stream_url = track.stream_url if track.stream_url else None
+            if stream_url:
+                logger.info(f"[DEBUG PLAY] Reusing cached stream URL from bg resolve")
+            else:
+                logger.info(f"[DEBUG PLAY] Mencoba stream langsung: {url}")
+                stream_url = await self._get_direct_url(url)
             if stream_url:
                 logger.info(f"[DEBUG PLAY] Stream URL didapat, play via FFmpeg")
                 audio_source = stream_url
@@ -1648,6 +1655,8 @@ class MusicController:
         async with self._track_lock:
             if self.loop_mode == "single" and self._single_loop_track:
                 await self.play(self._single_loop_track)
+                import gc as _gc
+                _gc.collect()
                 return
             if self.loop_mode == "queue" and not self.queue and self._queue_history:
                 self.queue = list(self._queue_history)
@@ -1658,18 +1667,36 @@ class MusicController:
                 await self.play(next_track)
                 if len(self.queue) < 5 and self._playlist_tracks and self._playlist_index < len(self._playlist_tracks):
                     asyncio.create_task(self._load_more_from_playlist())
+                global _STREAM_PLAY_COUNT
+                _STREAM_PLAY_COUNT += 1
+                import gc as _gc
+                _gc.collect()
+                if _STREAM_PLAY_COUNT % _STREAM_RENEW_INTERVAL == 0:
+                    renew_executor()
+                    _gc.collect()
+                    logger.info(f"[OOM] Executor renewed after {_STREAM_RENEW_INTERVAL} streaming tracks")
                 return
             if self._playlist_tracks and self._playlist_index < len(self._playlist_tracks):
                 loaded = await self._load_more_from_playlist()
                 if loaded > 0:
                     next_track = self.queue.pop(0)
                     await self.play(next_track)
+                    global _STREAM_PLAY_COUNT
+                    _STREAM_PLAY_COUNT += 1
+                    import gc as _gc
+                    _gc.collect()
+                    if _STREAM_PLAY_COUNT % _STREAM_RENEW_INTERVAL == 0:
+                        renew_executor()
+                        _gc.collect()
+                        logger.info(f"[OOM] Executor renewed after {_STREAM_RENEW_INTERVAL} streaming tracks")
                     return
             if self.autoplay and self._single_loop_track:
                 try:
                     next_track = await self._autoplay_search()
                     if next_track:
                         await self.play(next_track)
+                        import gc as _gc
+                        _gc.collect()
                         return
                 except Exception as e:
                     logger.warning(f"[AUTOPLAY ERROR] {e}")
