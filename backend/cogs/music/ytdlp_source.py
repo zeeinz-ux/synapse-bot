@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import os
 import json
 import re
@@ -1750,13 +1751,16 @@ class MusicController:
         if not batch:
             return 0
         self._playlist_index += len(batch)
-        sem = asyncio.Semaphore(15)
+        sem = asyncio.Semaphore(2)
         results: list = [None] * len(batch)
         async def _search(idx: int, rt):
             async with sem:
-                r = await self._cog._search_single_resolved(rt)
-                if r:
-                    results[idx] = r
+                try:
+                    r = await self._cog._search_single_resolved(rt)
+                    if r:
+                        results[idx] = r
+                finally:
+                    gc.collect()
         await asyncio.gather(*[_search(i, rt) for i, rt in enumerate(batch)])
         for r in results:
             if r:

@@ -735,16 +735,14 @@ class Music(commands.Cog):
                                 except Exception as e:
                                     resolve_errors.append(f"{rt.name}: {type(e).__name__}")
                                     logger.warning(f"[PLAYLIST BG] Resolve error for '{rt.name}': {e}")
+                                finally:
+                                    gc.collect()
 
                         await asyncio.gather(*[load_one(i, rt) for i, rt in enumerate(remaining)], return_exceptions=True)
                         for r in results:
                             if r and len(controller.queue) < MAX_QUEUE_SIZE:
                                 controller.queue.append(r)
-                        skipped = len(remaining) - len(results)
-                        # [PHASE 4] Force GC to reclaim aiohttp session + yt-dlp
-                        # subprocess memory after a 100-track batch. Without this,
-                        # Railway free tier (512MB) gets OOM-killed around the
-                        # 14-minute mark.
+                        skipped = sum(1 for r in results if r is None)
                         collected = gc.collect()
                         logger.info(f"[PLAYLIST BG] Selesai: {len(results)} ditemukan, {skipped} skipped (gc freed {collected} objects)")
 
