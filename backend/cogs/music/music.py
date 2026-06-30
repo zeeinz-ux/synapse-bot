@@ -136,42 +136,16 @@ class Music(commands.Cog):
                 logger.info(f"[YOUTUBE SEARCH] Empty query for track {track.spotify_id}")
                 return None
 
-            search_variations = []
-
-            # Only 1 search per track to save YouTube API quota (100 units each, 10k/day limit)
-            search_query = f"{artists} - {name}" if has_artist and name else (name or query)
-            search_variations.append(f"ytmsearch:{search_query}")
-
-            attempted = set()
-            for sq in search_variations:
-                if sq in attempted:
-                    continue
-                attempted.add(sq)
-                try:
-                    results = await asyncio.wait_for(
-                        YtDlpSearcher.search(sq),
-                        timeout=15.0,
-                    )
-                except (asyncio.TimeoutError, Exception):
-                    continue
-                if not results:
-                    continue
-
-                compare = f"{artists} {name}" if has_artist else name
-                for r in results:
-                    score = self._title_similarity(compare, f"{r.author or ''} {r.title or ''}")
-                    dur_diff = abs((r.duration or 0) - (target_dur or 0)) if target_dur else 0
-                    if score > 0.15 or not target_dur or dur_diff < 10000:
-                        return r
-
             lbl = f"{artists} - {name}" if has_artist else name
-            logger.info(f"[YOUTUBE SEARCH] All yt-dlp search failed for: {lbl}, coba web scrape...")
+
+            # Try web scrape + extract_info first (most reliable, uses android_vr fallback)
             try:
                 session = await self._get_session()
                 video_urls = await asyncio.wait_for(
                     _web_search_youtube(session, (name or query)),
                     timeout=10.0,
                 )
+                compare = f"{artists} {name}" if has_artist else name
                 for vu in video_urls:
                     try:
                         result = await asyncio.wait_for(
@@ -186,19 +160,38 @@ class Music(commands.Cog):
                             logger.debug(f"[WEB SCRAPE] Skipped low-similarity {result.title} (score={score:.2f})")
                     except Exception:
                         continue
-                # Fallback: create track from URL directly (no metadata needed for playback)
-                if video_urls:
-                    logger.warning(f"[YOUTUBE SEARCH] No matching video found for {lbl}, taking first URL as last resort")
-                    track = YtDlpTrack(
-                        title=name or query,
-                        uri=video_urls[0],
-                        webpage_url=video_urls[0],
-                    )
-                    logger.info(f"[YOUTUBE SEARCH] Web scrape last-resort: {video_urls[0][:40]}")
-                    return track
+            except (asyncio.TimeoutError, Exception):
+                video_urls = []
+
+            # Fallback: yt-dlp search with android_vr client
+            search_query = f"{artists} - {name}" if has_artist and name else (name or query)
+            try:
+                results = await asyncio.wait_for(
+                    YtDlpSearcher.search(f"ytmsearch:{search_query}"),
+                    timeout=15.0,
+                )
+                if results:
+                    compare = f"{artists} {name}" if has_artist else name
+                    for r in results:
+                        score = self._title_similarity(compare, f"{r.author or ''} {r.title or ''}")
+                        dur_diff = abs((r.duration or 0) - (target_dur or 0)) if target_dur else 0
+                        if score > 0.15 or not target_dur or dur_diff < 10000:
+                            return r
             except (asyncio.TimeoutError, Exception):
                 pass
-            logger.info(f"[YOUTUBE SEARCH] Web scrape also failed for: {artists} - {name}")
+
+            # Last resort: create track from URL directly
+            if video_urls:
+                logger.warning(f"[YOUTUBE SEARCH] No matching video found for {lbl}, taking first URL as last resort")
+                track = YtDlpTrack(
+                    title=name or query,
+                    uri=video_urls[0],
+                    webpage_url=video_urls[0],
+                )
+                logger.info(f"[YOUTUBE SEARCH] Web scrape last-resort: {video_urls[0][:40]}")
+                return track
+
+            logger.info(f"[YOUTUBE SEARCH] All search failed for: {lbl}")
         except Exception as e:
             logger.info(f"[YOUTUBE SEARCH ERROR] {track.name}: {e}")
         return None

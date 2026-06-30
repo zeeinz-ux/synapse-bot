@@ -241,7 +241,8 @@ YTDL_SEARCH_OPTS = {
     "socket_timeout": 10, 
     "retries": 1, 
     "proxy": os.getenv("YTDLP_PROXY") or "",
-    **_AUTH_OPTS,
+    "source_address": "0.0.0.0",
+    "extractor_args": {"youtube": ["player_client=android_vr"]},
 }
 
 YTDL_PLAYLIST_OPTS = {
