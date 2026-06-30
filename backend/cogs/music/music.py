@@ -111,6 +111,27 @@ class Music(commands.Cog):
         union = a_words | b_words
         return len(intersection) / len(union) if union else 0.0
 
+    def _match_score(self, query_artist: str, query_title: str, result_author: str, result_title: str, target_dur: int, result_dur: int) -> float:
+        query = f"{query_artist} {query_title}".lower().strip()
+        result_txt = f"{result_author} {result_title}".lower().strip()
+        score = self._title_similarity(query, result_txt)
+        if query_artist and result_author:
+            q_artist_lower = query_artist.lower()
+            r_author_lower = result_author.lower()
+            if q_artist_lower in r_author_lower or r_author_lower in q_artist_lower:
+                score += 0.3
+            q_words = set(q_artist_lower.split())
+            r_words = set(r_author_lower.split())
+            if q_words & r_words:
+                score += 0.15
+        if target_dur and result_dur:
+            dur_diff = abs(result_dur - target_dur)
+            if dur_diff > 15000:
+                score -= 0.2
+            elif dur_diff > 5000:
+                score -= 0.1
+        return score
+
     async def _search_single_resolved(self, track: ResolvedTrack) -> YtDlpTrack | None:
         try:
             query = (track.query or "").strip()
@@ -145,7 +166,8 @@ class Music(commands.Cog):
                     _web_search_youtube(session, (name or query)),
                     timeout=10.0,
                 )
-                compare = f"{artists} {name}" if has_artist else name
+                best = None
+                best_score = 0.0
                 for vu in video_urls:
                     try:
                         result = await asyncio.wait_for(
@@ -153,13 +175,16 @@ class Music(commands.Cog):
                             timeout=15.0,
                         )
                         if result:
-                            score = self._title_similarity(compare, f"{result.author or ''} {result.title or ''}")
-                            dur_diff = abs((result.duration or 0) - (target_dur or 0)) if target_dur else 0
-                            if score > 0.15 or not target_dur or dur_diff < 10000:
-                                return result
-                            logger.debug(f"[WEB SCRAPE] Skipped low-similarity {result.title} (score={score:.2f})")
+                            score = self._match_score(artists, name, result.author or '', result.title or '', target_dur or 0, result.duration or 0)
+                            if score > best_score:
+                                best_score = score
+                                best = result
                     except Exception:
                         continue
+                if best and best_score >= 0.25:
+                    return best
+                if best:
+                    logger.info(f"[MATCH] Best score {best_score:.2f} too low for {lbl} — best was {best.title}")
             except (asyncio.TimeoutError, Exception):
                 video_urls = []
 
@@ -171,12 +196,15 @@ class Music(commands.Cog):
                     timeout=15.0,
                 )
                 if results:
-                    compare = f"{artists} {name}" if has_artist else name
+                    best = None
+                    best_score = 0.0
                     for r in results:
-                        score = self._title_similarity(compare, f"{r.author or ''} {r.title or ''}")
-                        dur_diff = abs((r.duration or 0) - (target_dur or 0)) if target_dur else 0
-                        if score > 0.15 or not target_dur or dur_diff < 10000:
-                            return r
+                        score = self._match_score(artists, name, r.author or '', r.title or '', target_dur or 0, r.duration or 0)
+                        if score > best_score:
+                            best_score = score
+                            best = r
+                    if best and best_score >= 0.15:
+                        return best
             except (asyncio.TimeoutError, Exception):
                 pass
 
