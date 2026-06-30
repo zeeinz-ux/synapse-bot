@@ -22,13 +22,22 @@ import yt_dlp
 logger = logging.getLogger("discord.bot.ytdlp")
 
 # [AUDIT FIX 2] ThreadPool khusus agar eksekusi yt-dlp tidak memblokir Event Loop utama
-_YTDLP_EXECUTOR = ThreadPoolExecutor(max_workers=3, thread_name_prefix="ytdlp_worker")
+_YTDLP_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ytdlp_worker")
 
 # [OOM FIX] Batasi jumlah download simultan
 _DOWNLOAD_SEMAPHORE = asyncio.Semaphore(2)
+_BG_DOWNLOAD_SEMAPHORE = asyncio.Semaphore(3)
+
+MAX_QUEUE_SIZE = 100
 
 CACHE_DIR = "/tmp/discord_audio_cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
+
+# Short-lived extraction cache: avoids duplicate yt-dlp extract_info for same URL
+# within a short window (e.g., stream URL extraction → bg download).
+# Key: URL, Value: (direct_url, timestamp). Entries expire after 30 seconds.
+_EXTRACTION_CACHE: dict[str, tuple[str, float]] = {}
+_EXTRACTION_CACHE_TTL = 30.0
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 _COOKIES_DEFAULT = os.path.join(_PROJECT_ROOT, "cookies", "cookies.txt")
@@ -244,7 +253,7 @@ class YtDlpTrack:
     artwork: str = ""
     webpage_url: str = ""
     stream_url: str = ""
-    _ydl_info: dict = field(default_factory=dict, repr=False)
+    yt_id: str = ""
 
     @property
     def length(self) -> int:
@@ -258,16 +267,20 @@ class YtDlpTrack:
     def from_info(cls, info: dict) -> "YtDlpTrack":
         title = info.get("title") or "Unknown"
         uri = info.get("url") or info.get("webpage_url", "")
-        author = info.get("channel") or info.get("uploader") or info.get("artist", "Unknown")
+        author_raw = info.get("channel") or info.get("uploader") or info.get("artist") or info.get("creators")
+        if isinstance(author_raw, list):
+            author_raw = ', '.join(filter(None, author_raw))
+        author = author_raw or "Unknown"
         duration_raw = info.get("duration")
         duration = (int(duration_raw) * 1000) if duration_raw else 0
         artwork = info.get("thumbnail") or ""
         webpage_url = info.get("webpage_url") or uri
         stream_url = info.get("url") or ""
+        yt_id = info.get("id", "")
         return cls(
             title=title, uri=uri, author=author, duration=duration,
             artwork=artwork, webpage_url=webpage_url, stream_url=stream_url,
-            _ydl_info=info,
+            yt_id=yt_id,
         )
 
     async def get_stream_url(self) -> str:
@@ -888,7 +901,20 @@ class MusicController:
             logger.warning(f"[CACHE] Validasi error: {e}")
             return False
 
-    async def _download_track(self, url: str) -> Optional[str]:
+    async def _bg_download(self, url: str) -> None:
+        """Background download with bounded concurrency and extraction cache."""
+        # Skip if already cached on disk
+        dest = self._cache_path(url)
+        if os.path.isfile(dest):
+            return
+        async with _BG_DOWNLOAD_SEMAPHORE:
+            # Check extraction cache — _get_direct_url may have already extracted
+            now = time.time()
+            cached = _EXTRACTION_CACHE.get(url)
+            direct_url = cached[0] if cached and (now - cached[1]) < _EXTRACTION_CACHE_TTL else None
+            await self._download_track(url, pre_extracted_url=direct_url)
+
+    async def _download_track(self, url: str, pre_extracted_url: Optional[str] = None) -> Optional[str]:
         if not url or not isinstance(url, str) or not re.match(r'^https?://[^\s]+$', url):
             logger.error(f"[SECURITY] URL ditolak karena format mencurigakan: {url!r}")
             return None
@@ -913,32 +939,35 @@ class MusicController:
         async with _DOWNLOAD_SEMAPHORE:
             try:
                 loop = asyncio.get_event_loop()
-                # [PHASE 8] Sequential player_client fallback. Instead of
-                # hard-coding mweb,web, try each client in turn until one
-                # returns a usable stream URL. _extract_info_with_fallback
-                # is synchronous, run it in the executor so we don't block
-                # the event loop while yt-dlp retries each client.
-                base_ytdlp_opts = {
-                    "quiet": True, "no_warnings": True,
-                    "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
-                    "skip_download": True,
-                    **_AUTH_OPTS,
-                }
-                info = await loop.run_in_executor(
-                    _YTDLP_EXECUTOR,
-                    lambda: _extract_info_with_fallback(url, base_ytdlp_opts)
-                )
-                if not info:
-                    logger.error(f"[DOWNLOAD] yt-dlp extract_info returned None")
-                    return None
-                direct_url = info.get("url")
-                if not direct_url:
-                    logger.error(f"[DOWNLOAD] Gagal mendapat direct URL dari yt-dlp")
-                    return None
-
-                # [PHASE 3c] Capture expected min size from info before download,
-                # so we can validate the written file in one pass.
-                expected_min = self._expected_min_bytes(info)
+                if pre_extracted_url:
+                    # Reuse stream URL from extraction cache — skip yt-dlp
+                    direct_url = pre_extracted_url
+                    expected_min = 64 * 1024  # conservative default
+                else:
+                    # [PHASE 8] Sequential player_client fallback. Instead of
+                    # hard-coding mweb,web, try each client in turn until one
+                    # returns a usable stream URL. _extract_info_with_fallback
+                    # is synchronous, run it in the executor so we don't block
+                    # the event loop while yt-dlp retries each client.
+                    base_ytdlp_opts = {
+                        "quiet": True, "no_warnings": True,
+                        "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
+                        "skip_download": True,
+                        **_AUTH_OPTS,
+                    }
+                    info = await loop.run_in_executor(
+                        _YTDLP_EXECUTOR,
+                        lambda: _extract_info_with_fallback(url, base_ytdlp_opts)
+                    )
+                    if not info:
+                        logger.error(f"[DOWNLOAD] yt-dlp extract_info returned None")
+                        return None
+                    direct_url = info.get("url")
+                    if not direct_url:
+                        logger.error(f"[DOWNLOAD] Gagal mendapat direct URL dari yt-dlp")
+                        return None
+                    # [PHASE 3c] Capture expected min size from info before download
+                    expected_min = self._expected_min_bytes(info)
 
                 headers = {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
@@ -1384,6 +1413,12 @@ class MusicController:
 
     async def _get_direct_url(self, url: str) -> Optional[str]:
         """Extract direct audio stream URL from yt-dlp (fast, no download)."""
+        # Check extraction cache first
+        now = time.time()
+        cached = _EXTRACTION_CACHE.get(url)
+        if cached and (now - cached[1]) < _EXTRACTION_CACHE_TTL:
+            logger.debug(f"[CACHE HIT] Reusing cached extraction for {url[:60]}")
+            return cached[0]
         try:
             loop = asyncio.get_event_loop()
             base_opts = {
@@ -1397,7 +1432,9 @@ class MusicController:
                 lambda: _extract_info_with_fallback(url, base_opts)
             )
             if info:
-                return info.get("url")
+                direct_url = info.get("url")
+                _EXTRACTION_CACHE[url] = (direct_url, time.time())
+                return direct_url
         except Exception as e:
             logger.warning(f"[GET_STREAM_URL] Failed: {e}")
         return None
@@ -1420,6 +1457,8 @@ class MusicController:
         self._single_loop_track = track
 
         if self.loop_mode == "queue" and track not in self._queue_history:
+            if len(self._queue_history) >= MAX_QUEUE_SIZE:
+                self._queue_history.pop(0)
             self._queue_history.append(track)
 
         if self.vc.is_playing() or self.vc.is_paused():
@@ -1467,6 +1506,8 @@ class MusicController:
         if use_cache:
             await self._cleanup_current_file()
             self._current_file = file_path
+            self._preloaded_file = None
+            self._preloaded_for = None
             logger.info(f"[DEBUG PLAY] Memakai file cache: {file_path}")
             audio_source = file_path
             is_stream = False
@@ -1478,8 +1519,6 @@ class MusicController:
                 logger.info(f"[DEBUG PLAY] Stream URL didapat, play via FFmpeg")
                 audio_source = stream_url
                 is_stream = True
-                # Start background download for caching future plays
-                asyncio.create_task(self._download_track(url))
             else:
                 # Fallback: download full file
                 logger.info(f"[DEBUG PLAY] Stream gagal, unduh file: {url}")
@@ -1493,6 +1532,22 @@ class MusicController:
                 self._current_file = file_path
                 audio_source = file_path
                 is_stream = False
+
+        # [CACHE RACE] Re-verify cached file right before FFmpeg — it may have been
+        # evicted by concurrent _enforce_cache_size_limit between our check above
+        # and now. Fall back to streaming only when the race actually occurs.
+        if not is_stream and not os.path.isfile(audio_source):
+            logger.warning(f"[CACHE RACE] File evicted before play, falling back to stream")
+            stream_url = await self._get_direct_url(url)
+            if stream_url:
+                audio_source = stream_url
+                is_stream = True
+                self._current_file = None
+            else:
+                logger.error(f"[ERROR PLAY] Cache file gone and stream also failed: {url}")
+                await self._cleanup_current_file()
+                await self._play_next()
+                return
 
         try:
             if is_stream:
@@ -1514,7 +1569,6 @@ class MusicController:
             self._pause_reason = "none"
             self._stopped = False
             self._start_watchdog(track.duration)
-            asyncio.create_task(self._sequential_preload())
             await self._update_now_playing()
             self._start_np_updater()
             logger.info(f"[DEBUG PLAY] Pemutaran {'stream' if is_stream else 'file'} berhasil!")
@@ -1575,7 +1629,6 @@ class MusicController:
             if self.queue:
                 next_track = self.queue.pop(0)
                 logger.info(f"[NEXT TRACK] Playing '{next_track.title}' (queue has {len(self.queue)} more)")
-                asyncio.create_task(self._preload_next(next_track))
                 await self.play(next_track)
                 if len(self.queue) < 5 and self._playlist_tracks and self._playlist_index < len(self._playlist_tracks):
                     asyncio.create_task(self._load_more_from_playlist())
@@ -1584,14 +1637,12 @@ class MusicController:
                 loaded = await self._load_more_from_playlist()
                 if loaded > 0:
                     next_track = self.queue.pop(0)
-                    asyncio.create_task(self._preload_next(next_track))
                     await self.play(next_track)
                     return
             if self.autoplay and self._single_loop_track:
                 try:
                     next_track = await self._autoplay_search()
                     if next_track:
-                        asyncio.create_task(self._preload_next(next_track))
                         await self.play(next_track)
                         return
                 except Exception as e:
@@ -1600,13 +1651,17 @@ class MusicController:
             self._single_loop_track = None
             self._stop_np_updater()
             await self._cleanup_current_file()
+            await self._cleanup_preloaded_file()
             self._clear_state()
             await self._update_now_playing()
+            import gc as _gc
+            _collected = _gc.collect()
+            if _collected > 100:
+                logger.info(f"[MEMORY] gc freed {_collected} objects after queue drain")
 
     async def _play_next(self):
         if self.queue:
             next_track = self.queue.pop(0)
-            asyncio.create_task(self._preload_next(next_track))
             await self.play(next_track)
 
     async def _preload_next(self, track: YtDlpTrack):
@@ -1689,17 +1744,19 @@ class MusicController:
             return 0
         self._playlist_index += len(batch)
         sem = asyncio.Semaphore(15)
-        results: list = []
-        async def _search(rt):
+        results: list = [None] * len(batch)
+        async def _search(idx: int, rt):
             async with sem:
                 r = await self._cog._search_single_resolved(rt)
                 if r:
-                    results.append(r)
-        await asyncio.gather(*[_search(rt) for rt in batch])
+                    results[idx] = r
+        await asyncio.gather(*[_search(i, rt) for i, rt in enumerate(batch)])
         for r in results:
-            self.queue.append(r)
-        logger.info(f"[PLAYLIST AUTO] Berhasil memuat {len(results)} lagu tambahan ({self._playlist_index}/{len(self._playlist_tracks)})")
-        return len(results)
+            if r:
+                self.queue.append(r)
+        found = sum(1 for r in results if r)
+        logger.info(f"[PLAYLIST AUTO] Berhasil memuat {found} lagu tambahan ({self._playlist_index}/{len(self._playlist_tracks)})")
+        return found
 
     _GENRE_SEEDS = ["pop", "rock", "lofi", "electronic", "anime", "hip hop", "r&b", "jazz", "classical", "indie", "metal", "country", "folk", "blues", "reggae"]
     _AUTOPLAY_BAD_KEYWORDS = ["tutorial", "podcast", "unboxing", "interview", "review", "reaction", "asmr", "lecture", "speech", "commentary", "vlog", "gameplay", "let's play", "livestream", "stream"]
@@ -1778,8 +1835,10 @@ class MusicController:
                 os.remove(self._current_file)
             except Exception:
                 pass
-            self._current_file = None
-        if self._preloaded_file and self._preloaded_file != self._current_file:
+        self._current_file = None
+
+    async def _cleanup_preloaded_file(self):
+        if self._preloaded_file and os.path.isfile(self._preloaded_file):
             try:
                 os.remove(self._preloaded_file)
             except Exception:
@@ -1810,6 +1869,7 @@ class MusicController:
             self._bg_resolve_task = None
         self._recovery_attempts = 0
         await self._cleanup_current_file()
+        await self._cleanup_preloaded_file()
         await self._cleanup_np()
         self.loop_mode = "off"
         self.autoplay = False
@@ -1840,6 +1900,7 @@ class MusicController:
             self._bg_resolve_task.cancel()
             self._bg_resolve_task = None
         await self._cleanup_current_file()
+        await self._cleanup_preloaded_file()
         await self._cleanup_np()
         if self.vc:
             self.vc.stop()

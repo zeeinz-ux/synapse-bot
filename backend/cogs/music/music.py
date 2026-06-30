@@ -581,12 +581,9 @@ class Music(commands.Cog):
                             if yt_playlist and yt_playlist.tracks and len(yt_playlist.tracks) > 1:
                                 rebuilt = []
                                 for t in yt_playlist.tracks:
-                                    raw = getattr(t, '_ydl_info', {}) or {}
-                                    artists = raw.get('artist') or raw.get('creators') or raw.get('uploader') or ''
-                                    if isinstance(artists, list):
-                                        artists = ', '.join(filter(None, artists))
-                                    name = raw.get('title') or t.title or 'Unknown'
-                                    tid = raw.get('id') or t.uri or ''
+                                    artists = t.author if t.author != "Unknown" else ''
+                                    name = t.title or 'Unknown'
+                                    tid = t.yt_id or t.uri or ''
                                     rt_q = f"ytmsearch:{artists} - {name}" if artists else f"ytmsearch:{name}"
                                     rebuilt.append(ResolvedTrack(name=name, artists=artists or 'Unknown', album=yt_playlist.name, duration_ms=None, artwork=t.artwork or '', spotify_id=tid, youtube_id=None, query=rt_q, source="ytdlp_extractor"))
                                 logger.info(f"[SPOTIFY FALLBACK] yt-dlp berhasil: {len(rebuilt)} tracks")
@@ -652,7 +649,7 @@ class Music(commands.Cog):
                     await asyncio.sleep(0.3)
                     await controller.play(first_playable)
                 else:
-                    controller.queue.insert(0, first_playable)
+                    controller.queue.append(first_playable)
 
                 # [BACKGROUND] Resolve sisa lagu di background, setelah sentuh ke user
                 playlist_name = resolved_tracks[0].album or f"Spotify {spotify_type.title()}"
