@@ -1079,9 +1079,11 @@ class Music(commands.Cog):
                 url = track.uri or track.webpage_url or ""
                 title_str = f"[{title}]({url})" if url else f"**{title}**"
                 duration_str = format_duration(track.duration) if track.duration else "∞"
+                progress = controller._progress_bar(controller.position, track.duration) if track.duration else ""
+                now_playing = f"{title_str}\n{progress}" if progress else f"{title_str}\n`⏱ {duration_str}`"
                 embed.add_field(
                     name=f"▶️ Now Playing {loop_emoji}",
-                    value=f"{title_str}\n`⏱ {duration_str}`",
+                    value=now_playing,
                     inline=False,
                 )
                 if track.author and track.author != "Unknown":
@@ -1093,21 +1095,21 @@ class Music(commands.Cog):
             items = controller.queue
             if items:
                 total_ms = sum(t.duration or 0 for t in items)
-                queue_text = ""
-                for i, track in enumerate(items[:15], 1):
+                queue_lines = []
+                for idx, track in enumerate(items[:15], 1):
                     t_title = track.title or "Unknown"
-                    duration = format_duration(track.duration) if track.duration else "?"
-                    display = t_title[:48]
-                    if len(t_title) > 48:
-                        display += "…"
-                    queue_text += f"`{i:02d}.` **{display}** · `{duration}`\n"
+                    dur = format_duration(track.duration) if track.duration else "?"
+                    display = t_title[:42].rsplit(" ", 1)[0] + " …" if len(t_title) > 42 else t_title
+                    queue_lines.append(f"`{idx:02d}`　**{display}**　`{dur}`")
+
+                queue_text = "\n".join(queue_lines)
 
                 if len(items) > 15:
-                    queue_text += f"\n*— plus {len(items) - 15} more —*"
+                    queue_text += f"\n┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n*＋ {len(items) - 15} more songs*"
 
-                embed.add_field(name="⏭️ Up Next", value=queue_text, inline=False)
+                embed.add_field(name=f"⏭️ Up Next — {len(items)} song{'s' if len(items) != 1 else ''}", value=queue_text, inline=False)
                 embed.set_footer(
-                    text=f"{len(items)} song{'s' if len(items) != 1 else ''} · {format_duration(total_ms)} total",
+                    text=f"⏱ {format_duration(total_ms)} total",
                     icon_url="https://cdn.discordapp.com/emojis/1009754836318621776.webp"
                 )
             else:
