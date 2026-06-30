@@ -668,8 +668,20 @@ class Music(commands.Cog):
                     await loading_msg.edit(content="❌ Gagal menemukan lagu pertama dari playlist ini di YouTube.")
                     return
 
-                # Play lagu pertama langsung
+                # Pre-resolve 3 lagu berikutnya biar queue gak kosong
+                next_batch = resolved_tracks[1:4]
+                pre_resolved = []
+                for rt in next_batch:
+                    try:
+                        t = await self._search_single_resolved(rt)
+                        if t:
+                            pre_resolved.append(t)
+                    except Exception:
+                        pass
+
+                # Play lagu pertama + queue 3 lagu berikutnya
                 controller.queue.extend([])
+                controller.queue.extend(pre_resolved)
                 if not controller.current_track:
                     await controller.set_volume(100)
                     await asyncio.sleep(0.3)
@@ -679,7 +691,7 @@ class Music(commands.Cog):
 
                 # [BACKGROUND] Resolve sisa lagu di background, setelah sentuh ke user
                 playlist_name = resolved_tracks[0].album or f"Spotify {spotify_type.title()}"
-                remaining = resolved_tracks[1:]
+                remaining = resolved_tracks[4:]
 
                 final_embed = discord.Embed(
                     description=f"📁 **{playlist_name}**",
