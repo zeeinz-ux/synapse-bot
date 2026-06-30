@@ -30,7 +30,7 @@ MAX_QUEUE_SIZE = 100
 from backend.utils.formatters import format_duration
 from backend.cogs.music.spotify_down import SpotifyResolver, ResolvedTrack, _extract_tracks_from_scripts
 
-from backend.cogs.music.ytdlp_source import YtDlpTrack, YtDlpPlaylist, YtDlpSearcher, MusicController, _web_search_youtube
+from backend.cogs.music.ytdlp_source import YtDlpTrack, YtDlpPlaylist, YtDlpSearcher, MusicController, _web_search_youtube, renew_executor
 
 def get_db():
     try:
@@ -729,23 +729,42 @@ class Music(commands.Cog):
                     # so they know the background resolve failed.
                     resolve_errors: list[str] = []
                     try:
-                        sem = asyncio.Semaphore(1)
+                        # [OOM] Process in chunks of 15, renewing the executor
+                        # between chunks to purge yt-dlp thread-local + class-level
+                        # cache that accumulates across extract_info calls.
+                        chunk_size = 15
+                        all_remaining = list(enumerate(remaining))
+                        chunks = [all_remaining[i:i + chunk_size] for i in range(0, len(all_remaining), chunk_size)]
                         results: list[Optional[YtDlpTrack]] = [None] * len(remaining)
 
-                        async def load_one(idx: int, rt: ResolvedTrack):
-                            async with sem:
-                                try:
-                                    results[idx] = await self._search_single_resolved(rt)
-                                except Exception as e:
-                                    resolve_errors.append(f"{rt.name}: {type(e).__name__}")
-                                    logger.warning(f"[PLAYLIST BG] Resolve error for '{rt.name}': {e}")
-                                finally:
-                                    gc.collect()
+                        for chunk_idx, chunk in enumerate(chunks):
+                            sem = asyncio.Semaphore(1)
 
-                        await asyncio.gather(*[load_one(i, rt) for i, rt in enumerate(remaining)], return_exceptions=True)
-                        for r in results:
-                            if r and len(controller.queue) < MAX_QUEUE_SIZE:
-                                controller.queue.append(r)
+                            async def load_one(idx: int, rt: ResolvedTrack):
+                                async with sem:
+                                    try:
+                                        results[idx] = await self._search_single_resolved(rt)
+                                    except Exception as e:
+                                        resolve_errors.append(f"{rt.name}: {type(e).__name__}")
+                                        logger.warning(f"[PLAYLIST BG] Resolve error for '{rt.name}': {e}")
+                                    finally:
+                                        gc.collect()
+
+                            await asyncio.gather(*[load_one(idx, rt) for idx, rt in chunk], return_exceptions=True)
+                            # Append resolved tracks so far so user sees them sooner
+                            for idx, rt in chunk:
+                                if results[idx] and len(controller.queue) < MAX_QUEUE_SIZE:
+                                    controller.queue.append(results[idx])
+
+                            collected = gc.collect()
+                            logger.info(f"[PLAYLIST BG] Chunk {chunk_idx + 1}/{len(chunks)} done ({len(chunk)} tracks, gc freed {collected} objects)")
+
+                            # Renew executor to free yt-dlp leaked memory
+                            if chunk_idx < len(chunks) - 1:
+                                renew_executor()
+                                YtDlpSearcher._cache.clear()
+                                await asyncio.sleep(0.5)
+
                         skipped = sum(1 for r in results if r is None)
                         YtDlpSearcher._cache.clear()
                         collected = gc.collect()

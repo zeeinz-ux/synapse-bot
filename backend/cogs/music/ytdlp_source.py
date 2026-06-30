@@ -7,6 +7,7 @@ import time
 import shutil
 import hashlib
 import subprocess
+import threading
 import warnings
 import logging
 import random
@@ -24,6 +25,21 @@ logger = logging.getLogger("discord.bot.ytdlp")
 
 # [AUDIT FIX 2] ThreadPool khusus agar eksekusi yt-dlp tidak memblokir Event Loop utama
 _YTDLP_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ytdlp_worker")
+
+# [OOM FIX] Periodically renew the executor to purge yt-dlp thread-local state
+# and class-level caches that accumulate across extract_info calls.
+_YTDLP_EXECUTOR_LOCK = threading.Lock()
+
+def renew_executor() -> None:
+    """Shut down the old executor and create a fresh one.
+    Call this between large resolve batches to free leaked memory.
+    """
+    global _YTDLP_EXECUTOR
+    with _YTDLP_EXECUTOR_LOCK:
+        old = _YTDLP_EXECUTOR
+        _YTDLP_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ytdlp_worker")
+        old.shutdown(wait=False)
+
 
 # [OOM FIX] Batasi jumlah download simultan
 _DOWNLOAD_SEMAPHORE = asyncio.Semaphore(2)
