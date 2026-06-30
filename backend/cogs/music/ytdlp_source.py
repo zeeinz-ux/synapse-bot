@@ -23,7 +23,7 @@ import yt_dlp
 logger = logging.getLogger("discord.bot.ytdlp")
 
 # [AUDIT FIX 2] ThreadPool khusus agar eksekusi yt-dlp tidak memblokir Event Loop utama
-_YTDLP_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ytdlp_worker")
+_YTDLP_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ytdlp_worker")
 
 # [OOM FIX] Batasi jumlah download simultan
 _DOWNLOAD_SEMAPHORE = asyncio.Semaphore(2)
@@ -169,6 +169,8 @@ def _extract_info_with_fallback(url: str, base_opts: dict) -> Optional[dict]:
     """[PHASE 8] Try extract_info with each player_client in fallback chain.
     Returns info dict on first success, None if all fail.
     Logs which client worked so we can see in production.
+    [OOM] gc.collect() after each client failure so memory from subprocess
+    calls is released before the next fallback attempt.
     """
     fallbacks = _get_player_client_fallbacks()
     last_error: Optional[Exception] = None
@@ -177,7 +179,6 @@ def _extract_info_with_fallback(url: str, base_opts: dict) -> Optional[dict]:
         try:
             info = yt_dlp.YoutubeDL(opts).extract_info(url, download=False)
             if info:
-                # info can be a playlist; we only want single video here.
                 if "entries" in info and info["entries"]:
                     info = info["entries"][0]
                 if info and info.get("url"):
@@ -186,7 +187,8 @@ def _extract_info_with_fallback(url: str, base_opts: dict) -> Optional[dict]:
         except Exception as e:
             last_error = e
             logger.debug(f"[yt-dlp] client={client_name} failed: {type(e).__name__}: {str(e)[:120]}")
-            continue
+        finally:
+            gc.collect()
     if last_error:
         logger.warning(f"[yt-dlp] All {len(fallbacks)} player_clients failed for {url[:60]}: {last_error}")
     else:

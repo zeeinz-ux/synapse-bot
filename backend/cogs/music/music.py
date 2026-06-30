@@ -160,6 +160,8 @@ class Music(commands.Cog):
             lbl = f"{artists} - {name}" if has_artist else name
 
             # Try web scrape + extract_info first (most reliable, uses android_vr fallback)
+            # [OOM] Limit to first 2 URLs and gc after each attempt to prevent
+            # yt-dlp subprocess memory accumulation.
             try:
                 session = await self._get_session()
                 video_urls = await asyncio.wait_for(
@@ -168,7 +170,7 @@ class Music(commands.Cog):
                 )
                 best = None
                 best_score = 0.0
-                for vu in video_urls:
+                for vu in video_urls[:2]:
                     try:
                         result = await asyncio.wait_for(
                             YtDlpSearcher.extract_info(vu),
@@ -180,7 +182,9 @@ class Music(commands.Cog):
                                 best_score = score
                                 best = result
                     except Exception:
-                        continue
+                        pass
+                    finally:
+                        gc.collect()
                 if best and best_score >= 0.25:
                     return best
                 if best:
@@ -743,6 +747,7 @@ class Music(commands.Cog):
                             if r and len(controller.queue) < MAX_QUEUE_SIZE:
                                 controller.queue.append(r)
                         skipped = sum(1 for r in results if r is None)
+                        YtDlpSearcher._cache.clear()
                         collected = gc.collect()
                         logger.info(f"[PLAYLIST BG] Selesai: {len(results)} ditemukan, {skipped} skipped (gc freed {collected} objects)")
 
