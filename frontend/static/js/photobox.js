@@ -568,6 +568,39 @@
   }
 
   // ═══════════════════════════════════════════════
+  // ASPECT-RATIO-CORRECT IMAGE FILL (center-crop)
+  // ═══════════════════════════════════════════════
+  function drawPhotoFill(ctx, source, x, y, w, h, mirror) {
+    const sW = source.width || source.videoWidth || 640;
+    const sH = source.height || source.videoHeight || 480;
+    const sRatio = sW / sH;
+    const dRatio = w / h;
+
+    let sx, sy, sw, sh;
+    if (sRatio > dRatio) {
+      sh = sH;
+      sw = sH * dRatio;
+      sx = (sW - sw) / 2;
+      sy = 0;
+    } else {
+      sw = sW;
+      sh = sW / dRatio;
+      sx = 0;
+      sy = (sH - sh) / 2;
+    }
+
+    if (mirror) {
+      ctx.save();
+      ctx.translate(x + w, y);
+      ctx.scale(-1, 1);
+      ctx.drawImage(source, sx, sy, sw, sh, 0, 0, w, h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(source, sx, sy, sw, sh, x, y, w, h);
+    }
+  }
+
+  // ═══════════════════════════════════════════════
   // DRAW A SINGLE PHOTO FRAME (shared)
   // ═══════════════════════════════════════════════
   function drawCellContent(ctx, fx, fy, fw, fh, t, index, source, isVideo) {
@@ -617,22 +650,13 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // ── Draw photo ──
+    // ── Draw photo (aspect-ratio-correct center-crop) ──
     ctx.save();
     ctx.beginPath();
     roundRect(ctx, photoX, photoY, photoW, photoH, radius - 2);
     ctx.clip();
-    if (source) {
-      if (isVideo) {
-        if (source.readyState >= 2) {
-          ctx.translate(photoX + photoW, photoY);
-          ctx.scale(-1, 1);
-          ctx.drawImage(source, 0, 0, source.videoWidth, source.videoHeight, 0, 0, photoW, photoH);
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
-        }
-      } else {
-        ctx.drawImage(source, 0, 0, source.width, source.height, photoX, photoY, photoW, photoH);
-      }
+    if (source && (isVideo ? source.readyState >= 2 : true)) {
+      drawPhotoFill(ctx, source, photoX, photoY, photoW, photoH, isVideo);
     }
     ctx.restore();
 

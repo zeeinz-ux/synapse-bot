@@ -153,10 +153,9 @@ body {
   box-shadow: var(--pb-shadow);
   border: 2px solid rgba(255, 255, 255, 0.6);
   min-height: 440px;
-  max-height: 90vh;
+  max-height: 92vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   overflow-y: auto;
   transition: box-shadow 0.5s ease, background 0.5s ease;
 }
@@ -176,9 +175,20 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 1rem;
   text-align: center;
+  flex-shrink: 0;
+}
+
+#pbStateCamera, #pbStatePreview {
+  justify-content: flex-start;
+  flex: 1;
+}
+
+#pbStateLoading, #pbStatePicker, #pbStateCountdown,
+#pbStateSending, #pbStateSuccess, #pbStateError {
+  justify-content: center;
+  flex: 1;
 }
 
 .pb-state.hidden {
@@ -711,6 +721,7 @@ body {
   background: linear-gradient(135deg, var(--pb-accent), var(--pb-secondary));
   color: white;
   box-shadow: 0 4px 16px var(--pb-glow);
+  margin-top: auto;
 }
 
 .pb-btn--capture:hover {
@@ -782,7 +793,8 @@ body {
 .pb-result-actions {
   display: flex;
   gap: 0.8rem;
-  margin-top: 0.3rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
 }
 
 .pb-btn--retake {
@@ -973,7 +985,7 @@ body {
 
 /* ── Responsive ── */
 @media (max-width: 480px) {
-  .pb-card { padding: 1.2rem 0.8rem; min-height: 360px; }
+  .pb-card { padding: 1.2rem 1rem; min-height: 300px; }
   .pb-title { font-size: 1.5rem; }
   .pb-subtitle { font-size: 0.85rem; }
   .pb-countdown-num { font-size: 4rem; }
@@ -990,11 +1002,11 @@ body {
   .pb-hint { font-size: 0.7rem; }
   .pb-step-label { font-size: 0.8rem; }
   .pb-frame-label { font-size: 0.75rem; }
+  .pb-header { margin-bottom: 0.8rem; }
 }
 
 @media (max-width: 360px) {
-  .pb-card { padding: 1rem 0.6rem; min-height: 320px; }
+  .pb-card { padding: 1rem 0.6rem; min-height: 260px; }
   .pb-picker-card { min-width: 48px; padding: 0.3rem 0.2rem; }
   .pb-layout-btn { min-width: 54px; padding: 0.25rem 0.4rem; }
-  .pb-header { margin-bottom: 0.8rem; }
 }
