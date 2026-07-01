@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════
-   PHOTOBOX — cute & gemas edition 🫶
+   PHOTOBOX — photobooth strip edition 🫶
    ══════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -10,7 +10,6 @@
   --pb-lavender: #c8a8e9;
   --pb-soft-lavender: #e8d5f9;
   --pb-peach: #ffb5a7;
-  --pb-yellow: #fde2b5;
   --pb-mint: #b5ead7;
   --pb-white: #fff5f9;
   --pb-card-bg: rgba(255, 255, 255, 0.85);
@@ -127,6 +126,56 @@ body {
 }
 
 /* ══════════════════════════════════════════════
+   STEP INDICATOR (1/3, 2/3, 3/3)
+   ══════════════════════════════════════════════ */
+.pb-step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.step-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  background: #f0e0f0;
+  color: #bbb;
+  transition: all 0.4s ease;
+}
+
+.step-dot.active {
+  background: linear-gradient(135deg, var(--pb-pink), var(--pb-lavender));
+  color: white;
+  box-shadow: 0 2px 12px rgba(255, 107, 157, 0.4);
+  transform: scale(1.1);
+}
+
+.step-dot.done {
+  background: var(--pb-mint);
+  color: white;
+}
+
+.step-line {
+  width: 24px;
+  height: 2px;
+  background: #e0d0e0;
+  border-radius: 99px;
+}
+
+.pb-step-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--pb-pink);
+  margin-bottom: 0.3rem;
+}
+
+/* ══════════════════════════════════════════════
    STATE: Loading
    ══════════════════════════════════════════════ */
 .pb-loading-icon {
@@ -184,7 +233,6 @@ body {
   background: #000;
 }
 
-/* Frame heart decorations */
 .pb-frame-deco {
   position: absolute;
   inset: 0;
@@ -260,7 +308,7 @@ body {
 /* ══════════════════════════════════════════════
    STATE: Countdown
    ══════════════════════════════════════════════ */
-.pb-countdown {
+.pb-countdown-num {
   font-size: 6rem;
   font-weight: 900;
   background: linear-gradient(135deg, var(--pb-pink), var(--pb-lavender));
@@ -284,51 +332,29 @@ body {
 }
 
 /* ══════════════════════════════════════════════
-   STATE: Preview
+   STATE: Preview — PHOTOBOOTH STRIP
    ══════════════════════════════════════════════ */
-.pb-result-frame {
-  position: relative;
+.pb-strip-wrapper {
   width: 100%;
-  max-width: 320px;
+  max-width: 300px;
   border-radius: 16px;
   overflow: hidden;
   box-shadow:
     0 0 0 6px white,
     0 0 0 8px rgba(200, 168, 233, 0.3),
-    0 8px 32px rgba(0, 0, 0, 0.12);
+    0 8px 32px rgba(0, 0, 0, 0.15);
 }
 
-.pb-result-frame canvas {
+.pb-strip-wrapper canvas {
   width: 100%;
   display: block;
-  aspect-ratio: 4 / 3;
-}
-
-.pb-result-sticker {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.pb-result-sticker span {
-  position: absolute;
-  font-size: 1.8rem;
-  animation: stickerBounce 3s ease-in-out infinite;
-}
-
-.sticker-1 { top: 4px; left: 4px; animation-delay: 0s; }
-.sticker-2 { bottom: 4px; right: 4px; animation-delay: 0.5s; }
-.sticker-3 { top: 50%; left: 50%; transform: translate(-50%, -50%); animation-delay: 1s; font-size: 2.8rem; opacity: 0.3; }
-
-@keyframes stickerBounce {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-8px) rotate(8deg); }
+  aspect-ratio: auto;
 }
 
 .pb-result-actions {
   display: flex;
   gap: 0.8rem;
-  margin-top: 0.5rem;
+  margin-top: 0.3rem;
 }
 
 .pb-btn--retake {
@@ -497,6 +523,6 @@ body {
 @media (max-width: 480px) {
   .pb-card { padding: 1.5rem 1rem; }
   .pb-title { font-size: 1.8rem; }
-  .pb-countdown { font-size: 4.5rem; }
+  .pb-countdown-num { font-size: 4.5rem; }
   .pb-btn { font-size: 0.9rem; padding: 0.7rem 1.5rem; }
 }

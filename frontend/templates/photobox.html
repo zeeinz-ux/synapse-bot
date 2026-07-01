@@ -39,6 +39,15 @@
 
       <!-- === STATE: Camera === -->
       <div class="pb-state hidden" id="pbStateCamera">
+        <div class="pb-step-indicator">
+          <span class="step-dot active" data-step="1">1</span>
+          <span class="step-line"></span>
+          <span class="step-dot" data-step="2">2</span>
+          <span class="step-line"></span>
+          <span class="step-dot" data-step="3">3</span>
+        </div>
+        <p class="pb-step-label" id="pbStepLabel">Ambil pose pertama!</p>
+
         <div class="pb-frame">
           <div class="pb-frame-inner">
             <video id="pbVideo" autoplay playsinline muted></video>
@@ -54,30 +63,25 @@
 
         <button class="pb-btn pb-btn--capture" id="pbBtnCapture">
           <span class="btn-icon">📸</span>
-          Ambil Foto
+          <span id="pbBtnCaptureText">Ambil Foto 1</span>
         </button>
-        <p class="pb-hint">Klik tombolnya, nanti ada countdown 3 detik!</p>
+        <p class="pb-hint">Klik, nanti ada countdown tiap fotonya!</p>
       </div>
 
       <!-- === STATE: Countdown === -->
       <div class="pb-state hidden" id="pbStateCountdown">
-        <div class="pb-countdown" id="pbCountdownNum">3</div>
+        <div class="pb-countdown-num" id="pbCountdownNum">3</div>
         <p class="pb-countdown-label" id="pbCountdownLabel">siap-siap...</p>
       </div>
 
-      <!-- === STATE: Preview === -->
+      <!-- === STATE: Preview Strip === -->
       <div class="pb-state hidden" id="pbStatePreview">
-        <div class="pb-result-frame">
+        <div class="pb-strip-wrapper">
           <canvas id="pbCanvas"></canvas>
-          <div class="pb-result-sticker" aria-hidden="true">
-            <span class="sticker-1">🫶</span>
-            <span class="sticker-2">✨</span>
-            <span class="sticker-3">💖</span>
-          </div>
         </div>
         <div class="pb-result-actions">
           <button class="pb-btn pb-btn--retake" id="pbBtnRetake">
-            🔄 Ulang
+            🔄 Ambil Ulang
           </button>
           <button class="pb-btn pb-btn--send" id="pbBtnSend">
             📤 Kirim ke Discord
@@ -88,7 +92,7 @@
       <!-- === STATE: Sending === -->
       <div class="pb-state hidden" id="pbStateSending">
         <div class="pb-sending-icon">📤</div>
-        <p class="pb-sending-text">Ngirim foto ke Discord...</p>
+        <p class="pb-sending-text">Ngirim fotobooth ke Discord...</p>
         <div class="pb-sending-bar"><div class="pb-sending-fill"></div></div>
       </div>
 
@@ -96,8 +100,8 @@
       <div class="pb-state hidden" id="pbStateSuccess">
         <div class="pb-success-icon">🎉</div>
         <h2 class="pb-success-title">Berhasil! 🔥</h2>
-        <p class="pb-success-text">Foto lu udah muncul di channel Discord!</p>
-        <p class="pb-success-sub">cakep bener dah 😎</p>
+        <p class="pb-success-text">Fotobooth strip lu udah muncul di channel!</p>
+        <p class="pb-success-sub">gemas deh pokoknya 😎</p>
         <div class="pb-confetti" aria-hidden="true">
           <span>🎊</span><span>✨</span><span>🎉</span><span>💖</span>
           <span>🌟</span><span>🎊</span><span>✨</span><span>💖</span>
