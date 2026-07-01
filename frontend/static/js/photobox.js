@@ -63,7 +63,7 @@
       grad1: '#ff6b9d',
       grad2: '#c8a8e9',
       floaties: ['🌸', '⭐', '💖', '✨', '🫶', '🌟'],
-      deco: ['💖', '💖', '💖', '💖'],
+      deco: ['💖', '✨', '🌸', '💕'],
       decoPos: [
         { top: '6px', left: '8px' },
         { top: '6px', right: '8px' },
@@ -84,7 +84,7 @@
       grad1: '#4fc3f7',
       grad2: '#a8d8e9',
       floaties: ['☁️', '⭐', '🌸', '✨', '🌼', '🌟'],
-      deco: ['☁️', '⭐', '🌸', '✨'],
+      deco: ['⭐', '☁️', '🌸', '✨'],
       decoPos: [
         { top: '4px', left: '6px' },
         { top: '4px', right: '6px' },
@@ -105,7 +105,7 @@
       grad1: '#69db7c',
       grad2: '#a8e9c8',
       floaties: ['🍃', '🌿', '🌸', '✨', '🌙', '🌟'],
-      deco: ['🍃', '🌙', '🌸', '✨'],
+      deco: ['🌿', '🌙', '🍃', '✨'],
       decoPos: [
         { top: '4px', left: '6px' },
         { top: '4px', right: '6px' },
@@ -344,103 +344,187 @@
   }
 
   // ═══════════════════════════════════════════════
-  // BUILD STRIP (theme-aware)
+  // BUILD STRIP (theme-aware, aesthetic frame)
   // ═══════════════════════════════════════════════
   function buildStrip(frames) {
     const t = THEMES[currentTheme];
 
-    const photoW = 240;
-    const photoH = 180;
-    const gap = 12;
+    const frameW = 230;
+    const frameH = 172;
+    const framePad = 10;
+    const gap = 20;
     const paddingX = 20;
-    const paddingY = 24;
-    const headerH = 40;
-    const footerH = 36;
-    const cornerRadius = 10;
+    const paddingY = 22;
+    const headerH = 38;
+    const footerH = 34;
+    const outerRadius = 10;
+    const innerRadius = 8;
 
     const totalPhotos = frames.length;
-    const stripW = photoW + paddingX * 2;
-    const stripH = headerH + totalPhotos * photoH + (totalPhotos - 1) * gap + footerH + paddingY * 2;
+    const stripW = frameW + paddingX * 2;
+    const stripH = headerH + totalPhotos * (frameH + framePad * 2) + (totalPhotos - 1) * gap + footerH + paddingY * 2;
 
     canvas.width = stripW;
     canvas.height = stripH;
     const ctx = canvas.getContext('2d');
 
-    // Background
+    // ── Strip Background ──
     ctx.fillStyle = t.stripBg;
     ctx.beginPath();
-    roundRect(ctx, 0, 0, stripW, stripH, 12);
+    roundRect(ctx, 0, 0, stripW, stripH, outerRadius);
     ctx.fill();
 
-    // Subtle border
-    ctx.shadowColor = 'rgba(0,0,0,0.08)';
-    ctx.shadowBlur = 4;
+    // ── Strip Border (double line) ──
+    ctx.shadowColor = 'rgba(0,0,0,0.06)';
+    ctx.shadowBlur = 6;
     ctx.strokeStyle = t.border;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    roundRect(ctx, 2, 2, stripW - 4, stripH - 4, 11);
+    roundRect(ctx, 3, 3, stripW - 6, stripH - 6, outerRadius - 1);
     ctx.stroke();
     ctx.shadowBlur = 0;
+    ctx.strokeStyle = t.grad2;
+    ctx.setLineDash([4, 6]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    roundRect(ctx, 8, 8, stripW - 16, stripH - 16, outerRadius - 4);
+    ctx.stroke();
+    ctx.setLineDash([]);
 
-    // Top decorative line
-    const grad = ctx.createLinearGradient(0, 0, stripW, 0);
-    grad.addColorStop(0, 'transparent');
-    grad.addColorStop(0.2, t.grad1);
-    grad.addColorStop(0.5, t.grad2);
-    grad.addColorStop(0.8, t.grad1);
-    grad.addColorStop(1, 'transparent');
-    ctx.fillStyle = grad;
-    ctx.fillRect(paddingX, paddingY - 2, photoW, 3);
+    // ── Header ──
+    const gradH = ctx.createLinearGradient(paddingX, 0, paddingX + frameW, 0);
+    gradH.addColorStop(0, 'transparent');
+    gradH.addColorStop(0.05, t.grad1);
+    gradH.addColorStop(0.5, t.grad2);
+    gradH.addColorStop(0.95, t.grad1);
+    gradH.addColorStop(1, 'transparent');
+    ctx.fillStyle = gradH;
+    ctx.fillRect(paddingX, paddingY + 2, frameW, 2);
 
-    // Header
     ctx.fillStyle = t.grad1;
-    ctx.font = 'bold 14px Nunito, sans-serif';
+    ctx.font = 'bold 13px Nunito, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(t.brand, stripW / 2, paddingY + headerH / 2);
 
-    // Photos
+    // ── Photo Frames ──
     let y = paddingY + headerH;
     for (let i = 0; i < totalPhotos; i++) {
-      const x = paddingX;
+      const fx = paddingX;
+      const fy = y;
 
-      ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.12)';
-      ctx.shadowBlur = 6;
-      ctx.shadowOffsetY = 2;
+      // Outer frame shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.10)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 3;
+
+      // White outer frame background
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      roundRect(ctx, x, y, photoW, photoH, cornerRadius);
-      ctx.clip();
-      ctx.drawImage(frames[i], 0, 0, frames[i].width, frames[i].height, x, y, photoW, photoH);
-      ctx.restore();
+      roundRect(ctx, fx, fy, frameW, frameH + framePad * 2, outerRadius);
+      ctx.fill();
 
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
+      // Frame border
       ctx.strokeStyle = t.border;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      roundRect(ctx, x, y, photoW, photoH, cornerRadius);
+      roundRect(ctx, fx, fy, frameW, frameH + framePad * 2, outerRadius);
       ctx.stroke();
 
+      // Inner frame accent border (colored)
+      ctx.strokeStyle = t.grad1;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      roundRect(ctx, fx + 3, fy + 3, frameW - 6, frameH + framePad * 2 - 6, outerRadius - 2);
+      ctx.stroke();
+
+      // Photo area (inside frame)
+      const photoX = fx + framePad;
+      const photoY = fy + framePad;
+      const photoW = frameW - framePad * 2;
+      const photoH = frameH;
+
+      // Photo shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.08)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 1;
+
+      ctx.save();
+      ctx.beginPath();
+      roundRect(ctx, photoX, photoY, photoW, photoH, innerRadius);
+      ctx.clip();
+      ctx.drawImage(frames[i], 0, 0, frames[i].width, frames[i].height, photoX, photoY, photoW, photoH);
+      ctx.restore();
+
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
+      // Photo border
+      ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      roundRect(ctx, photoX, photoY, photoW, photoH, innerRadius);
+      ctx.stroke();
+
+      // ── Frame corner decorations ──
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const cornerEmoji = t.deco[0];
+      ctx.fillText(cornerEmoji, fx + 12, fy + 14);
+      ctx.fillText(cornerEmoji, fx + frameW - 12, fy + 14);
+
+      // Small sticker badge on frame
+      ctx.font = '10px sans-serif';
+      ctx.fillStyle = t.grad1;
+      ctx.beginPath();
+      roundRect(ctx, fx + frameW - 36, fy + frameH + framePad * 2 - 18, 28, 14, 7);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 8px Nunito, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('✨ cute', fx + frameW - 22, fy + frameH + framePad * 2 - 11);
+
+      // Decorative element at bottom-left of frame
+      ctx.font = '18px sans-serif';
+      ctx.fillText(t.deco[i % t.deco.length], fx + 14, fy + frameH + framePad * 2 - 10);
+
+      // ── Connector between frames ──
       if (i < totalPhotos - 1) {
-        const decoY = y + photoH + gap / 2;
+        const connY = fy + frameH + framePad * 2 + gap / 2;
+        ctx.fillStyle = t.grad2;
+        ctx.beginPath();
+        roundRect(ctx, stripW / 2 - 12, connY - 1, 24, 2, 1);
+        ctx.fill();
+
+        ctx.font = '15px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = '16px sans-serif';
-        ctx.fillText(t.betweenEmojis[i % t.betweenEmojis.length], stripW / 2, decoY);
+        ctx.fillText(t.betweenEmojis[i % t.betweenEmojis.length], stripW / 2, connY);
       }
 
-      y += photoH + gap;
+      y += frameH + framePad * 2 + gap;
     }
 
-    // Divider
-    ctx.fillStyle = grad;
-    ctx.fillRect(paddingX, y - gap + 6, photoW, 3);
+    // ── Divider before footer ──
+    ctx.fillStyle = gradH;
+    ctx.fillRect(paddingX, y - gap + 4, frameW, 2);
 
-    // Footer
+    // ── Footer ──
     ctx.fillStyle = t.textMuted;
-    ctx.font = '12px Nunito, sans-serif';
+    ctx.font = '11px Nunito, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(formatDate() + `  ✦  ${totalPhotos} pose  ✦  Synapse`, stripW / 2, y + footerH / 2 + 4);
+    ctx.fillText(`✦ ${formatDate()}  ·  ${totalPhotos} pose  ·  Synapse ✦`, stripW / 2, y + footerH / 2 + 2);
+
+    // Small decorative dots in footer corners
+    ctx.font = '10px sans-serif';
+    ctx.fillText(t.deco[1] || '✨', paddingX + 6, y + footerH / 2 + 2);
+    ctx.fillText(t.deco[1] || '✨', stripW - paddingX - 6, y + footerH / 2 + 2);
   }
 
   function roundRect(ctx, x, y, w, h, r) {
