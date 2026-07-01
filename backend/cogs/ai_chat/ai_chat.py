@@ -39,6 +39,7 @@ from ...utils.firestore_stats import (
     firestore_retry_after,
     _is_quota_error,
 )
+from .prompt import SYSTEM_PROMPT_TEMPLATE
 
 # ── Konstanta ──
 MAX_HISTORY_PAIRS = 5
@@ -60,24 +61,6 @@ OPENROUTER_MODEL = "google/gemini-2.5-flash:free"
 # ── Circuit Breaker ──
 CIRCUIT_BREAKER_THRESHOLD = 3       # fail streak sebelum circuit open
 CIRCUIT_BREAKER_COOLDOWN = 7200     # 2 jam (detik)
-
-# ── System Prompt Template ──
-SYSTEM_PROMPT_TEMPLATE = """Kamu adalah AI Resmi dari bot Discord "Synapse".
-Personality saat ini: {personality}
-
-Gaya bahasa:
-• Default: Gaul, keren, santai, pakai Bahasa Indonesia kasual (lu-gue/kamu-aku sesuai konteks).
-• Bisa berubah formal jika pertanyaan terdeteksi serius/teknikal.
-• WAJIB merespons dalam bahasa yang sama dengan pertanyaan user (multilingual support).
-
-Aturan:
-• Jawab singkat, padat, relevan. Maksimal 4 kalimat kecuali diminta panjang.
-• Jangan berikan informasi pribadi atau data sensitif.
-• Jika ditanya hal terkait server, gunakan [CONTEXT SERVER] di bawah ini sebagai referensi UTAMA.
-
-{server_context}
-
-"""
 # FUNGSI INI WAJIB ADA: Mencegah RetryError crash, dan oper balik status gagal
 def return_failure_tuple(retry_state):
     return "RETRY_LIMIT_EXCEEDED", False
@@ -118,8 +101,8 @@ class AIChat(commands.Cog):
             return
       
         timeout = aiohttp.ClientTimeout(
-            total=30,
-            connect=10
+            total=60,
+            connect=15
         )
       
         self.session = aiohttp.ClientSession(
