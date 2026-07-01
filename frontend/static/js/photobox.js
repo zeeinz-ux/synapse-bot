@@ -1,6 +1,6 @@
 /**
  * Photobox — Photobooth Strip Camera
- * Ambil 3 foto, digabung jadi strip ala photobooth, kirim via webhook.
+ * Pilih template (1-5 foto), ambil foto, gabung jadi strip, kirim via webhook.
  */
 (function () {
   'use strict';
@@ -9,6 +9,7 @@
 
   const states = {
     loading: $('pbStateLoading'),
+    picker: $('pbStatePicker'),
     camera: $('pbStateCamera'),
     countdown: $('pbStateCountdown'),
     preview: $('pbStatePreview'),
@@ -24,7 +25,9 @@
   const errorText = $('pbErrorText');
   const stepLabel = $('pbStepLabel');
   const btnCaptureText = $('pbBtnCaptureText');
-  const stepDots = document.querySelectorAll('.step-dot');
+  const stepIndicator = $('pbStepIndicator');
+  const pickerCards = document.querySelectorAll('.pb-picker-card');
+  const btnStart = $('pbBtnStart');
 
   const btnCapture = $('pbBtnCapture');
   const btnRetake = $('pbBtnRetake');
@@ -36,7 +39,16 @@
   let capturedFrames = [];
   let isProcessing = false;
   let currentStep = 1;
-  const TOTAL_SHOTS = 3;
+  let TOTAL_SHOTS = 3;
+
+  // ── Step labels per template size ──
+  const STEP_LABELS = {
+    1: ['Pose terbaik!'],
+    2: ['Pose pertama!', 'Pose terakhir!'],
+    3: ['Pose pertama!', 'Pose kedua, keren!', 'Pose terakhir, gemas!'],
+    4: ['Pose #1!', 'Pose #2!', 'Pose #3!', 'Pose terakhir!'],
+    5: ['Pose #1!', 'Pose #2!', 'Pose #3!', 'Pose #4!', 'Pose terakhir!'],
+  };
 
   // ── Webhook from URL ──
   const params = new URLSearchParams(window.location.search);
@@ -72,18 +84,56 @@
     return `${pad(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()}`;
   }
 
+  // ── Build step indicator dynamically ──
+  function buildStepIndicator(count) {
+    stepIndicator.innerHTML = '';
+    for (let i = 1; i <= count; i++) {
+      if (i > 1) {
+        const line = document.createElement('span');
+        line.className = 'step-line';
+        stepIndicator.appendChild(line);
+      }
+      const dot = document.createElement('span');
+      dot.className = 'step-dot' + (i === 1 ? ' active' : '');
+      dot.dataset.step = i;
+      dot.textContent = i;
+      stepIndicator.appendChild(dot);
+    }
+  }
+
   // ── Update step indicator ──
   function updateStep(step) {
     currentStep = step;
-    stepDots.forEach((dot, i) => {
+    const dots = stepIndicator.querySelectorAll('.step-dot');
+    dots.forEach((dot) => {
       const idx = parseInt(dot.dataset.step);
       dot.classList.toggle('active', idx === step);
       dot.classList.toggle('done', idx < step);
     });
-    const labels = ['Ambil pose pertama!', 'Pose kedua, keren!', 'Pose terakhir, gemas!'];
-    stepLabel.textContent = labels[step - 1];
+    const labels = STEP_LABELS[TOTAL_SHOTS] || STEP_LABELS[3];
+    stepLabel.textContent = labels[step - 1] || `Pose ke-${step}!`;
     btnCaptureText.textContent = `Ambil Foto ${step}`;
   }
+
+  // ═══════════════════════════════════════════════
+  // TEMPLATE PICKER
+  // ═══════════════════════════════════════════════
+  pickerCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      pickerCards.forEach((c) => c.classList.remove('active'));
+      card.classList.add('active');
+    });
+  });
+
+  btnStart.addEventListener('click', () => {
+    const active = document.querySelector('.pb-picker-card.active');
+    if (!active) return;
+    TOTAL_SHOTS = parseInt(active.dataset.count);
+    capturedFrames = [];
+    buildStepIndicator(TOTAL_SHOTS);
+    updateStep(1);
+    showState('camera');
+  });
 
   // ═══════════════════════════════════════════════
   // CAMERA
@@ -103,7 +153,7 @@
       });
       video.srcObject = mediaStream;
       await video.play();
-      resetSession();
+      showState('picker');
     } catch (err) {
       console.error('[PHOTOBOX] Camera error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -121,13 +171,6 @@
       mediaStream.getTracks().forEach((track) => track.stop());
       mediaStream = null;
     }
-  }
-
-  function resetSession() {
-    capturedFrames = [];
-    isProcessing = false;
-    updateStep(1);
-    showState('camera');
   }
 
   // ═══════════════════════════════════════════════
@@ -231,7 +274,7 @@
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.font = '16px sans-serif';
-        const emojis = ['💖', '✨', '⭐'];
+        const emojis = ['💖', '✨', '⭐', '🫶', '🌸'];
         ctx.fillText(emojis[i % emojis.length], stripW / 2, decoY);
       }
 
@@ -242,12 +285,12 @@
     ctx.fillStyle = grad;
     ctx.fillRect(paddingX, y - gap + 6, photoW, 3);
 
-    // ── Footer: Date ──
+    // ── Footer: Date + template info ──
     ctx.fillStyle = '#b0a0b0';
     ctx.font = '12px Nunito, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(formatDate() + '  ✦  Synapse', stripW / 2, y + footerH / 2 + 4);
+    ctx.fillText(formatDate() + `  ✦  ${totalPhotos} pose  ✦  Synapse`, stripW / 2, y + footerH / 2 + 4);
   }
 
   function roundRect(ctx, x, y, w, h, r) {
@@ -268,7 +311,6 @@
   // ═══════════════════════════════════════════════
   async function startCountdown() {
     if (isProcessing) return;
-
     if (capturedFrames.length >= TOTAL_SHOTS) return;
 
     isProcessing = true;
@@ -284,24 +326,20 @@
     for (const step of steps) {
       countdownNum.textContent = step.num;
       countdownLabel.textContent = step.label;
-      // Re-trigger animation
       countdownNum.style.animation = 'none';
       void countdownNum.offsetHeight;
       countdownNum.style.animation = 'countPop 0.6s ease-out';
       await sleep(step.delay);
     }
 
-    // Capture
     const frame = captureFrame();
     capturedFrames.push(frame);
     isProcessing = false;
 
     if (capturedFrames.length < TOTAL_SHOTS) {
-      // Next photo
       updateStep(capturedFrames.length + 1);
       showState('camera');
     } else {
-      // All done — build strip
       updateStep(TOTAL_SHOTS);
       setTimeout(() => {
         buildStrip(capturedFrames);
@@ -363,6 +401,7 @@
   btnCapture.addEventListener('click', startCountdown);
   btnRetake.addEventListener('click', () => {
     capturedFrames = [];
+    buildStepIndicator(TOTAL_SHOTS);
     updateStep(1);
     showState('camera');
   });

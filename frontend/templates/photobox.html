@@ -37,15 +37,65 @@
         <div class="pb-spinner"></div>
       </div>
 
+      <!-- === STATE: Template Picker === -->
+      <div class="pb-state hidden" id="pbStatePicker">
+        <p class="pb-picker-title">Pilih template photobooth ✨</p>
+        <p class="pb-picker-sub">berapa banyak foto yang mau diambil?</p>
+        <div class="pb-picker-grid">
+          <button class="pb-picker-card" data-count="1">
+            <span class="picker-icon">📸</span>
+            <span class="picker-label">1 Foto</span>
+            <div class="picker-preview">
+              <span class="pp-block"></span>
+            </div>
+          </button>
+          <button class="pb-picker-card" data-count="2">
+            <span class="picker-icon">📸📸</span>
+            <span class="picker-label">2 Foto</span>
+            <div class="picker-preview">
+              <span class="pp-block"></span>
+              <span class="pp-block"></span>
+            </div>
+          </button>
+          <button class="pb-picker-card active" data-count="3">
+            <span class="picker-icon">📸📸📸</span>
+            <span class="picker-label">3 Foto</span>
+            <div class="picker-preview">
+              <span class="pp-block"></span>
+              <span class="pp-block"></span>
+              <span class="pp-block"></span>
+            </div>
+          </button>
+          <button class="pb-picker-card" data-count="4">
+            <span class="picker-icon">📸📸📸📸</span>
+            <span class="picker-label">4 Foto</span>
+            <div class="picker-preview">
+              <span class="pp-block"></span>
+              <span class="pp-block"></span>
+              <span class="pp-block"></span>
+              <span class="pp-block"></span>
+            </div>
+          </button>
+          <button class="pb-picker-card" data-count="5">
+            <span class="picker-icon">📸📸📸📸📸</span>
+            <span class="picker-label">5 Foto</span>
+            <div class="picker-preview">
+              <span class="pp-block"></span>
+              <span class="pp-block"></span>
+              <span class="pp-block"></span>
+              <span class="pp-block"></span>
+              <span class="pp-block"></span>
+            </div>
+          </button>
+        </div>
+        <button class="pb-btn pb-btn--start" id="pbBtnStart">
+          Mulai Photobox! 🚀
+        </button>
+      </div>
+
       <!-- === STATE: Camera === -->
       <div class="pb-state hidden" id="pbStateCamera">
-        <div class="pb-step-indicator">
-          <span class="step-dot active" data-step="1">1</span>
-          <span class="step-line"></span>
-          <span class="step-dot" data-step="2">2</span>
-          <span class="step-line"></span>
-          <span class="step-dot" data-step="3">3</span>
-        </div>
+        <div class="pb-step-indicator" id="pbStepIndicator"></div>
         <p class="pb-step-label" id="pbStepLabel">Ambil pose pertama!</p>
 
         <div class="pb-frame">

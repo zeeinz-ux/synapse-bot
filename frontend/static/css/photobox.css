@@ -126,7 +126,104 @@ body {
 }
 
 /* ══════════════════════════════════════════════
-   STEP INDICATOR (1/3, 2/3, 3/3)
+   STATE: Template Picker
+   ══════════════════════════════════════════════ */
+.pb-picker-title {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: #444;
+}
+
+.pb-picker-sub {
+  font-size: 0.85rem;
+  color: #999;
+  font-weight: 600;
+  margin-top: -0.5rem;
+}
+
+.pb-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 360px;
+}
+
+.pb-picker-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.7rem 0.9rem;
+  border: 2px solid #f0e0e8;
+  border-radius: 16px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  min-width: 90px;
+  font-family: inherit;
+}
+
+.pb-picker-card:hover {
+  border-color: var(--pb-soft-pink);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(255, 107, 157, 0.15);
+}
+
+.pb-picker-card.active {
+  border-color: var(--pb-pink);
+  background: linear-gradient(135deg, #fff5f9, #fce4ec);
+  box-shadow: 0 4px 16px rgba(255, 107, 157, 0.2);
+}
+
+.picker-icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.picker-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #666;
+}
+
+.pb-picker-card.active .picker-label {
+  color: var(--pb-pink);
+}
+
+.picker-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.pp-block {
+  width: 24px;
+  height: 6px;
+  border-radius: 2px;
+  background: #f0d0e0;
+}
+
+.pb-picker-card.active .pp-block {
+  background: linear-gradient(90deg, var(--pb-pink), var(--pb-lavender));
+}
+
+.pb-btn--start {
+  background: linear-gradient(135deg, var(--pb-pink), var(--pb-lavender));
+  color: white;
+  box-shadow: 0 4px 16px rgba(255, 107, 157, 0.35);
+}
+
+.pb-btn--start:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 24px rgba(255, 107, 157, 0.45);
+}
+
+/* ══════════════════════════════════════════════
+   STEP INDICATOR (dynamic)
    ══════════════════════════════════════════════ */
 .pb-step-indicator {
   display: flex;
