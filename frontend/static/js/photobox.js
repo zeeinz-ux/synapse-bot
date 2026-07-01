@@ -667,24 +667,6 @@
     roundRect(ctx, photoX, photoY, photoW, photoH, radius - 2);
     ctx.stroke();
 
-    // ── Date stamp overlay on photo (bottom-right of photo) ──
-    if (!isVideo) {
-      ctx.save();
-      const stampSize = Math.round(fw * 0.055);
-      ctx.fillStyle = 'rgba(255,200,100,0.80)';
-      ctx.font = `bold ${stampSize}px monospace`;
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'bottom';
-      const today = formatDate().replace(/ /g, '.');
-      ctx.fillText(today, photoX + photoW - 4, photoY + photoH - 3);
-      const stampY = photoY + photoH - stampSize - 6;
-      ctx.fillStyle = 'rgba(0,0,0,0.06)';
-      ctx.fillRect(photoX + photoW - stampSize * 7, stampY, stampSize * 6.5, stampSize + 4);
-      ctx.fillStyle = 'rgba(255,180,60,0.85)';
-      ctx.fillText(today, photoX + photoW - 4, photoY + photoH - 3);
-      ctx.restore();
-    }
-
     // ── Signature area (polaroid bottom) ──
     const sigAreaY = photoY + photoH + 4;
     const sigAreaH = frameY + frameH - sigAreaY - 4;
