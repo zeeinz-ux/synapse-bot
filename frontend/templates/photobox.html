@@ -90,21 +90,10 @@
         <div class="pb-step-indicator" id="pbStepIndicator"></div>
         <p class="pb-step-label" id="pbStepLabel">Ambil pose pertama!</p>
 
-        <div class="pb-frame">
-          <div class="pb-frame-inner">
-            <video id="pbVideo" autoplay playsinline muted></video>
-            <div class="pb-frame-deco" id="pbFrameDeco" aria-hidden="true"></div>
-          </div>
-          <div class="pb-frame-label" id="pbFrameLabel">✨ cuek — cantik — gemas ✨</div>
+        <div class="pb-camera-grid-wrap">
+          <canvas id="pbCameraGrid"></canvas>
         </div>
-
-        <!-- Live preview strip -->
-        <div class="pb-live-preview" id="pbLivePreview">
-          <div class="pb-preview-header">📸 Preview Strip</div>
-          <div class="pb-preview-canvas-wrap">
-            <canvas id="pbPreviewCanvas"></canvas>
-          </div>
-        </div>
+        <video id="pbVideo" autoplay playsinline muted style="position:fixed;opacity:0;pointer-events:none;width:1px;height:1px" aria-hidden="true"></video>
 
         <!-- Live switchers row -->
         <div class="pb-live-row">

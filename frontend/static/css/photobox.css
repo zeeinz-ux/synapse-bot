@@ -408,86 +408,30 @@ body {
 /* ══════════════════════════════════════════════
    STATE: Camera
    ══════════════════════════════════════════════ */
-.pb-frame {
-  width: 100%;
-  max-width: 320px;
-}
-
-.pb-frame-inner {
-  position: relative;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow:
-    0 0 0 6px white,
-    0 0 0 8px var(--pb-glow),
-    0 8px 32px rgba(0, 0, 0, 0.12);
-  transition: box-shadow 0.4s ease;
-}
-
-.pb-frame-inner video {
-  width: 100%;
-  display: block;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  background: #000;
-}
-
-.pb-frame-deco {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.frame-deco-item {
-  position: absolute;
-  font-size: 1.3rem;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-  animation: heartPulse 2s ease-in-out infinite;
-}
-
-@keyframes heartPulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-}
-
 .pb-frame-label {
   text-align: center;
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--pb-text);
-  margin-top: 0.6rem;
+  margin-top: 0.1rem;
   letter-spacing: 0.03em;
   transition: color 0.4s ease;
 }
 
-/* ── Live preview strip ── */
-.pb-live-preview {
-  margin-top: 0.8rem;
-  text-align: center;
+/* ── Camera grid canvas ── */
+.pb-camera-grid-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 0.5rem 0;
 }
 
-.pb-preview-header {
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #ccc;
-  margin-bottom: 0.4rem;
-}
-
-.pb-preview-canvas-wrap {
-  display: inline-flex;
+#pbCameraGrid {
+  display: block;
   border-radius: 10px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  overflow: hidden;
-  max-height: 180px;
-  transition: max-height 0.3s ease;
-}
-
-#pbPreviewCanvas {
-  display: block;
   max-width: 100%;
   height: auto;
+  max-height: 65vh;
 }
 
 /* ── Live switcher row ── */

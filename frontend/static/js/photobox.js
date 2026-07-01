@@ -20,14 +20,13 @@
 
   const video = $('pbVideo');
   const canvas = $('pbCanvas');
-  const previewCanvas = $('pbPreviewCanvas');
+  const cameraGrid = $('pbCameraGrid');
   const countdownNum = $('pbCountdownNum');
   const countdownLabel = $('pbCountdownLabel');
   const errorText = $('pbErrorText');
   const stepLabel = $('pbStepLabel');
   const btnCaptureText = $('pbBtnCaptureText');
   const stepIndicator = $('pbStepIndicator');
-  const frameDeco = $('pbFrameDeco');
   const frameLabel = $('pbFrameLabel');
   const floaties = $('pbFloaties');
 
@@ -50,6 +49,7 @@
   let currentStep = 1;
   let TOTAL_SHOTS = 3;
   let currentTheme = 'pink-love';
+  let animFrameId = null;
 
   // ═══════════════════════════════════════════════
   // THEMES
@@ -130,20 +130,6 @@
     // Set data attribute on body (triggers CSS variables)
     document.body.setAttribute('data-theme', themeId);
 
-    // Frame decorations
-    frameDeco.innerHTML = '';
-    t.deco.forEach((emoji, i) => {
-      const el = document.createElement('span');
-      el.className = 'frame-deco-item';
-      el.textContent = emoji;
-      el.style.top = t.decoPos[i].top;
-      el.style.left = t.decoPos[i].left;
-      el.style.right = t.decoPos[i].right || 'auto';
-      el.style.bottom = t.decoPos[i].bottom || 'auto';
-      el.style.animationDelay = (i * 0.3) + 's';
-      frameDeco.appendChild(el);
-    });
-
     // Frame label
     frameLabel.textContent = t.label;
 
@@ -174,7 +160,7 @@
       dot.classList.toggle('active', dot.dataset.theme === themeId);
     });
 
-    updateLivePreview();
+    renderCameraGrid();
   }
 
   // ═══════════════════════════════════════════════
@@ -205,9 +191,11 @@
     Object.keys(states).forEach((key) => {
       states[key].classList.toggle('hidden', key !== name);
     });
-    const preview = $('pbLivePreview');
-    if (preview) {
-      preview.style.display = name === 'camera' ? 'block' : 'none';
+    if (name === 'camera') {
+      renderCameraGrid();
+    } else if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
     }
   }
 
@@ -286,7 +274,6 @@
     buildStepIndicator(TOTAL_SHOTS);
     updateStep(1);
     showState('camera');
-    setTimeout(updateLivePreview, 50);
   });
 
   // Live theme dots (camera page)
@@ -307,7 +294,6 @@
       buildStepIndicator(TOTAL_SHOTS);
       updateStep(1);
       showState('camera');
-      setTimeout(updateLivePreview, 50);
     });
   });
 
@@ -564,56 +550,142 @@
     ctx.closePath();
   }
 
-  function createPlaceholder() {
-    const c = document.createElement('canvas');
-    c.width = 320;
-    c.height = 240;
-    const cx = c.getContext('2d');
-    cx.fillStyle = '#f0f0f2';
-    cx.beginPath();
-    roundRect(cx, 0, 0, 320, 240, 12);
-    cx.fill();
-    cx.fillStyle = '#ddd';
-    cx.font = '48px sans-serif';
-    cx.textAlign = 'center';
-    cx.textBaseline = 'middle';
-    cx.fillText('🖼️', 160, 120);
-    cx.fillStyle = '#ccc';
-    cx.font = '14px Nunito, sans-serif';
-    cx.fillText('foto berikutnya', 160, 170);
-    return c;
-  }
-
-  let placeholderCache;
-  function getPlaceholder() {
-    if (!placeholderCache) placeholderCache = createPlaceholder();
-    return placeholderCache;
-  }
-
-  function updateLivePreview() {
-    if (!previewCanvas || !canvas) return;
-    const filled = capturedFrames.length;
-    const previewFrames = [];
-    for (let i = 0; i < TOTAL_SHOTS; i++) {
-      previewFrames.push(i < filled ? capturedFrames[i] : getPlaceholder());
-    }
-    const realCanvas = canvas;
-    const realCW = canvas.width;
-    const realCH = canvas.height;
-    canvas.width = 0;
-    canvas.height = 0;
-    buildStrip(previewFrames);
-    const bw = canvas.width;
-    const bh = canvas.height;
-    previewCanvas.width = bw;
-    previewCanvas.height = bh;
-    const pctx = previewCanvas.getContext('2d');
-    pctx.clearRect(0, 0, bw, bh);
-    pctx.drawImage(canvas, 0, 0);
-    canvas.width = realCW;
-    canvas.height = realCH;
+  function renderCameraGrid() {
+    if (!cameraGrid) return;
     const t = THEMES[currentTheme];
-    if (t) document.body.setAttribute('data-theme', currentTheme);
+    const count = TOTAL_SHOTS;
+    const filled = capturedFrames.length;
+    const cellW = 200;
+    const cellH = 150;
+    const framePad = 8;
+    const gap = 14;
+    const pad = 16;
+    const totalW = cellW + pad * 2;
+    const totalH = count * (cellH + framePad * 2) + (count - 1) * gap + pad * 2;
+    cameraGrid.width = totalW;
+    cameraGrid.height = totalH;
+    const ctx = cameraGrid.getContext('2d');
+
+    // Background
+    ctx.fillStyle = t.stripBg;
+    ctx.beginPath();
+    roundRect(ctx, 0, 0, totalW, totalH, 10);
+    ctx.fill();
+
+    ctx.strokeStyle = t.border;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    roundRect(ctx, 3, 3, totalW - 6, totalH - 6, 9);
+    ctx.stroke();
+
+    let y = pad;
+    for (let i = 0; i < count; i++) {
+      const fx = pad;
+      const fy = y;
+
+      // White polaroid frame
+      ctx.shadowColor = 'rgba(0,0,0,0.10)';
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetY = 2;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      roundRect(ctx, fx, fy, cellW, cellH + framePad * 2, 8);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
+      // Frame border
+      ctx.strokeStyle = t.border;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      roundRect(ctx, fx, fy, cellW, cellH + framePad * 2, 8);
+      ctx.stroke();
+
+      // Inner accent border
+      ctx.strokeStyle = t.grad1;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      roundRect(ctx, fx + 2, fy + 2, cellW - 4, cellH + framePad * 2 - 4, 7);
+      ctx.stroke();
+
+      // Photo area
+      const photoX = fx + framePad;
+      const photoY = fy + framePad;
+      const photoW = cellW - framePad * 2;
+      const photoH = cellH;
+
+      ctx.save();
+      ctx.beginPath();
+      roundRect(ctx, photoX, photoY, photoW, photoH, 6);
+      ctx.clip();
+
+      if (i < filled) {
+        // Captured photo
+        const f = capturedFrames[i];
+        ctx.drawImage(f, 0, 0, f.width, f.height, photoX, photoY, photoW, photoH);
+      } else if (video.readyState >= 2) {
+        // Live video feed (mirrored like selfie)
+        ctx.translate(photoX + photoW, photoY);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 0, 0, photoW, photoH);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+      ctx.restore();
+
+      // Photo border
+      ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      roundRect(ctx, photoX, photoY, photoW, photoH, 6);
+      ctx.stroke();
+
+      // Corner deco
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const ce = t.deco[0];
+      ctx.fillText(ce, fx + 10, fy + 11);
+      ctx.fillText(ce, fx + cellW - 10, fy + 11);
+
+      // Sticker badge on frame edge
+      const badgeX = fx + cellW - 30;
+      const badgeY = fy + cellH + framePad * 2 - 15;
+      ctx.fillStyle = t.grad1;
+      ctx.beginPath();
+      roundRect(ctx, badgeX, badgeY, 24, 12, 6);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 7px Nunito, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const badges = ['✨ cute', '💕 oke', '⭐ yes', '🌸 ay', '🌙 nyah'];
+      ctx.fillText(badges[i % badges.length], badgeX + 12, badgeY + 6);
+
+      // Bottom-left deco
+      ctx.font = '14px sans-serif';
+      ctx.fillText(t.deco[i % t.deco.length], fx + 11, fy + cellH + framePad * 2 - 7);
+
+      // Connector between cells
+      if (i < count - 1) {
+        const connY = fy + cellH + framePad * 2 + gap / 2;
+        ctx.fillStyle = t.grad2;
+        ctx.beginPath();
+        roundRect(ctx, totalW / 2 - 10, connY - 0.5, 20, 1, 1);
+        ctx.fill();
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t.betweenEmojis[i % t.betweenEmojis.length], totalW / 2, connY);
+      }
+      y += cellH + framePad * 2 + gap;
+    }
+
+    if (filled < count && states.camera && !states.camera.classList.contains('hidden')) {
+      animFrameId = requestAnimationFrame(renderCameraGrid);
+    } else if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
   }
 
   // ═══════════════════════════════════════════════
@@ -649,7 +721,6 @@
     if (capturedFrames.length < TOTAL_SHOTS) {
       updateStep(capturedFrames.length + 1);
       showState('camera');
-      updateLivePreview();
     } else {
       updateStep(TOTAL_SHOTS);
       setTimeout(() => {
