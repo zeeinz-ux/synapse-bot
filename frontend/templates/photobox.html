@@ -54,15 +54,17 @@
         <!-- Layout Style Picker -->
         <p class="pb-picker-sub" style="margin-top: 0.3rem;">gaya layout?</p>
         <div class="pb-layout-row" id="pbLayoutRow">
-          <button class="pb-layout-btn" data-layout="strip">
-            <span class="layout-icon">⬜<br/>⬜</span>
-            <span class="layout-label">Strip</span>
-          </button>
-          <button class="pb-layout-btn active" data-layout="collage">
-            <span class="layout-icon">▤<br/>▦▦</span>
+          <button class="pb-layout-btn active" data-category="collage">
+            <span class="layout-icon" id="pbLayoutIconCollage"></span>
             <span class="layout-label">Collage</span>
           </button>
+          <button class="pb-layout-btn" data-category="strip">
+            <span class="layout-icon" id="pbLayoutIconStrip"></span>
+            <span class="layout-label">Strip</span>
+          </button>
         </div>
+        <!-- Sub-layout variants (hidden for strip) -->
+        <div class="pb-sub-layout-row" id="pbSubLayoutRow"></div>
 
         <!-- Count Picker -->
         <p class="pb-picker-sub" style="margin-top: 0.3rem;">berapa banyak foto?</p>
@@ -138,10 +140,11 @@
           <div class="pb-live-group">
             <span class="live-label">Layout</span>
             <div class="pb-live-layout">
-              <button class="live-layout-btn" data-layout="strip" title="Strip">⬜⬜</button>
-              <button class="live-layout-btn active" data-layout="collage" title="Collage">▤▦</button>
+              <button class="live-layout-btn" data-category="collage" title="Collage">▤▦</button>
+              <button class="live-layout-btn" data-category="strip" title="Strip">⬇️</button>
             </div>
           </div>
+          <div class="pb-live-group hidden" id="pbLiveSubLayout"></div>
         </div>
 
         <button class="pb-btn pb-btn--capture" id="pbBtnCapture">

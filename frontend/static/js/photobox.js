@@ -50,6 +50,14 @@
   let TOTAL_SHOTS = 3;
   let currentTheme = 'pink-love';
   let animFrameId = null;
+  let cellRotations = [];
+
+  function generateRotations(count) {
+    cellRotations = [];
+    for (let i = 0; i < count; i++) {
+      cellRotations.push((Math.random() - 0.5) * 6);
+    }
+  }
 
   // ═══════════════════════════════════════════════
   // THEMES
@@ -270,7 +278,13 @@
     const activeCard = document.querySelector('.pb-picker-card.active');
     if (!activeCard) return;
     TOTAL_SHOTS = parseInt(activeCard.dataset.count);
+    const preset = LAYOUTS[currentLayoutPreset];
+    if (!preset || !preset.cells[TOTAL_SHOTS]) {
+      const fallbackId = CATEGORY_PRESETS[currentLayoutCategory].find((id) => LAYOUTS[id].cells[TOTAL_SHOTS]) || CATEGORY_PRESETS[currentLayoutCategory][0];
+      if (fallbackId) applyLayoutPreset(fallbackId);
+    }
     capturedFrames = [];
+    generateRotations(TOTAL_SHOTS);
     buildStepIndicator(TOTAL_SHOTS);
     updateStep(1);
     showState('camera');
@@ -290,24 +304,53 @@
       if (newCount === TOTAL_SHOTS) return;
       TOTAL_SHOTS = newCount;
       liveCountBtns.forEach((b) => b.classList.toggle('active', parseInt(b.dataset.count) === TOTAL_SHOTS));
+      // Ensure current preset supports this count; fallback if not
+      const preset = LAYOUTS[currentLayoutPreset];
+      if (!preset || !preset.cells[TOTAL_SHOTS]) {
+        const fallbackId = CATEGORY_PRESETS[currentLayoutCategory].find((id) => LAYOUTS[id].cells[TOTAL_SHOTS]) || CATEGORY_PRESETS[currentLayoutCategory][0];
+        if (fallbackId) applyLayoutPreset(fallbackId);
+      }
       capturedFrames = [];
+      generateRotations(TOTAL_SHOTS);
       buildStepIndicator(TOTAL_SHOTS);
       updateStep(1);
       showState('camera');
     });
   });
 
-  // Layout style buttons (picker page)
+  // Layout category buttons (picker page)
   document.querySelectorAll('.pb-layout-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      applyLayoutStyle(btn.dataset.layout);
+      const cat = btn.dataset.category;
+      if (!cat || cat === currentLayoutCategory) return;
+      currentLayoutCategory = cat;
+      const firstPreset = CATEGORY_PRESETS[cat][0];
+      applyLayoutPreset(firstPreset);
     });
   });
 
-  // Live layout buttons (camera page)
+  // Layout sub-preset buttons (picker page)
+  document.querySelectorAll('.pb-sub-layout-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      applyLayoutPreset(btn.dataset.preset);
+    });
+  });
+
+  // Live layout category buttons (camera page)
   document.querySelectorAll('.live-layout-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      applyLayoutStyle(btn.dataset.layout);
+      const cat = btn.dataset.category;
+      if (!cat || cat === currentLayoutCategory) return;
+      currentLayoutCategory = cat;
+      const firstPreset = CATEGORY_PRESETS[cat][0];
+      applyLayoutPreset(firstPreset);
+    });
+  });
+
+  // Live layout sub-preset buttons (camera page)
+  document.querySelectorAll('.live-sub-layout-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      applyLayoutPreset(btn.dataset.preset);
     });
   });
 
@@ -368,34 +411,108 @@
   }
 
   // ═══════════════════════════════════════════════
-  // LAYOUT DEFINITIONS (multi-style)
+  // LAYOUT DEFINITIONS (multi-preset with sub-variants)
   // ═══════════════════════════════════════════════
   const LAYOUTS = {
-    strip: {
-      1: [ { x: 0, y: 0, w: 1, h: 0.75 } ],
-      2: [ { x: 0, y: 0, w: 1, h: 0.75 }, { x: 0, y: 0.75, w: 1, h: 0.75 } ],
-      3: [ { x: 0, y: 0, w: 1, h: 0.75 }, { x: 0, y: 0.75, w: 1, h: 0.75 }, { x: 0, y: 1.5, w: 1, h: 0.75 } ],
-      4: [ { x: 0, y: 0, w: 1, h: 0.75 }, { x: 0, y: 0.75, w: 1, h: 0.75 }, { x: 0, y: 1.5, w: 1, h: 0.75 }, { x: 0, y: 2.25, w: 1, h: 0.75 } ],
-      5: [ { x: 0, y: 0, w: 1, h: 0.75 }, { x: 0, y: 0.75, w: 1, h: 0.75 }, { x: 0, y: 1.5, w: 1, h: 0.75 }, { x: 0, y: 2.25, w: 1, h: 0.75 }, { x: 0, y: 3, w: 1, h: 0.75 } ],
+    'strip': {
+      label: 'Strip',
+      category: 'strip',
+      icon: '<svg viewBox="0 0 24 32" width="24" height="32"><rect x="2" y="2" rx="2" width="20" height="8" fill="currentColor" opacity=".7"/><rect x="2" y="12" rx="2" width="20" height="8" fill="currentColor" opacity=".5"/><rect x="2" y="22" rx="2" width="20" height="8" fill="currentColor" opacity=".3"/></svg>',
+      cells: {
+        1: [ { x: 0, y: 0, w: 1, h: 0.75 } ],
+        2: [ { x: 0, y: 0, w: 1, h: 0.75 }, { x: 0, y: 0.75, w: 1, h: 0.75 } ],
+        3: [ { x: 0, y: 0, w: 1, h: 0.75 }, { x: 0, y: 0.75, w: 1, h: 0.75 }, { x: 0, y: 1.5, w: 1, h: 0.75 } ],
+        4: [ { x: 0, y: 0, w: 1, h: 0.75 }, { x: 0, y: 0.75, w: 1, h: 0.75 }, { x: 0, y: 1.5, w: 1, h: 0.75 }, { x: 0, y: 2.25, w: 1, h: 0.75 } ],
+        5: [ { x: 0, y: 0, w: 1, h: 0.75 }, { x: 0, y: 0.75, w: 1, h: 0.75 }, { x: 0, y: 1.5, w: 1, h: 0.75 }, { x: 0, y: 2.25, w: 1, h: 0.75 }, { x: 0, y: 3, w: 1, h: 0.75 } ],
+      }
     },
-    collage: {
-      1: [ { x: 0, y: 0, w: 1, h: 0.75 } ],
-      2: [ { x: 0, y: 0, w: 1, h: 0.75 }, { x: 0, y: 0.75, w: 1, h: 0.75 } ],
-      3: [ { x: 0, y: 0, w: 1, h: 0.75 }, { x: 0, y: 0.75, w: 0.5, h: 0.375 }, { x: 0.5, y: 0.75, w: 0.5, h: 0.375 } ],
-      4: [ { x: 0, y: 0, w: 0.5, h: 0.375 }, { x: 0.5, y: 0, w: 0.5, h: 0.375 }, { x: 0, y: 0.375, w: 0.5, h: 0.375 }, { x: 0.5, y: 0.375, w: 0.5, h: 0.375 } ],
-      5: [ { x: 0, y: 0, w: 0.5, h: 0.375 }, { x: 0.5, y: 0, w: 0.5, h: 0.375 }, { x: 0, y: 0.375, w: 0.5, h: 0.375 }, { x: 0.5, y: 0.375, w: 0.5, h: 0.375 }, { x: 0, y: 0.75, w: 1, h: 0.75 } ],
+    'collage-split': {
+      label: 'Split',
+      category: 'collage',
+      icon: '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="0" y="0" rx="2" width="24" height="12" fill="currentColor" opacity=".7"/><rect x="0" y="13" rx="2" width="11.5" height="11" fill="currentColor" opacity=".5"/><rect x="12.5" y="13" rx="2" width="11.5" height="11" fill="currentColor" opacity=".3"/></svg>',
+      cells: {
+        1: [ { x: 0, y: 0, w: 1, h: 0.75 } ],
+        2: [ { x: 0, y: 0, w: 1, h: 0.75 }, { x: 0, y: 0.75, w: 1, h: 0.75 } ],
+        3: [ { x: 0, y: 0, w: 1, h: 0.667 }, { x: 0, y: 0.667, w: 0.5, h: 0.333 }, { x: 0.5, y: 0.667, w: 0.5, h: 0.333 } ],
+        4: [ { x: 0, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0, w: 0.5, h: 0.5 }, { x: 0, y: 0.5, w: 0.5, h: 0.5 }, { x: 0.5, y: 0.5, w: 0.5, h: 0.5 } ],
+        5: [ { x: 0, y: 0, w: 0.5, h: 0.375 }, { x: 0.5, y: 0, w: 0.5, h: 0.375 }, { x: 0, y: 0.375, w: 0.5, h: 0.375 }, { x: 0.5, y: 0.375, w: 0.5, h: 0.375 }, { x: 0, y: 0.75, w: 1, h: 0.75 } ],
+      }
+    },
+    'collage-1+2': {
+      label: '1+2',
+      category: 'collage',
+      icon: '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="0" y="0" rx="2" width="14" height="24" fill="currentColor" opacity=".7"/><rect x="15" y="0" rx="2" width="9" height="11.5" fill="currentColor" opacity=".5"/><rect x="15" y="12.5" rx="2" width="9" height="11.5" fill="currentColor" opacity=".3"/></svg>',
+      cells: {
+        3: [ { x: 0, y: 0, w: 0.55, h: 1 }, { x: 0.55, y: 0, w: 0.45, h: 0.5 }, { x: 0.55, y: 0.5, w: 0.45, h: 0.5 } ],
+      }
+    },
+    'collage-2+1': {
+      label: '2+1',
+      category: 'collage',
+      icon: '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="0" y="0" rx="2" width="11.5" height="11.5" fill="currentColor" opacity=".7"/><rect x="12.5" y="0" rx="2" width="11.5" height="11.5" fill="currentColor" opacity=".5"/><rect x="0" y="12.5" rx="2" width="24" height="11.5" fill="currentColor" opacity=".3"/></svg>',
+      cells: {
+        3: [ { x: 0, y: 0, w: 0.5, h: 0.5 }, { x: 0.5, y: 0, w: 0.5, h: 0.5 }, { x: 0, y: 0.5, w: 1, h: 0.5 } ],
+      }
+    },
+    'collage-1+3': {
+      label: '1+3',
+      category: 'collage',
+      icon: '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="0" y="0" rx="2" width="24" height="11.5" fill="currentColor" opacity=".7"/><rect x="0" y="12.5" rx="2" width="7.5" height="11.5" fill="currentColor" opacity=".5"/><rect x="8.25" y="12.5" rx="2" width="7.5" height="11.5" fill="currentColor" opacity=".3"/><rect x="16.5" y="12.5" rx="2" width="7.5" height="11.5" fill="currentColor" opacity=".4"/></svg>',
+      cells: {
+        4: [ { x: 0, y: 0, w: 1, h: 0.5 }, { x: 0, y: 0.5, w: 0.333, h: 0.5 }, { x: 0.333, y: 0.5, w: 0.333, h: 0.5 }, { x: 0.666, y: 0.5, w: 0.333, h: 0.5 } ],
+      }
+    },
+    'collage-3+1': {
+      label: '3+1',
+      category: 'collage',
+      icon: '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="0" y="0" rx="2" width="7.5" height="11.5" fill="currentColor" opacity=".7"/><rect x="8.25" y="0" rx="2" width="7.5" height="11.5" fill="currentColor" opacity=".5"/><rect x="16.5" y="0" rx="2" width="7.5" height="11.5" fill="currentColor" opacity=".3"/><rect x="0" y="12.5" rx="2" width="24" height="11.5" fill="currentColor" opacity=".4"/></svg>',
+      cells: {
+        4: [ { x: 0, y: 0, w: 0.333, h: 0.5 }, { x: 0.333, y: 0, w: 0.333, h: 0.5 }, { x: 0.666, y: 0, w: 0.333, h: 0.5 }, { x: 0, y: 0.5, w: 1, h: 0.5 } ],
+      }
+    },
+    'collage-2+3': {
+      label: '2+3',
+      category: 'collage',
+      icon: '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="0" y="0" rx="2" width="11.5" height="10" fill="currentColor" opacity=".7"/><rect x="12.5" y="0" rx="2" width="11.5" height="10" fill="currentColor" opacity=".5"/><rect x="0" y="11" rx="2" width="7.5" height="13" fill="currentColor" opacity=".3"/><rect x="8.25" y="11" rx="2" width="7.5" height="13" fill="currentColor" opacity=".4"/><rect x="16.5" y="11" rx="2" width="7.5" height="13" fill="currentColor" opacity=".2"/></svg>',
+      cells: {
+        5: [ { x: 0, y: 0, w: 0.5, h: 0.4 }, { x: 0.5, y: 0, w: 0.5, h: 0.4 }, { x: 0, y: 0.4, w: 0.333, h: 0.6 }, { x: 0.333, y: 0.4, w: 0.333, h: 0.6 }, { x: 0.666, y: 0.4, w: 0.333, h: 0.6 } ],
+      }
+    },
+    'collage-3+2': {
+      label: '3+2',
+      category: 'collage',
+      icon: '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="0" y="0" rx="2" width="7.5" height="14" fill="currentColor" opacity=".7"/><rect x="8.25" y="0" rx="2" width="7.5" height="14" fill="currentColor" opacity=".5"/><rect x="16.5" y="0" rx="2" width="7.5" height="14" fill="currentColor" opacity=".3"/><rect x="0" y="15" rx="2" width="11.5" height="9" fill="currentColor" opacity=".4"/><rect x="12.5" y="15" rx="2" width="11.5" height="9" fill="currentColor" opacity=".2"/></svg>',
+      cells: {
+        5: [ { x: 0, y: 0, w: 0.333, h: 0.6 }, { x: 0.333, y: 0, w: 0.333, h: 0.6 }, { x: 0.666, y: 0, w: 0.333, h: 0.6 }, { x: 0, y: 0.6, w: 0.5, h: 0.4 }, { x: 0.5, y: 0.6, w: 0.5, h: 0.4 } ],
+      }
     },
   };
 
-  let currentLayoutStyle = 'collage';
+  const CATEGORIES = ['strip', 'collage'];
+  const CATEGORY_PRESETS = {
+    'strip': ['strip'],
+    'collage': ['collage-split', 'collage-1+2', 'collage-2+1', 'collage-1+3', 'collage-3+1', 'collage-2+3', 'collage-3+2'],
+  };
 
-  function getLayout(count) {
-    const s = LAYOUTS[currentLayoutStyle];
-    return (s && s[count]) || LAYOUTS.strip[count] || LAYOUTS.strip[3];
+  let currentLayoutCategory = 'collage';
+  let currentLayoutPreset = 'collage-split';
+
+  function getLayoutPreset(count) {
+    const preset = LAYOUTS[currentLayoutPreset];
+    if (preset && preset.cells[count]) return currentLayoutPreset;
+    const fallbacks = CATEGORY_PRESETS[currentLayoutCategory];
+    for (const id of fallbacks) {
+      if (LAYOUTS[id].cells[count]) return id;
+    }
+    return 'collage-split';
   }
 
-  function getLayoutMaxY(count) {
-    const cells = getLayout(count);
+  function getLayout(count) {
+    const pid = getLayoutPreset(count);
+    return LAYOUTS[pid].cells[count] || LAYOUTS['collage-split'].cells[count] || LAYOUTS.strip.cells[3];
+  }
+
+  function getLayoutMaxYFromCells(cells) {
     let maxY = 0;
     cells.forEach((c) => {
       const b = c.y + c.h;
@@ -404,11 +521,47 @@
     return maxY;
   }
 
-  function applyLayoutStyle(style) {
-    if (!LAYOUTS[style] || style === currentLayoutStyle) return;
-    currentLayoutStyle = style;
-    document.querySelectorAll('.live-layout-btn').forEach((b) => b.classList.toggle('active', b.dataset.layout === style));
-    document.querySelectorAll('.pb-layout-btn').forEach((b) => b.classList.toggle('active', b.dataset.layout === style));
+  function getLayoutMaxY(count) {
+    return getLayoutMaxYFromCells(getLayout(count));
+  }
+
+  function generateSvgIcon(layoutId) {
+    return LAYOUTS[layoutId] ? LAYOUTS[layoutId].icon : '';
+  }
+
+  function applyLayoutPreset(presetId) {
+    if (!LAYOUTS[presetId] || presetId === currentLayoutPreset) return;
+
+    const newCategory = LAYOUTS[presetId].category;
+    if (newCategory && newCategory !== currentLayoutCategory) {
+      currentLayoutCategory = newCategory;
+    }
+    // If switching to strip, use 'strip' preset
+    const effectiveId = newCategory === 'strip' ? 'strip' : presetId;
+    currentLayoutPreset = effectiveId;
+    generateRotations(TOTAL_SHOTS);
+
+    // Update picker buttons
+    document.querySelectorAll('.pb-layout-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.category === currentLayoutCategory);
+    });
+    document.querySelectorAll('.pb-sub-layout-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.preset === currentLayoutPreset);
+    });
+    // Update live buttons
+    document.querySelectorAll('.live-layout-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.category === currentLayoutCategory);
+    });
+    document.querySelectorAll('.live-sub-layout-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.preset === currentLayoutPreset);
+    });
+
+    // Toggle sub-layout visibility
+    const subRow = document.getElementById('pbSubLayoutRow');
+    const liveSub = document.getElementById('pbLiveSubLayout');
+    if (subRow) subRow.classList.toggle('hidden', currentLayoutCategory !== 'collage');
+    if (liveSub) liveSub.classList.toggle('hidden', currentLayoutCategory !== 'collage');
+
     if (states.camera && !states.camera.classList.contains('hidden')) {
       renderCameraGrid();
     }
@@ -417,46 +570,58 @@
   // ═══════════════════════════════════════════════
   // DRAW A SINGLE PHOTO FRAME (shared)
   // ═══════════════════════════════════════════════
-  function drawPhotoFrame(ctx, fx, fy, fw, fh, t, index, source, isVideo) {
-    const framePad = Math.round(fw * 0.045);
-    const radius = Math.round(Math.min(fw, fh) * 0.045);
+  function drawCellContent(ctx, fx, fy, fw, fh, t, index, source, isVideo) {
+    const radius = Math.round(Math.min(fw, fh) * 0.04);
 
-    // White polaroid frame
-    ctx.shadowColor = 'rgba(0,0,0,0.10)';
-    ctx.shadowBlur = 6;
-    ctx.shadowOffsetY = 2;
-    ctx.fillStyle = '#ffffff';
+    // ── Film edge (thin dark border) ──
+    ctx.fillStyle = '#222222';
     ctx.beginPath();
     roundRect(ctx, fx, fy, fw, fh, radius);
+    ctx.fill();
+
+    // ── Film inset ──
+    const filmInset = 2;
+    const frameX = fx + filmInset;
+    const frameY = fy + filmInset;
+    const frameW = fw - filmInset * 2;
+    const frameH = fh - filmInset * 2;
+
+    // ── Polaroid frame shadow ──
+    ctx.shadowColor = 'rgba(0,0,0,0.12)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = t.stripBg;
+    ctx.beginPath();
+    roundRect(ctx, frameX, frameY, frameW, frameH, radius - 1);
     ctx.fill();
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
-    // Frame border
-    ctx.strokeStyle = t.border;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    roundRect(ctx, fx, fy, fw, fh, radius);
-    ctx.stroke();
-
-    // Inner accent border
-    ctx.strokeStyle = t.grad1;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    roundRect(ctx, fx + 2, fy + 2, fw - 4, fh - 4, radius - 1);
-    ctx.stroke();
+    // ── Polaroid asymmetric padding (thick bottom) ──
+    const padSide = Math.round(fw * 0.04);
+    const padTop = Math.round(fw * 0.04);
+    const padBottom = Math.round(fw * 0.15);
 
     // Photo area
-    const photoX = fx + framePad;
-    const photoY = fy + framePad;
-    const photoW = fw - framePad * 2;
-    const photoH = fh - framePad * 2;
+    const photoX = frameX + padSide;
+    const photoY = frameY + padTop;
+    const photoW = frameW - padSide * 2;
+    const photoH = frameH - padTop - padBottom - 2;
 
+    // ── Inner accent border ──
+    ctx.strokeStyle = t.grad1;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath();
+    roundRect(ctx, frameX + 3, frameY + 3, frameW - 6, frameH - 6, radius - 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // ── Draw photo ──
     ctx.save();
     ctx.beginPath();
     roundRect(ctx, photoX, photoY, photoW, photoH, radius - 2);
     ctx.clip();
-
     if (source) {
       if (isVideo) {
         if (source.readyState >= 2) {
@@ -471,54 +636,144 @@
     }
     ctx.restore();
 
-    // Photo border
-    ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+    // ── Photo border ──
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     roundRect(ctx, photoX, photoY, photoW, photoH, radius - 2);
     ctx.stroke();
 
-    // Corner deco (top-left, top-right)
+    // ── Date stamp overlay on photo (bottom-right of photo) ──
+    if (!isVideo) {
+      ctx.save();
+      const stampSize = Math.round(fw * 0.055);
+      ctx.fillStyle = 'rgba(255,200,100,0.80)';
+      ctx.font = `bold ${stampSize}px monospace`;
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      const today = formatDate().replace(/ /g, '.');
+      ctx.fillText(today, photoX + photoW - 4, photoY + photoH - 3);
+      const stampY = photoY + photoH - stampSize - 6;
+      ctx.fillStyle = 'rgba(0,0,0,0.06)';
+      ctx.fillRect(photoX + photoW - stampSize * 7, stampY, stampSize * 6.5, stampSize + 4);
+      ctx.fillStyle = 'rgba(255,180,60,0.85)';
+      ctx.fillText(today, photoX + photoW - 4, photoY + photoH - 3);
+      ctx.restore();
+    }
+
+    // ── Signature area (polaroid bottom) ──
+    const sigAreaY = photoY + photoH + 4;
+    const sigAreaH = frameY + frameH - sigAreaY - 4;
+
+    // Signature line
+    ctx.strokeStyle = t.border;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(photoX + 6, sigAreaY + Math.round(sigAreaH * 0.35));
+    ctx.lineTo(photoX + photoW - 6, sigAreaY + Math.round(sigAreaH * 0.35));
+    ctx.stroke();
+
+    // Signature text (left) — emoji + sticker label
+    const badges = ['✨ cute', '💕 oke', '⭐ yes', '🌸 ay', '🌙 nyah'];
+    const sigFontSize = Math.round(fw * 0.055);
+    ctx.fillStyle = t.textMuted;
+    ctx.font = `${sigFontSize}px Nunito, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(badges[index % badges.length], photoX + 8, sigAreaY + Math.round(sigAreaH * 0.7));
+
+    // Signature text (right) — small decorative text
+    ctx.textAlign = 'right';
+    ctx.fillText(t.deco[index % t.deco.length], photoX + photoW - 8, sigAreaY + Math.round(sigAreaH * 0.7));
+
+    // ── Corner decorations (4 corners) ──
     const decoSize = Math.round(fw * 0.055);
     ctx.font = `${decoSize}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const ce = t.deco[0];
-    const decoOff = Math.round(fw * 0.048);
-    ctx.fillText(ce, fx + decoOff, fy + decoOff);
-    ctx.fillText(ce, fx + fw - decoOff, fy + decoOff);
+    const decoOff = Math.round(fw * 0.04);
+    ctx.fillText(t.deco[0], frameX + decoOff, frameY + decoOff);
+    ctx.fillText(t.deco[1], frameX + frameW - decoOff, frameY + decoOff);
+    ctx.fillText(t.deco[2 % t.deco.length], frameX + decoOff, frameY + frameH - decoOff);
+    ctx.fillText(t.deco[3 % t.deco.length], frameX + frameW - decoOff, frameY + frameH - decoOff);
 
-    // Sticker badge (bottom-right)
-    const badgeW = Math.round(fw * 0.12);
-    const badgeH = Math.round(badgeW * 0.5);
-    const badgeX = fx + fw - badgeW - Math.round(fw * 0.025);
-    const badgeY = fy + fh - badgeH - Math.round(fw * 0.025);
+    // ── Washi tape decoration (top-right) ──
+    const tapeW = Math.round(fw * 0.15);
+    const tapeH = Math.round(fw * 0.03);
+    const tapeX = frameX + Math.round(fw * 0.55);
+    const tapeY = frameY - Math.round(fw * 0.008);
+    ctx.save();
+    ctx.globalAlpha = 0.55;
     ctx.fillStyle = t.grad1;
     ctx.beginPath();
-    roundRect(ctx, badgeX, badgeY, badgeW, badgeH, Math.round(badgeH * 0.5));
+    roundRect(ctx, tapeX, tapeY, tapeW, tapeH, 1);
     ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.round(badgeH * 0.5)}px Nunito, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const badges = ['✨ cute', '💕 oke', '⭐ yes', '🌸 ay', '🌙 nyah'];
-    ctx.fillText(badges[index % badges.length], badgeX + badgeW / 2, badgeY + badgeH / 2);
+    ctx.globalAlpha = 1;
+    // Tiny tape texture lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < 3; i++) {
+      const lx = tapeX + Math.round(tapeW * (0.25 + i * 0.25));
+      ctx.beginPath();
+      ctx.moveTo(lx, tapeY + 1);
+      ctx.lineTo(lx, tapeY + tapeH - 1);
+      ctx.stroke();
+    }
+    ctx.restore();
 
-    // Bottom-left deco
-    ctx.font = `${Math.round(fw * 0.07)}px sans-serif`;
-    ctx.fillText(t.deco[index % t.deco.length], fx + decoOff, fy + fh - decoOff);
+    // ── Photo corner tabs (top-left + bottom-right) ──
+    const tabSize = Math.round(fw * 0.025);
+    ctx.fillStyle = 'rgba(0,0,0,0.04)';
+    // Top-left tab
+    ctx.beginPath();
+    ctx.moveTo(photoX + tabSize, photoY);
+    ctx.lineTo(photoX, photoY + tabSize);
+    ctx.lineTo(photoX, photoY);
+    ctx.closePath();
+    ctx.fill();
+    // Bottom-right tab
+    ctx.beginPath();
+    ctx.moveTo(photoX + photoW - tabSize, photoY + photoH);
+    ctx.lineTo(photoX + photoW, photoY + photoH - tabSize);
+    ctx.lineTo(photoX + photoW, photoY + photoH);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawPhotoFrame(ctx, fx, fy, fw, fh, t, index, source, isVideo, rotation) {
+    if (rotation) {
+      ctx.save();
+      const cx = fx + fw / 2;
+      const cy = fy + fh / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation * Math.PI / 180);
+      drawCellContent(ctx, -fw / 2, -fh / 2, fw, fh, t, index, source, isVideo);
+      ctx.restore();
+    } else {
+      drawCellContent(ctx, fx, fy, fw, fh, t, index, source, isVideo);
+    }
   }
 
   // ═══════════════════════════════════════════════
   // BUILD STRIP (collage layout, theme-aware)
   // ═══════════════════════════════════════════════
+  function getStripMaxW() {
+    const wrapper = document.querySelector('.pb-strip-wrapper');
+    const fallback = currentLayoutCategory === 'collage' ? 310 : 250;
+    if (!wrapper) return fallback;
+    const availW = wrapper.clientWidth - 4;
+    if (availW < 50) return fallback;
+    const maxLimit = currentLayoutCategory === 'collage' ? 310 : 250;
+    return Math.min(availW, maxLimit);
+  }
+
   function buildStrip(frames) {
     const t = THEMES[currentTheme];
     const count = frames.length;
     const cells = getLayout(count);
     const maxY = getLayoutMaxY(count);
 
-    const photoAreaW = currentLayoutStyle === 'collage' && count >= 3 ? 310 : 250;
+    const photoAreaW = getStripMaxW();
     const margin = 10;
     const layoutH = photoAreaW * maxY;
     const headerH = 36;
@@ -581,7 +836,8 @@
       const fy = photoAreaY + c.y * scaleY;
       const fw = c.w * scaleX;
       const fh = c.h * scaleY;
-      drawPhotoFrame(ctx, fx, fy, fw, fh, t, i, frames[i], false);
+      const rot = cellRotations[i] || 0;
+      drawPhotoFrame(ctx, fx, fy, fw, fh, t, i, frames[i], false, rot);
     }
 
     // Footer stripe
@@ -614,6 +870,16 @@
     ctx.closePath();
   }
 
+  function getGridMaxW() {
+    const gridWrap = document.querySelector('.pb-camera-grid-wrap');
+    const fallback = currentLayoutCategory === 'collage' ? 280 : 250;
+    if (!gridWrap) return fallback;
+    const availW = gridWrap.clientWidth - 4;
+    if (availW < 50) return fallback;
+    const maxLimit = currentLayoutCategory === 'collage' ? 310 : 260;
+    return Math.min(availW, maxLimit);
+  }
+
   function renderCameraGrid() {
     if (!cameraGrid) return;
     if (animFrameId) {
@@ -626,7 +892,7 @@
     const filled = capturedFrames.length;
     const cells = getLayout(count);
     const maxY = getLayoutMaxY(count);
-    const maxW = currentLayoutStyle === 'collage' && count >= 3 ? 280 : 250;
+    const maxW = getGridMaxW();
     const margin = 6;
 
     const layoutH = maxW * maxY;
@@ -663,7 +929,8 @@
 
       const hasPhoto = i < filled;
       const source = hasPhoto ? capturedFrames[i] : video;
-      drawPhotoFrame(ctx, fx, fy, fw, fh, t, i, source, !hasPhoto);
+      const rot = hasPhoto ? (cellRotations[i] || 0) : 0;
+      drawPhotoFrame(ctx, fx, fy, fw, fh, t, i, source, !hasPhoto, rot);
     }
 
     if (filled < count && states.camera && !states.camera.classList.contains('hidden')) {
@@ -707,8 +974,10 @@
     } else {
       updateStep(TOTAL_SHOTS);
       setTimeout(() => {
-        buildStrip(capturedFrames);
         showState('preview');
+        requestAnimationFrame(() => {
+          buildStrip(capturedFrames);
+        });
       }, 400);
     }
   }
@@ -764,6 +1033,7 @@
   btnCapture.addEventListener('click', startCountdown);
   btnRetake.addEventListener('click', () => {
     capturedFrames = [];
+    generateRotations(TOTAL_SHOTS);
     buildStepIndicator(TOTAL_SHOTS);
     updateStep(1);
     showState('camera');
@@ -775,6 +1045,7 @@
   });
   btnAgain.addEventListener('click', () => {
     capturedFrames = [];
+    generateRotations(TOTAL_SHOTS);
     buildStepIndicator(TOTAL_SHOTS);
     updateStep(1);
     if (!mediaStream) {
@@ -789,7 +1060,59 @@
   });
 
   // ═══════════════════════════════════════════════
-  // INIT
+  // INIT — populate sub-layout buttons
   // ═══════════════════════════════════════════════
+  function initSubLayoutButtons() {
+    const subRow = document.getElementById('pbSubLayoutRow');
+    const liveSub = document.getElementById('pbLiveSubLayout');
+    if (!subRow && !liveSub) return;
+
+    const presets = CATEGORY_PRESETS['collage'];
+    presets.forEach((id) => {
+      const p = LAYOUTS[id];
+      if (!p) return;
+      const label = p.label;
+      const icon = p.icon || '';
+
+      const makeBtn = (container, cls) => {
+        const btn = document.createElement('button');
+        btn.className = cls;
+        btn.dataset.preset = id;
+        btn.title = label;
+        btn.innerHTML = icon;
+        btn.addEventListener('click', () => applyLayoutPreset(id));
+        container.appendChild(btn);
+      };
+
+      if (subRow) makeBtn(subRow, 'pb-sub-layout-btn' + (id === currentLayoutPreset ? ' active' : ''));
+      if (liveSub) makeBtn(liveSub, 'live-sub-layout-btn' + (id === currentLayoutPreset ? ' active' : ''));
+    });
+  }
+
+  // Set SVG icons on category buttons
+  function initLayoutIcons() {
+    const stripIcon = LAYOUTS.strip.icon;
+    const collageIcon = LAYOUTS['collage-split'].icon;
+    const stripEl = document.getElementById('pbLayoutIconStrip');
+    const collageEl = document.getElementById('pbLayoutIconCollage');
+    if (stripEl) stripEl.innerHTML = stripIcon;
+    if (collageEl) collageEl.innerHTML = collageIcon;
+  }
+
+  initSubLayoutButtons();
+  initLayoutIcons();
+  generateRotations(TOTAL_SHOTS);
+
+  // Re-render camera grid on resize/orientation change
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      if (states.camera && !states.camera.classList.contains('hidden')) {
+        renderCameraGrid();
+      }
+    }, 200);
+  });
+
   startCamera();
 })();

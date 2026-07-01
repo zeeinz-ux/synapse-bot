@@ -153,10 +153,21 @@ body {
   box-shadow: var(--pb-shadow);
   border: 2px solid rgba(255, 255, 255, 0.6);
   min-height: 440px;
+  max-height: 90vh;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
   transition: box-shadow 0.5s ease, background 0.5s ease;
+}
+
+.pb-card::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pb-card::-webkit-scrollbar-thumb {
+  background: #ddd;
+  border-radius: 99px;
 }
 
 /* ── State toggle ── */
@@ -254,13 +265,14 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.2rem;
-  padding: 0.6rem 0.8rem;
+  padding: 0.6rem 0.4rem;
   border: 2px solid #f0e0e8;
   border-radius: 16px;
   background: white;
   cursor: pointer;
   transition: all 0.25s ease;
-  min-width: 80px;
+  min-width: 64px;
+  flex: 0 1 auto;
   font-family: inherit;
 }
 
@@ -431,7 +443,6 @@ body {
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
   max-width: 100%;
   height: auto;
-  max-height: 65vh;
 }
 
 /* ── Live switcher row ── */
@@ -583,14 +594,14 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.2rem;
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 0.8rem;
   border: 2px solid #f0e0e8;
   border-radius: 14px;
   background: white;
   cursor: pointer;
   font-family: inherit;
   transition: all 0.25s ease;
-  min-width: 80px;
+  min-width: 70px;
 }
 
 .pb-layout-btn:hover {
@@ -606,10 +617,12 @@ body {
 }
 
 .layout-icon {
-  font-size: 0.75rem;
-  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   color: #999;
-  text-align: center;
 }
 
 .pb-layout-btn.active .layout-icon {
@@ -624,6 +637,59 @@ body {
 
 .pb-layout-btn.active .layout-label {
   color: var(--pb-accent);
+}
+
+/* ── Standalone hidden class ── */
+.hidden {
+  display: none !important;
+}
+
+/* ── Sub-layout variant buttons (collage) ── */
+.pb-sub-layout-row {
+  display: flex;
+  gap: 0.3rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+}
+
+.pb-sub-layout-btn,
+.live-sub-layout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.4rem;
+  border: 2px solid #f0e0e8;
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #999;
+  transition: all 0.2s ease;
+  line-height: 1;
+  min-width: 28px;
+}
+
+.pb-sub-layout-btn:hover,
+.live-sub-layout-btn:hover {
+  border-color: var(--pb-accent);
+  color: var(--pb-accent);
+  transform: translateY(-1px);
+}
+
+.pb-sub-layout-btn.active,
+.live-sub-layout-btn.active {
+  border-color: var(--pb-accent);
+  color: var(--pb-accent);
+  background: linear-gradient(135deg, #fff5f9, color-mix(in srgb, var(--pb-accent) 8%, white));
+  box-shadow: 0 2px 8px var(--pb-glow);
+}
+
+.pb-sub-layout-btn svg,
+.live-sub-layout-btn svg {
+  display: block;
 }
 
 /* ── Capture button ── */
@@ -697,7 +763,7 @@ body {
    ══════════════════════════════════════════════ */
 .pb-strip-wrapper {
   width: 100%;
-  max-width: 300px;
+  max-width: min(300px, 85vw);
   border-radius: 16px;
   overflow: hidden;
   box-shadow:
@@ -709,8 +775,8 @@ body {
 
 .pb-strip-wrapper canvas {
   width: 100%;
+  height: auto;
   display: block;
-  aspect-ratio: auto;
 }
 
 .pb-result-actions {
@@ -907,8 +973,28 @@ body {
 
 /* ── Responsive ── */
 @media (max-width: 480px) {
-  .pb-card { padding: 1.5rem 1rem; }
-  .pb-title { font-size: 1.8rem; }
-  .pb-countdown-num { font-size: 4.5rem; }
-  .pb-btn { font-size: 0.9rem; padding: 0.7rem 1.5rem; }
+  .pb-card { padding: 1.2rem 0.8rem; min-height: 360px; }
+  .pb-title { font-size: 1.5rem; }
+  .pb-subtitle { font-size: 0.85rem; }
+  .pb-countdown-num { font-size: 4rem; }
+  .pb-btn { font-size: 0.85rem; padding: 0.6rem 1.2rem; }
+  .pb-picker-grid { gap: 0.4rem; }
+  .pb-picker-card { min-width: 56px; padding: 0.4rem 0.3rem; }
+  .picker-label { font-size: 0.7rem; }
+  .pb-layout-btn { min-width: 60px; padding: 0.3rem 0.6rem; }
+  .pb-sub-layout-btn, .live-sub-layout-btn { padding: 0.2rem 0.3rem; }
+  .live-label { font-size: 0.6rem; }
+  .pb-live-row { gap: 0.6rem; }
+  .live-count-btn { width: 22px; height: 22px; font-size: 0.65rem; }
+  .live-theme-dot { width: 22px; height: 22px; }
+  .pb-hint { font-size: 0.7rem; }
+  .pb-step-label { font-size: 0.8rem; }
+  .pb-frame-label { font-size: 0.75rem; }
+}
+
+@media (max-width: 360px) {
+  .pb-card { padding: 1rem 0.6rem; min-height: 320px; }
+  .pb-picker-card { min-width: 48px; padding: 0.3rem 0.2rem; }
+  .pb-layout-btn { min-width: 54px; padding: 0.25rem 0.4rem; }
+  .pb-header { margin-bottom: 0.8rem; }
 }
