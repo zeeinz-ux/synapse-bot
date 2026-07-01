@@ -38,6 +38,8 @@
   const btnRetake = $('pbBtnRetake');
   const btnSend = $('pbBtnSend');
   const btnRetry = $('pbBtnRetry');
+  const btnAgain = $('pbBtnAgain');
+  const btnBackPicker = $('pbBtnBackPicker');
 
   // ── State ──
   let mediaStream = null;
@@ -555,6 +557,20 @@
   btnRetry.addEventListener('click', () => {
     stopCamera();
     startCamera();
+  });
+  btnAgain.addEventListener('click', () => {
+    capturedFrames = [];
+    buildStepIndicator(TOTAL_SHOTS);
+    updateStep(1);
+    if (!mediaStream) {
+      startCamera();
+    } else {
+      showState('camera');
+    }
+  });
+  btnBackPicker.addEventListener('click', () => {
+    capturedFrames = [];
+    showState('picker');
   });
 
   // ═══════════════════════════════════════════════
