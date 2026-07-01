@@ -33,6 +33,7 @@
   const pickerCards = document.querySelectorAll('.pb-picker-card');
   const themeBtns = document.querySelectorAll('.pb-theme-btn');
   const liveDots = document.querySelectorAll('.live-theme-dot');
+  const liveCountBtns = document.querySelectorAll('.live-count-btn');
   const btnStart = $('pbBtnStart');
   const btnCapture = $('pbBtnCapture');
   const btnRetake = $('pbBtnRetake');
@@ -284,6 +285,20 @@
   liveDots.forEach((dot) => {
     dot.addEventListener('click', () => {
       applyTheme(dot.dataset.theme);
+    });
+  });
+
+  // Live count buttons (camera page)
+  liveCountBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const newCount = parseInt(btn.dataset.count);
+      if (newCount === TOTAL_SHOTS) return;
+      TOTAL_SHOTS = newCount;
+      liveCountBtns.forEach((b) => b.classList.toggle('active', parseInt(b.dataset.count) === TOTAL_SHOTS));
+      capturedFrames = [];
+      buildStepIndicator(TOTAL_SHOTS);
+      updateStep(1);
+      showState('camera');
     });
   });
 

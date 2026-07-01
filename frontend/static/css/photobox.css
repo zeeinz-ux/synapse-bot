@@ -460,23 +460,40 @@ body {
   transition: color 0.4s ease;
 }
 
-/* ── Live theme switcher ── */
-.pb-live-theme {
+/* ── Live switcher row ── */
+.pb-live-row {
+  display: flex;
+  gap: 1.2rem;
+  justify-content: center;
+  align-items: center;
+  margin-top: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.pb-live-group {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  margin-top: 0.2rem;
 }
 
-.live-theme-label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #999;
+.live-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #bbb;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Theme dots ── */
+.pb-live-theme {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .live-theme-dot {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 2px solid #f0e0e8;
   background: white;
@@ -494,14 +511,51 @@ body {
 
 .live-theme-dot.active {
   border-color: var(--pb-accent);
-  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--pb-accent);
+  box-shadow: 0 0 0 2px white, 0 0 0 3px var(--pb-accent);
 }
 
 .dot-swatch {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   display: block;
+}
+
+/* ── Count buttons ── */
+.pb-live-count {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.live-count-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 2px solid #f0e0e8;
+  background: white;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #bbb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.25s ease;
+}
+
+.live-count-btn:hover {
+  border-color: var(--pb-accent);
+  color: var(--pb-accent);
+}
+
+.live-count-btn.active {
+  border-color: var(--pb-accent);
+  background: linear-gradient(135deg, var(--pb-accent), var(--pb-secondary));
+  color: white;
+  box-shadow: 0 2px 8px var(--pb-glow);
 }
 
 /* ── Capture button ── */
