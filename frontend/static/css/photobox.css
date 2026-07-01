@@ -792,9 +792,12 @@ body {
 
 .pb-result-actions {
   display: flex;
-  gap: 0.8rem;
+  gap: 0.5rem;
   margin-top: auto;
   padding-top: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
 }
 
 .pb-btn--retake {
@@ -805,6 +808,17 @@ body {
 .pb-btn--retake:hover {
   background: #e0e0e0;
   transform: translateY(-2px);
+}
+
+.pb-btn--download {
+  background: linear-gradient(135deg, #74b9ff, #a0c8e8);
+  color: white;
+  box-shadow: 0 4px 16px rgba(116, 185, 255, 0.4);
+}
+
+.pb-btn--download:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 24px rgba(116, 185, 255, 0.5);
 }
 
 .pb-btn--send {

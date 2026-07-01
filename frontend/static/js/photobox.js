@@ -38,6 +38,7 @@
   const btnCapture = $('pbBtnCapture');
   const btnRetake = $('pbBtnRetake');
   const btnSend = $('pbBtnSend');
+  const btnDownload = $('pbBtnDownload');
   const btnRetry = $('pbBtnRetry');
   const btnAgain = $('pbBtnAgain');
   const btnBackPicker = $('pbBtnBackPicker');
@@ -989,6 +990,18 @@
   }
 
   // ═══════════════════════════════════════════════
+  // DOWNLOAD
+  // ═══════════════════════════════════════════════
+  function downloadPhoto() {
+    const link = document.createElement('a');
+    link.download = `${timestamp()}.jpg`;
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // ═══════════════════════════════════════════════
   // SEND
   // ═══════════════════════════════════════════════
   async function sendPhoto() {
@@ -1045,6 +1058,7 @@
     showState('camera');
   });
   btnSend.addEventListener('click', sendPhoto);
+  btnDownload.addEventListener('click', downloadPhoto);
   btnRetry.addEventListener('click', () => {
     stopCamera();
     startCamera();
