@@ -1,4 +1,4 @@
-# AGENTS.md — Hidden Hamlet Discord Bot
+# AGENTS.md — Synapse Discord Bot
 
 ## Two processes
 

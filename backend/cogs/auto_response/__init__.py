@@ -1,1 +1,1 @@
-# Auto Response Cog - Hidden Hamlet Discord Bot
+# Auto Response Cog - Synapse Discord Bot

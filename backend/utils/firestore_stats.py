@@ -68,7 +68,7 @@ def _env_float(name: str, default: float) -> float:
 # Override with env vars FIRESTORE_DEBOUNCE / FIRESTORE_CIRCUIT_SEC for paid tiers.
 WRITE_DEBOUNCE_SECONDS = _env_float("FIRESTORE_DEBOUNCE", 30.0)
 CIRCUIT_OPEN_SECONDS   = _env_float("FIRESTORE_CIRCUIT_SEC", 900.0)
-DIRTY_HASH_SALT        = os.getenv("FIRESTORE_HASH_SALT", "hidden-hamlet-v1")
+DIRTY_HASH_SALT        = os.getenv("FIRESTORE_HASH_SALT", "synapse-v1")
 
 COLLECTION = "bot_status"
 DOC_ID = "stats"
@@ -79,7 +79,7 @@ DOC_ID = "stats"
 # ---------------------------------------------------------------------------
 _local_stats: Dict[str, Any] = {
     "online": False,
-    "username": "Hidden Hamlet",
+    "username": "Synapse",
     "uptime": 0,
     "guilds": 0,
     "members": 0,
@@ -388,7 +388,7 @@ def get_stats_snapshot() -> Dict[str, Any]:
 
     return {
         "online":             raw.get("online", False),
-        "username":           raw.get("username", "Hidden Hamlet"),
+        "username":           raw.get("username", "Synapse"),
         "uptime_fmt":         format_uptime(raw.get("uptime", 0)),
         "guilds":             raw.get("guilds", 0),
         "members":            raw.get("members", 0),

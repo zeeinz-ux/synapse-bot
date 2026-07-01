@@ -1,5 +1,5 @@
 # =============================================================================
-# cogs/welcome.py — Hidden Hamlet Discord Bot v3.7.6
+# cogs/welcome.py — Synapse Discord Bot v3.7.6
 # Modul  : Welcome Announcement (Join Message) — Dual Style: Embed + Banner
 # Author : zeeinz-ux
 # FIX v3.7.6:

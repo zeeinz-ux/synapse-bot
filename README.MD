@@ -1,4 +1,4 @@
-# Hidden Hamlet — Discord Bot v4.7
+# Synapse — Discord Bot v4.7
 
 A multifunctional Discord bot with a web dashboard, AI chat, moderation, leveling, and server management tools.
 

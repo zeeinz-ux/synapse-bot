@@ -1,6 +1,6 @@
 """
 ================================================================================
-COG: Auto Responder Module v1.0 — Hidden Hamlet Discord Bot
+COG: Auto Responder Module v1.0 — Synapse Discord Bot
 ================================================================================
 File    : backend/cogs/auto_response/auto_response.py
 Deskripsi : Auto-responder berbasis keyword dari Firestore

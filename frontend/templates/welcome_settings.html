@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Welcome Settings — Hidden Hamlet{% endblock %}
+{% block title %}Welcome Settings — Synapse{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/welcome_settings.css') }}" />
 {% endblock %}
@@ -320,7 +320,7 @@
             <div class="koya-banner-text">
               <h2 id="koyaBannerTitle">{{ config.banner_text or 'WELCOME' }}</h2>
               <p id="koyaBannerName">USERNAME</p>
-              <span id="koyaBannerSub">{{ config.banner_subtext or 'Member ke-171 • Hidden Hamlet' }}</span>
+              <span id="koyaBannerSub">{{ config.banner_subtext or 'Member ke-171 • Synapse' }}</span>
             </div>
           </div>
         </div>
@@ -458,8 +458,8 @@
     var bannerSubtextInput = document.getElementById("banner_subtext");
     var koyaBannerSub = document.getElementById("koyaBannerSub");
     if (bannerSubtextInput && koyaBannerSub) {
-      var val = bannerSubtextInput.value.trim() || "Member ke-171 • Hidden Hamlet";
-      koyaBannerSub.textContent = val.replace("{count}", "171").replace("{server}", "Hidden Hamlet");
+      var val = bannerSubtextInput.value.trim() || "Member ke-171 • Synapse";
+      koyaBannerSub.textContent = val.replace("{count}", "171").replace("{server}", "Synapse");
     }
 
     // ── 13. Embed Title Live Preview Init ──

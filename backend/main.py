@@ -216,7 +216,7 @@ async def update_stats():
 
         set_stats(
             online=bot.is_ready(),
-            username=bot.user.name if bot.user else "Hidden Hamlet",
+            username=bot.user.name if bot.user else "Synapse",
             uptime=int(time.time() - start_time),
             guilds=len(bot.guilds),
             members=sum(g.member_count or 0 for g in bot.guilds),

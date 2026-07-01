@@ -1,5 +1,5 @@
 /* ============================================
-   SIDEBAR JS — Hidden Hamlet Dashboard
+   SIDEBAR JS — Synapse Dashboard
    ============================================ */
 
 (function () {

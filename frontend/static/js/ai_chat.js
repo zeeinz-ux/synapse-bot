@@ -1,5 +1,5 @@
 /* ================================================================================
-   JS: AI Chat Settings v4.6 — Hidden Hamlet Dashboard
+   JS: AI Chat Settings v4.6 — Synapse Dashboard
    UPDATE: Triple API Tier Stack + Circuit Breaker Info
    ================================================================================ */
 
@@ -365,7 +365,7 @@
 })();
 
 /* ================================================================================
-   JS: AI Chat Settings v4.6 — Hidden Hamlet Dashboard
+   JS: AI Chat Settings v4.6 — Synapse Dashboard
    UPDATE: Triple API Tier Stack + Circuit Breaker Info
    ================================================================================ */
 

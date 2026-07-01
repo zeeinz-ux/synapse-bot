@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>{% block title %}Hidden Hamlet Dashboard{% endblock %}</title>
+  <title>{% block title %}Synapse Dashboard{% endblock %}</title>
 
   <!-- ⚠️ JANGAN TAMBAHKAN <base target="_blank"> — akan buat semua link buka tab baru -->
 
@@ -29,9 +29,9 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="bot-brand">
-          <div class="bot-avatar"><img src="{{ url_for('static', filename='logo-2.png') }}" alt="Hidden Hamlet"></div>
+          <div class="bot-avatar"><img src="{{ url_for('static', filename='logo-2.png') }}" alt="Synapse"></div>
           <div class="bot-info">
-            <h1 class="bot-name">Hidden Hamlet</h1>
+            <h1 class="bot-name">Synapse</h1>
             <span class="bot-status {% if s.online %}online{% else %}offline{% endif %}">
               {% if s.online %}● Online{% else %}○ Offline{% endif %}
             </span>
@@ -203,7 +203,7 @@
             <line x1="3" y1="18" x2="21" y2="18"></line>
           </svg>
         </button>
-        <span class="mobile-title">Hidden Hamlet</span>
+        <span class="mobile-title">Synapse</span>
         <div class="mobile-guild-selector">
           {% if s.guilds_list %}
           <select id="mobileGuildDropdown" data-current-guild="{{ guild_id }}">

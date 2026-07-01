@@ -156,8 +156,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (bannerSubtextInput && koyaBannerSub) {
     bannerSubtextInput.addEventListener("input", function () {
-      const val = this.value.trim() || "Member ke-171 • Hidden Hamlet";
-      koyaBannerSub.textContent = val.replace("{count}", "171").replace("{server}", "Hidden Hamlet");
+      const val = this.value.trim() || "Member ke-171 • Synapse";
+      koyaBannerSub.textContent = val.replace("{count}", "171").replace("{server}", "Synapse");
     });
   }
 

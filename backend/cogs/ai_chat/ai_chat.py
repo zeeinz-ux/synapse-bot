@@ -1,6 +1,6 @@
 """
 ================================================================================
-COG: AI Chat Module v4.7 — Hidden Hamlet Discord Bot
+COG: AI Chat Module v4.7 — Synapse Discord Bot
 ================================================================================
 File    : backend/cogs/ai_chat.py
 Deskripsi : Triple API Fallback — Google AI Studio (T1) → Groq (T2) → OpenRouter (T3)
@@ -62,7 +62,7 @@ CIRCUIT_BREAKER_THRESHOLD = 3       # fail streak sebelum circuit open
 CIRCUIT_BREAKER_COOLDOWN = 7200     # 2 jam (detik)
 
 # ── System Prompt Template ──
-SYSTEM_PROMPT_TEMPLATE = """Kamu adalah AI Resmi dari bot Discord "Hidden Hamlet".
+SYSTEM_PROMPT_TEMPLATE = """Kamu adalah AI Resmi dari bot Discord "Synapse".
 Personality saat ini: {personality}
 
 Gaya bahasa:
@@ -473,7 +473,7 @@ class AIChat(commands.Cog):
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.openrouter_api_key}",
                 "HTTP-Referer": "https://my-discord-bot-my-discord-bot.up.railway.app/dashboard/1290376615439892591/ai-chat",
-                "X-Title": "Hidden Hamlet Discord Bot",
+                "X-Title": "Synapse Discord Bot",
             }
 
             url = f"{OPENROUTER_API_BASE}/chat/completions"
@@ -726,7 +726,7 @@ class AIChat(commands.Cog):
         await self._save_chat_history(guild_id, user_id, user_message, response_text, personality)
         await self._send_response(ctx, user_id, response_text)
 
-    @commands.hybrid_command(name="ask", description="Tanya apa saja ke AI Hidden Hamlet")
+    @commands.hybrid_command(name="ask", description="Tanya apa saja ke AI Synapse")
     async def ask(self, ctx: commands.Context, pertanyaan: str):
         
         # 1. Setup Data
@@ -767,7 +767,7 @@ class AIChat(commands.Cog):
                 print(f"[AI CHAT] ❌ Gagal kirim error message: {e_followup}")
 
     # ═══════════════════════════════════════════════════════════════════════
-    # EVENT LISTENER: Mention @HiddenHamlet
+    # EVENT LISTENER: Mention @Synapse
     # ═══════════════════════════════════════════════════════════════════════
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):

@@ -1,5 +1,5 @@
 /**
- * welcome.js — Hidden Hamlet Welcome Settings Form Logic v3.7.2
+ * welcome.js — Synapse Welcome Settings Form Logic v3.7.2
  * Features: style toggle (embed/banner), color picker sync, live preview,
  *           drag & drop upload with Catbox hosting + IMAGE RESIZE, banner preview, form submit
  */
@@ -234,10 +234,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (bannerSubtextInput && koyaBannerSub) {
     bannerSubtextInput.addEventListener("input", function () {
-      const val = this.value.trim() || "Member ke-171 • Hidden Hamlet";
+      const val = this.value.trim() || "Member ke-171 • Synapse";
       koyaBannerSub.textContent = val
         .replace("{count}", "171")
-        .replace("{server}", "Hidden Hamlet");
+        .replace("{server}", "Synapse");
     });
   }
 

@@ -1,6 +1,6 @@
 /**
  * =====================================================
- * Auto Responders Page JavaScript - Hidden Hamlet (FIXED)
+ * Auto Responders Page JavaScript - Synapse (FIXED)
  * =====================================================
  */
 
