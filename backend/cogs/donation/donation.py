@@ -19,10 +19,20 @@ class DonationCog(commands.Cog):
     @commands.hybrid_command(name="donasi", description="Catat donasi ke database")
     @app_commands.describe(
         nominal="Jumlah donasi dalam angka (contoh: 50000)",
-        metode="Metode pembayaran (contoh: QRIS, DANA, OVO, Gopay)"
+        metode="Metode pembayaran",
+        catatan="Catatan opsional (contoh: terima kasih)"
     )
-    async def donasi(self, ctx: commands.Context, nominal: int, metode: str):
-        # FIX 1: Memeriksa database melalui atribut bot (self.bot.db) yang dikirim dari main.py
+    @app_commands.choices(metode=[
+        app_commands.Choice(name="QRIS", value="QRIS"),
+        app_commands.Choice(name="DANA", value="DANA"),
+        app_commands.Choice(name="OVO", value="OVO"),
+        app_commands.Choice(name="Gopay", value="Gopay"),
+        app_commands.Choice(name="LinkAja", value="LinkAja"),
+        app_commands.Choice(name="Bank Transfer", value="Bank Transfer"),
+        app_commands.Choice(name="PayPal", value="PayPal"),
+        app_commands.Choice(name="Lainnya", value="Lainnya"),
+    ])
+    async def donasi(self, ctx: commands.Context, nominal: int, metode: app_commands.Choice[str], catatan: str = None):
         if not hasattr(self.bot, 'db') or not self.bot.db:
             await ctx.send("❌ Database tidak aktif!", ephemeral=True)
             return
@@ -35,18 +45,20 @@ class DonationCog(commands.Cog):
                 "guild_id": str(ctx.guild.id),
                 "type": "donation",
                 "amount": nominal,
-                "payment_method": metode,
+                "payment_method": metode.value,
                 "status": "pending",
                 "created_at": firestore.SERVER_TIMESTAMP
             }
+            if catatan:
+                data_transaksi["note"] = catatan
 
-            # FIX 2: Menggunakan self.bot.db (bukan variabel 'db' global yang bikin crash)
             _, doc_ref = self.bot.db.collection("transactions").add(data_transaksi)
 
+            note_line = f"\n📝 Catatan: {catatan}" if catatan else ""
             await msg.edit(
-                content=f"✅ Donasi sebesar **Rp {nominal:,}** lewat **{metode.upper()}** berhasil dicatat!\n"
+                content=f"✅ Donasi sebesar **Rp {nominal:,}** lewat **{metode.value}** berhasil dicatat!\n"
                         f"🆔 ID Transaksi: `{doc_ref.id}`\n"
-                        f"👤 Oleh: {ctx.author.mention}"
+                        f"👤 Oleh: {ctx.author.mention}{note_line}"
             )
             print(f"[FIREBASE] ✅ Transaksi donasi tersimpan! ID: {doc_ref.id}")
 
@@ -126,6 +138,29 @@ class DonationCog(commands.Cog):
 
     @donasi_confirm.error
     async def donasi_confirm_error(self, ctx: commands.Context, error):
+        if isinstance(error, commands.MissingPermissions):
+            await ctx.send("❌ Kamu tidak punya izin! (Admin only)", ephemeral=True)
+
+    @commands.hybrid_command(name="donasi-note", description="Tambah/edit catatan donasi (Admin)")
+    @app_commands.describe(transaction_id="ID transaksi", catatan="Isi catatan")
+    @commands.has_permissions(administrator=True)
+    async def donasi_note(self, ctx: commands.Context, transaction_id: str, catatan: str):
+        if not hasattr(self.bot, 'db') or not self.bot.db:
+            return await ctx.send("❌ Database tidak aktif!", ephemeral=True)
+        try:
+            doc_ref = self.bot.db.collection("transactions").document(transaction_id)
+            doc = await asyncio.to_thread(doc_ref.get)
+            if not doc.exists:
+                await ctx.send(f"❌ Transaksi `{transaction_id}` tidak ditemukan.", ephemeral=True)
+                return
+            await asyncio.to_thread(doc_ref.update, {"note": catatan})
+            await ctx.send(f"✅ Catatan untuk `{transaction_id}` berhasil disimpan!", ephemeral=True)
+        except Exception as e:
+            await ctx.send("❌ Gagal menyimpan catatan.", ephemeral=True)
+            print(f"[DONATION] ❌ Note error: {e}")
+
+    @donasi_note.error
+    async def donasi_note_error(self, ctx: commands.Context, error):
         if isinstance(error, commands.MissingPermissions):
             await ctx.send("❌ Kamu tidak punya izin! (Admin only)", ephemeral=True)
 

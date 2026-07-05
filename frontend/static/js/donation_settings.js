@@ -6,9 +6,63 @@
     return 'Rp ' + Number(n).toLocaleString('id-ID');
   }
 
-  function defaultAvatar(uid){
-    var defaultIdx = (parseInt(uid) >> 22) % 5;
+  function userAvatar(tx){
+    if(tx.avatar_url) return tx.avatar_url;
+    var defaultIdx = (parseInt(tx.user_id) >> 22) % 5;
     return 'https://cdn.discordapp.com/embed/avatars/' + defaultIdx + '.png';
+  }
+  function userName(tx){
+    return tx.username || tx.user_id;
+  }
+
+  /* ---- Inline note edit ---- */
+  function makeNoteCell(tx){
+    var note = tx.note || '';
+    return '<span class="note-display" data-tx="' + tx.id + '">'
+      + '<span class="note-text">' + (note || '—') + '</span>'
+      + '<button class="btn-note-edit" data-tx="' + tx.id + '" title="Edit catatan">✏️</button>'
+      + '</span>';
+  }
+
+  function bindNoteEdits(){
+    document.querySelectorAll('.btn-note-edit').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var txId = this.dataset.tx;
+        var cell = this.closest('.note-display');
+        var textEl = cell.querySelector('.note-text');
+        var current = textEl.textContent === '—' ? '' : textEl.textContent;
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'note-input';
+        input.value = current;
+        input.placeholder = 'Tambah catatan...';
+        cell.innerHTML = '';
+        cell.appendChild(input);
+        input.focus();
+        input.select();
+
+        function save(){
+          var val = input.value.trim();
+          fetch('/api/donations/' + guildId + '/note', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({id: txId, note: val})
+          })
+          .then(function(r){ return r.json(); })
+          .then(function(res){
+            if(res.success) location.reload();
+            else alert('Gagal: ' + (res.message || 'unknown'));
+          })
+          .catch(function(){ alert('Network error'); });
+        }
+
+        input.addEventListener('keydown', function(e){
+          if(e.key === 'Enter') { e.preventDefault(); save(); }
+          if(e.key === 'Escape') location.reload();
+        });
+        input.addEventListener('blur', save);
+      });
+    });
   }
 
   if (isStats) {
@@ -28,8 +82,8 @@
             var rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
             html += '<li>'
               + '<div class="donor-rank ' + rankClass + '">' + (i+1) + '</div>'
-              + '<div class="donor-user"><img class="user-avatar" src="' + defaultAvatar(u.user_id) + '" loading="lazy">'
-              + '<code>' + u.user_id + '</code></div>'
+              + '<div class="donor-user"><img class="user-avatar" src="' + userAvatar(u) + '" loading="lazy">'
+              + '<span class="donor-name">' + userName(u) + '</span></div>'
               + '<div class="donor-amount">' + fmtRupiah(u.total) + '</div>'
               + '</li>';
           }
@@ -72,13 +126,13 @@
               : '<button class="btn-confirm-donation" data-tx="' + tx.id + '">✔️ Confirm</button>';
             html += '<tr>'
               + '<td><code>' + tx.id.slice(0,8) + '…</code></td>'
-              + '<td><img class="user-avatar" src="' + defaultAvatar(tx.user_id) + '" loading="lazy"><code>' + tx.user_id + '</code></td>'
+              + '<td><img class="user-avatar" src="' + userAvatar(tx) + '" loading="lazy"><span class="user-name-cell">' + userName(tx) + '</span></td>'
               + '<td class="amount-col">' + fmtRupiah(tx.amount) + '</td>'
               + '<td>' + (tx.payment_method || '—').toUpperCase() + '</td>'
               + '<td><span class="' + statusClass + '">' + statusLabel + '</span></td>'
               + '<td>' + created + '</td>'
               + '<td class="action-col">' + confirmBtn + '</td>'
-              + '<td>' + (tx.note || '—') + '</td></tr>';
+              + '<td>' + makeNoteCell(tx) + '</td></tr>';
           }
         } else {
           html = '<tr><td colspan="8" class="loading">Belum ada data donasi</td></tr>';
@@ -101,7 +155,6 @@
             .then(function(r){ return r.json(); })
             .then(function(res){
               if(res.success){
-                // reload
                 location.reload();
               } else {
                 alert('Gagal: ' + (res.message || 'unknown'));
@@ -116,6 +169,8 @@
             });
           });
         });
+
+        bindNoteEdits();
       })
       .catch(function(){
         document.getElementById('donationHistoryBody').innerHTML = '<tr><td colspan="8" class="loading">Gagal memuat data</td></tr>';

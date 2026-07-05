@@ -251,13 +251,23 @@ def api_donation_history(guild_id: str):
                      .where("guild_id", "==", str(guild_id))
                      .order_by("created_at", direction=firestore.Query.DESCENDING)
                      .limit(50).stream())
+        # Resolve user info from Discord API via bot guild data
+        bot_guilds = current_app.config.get("BOT_GUILDS", {})
+        guild_data = bot_guilds.get(str(guild_id), {})
+        members = {str(m["user"]["id"]): m["user"] for m in guild_data.get("members", [])}
+
         donations = []
         for doc in docs:
             d = doc.to_dict()
             created = d.get("created_at")
+            uid = d.get("user_id", "")
+            user = members.get(uid, {})
+            avatar_hash = user.get("avatar", "")
             donations.append({
                 "id": doc.id,
-                "user_id": d.get("user_id", ""),
+                "user_id": uid,
+                "username": user.get("username", ""),
+                "avatar_url": f"https://cdn.discordapp.com/avatars/{uid}/{avatar_hash}.png" if avatar_hash else "",
                 "amount": d.get("amount", 0),
                 "payment_method": d.get("payment_method", ""),
                 "status": d.get("status", "pending"),
@@ -279,6 +289,11 @@ def api_donation_stats(guild_id: str):
         docs = list(db.collection("transactions")
                      .where("guild_id", "==", str(guild_id))
                      .stream())
+        # Resolve user info
+        bot_guilds = current_app.config.get("BOT_GUILDS", {})
+        guild_data = bot_guilds.get(str(guild_id), {})
+        members = {str(m["user"]["id"]): m["user"] for m in guild_data.get("members", [])}
+
         total_count = len(docs)
         total_amount = 0
         completed_count = 0
@@ -301,13 +316,24 @@ def api_donation_stats(guild_id: str):
 
         top_donors = sorted(user_amounts.items(), key=lambda x: x[1], reverse=True)[:10]
 
+        top_donors_list = []
+        for uid, amt in top_donors:
+            user = members.get(uid, {})
+            avatar_hash = user.get("avatar", "")
+            top_donors_list.append({
+                "user_id": uid,
+                "username": user.get("username", ""),
+                "avatar_url": f"https://cdn.discordapp.com/avatars/{uid}/{avatar_hash}.png" if avatar_hash else "",
+                "total": amt,
+            })
+
         return jsonify({
             "success": True,
             "total_count": total_count,
             "total_amount": total_amount,
             "completed_count": completed_count,
             "average_amount": round(total_amount / total_count, 2) if total_count else 0,
-            "top_donors": [{"user_id": uid, "total": amt} for uid, amt in top_donors],
+            "top_donors": top_donors_list,
             "method_breakdown": [{"method": m, "count": c} for m, c in method_counts.items()],
         }), 200
     except Exception as e:
@@ -337,6 +363,29 @@ def api_donation_confirm(guild_id: str):
         return jsonify({"success": True, "message": "Confirmed", "id": tx_id}), 200
     except Exception as e:
         traceback.print_exc()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/donations/<guild_id>/note", methods=["POST"])
+def api_donation_note(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    payload = request.get_json(silent=True) or {}
+    tx_id = payload.get("id")
+    note = payload.get("note", "")
+    if not tx_id:
+        return jsonify({"success": False, "message": "Missing transaction id"}), 400
+    try:
+        doc_ref = db.collection("transactions").document(tx_id)
+        doc = doc_ref.get()
+        if not doc.exists:
+            return jsonify({"success": False, "message": "Transaction not found"}), 404
+        data = doc.to_dict()
+        if data.get("guild_id") != str(guild_id):
+            return jsonify({"success": False, "message": "Guild mismatch"}), 403
+        doc_ref.update({"note": note})
+        return jsonify({"success": True, "message": "Note saved", "id": tx_id}), 200
+    except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
 
