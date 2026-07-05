@@ -204,6 +204,7 @@ async def update_stats():
                 for ch in guild.text_channels
                 if ch.permissions_for(guild.me).send_messages
             ]
+            set_guild_channels(str(guild.id), text_channels)
             set_guild_roles(str(guild.id), [
                 {"id": str(r.id), "name": r.name, "color": r.color.value, "position": r.position}
                 for r in guild.roles if r.name != "@everyone"
