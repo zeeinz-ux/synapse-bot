@@ -4,9 +4,43 @@ from discord.ext import commands
 from discord import app_commands
 from firebase_admin import firestore
 
+
 class DonationCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    async def _get_donation_settings(self, guild_id: str) -> dict:
+        if not hasattr(self.bot, 'db') or not self.bot.db:
+            return {"enabled": True, "channel_id": "", "min_amount": 0}
+        try:
+            doc = await asyncio.to_thread(
+                lambda: self.bot.db.collection("guild_settings").document(guild_id).get()
+            )
+            if doc.exists:
+                cfg = doc.to_dict().get("donation_settings", {}) or {}
+                return {
+                    "enabled": cfg.get("enabled", True),
+                    "channel_id": cfg.get("channel_id", ""),
+                    "min_amount": cfg.get("min_amount", 0),
+                }
+        except Exception as e:
+            print(f"[DONATION] ⚠️ Error reading settings: {e}")
+        return {"enabled": True, "channel_id": "", "min_amount": 0}
+
+    async def _send_log(self, guild_id: str, embed: discord.Embed):
+        cfg = await self._get_donation_settings(guild_id)
+        channel_id = cfg.get("channel_id", "")
+        if not channel_id:
+            return
+        guild = self.bot.get_guild(int(guild_id))
+        if not guild:
+            return
+        channel = guild.get_channel(int(channel_id))
+        if channel and hasattr(channel, "send"):
+            try:
+                await channel.send(embed=embed)
+            except Exception as e:
+                print(f"[DONATION] ⚠️ Log send error: {e}")
 
     async def _auto_delete(self, doc_ref, delay=60):
         await asyncio.sleep(delay)
@@ -37,6 +71,13 @@ class DonationCog(commands.Cog):
             await ctx.send("❌ Database tidak aktif!", ephemeral=True)
             return
 
+        # Check config
+        cfg = await self._get_donation_settings(str(ctx.guild.id))
+        min_amount = cfg.get("min_amount", 0)
+        if min_amount > 0 and nominal < min_amount:
+            await ctx.send(f"❌ Minimal donasi **Rp {min_amount:,}**.", ephemeral=True)
+            return
+
         msg = await ctx.send("⏳ Memproses pencatatan donasi...", ephemeral=True)
 
         try:
@@ -62,10 +103,21 @@ class DonationCog(commands.Cog):
             )
             print(f"[FIREBASE] ✅ Transaksi donasi tersimpan! ID: {doc_ref.id}")
 
-        except Exception as e:
-            await msg.edit(
-                content="❌ Terjadi kesalahan saat menyimpan ke database."
+            # Log to channel
+            embed = discord.Embed(
+                title="💰 Donasi Baru",
+                description=f"**Rp {nominal:,}** via **{metode.value}**",
+                color=discord.Color.green(),
             )
+            embed.add_field(name="User", value=ctx.author.mention, inline=True)
+            embed.add_field(name="Status", value="⏳ Pending", inline=True)
+            embed.add_field(name="ID", value=f"`{doc_ref.id}`", inline=False)
+            if catatan:
+                embed.add_field(name="Catatan", value=catatan, inline=False)
+            await self._send_log(str(ctx.guild.id), embed)
+
+        except Exception as e:
+            await msg.edit(content="❌ Terjadi kesalahan saat menyimpan ke database.")
             print(f"[ERROR] ❌ Gagal menyimpan ke Firebase: {e}")
 
     @commands.hybrid_command(name="testdonasi", description="Simulasi donasi untuk testing (Admin only)")
@@ -100,7 +152,6 @@ class DonationCog(commands.Cog):
                         f"⏳ Akan dihapus otomatis dalam 60 detik."
             )
             print(f"[TEST] ✅ Simulasi donasi oleh {ctx.author.name}")
-
         except Exception as e:
             await msg.edit(content="❌ Gagal simulasi donasi.")
             print(f"[ERROR] ❌ {e}")
@@ -132,6 +183,16 @@ class DonationCog(commands.Cog):
                 f"🆔 ID: `{transaction_id}`",
                 ephemeral=True
             )
+            # Log to channel
+            embed = discord.Embed(
+                title="✅ Donasi Dikonfirmasi",
+                description=f"**Rp {data.get('amount', 0):,}** via **{data.get('payment_method', '—')}**",
+                color=discord.Color.blue(),
+            )
+            embed.add_field(name="User", value=f"<@{data.get('user_id', '')}>", inline=True)
+            embed.add_field(name="Status", value="✅ Completed", inline=True)
+            embed.add_field(name="ID", value=f"`{transaction_id}`", inline=False)
+            await self._send_log(str(ctx.guild.id), embed)
         except Exception as e:
             await ctx.send("❌ Gagal mengkonfirmasi donasi.", ephemeral=True)
             print(f"[DONATION] ❌ Confirm error: {e}")
@@ -163,6 +224,7 @@ class DonationCog(commands.Cog):
     async def donasi_note_error(self, ctx: commands.Context, error):
         if isinstance(error, commands.MissingPermissions):
             await ctx.send("❌ Kamu tidak punya izin! (Admin only)", ephemeral=True)
+
 
 async def setup(bot):
     await bot.add_cog(DonationCog(bot))

@@ -1,6 +1,7 @@
 (function(){
   var guildId = window.CURRENT_GUILD_ID;
   var isStats = document.getElementById('donationStatsGrid') !== null;
+  var isSettings = document.getElementById('donationSettingsCard') !== null;
 
   function fmtRupiah(n){
     return 'Rp ' + Number(n).toLocaleString('id-ID');
@@ -175,5 +176,61 @@
       .catch(function(){
         document.getElementById('donationHistoryBody').innerHTML = '<tr><td colspan="8" class="loading">Gagal memuat data</td></tr>';
       });
+  }
+
+  /* ---- Settings Page ---- */
+  if (isSettings) {
+    // Load channels
+    fetch('/api/guilds/' + guildId + '/channels')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var sel = document.getElementById('donation-channel');
+        if(!sel) return;
+        var html = '<option value="">— Tidak ada (nonaktif) —</option>';
+        if(d.channels && d.channels.length){
+          d.channels.sort(function(a,b){ return a.name.localeCompare(b.name); });
+          d.channels.forEach(function(ch){
+            html += '<option value="' + ch.id + '"># ' + ch.name + '</option>';
+          });
+        }
+        sel.innerHTML = html;
+
+        // Load config setelah channel ready
+        fetch('/api/donations/' + guildId + '/settings')
+          .then(function(r){ return r.json(); })
+          .then(function(cfg){
+            if(!cfg.success) return;
+            var c = cfg.config || {};
+            document.getElementById('donation-enabled').checked = c.enabled !== false;
+            if(c.channel_id) sel.value = c.channel_id;
+            document.getElementById('donation-min-amount').value = c.min_amount || 0;
+          });
+      });
+
+    // Save settings
+    document.getElementById('donation-save-settings').addEventListener('click', function(){
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = '⏳ Menyimpan...';
+      fetch('/api/donations/' + guildId + '/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          enabled: document.getElementById('donation-enabled').checked,
+          channel_id: document.getElementById('donation-channel').value,
+          min_amount: parseInt(document.getElementById('donation-min-amount').value) || 0
+        })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(res.success) alert('✅ Pengaturan disimpan!');
+        else alert('❌ Gagal: ' + (res.message || 'unknown'));
+      })
+      .catch(function(){ alert('❌ Network error'); })
+      .finally(function(){
+        btn.disabled = false;
+        btn.textContent = '💾 Simpan Pengaturan';
+      });
+    });
   }
 })();

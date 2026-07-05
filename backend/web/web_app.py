@@ -890,6 +890,38 @@ def donation_tracker(guild_id: str):
 def donation_stats(guild_id: str):
     return _render_page("donation_settings.html", active_page="donation_stats", guild_id=guild_id)
 
+@login_required
+@app.route("/dashboard/<guild_id>/donation/settings")
+def donation_settings_page(guild_id: str):
+    return _render_page("donation_settings.html", active_page="donation_settings", guild_id=guild_id)
+
+@login_required
+@app.route("/api/donations/<guild_id>/settings", methods=["GET"])
+def api_donation_get_settings(guild_id: str):
+    cfg = _get_feature_config(str(guild_id), "donation_settings")
+    defaults = {"enabled": True, "channel_id": "", "min_amount": 0}
+    return jsonify({"success": True, "config": {**defaults, **cfg}}), 200
+
+
+@login_required
+@app.route("/api/donations/<guild_id>/settings", methods=["POST"])
+def api_donation_save_settings(guild_id: str):
+    payload = request.get_json(silent=True) or {}
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    try:
+        enabled = bool(payload.get("enabled", True))
+        channel_id = str(payload.get("channel_id", ""))
+        min_amount = int(payload.get("min_amount", 0))
+        db.collection("guild_settings").document(str(guild_id)).set(
+            {"donation_settings": {"enabled": enabled, "channel_id": channel_id, "min_amount": min_amount}},
+            merge=True,
+        )
+        return jsonify({"success": True, "message": "Donation settings saved."}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 # ==========================================================
 # API — Message Builder
 # ==========================================================
