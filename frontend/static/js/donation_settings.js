@@ -229,16 +229,29 @@
       })
       .then(function(r){ return r.json(); })
       .then(function(res){
-        if(res.success) alert('✅ Pengaturan disimpan!');
-        else alert('❌ Gagal: ' + (res.message || 'unknown'));
+        if(res.success) showToast('✅ Pengaturan disimpan!', 'success');
+        else showToast('❌ ' + (res.message || 'Gagal menyimpan'), 'error');
       })
-      .catch(function(){ alert('❌ Network error'); })
+      .catch(function(){ showToast('❌ Network error', 'error'); })
       .finally(function(){
         btn.disabled = false;
         btn.textContent = '💾 Simpan Pengaturan';
       });
     });
   }
+
+  function showToast(msg, type){
+    var toast = document.getElementById('toast');
+    if(!toast) return;
+    var icon = document.getElementById('toastIcon');
+    var msgEl = document.getElementById('toastMsg');
+    if(icon) icon.textContent = type === 'success' ? '✅' : '❌';
+    if(msgEl) msgEl.textContent = msg;
+    toast.className = 'toast ' + (type || 'success');
+    requestAnimationFrame(function(){ toast.classList.add('show'); });
+    setTimeout(function(){ toast.classList.remove('show'); }, 4000);
+  }
+
   // Copy webhook URL buttons
   document.querySelectorAll('.btn-copy').forEach(function(btn){
     btn.addEventListener('click', function(){
