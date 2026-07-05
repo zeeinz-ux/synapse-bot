@@ -13,6 +13,49 @@ class BoostCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    # ==========================================================================
+    # STARTUP: Scan existing boosters di semua guild
+    # ==========================================================================
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print("[BOOST] 🔍 Mulai scan existing boosters...")
+        asyncio.create_task(self._scan_existing_boosters())
+
+    async def _scan_existing_boosters(self):
+        await asyncio.sleep(5)
+        if not hasattr(self.bot, 'db') or not self.bot.db:
+            print("[BOOST] ⚠️ Scan skipped — Firestore not available.")
+            return
+        for guild in self.bot.guilds:
+            try:
+                members = []
+                async for m in guild.fetch_members(limit=None):
+                    members.append(m)
+            except Exception as e:
+                print(f"[BOOST] ⚠️ Gagal fetch members {guild.name}: {e}")
+                continue
+            for member in members:
+                if member.premium_since is None:
+                    continue
+                uid = str(member.id)
+                gid = str(guild.id)
+                existing = list(self.bot.db.collection("boosts")
+                    .where("user_id", "==", uid)
+                    .where("guild_id", "==", gid)
+                    .where("status", "==", "active")
+                    .limit(1).stream())
+                if existing:
+                    continue
+                self.bot.db.collection("boosts").add({
+                    "user_id": uid,
+                    "guild_id": gid,
+                    "type": "server_boost",
+                    "boosted_at": member.premium_since,
+                    "status": "active",
+                })
+                print(f"[BOOST] 📦 Existing booster recorded: {member.name} ({uid}) in {guild.name}")
+        print("[BOOST] ✅ Scan existing boosters selesai.")
+
     async def _auto_delete(self, doc_ref, delay=60):
         await asyncio.sleep(delay)
         try:
