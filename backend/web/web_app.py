@@ -1391,6 +1391,47 @@ def api_auto_responders_delete(guild_id: str):
         return jsonify({"success": False, "error": str(e), "message": "Delete failed."}), 500
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Anti-Spam Page & API
+# ============================================================================
+_MOD_DEFAULTS = {
+    "enabled": True,
+    "filter_heuristic": True,
+    "filter_ai": True,
+    "filter_new_account": True,
+    "filter_image": True,
+    "whitelist_users": [],
+    "whitelist_roles": [],
+}
+
+@app.route("/dashboard/<guild_id>/anti-spam")
+@login_required
+def anti_spam_page(guild_id: str):
+    return _render_page("anti_spam.html", active_page="anti_spam", guild_id=guild_id)
+
+@app.route("/api/anti-spam/<guild_id>/config")
+def api_anti_spam_config(guild_id: str):
+    try:
+        doc = db.collection("guild_settings").document(guild_id).get()
+        mod_cfg = doc.to_dict().get("moderation_config", {}) if doc.exists else {}
+        config = {**_MOD_DEFAULTS, **mod_cfg}
+        return jsonify({"success": True, "config": config}), 200
+    except Exception as e:
+        print(f"[ANTI-SPAM] ❌ config error: {e}")
+        return jsonify({"success": False, "config": _MOD_DEFAULTS}), 200
+
+@app.route("/api/anti-spam/<guild_id>/save", methods=["POST"])
+def api_anti_spam_save(guild_id: str):
+    try:
+        payload = request.get_json(silent=True) or {}
+        mod_cfg = {k: payload.get(k, v) for k, v in _MOD_DEFAULTS.items()}
+        doc_ref = db.collection("guild_settings").document(guild_id)
+        doc_ref.set({"moderation_config": mod_cfg}, merge=True)
+        return jsonify({"success": True, "message": "✅ Pengaturan anti spam berhasil disimpan!"}), 200
+    except Exception as e:
+        print(f"[ANTI-SPAM] ❌ save error: {e}")
+        return jsonify({"success": False, "message": f"Gagal menyimpan: {e}"}), 500
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # ROUTES — AI Chat v4.5 (Gemini 2.5 Flash + OpenRouter + Temperature Support)
 # ============================================================================
 # Guild channel list endpoint

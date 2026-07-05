@@ -1,0 +1,68 @@
+.page-header {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;
+}
+.header-content h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.header-content p { color: var(--text-muted); font-size: 0.875rem; margin: 0.25rem 0 0; }
+.header-toggle { display: flex; align-items: center; }
+
+.toggle-label { display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 500; color: var(--text-tertiary); }
+.toggle-input { display: none; }
+.toggle-slider { width: 44px; height: 24px; background: var(--bg-surface3); border-radius: 24px; position: relative; transition: 0.2s; flex-shrink: 0; }
+.toggle-slider::before { content: ""; position: absolute; width: 18px; height: 18px; background: var(--text-muted); border-radius: 50%; top: 3px; left: 3px; transition: 0.2s; }
+.toggle-input:checked + .toggle-slider { background: var(--accent-primary); }
+.toggle-input:checked + .toggle-slider::before { transform: translateX(20px); background: #fff; }
+
+.toggle-slider.sm { width: 36px; height: 20px; }
+.toggle-slider.sm::before { width: 14px; height: 14px; top: 3px; left: 3px; }
+.toggle-input:checked + .toggle-slider.sm::before { transform: translateX(16px); }
+
+.content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+@media (max-width: 900px) { .content-grid { grid-template-columns: 1fr; } }
+
+.card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.25rem; }
+.card h2 { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border); }
+.card h3 { font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); margin: 1rem 0 0.5rem; }
+
+.filter-list { display: flex; flex-direction: column; gap: 0.25rem; }
+.filter-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.75rem; border-radius: var(--r-md);
+  background: var(--bg-surface2); border: 1px solid var(--border);
+  cursor: pointer; transition: 0.15s;
+}
+.filter-item:hover { border-color: var(--accent-primary); }
+.filter-info { flex: 1; min-width: 0; }
+.filter-name { display: block; font-weight: 600; color: var(--text-primary); font-size: 0.9rem; }
+.filter-desc { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+.whitelist-desc { font-size: 0.8rem; color: var(--text-muted); margin: -0.5rem 0 1rem; }
+.whitelist-section { margin-bottom: 0.5rem; }
+.whitelist-input-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+.wl-input { flex: 1; padding: 0.45rem 0.65rem; background: var(--bg-surface2); border: 1px solid var(--border2); border-radius: var(--r-sm); color: var(--text-secondary); font-size: 0.85rem; outline: none; }
+.wl-input:focus { border-color: var(--accent-primary); }
+select.wl-input { cursor: pointer; }
+
+.btn { padding: 0.5rem 1rem; border: none; border-radius: var(--r-sm); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: 0.15s; white-space: nowrap; }
+.btn-primary { background: var(--accent-primary); color: #fff; }
+.btn-primary:hover { background: var(--accent-primary-hover); }
+.btn-sm { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+.btn-lg { padding: 0.65rem 1.5rem; font-size: 0.95rem; }
+
+.tag-list { display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 2rem; }
+.tag {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.25rem 0.6rem; border-radius: var(--r-xs);
+  background: var(--bg-surface3); color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+.tag .tag-remove {
+  cursor: pointer; opacity: 0.6; font-size: 0.9rem; line-height: 1;
+  border: none; background: none; color: var(--text-muted); padding: 0;
+}
+.tag .tag-remove:hover { opacity: 1; color: var(--accent-red); }
+
+.loading { color: var(--text-muted); font-size: 0.8rem; padding: 0.25rem 0; }
+.empty-tag { color: var(--text-muted); font-size: 0.8rem; padding: 0.25rem 0; font-style: italic; }
+
+.save-bar { margin-top: 1.5rem; display: flex; justify-content: flex-end; }

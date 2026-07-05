@@ -178,6 +178,10 @@
               <span class="nav-icon">🤖</span>
               <span class="nav-label">Auto Responders</span>
             </a>
+            <a href="/dashboard/{{ guild_id }}/anti-spam" class="nav-item {% if active_page == 'anti_spam' %}active{% endif %}" data-search="anti spam filter whitelist">
+              <span class="nav-icon">🛡️</span>
+              <span class="nav-label">Anti Spam</span>
+            </a>
             <!-- Settings: posisi PALING BAWAH di Tools -->
             <a href="/dashboard/{{ guild_id }}/settings" class="nav-item {% if active_page == 'settings' %}active{% endif %}" data-search="settings pengaturan konfigurasi">
               <span class="nav-icon">⚙️</span>

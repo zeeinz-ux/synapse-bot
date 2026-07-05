@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Anti Spam — Synapse{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/anti_spam.css') }}">
+{% endblock %}
+
+{% block content %}
+<input type="hidden" id="guild-id" value="{{ guild_id }}">
+
+<div class="page-wrap">
+  <nav class="breadcrumb">
+    <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
+    <span>›</span>
+    <span>Anti Spam</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="header-content">
+      <h1>🛡️ Anti Spam</h1>
+      <p>Kelola filter spam, whitelist user & role, dan konfigurasi deteksi otomatis.</p>
+    </div>
+    <div class="header-toggle">
+      <label class="toggle-label">
+        <span>Aktifkan Anti Spam</span>
+        <input type="checkbox" id="global-toggle" class="toggle-input">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="content-grid">
+    <!-- Filter Settings -->
+    <div class="card filters-card">
+      <h2>🔍 Filter Settings</h2>
+      <div class="filter-list">
+        <label class="filter-item">
+          <div class="filter-info">
+            <span class="filter-name">Heuristic Filter</span>
+            <span class="filter-desc">Deteksi keyword judi, link mencurigakan, @everyone spam</span>
+          </div>
+          <input type="checkbox" id="filter-heuristic" class="toggle-input" checked>
+          <span class="toggle-slider sm"></span>
+        </label>
+        <label class="filter-item">
+          <div class="filter-info">
+            <span class="filter-name">AI Filter</span>
+            <span class="filter-desc">Verifikasi AI untuk pesan mencurigakan (borderline + high-score)</span>
+          </div>
+          <input type="checkbox" id="filter-ai" class="toggle-input" checked>
+          <span class="toggle-slider sm"></span>
+        </label>
+        <label class="filter-item">
+          <div class="filter-info">
+            <span class="filter-name">New Account Filter</span>
+            <span class="filter-desc">Blokir akun baru (&lt;1 hari) yang kirim pesan panjang</span>
+          </div>
+          <input type="checkbox" id="filter-new-account" class="toggle-input" checked>
+          <span class="toggle-slider sm"></span>
+        </label>
+        <label class="filter-item">
+          <div class="filter-info">
+            <span class="filter-name">Image Spam Filter</span>
+            <span class="filter-desc">Deteksi spam gambar via rate limit, perceptual hash, & Gemini Vision</span>
+          </div>
+          <input type="checkbox" id="filter-image" class="toggle-input" checked>
+          <span class="toggle-slider sm"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Whitelist -->
+    <div class="card whitelist-card">
+      <h2>✅ Whitelist</h2>
+      <p class="whitelist-desc">User & role yang di-whitelist akan <strong>lolos</strong> dari semua filter spam.</p>
+
+      <!-- Whitelist Users -->
+      <div class="whitelist-section">
+        <h3>👤 Users</h3>
+        <div class="whitelist-input-row">
+          <input type="text" id="wl-user-input" placeholder="Masukkan Discord User ID" class="wl-input">
+          <button id="wl-user-add" class="btn btn-primary btn-sm">➕ Tambah</button>
+        </div>
+        <div id="wl-user-list" class="tag-list">
+          <div class="loading">Memuat...</div>
+        </div>
+      </div>
+
+      <!-- Whitelist Roles -->
+      <div class="whitelist-section">
+        <h3>👥 Roles</h3>
+        <div class="whitelist-input-row">
+          <select id="wl-role-select" class="wl-input">
+            <option value="">— Pilih Role —</option>
+          </select>
+          <button id="wl-role-add" class="btn btn-primary btn-sm">➕ Tambah</button>
+        </div>
+        <div id="wl-role-list" class="tag-list">
+          <div class="loading">Memuat...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Button -->
+  <div class="save-bar">
+    <button id="save-btn" class="btn btn-primary btn-lg">💾 Simpan Pengaturan</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/anti_spam.js') }}"></script>
+{% endblock %}

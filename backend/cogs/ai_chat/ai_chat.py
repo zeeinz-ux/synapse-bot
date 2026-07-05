@@ -20,6 +20,8 @@ Deskripsi : Triple API Fallback — Google AI Studio (T1) → Groq (T2) → Open
 """
 import re
 import os
+import hashlib
+import time as time_module
 import asyncio
 from datetime import datetime, timezone
 from typing import List, Dict, Any
@@ -90,6 +92,12 @@ class AIChat(commands.Cog):
 
         self.session: aiohttp.ClientSession | None = None
 
+        # Spam analysis cache (content hash -> (timestamp, result))
+        self._spam_cache: dict[str, tuple[float, bool]] = {}
+        self._spam_cache_ttl = 300  # 5 menit
+        self._spam_last_check: float = 0.0  # ratelimit antar spam check
+        self._spam_min_interval = 1.0  # minimal 1 detik antar panggilan spam AI
+
         # Cache compiled regex untuk strip mention bot di on_message
         # (di-build sekali saat dibutuhkan, lihat on_message)
         self._mention_pattern: "re.Pattern | None" = None
@@ -116,29 +124,95 @@ class AIChat(commands.Cog):
             await self.session.close()
             print("[AI CHAT] ✅ HTTP session closed")
 
-    async def analyze_spam(self, content: str) -> bool:
+    async def analyze_spam(self, content: str, risk_score: int = 0, account_age_days: int = 0, matched_keywords: list[str] | None = None) -> bool:
         """
-        Fungsi ringan untuk deteksi spam. 
-        Mengembalikan True jika spam, False jika aman.
+        Deteksi spam berbasis AI dengan cache + rate-limit.
+        Groq diprioritaskan (lebih cepat, free tier lebih longgar).
         """
+        content_hash = hashlib.md5(content.encode()).hexdigest()[:16]
+        now = time_module.time()
+
+        # ── Cache ──
+        if content_hash in self._spam_cache:
+            cached_time, cached_result = self._spam_cache[content_hash]
+            if now - cached_time < self._spam_cache_ttl:
+                return cached_result
+
+        # ── Rate-limit ──
+        since_last = now - self._spam_last_check
+        if since_last < self._spam_min_interval:
+            return False
+        self._spam_last_check = now
+
         try:
-            # Gunakan prompt singkat
-            prompt = f"Analisis pesan berikut, apakah ini spam/scam/iklan judi? Jawab HANYA 'YA' atau 'TIDAK'. Pesan: {content}"
-            
-            # Panggil Master Engine (_call_ai)
-            # Kita kirim history kosong [] dan system_prompt sederhana
-            response = await self._call_ai(
-                user_message=prompt, 
-                history=[], 
-                system_prompt="Anda adalah moderator konten bot yang bertugas mendeteksi spam secara tegas.",
-                temperature=0.1 # Temperatur rendah agar jawaban konsisten
+            keywords_str = ", ".join(matched_keywords) if matched_keywords else "tidak ada"
+            prompt = (
+                f"Pesan: \"\"\"{content}\"\"\"\n"
+                f"Konteks: skor_risiko={risk_score}, usia_akun={account_age_days}hari, keyword_terdeteksi=[{keywords_str}]\n"
+                f"Analisis apakah ini spam/scam/iklan judi. Jawab HANYA 'YA' atau 'TIDAK'."
             )
-            
-            return "YA" in response.upper()
+
+            response = await self._call_ai(
+                user_message=prompt,
+                history=[],
+                system_prompt=(
+                    "Anda adalah moderator spam yang tegas dan konsisten. "
+                    "Analisis pesan berdasarkan konten dan konteks. "
+                    "Anggap mencurigakan jika: promosi judi/slot, scam giveaway, "
+                    "link phishing, akun baru kirim link mencurigakan. "
+                    "Jawab HANYA 'YA' atau 'TIDAK'."
+                ),
+                temperature=0.1,
+            )
+
+            result = "YA" in response.upper()
         except Exception as e:
             print(f"[AI MOD] Error saat cek spam: {e}")
+            result = False
+
+        self._spam_cache[content_hash] = (time_module.time(), result)
+
+        if len(self._spam_cache) > 500:
+            cutoff = time_module.time() - self._spam_cache_ttl
+            self._spam_cache = {k: v for k, v in self._spam_cache.items() if v[0] > cutoff}
+
+        return result
+
+    async def analyze_image_spam(self, image_data: bytes, mime_type: str = "image/png") -> bool:
+        """Gemini Vision: analisis apakah gambar mengandung spam/judi/scam."""
+        if not self.google_api_key or not self.session:
             return False
-        
+
+        try:
+            import base64
+            b64 = base64.b64encode(image_data).decode()
+
+            payload = {
+                "contents": [{
+                    "parts": [
+                        {"text": "Analisis gambar ini. Apakah mengandung: promosi judi/slot, scam, "
+                                 "konten penipuan, atau phishing? Jawab HANYA 'YA' atau 'TIDAK'."},
+                        {"inline_data": {"mime_type": mime_type, "data": b64}},
+                    ]
+                }],
+                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 64},
+            }
+
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={self.google_api_key}"
+
+            async with self.session.post(url, headers={"Content-Type": "application/json"}, json=payload) as resp:
+                if resp.status != 200:
+                    return False
+                data = await resp.json()
+                candidates = data.get("candidates", [])
+                if not candidates:
+                    return False
+                text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                return "YA" in text.upper()
+        except Exception as e:
+            print(f"[AI VISION] Error: {e}")
+            return False
+
     def _cleanup_cooldowns(self):
        now = datetime.now(timezone.utc).timestamp()
        # Hanya simpan user yang cooldown-nya masih aktif (< 60 detik)
