@@ -174,7 +174,8 @@
         bindNoteEdits();
       })
       .catch(function(){
-        document.getElementById('donationHistoryBody').innerHTML = '<tr><td colspan="8" class="loading">Gagal memuat data</td></tr>';
+        var el = document.getElementById('donationHistoryBody');
+        if(el) el.innerHTML = '<tr><td colspan="8" class="loading">Gagal memuat data</td></tr>';
       });
   }
 
