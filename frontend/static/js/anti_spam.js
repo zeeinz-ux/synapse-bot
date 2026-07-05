@@ -241,8 +241,9 @@ function showAlert(message, type, duration) {
   }
   const toast = document.createElement("div");
   toast.className = `toast toast-${type}`;
-  toast.innerHTML = `<span class="toast-message">${escapeHtml(message)}</span>`;
+  toast.innerHTML = `<span class="toast-icon">${type === "success" ? "✅" : type === "error" ? "❌" : type === "warning" ? "⚠️" : "ℹ️"}</span><span class="toast-message">${escapeHtml(message)}</span>`;
   container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
   toast.addEventListener("click", () => {
     toast.classList.add("toast-out");
     setTimeout(() => toast.remove(), 250);
