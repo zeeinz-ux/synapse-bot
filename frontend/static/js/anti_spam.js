@@ -248,10 +248,11 @@ function showAlert(message, type, duration) {
     toast.classList.add("toast-out");
     setTimeout(() => toast.remove(), 250);
   });
-  if (duration > 0) {
+  if (duration === undefined || duration > 0) {
+    const ms = duration || 3000;
     setTimeout(() => {
       toast.classList.add("toast-out");
       setTimeout(() => toast.remove(), 250);
-    }, duration || 3000);
+    }, ms);
   }
 }
