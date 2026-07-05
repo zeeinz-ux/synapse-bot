@@ -1700,6 +1700,7 @@ _MOD_DEFAULTS = {
     "filter_image": True,
     "whitelist_users": [],
     "whitelist_roles": [],
+    "report_channel": "",
 }
 
 @app.route("/dashboard/<guild_id>/anti-spam")

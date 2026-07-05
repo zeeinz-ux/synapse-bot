@@ -9,11 +9,13 @@ let config = {
   filter_image: true,
   whitelist_users: [],
   whitelist_roles: [],
+  report_channel: "",
 };
 
 document.addEventListener("DOMContentLoaded", function () {
   if (!guildId) return;
   loadRoles();
+  loadChannels();
   loadConfig();
   setupEventListeners();
 });
@@ -37,6 +39,26 @@ async function loadRoles() {
   }
 }
 
+async function loadChannels() {
+  const sel = document.getElementById("report-channel");
+  if (!sel) return;
+  try {
+    const resp = await fetch(`/api/guilds/${guildId}/channels`);
+    const data = await resp.json();
+    if (data.success && data.channels) {
+      data.channels.sort(function(a,b){ return a.name.localeCompare(b.name); });
+      data.channels.forEach(function(ch){
+        const opt = document.createElement("option");
+        opt.value = ch.id;
+        opt.textContent = `# ${ch.name}`;
+        sel.appendChild(opt);
+      });
+    }
+  } catch (e) {
+    console.error("[Anti Spam] Load channels error:", e);
+  }
+}
+
 async function loadConfig() {
   try {
     const resp = await fetch(`/api/anti-spam/${guildId}/config`);
@@ -56,6 +78,9 @@ function applyConfig() {
   document.getElementById("filter-ai").checked = config.filter_ai !== false;
   document.getElementById("filter-new-account").checked = config.filter_new_account !== false;
   document.getElementById("filter-image").checked = config.filter_image !== false;
+
+  const chSel = document.getElementById("report-channel");
+  if (chSel && config.report_channel) chSel.value = config.report_channel;
 
   renderUserTags(config.whitelist_users || []);
   renderRoleTags(config.whitelist_roles || []);
@@ -86,6 +111,11 @@ function setupEventListeners() {
         config[key] = e.target.checked;
       });
     }
+  });
+
+  // Report channel
+  document.getElementById("report-channel")?.addEventListener("change", function (e) {
+    config.report_channel = e.target.value;
   });
 
   // Add user
