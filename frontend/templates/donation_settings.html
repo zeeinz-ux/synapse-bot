@@ -106,14 +106,14 @@
       <div class="form-group">
         <label>Saweria</label>
         <div class="webhook-url-copy">
-          <code id="saweria-webhook-url">{{ request.url_root }}api/webhook/saweria/{{ guild_id }}</code>
+          <code id="saweria-webhook-url">https://{{ request.host }}/api/webhook/saweria/{{ guild_id }}</code>
           <button class="btn-copy" data-target="saweria-webhook-url">📋 Copy</button>
         </div>
       </div>
       <div class="form-group">
         <label>Sociabuzz</label>
         <div class="webhook-url-copy">
-          <code id="sociabuzz-webhook-url">{{ request.url_root }}api/webhook/sociabuzz/{{ guild_id }}</code>
+          <code id="sociabuzz-webhook-url">https://{{ request.host }}/api/webhook/sociabuzz/{{ guild_id }}</code>
           <button class="btn-copy" data-target="sociabuzz-webhook-url">📋 Copy</button>
         </div>
       </div>
