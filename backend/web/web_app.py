@@ -249,8 +249,8 @@ def api_donation_history(guild_id: str):
     try:
         docs = list(db.collection("transactions")
                      .where("guild_id", "==", str(guild_id))
-                     .order_by("created_at", direction=firestore.Query.DESCENDING)
                      .limit(50).stream())
+        docs.sort(key=lambda d: d.to_dict().get("created_at", 0) or 0, reverse=True)
         # Resolve user info from Discord API via bot guild data
         bot_guilds = current_app.config.get("BOT_GUILDS", {})
         guild_data = bot_guilds.get(str(guild_id), {})
