@@ -95,12 +95,11 @@ function escapeHtml(s) {
  * when channels are loaded.
  */
 async function populateChannelSelects() {
-  const sel = document.getElementById("ar-channels");
+  const container = document.getElementById("ar-channels");
   const counter = document.getElementById("ar-channels-count");
-  if (!sel) return;
+  if (!container) return;
 
-  const loadingHtml = "<option disabled>⏳ Memuat channel…</option>";
-  sel.innerHTML = loadingHtml;
+  container.innerHTML = "<div class='channel-item'><span>⏳ Memuat channel…</span></div>";
   if (counter) counter.textContent = "Memuat…";
 
   try {
@@ -110,28 +109,49 @@ async function populateChannelSelects() {
     const channels = data.channels || [];
 
     if (channels.length === 0) {
-      sel.innerHTML =
-        "<option disabled>⚠️ Belum ada channel terdaftar. Tunggu bot sync, atau tambahkan channel manual.</option>";
-      if (counter) counter.textContent = "Channel belum tersedia — coba refresh beberapa saat lagi.";
+      container.innerHTML = "<div class='channel-item'><span>⚠️ Belum ada channel terdaftar.</span></div>";
+      if (counter) counter.textContent = "Channel belum tersedia — coba refresh.";
       return;
     }
 
     channels.sort((a, b) => a.name.localeCompare(b.name));
 
-    const optionsHtml = channels
+    container.innerHTML = channels
       .map(
         (c) =>
-          `<option value="${escapeHtml(c.id)}"># ${escapeHtml(c.name)}</option>`,
+          `<label class="channel-item" data-id="${escapeHtml(c.id)}">
+            <input type="checkbox" value="${escapeHtml(c.id)}" />
+            <span class="channel-name"># ${escapeHtml(c.name)}</span>
+          </label>`,
       )
       .join("");
-    sel.innerHTML = optionsHtml;
-    if (counter)
-      counter.textContent = `${channels.length} channel — tahan Ctrl/Cmd untuk pilih banyak. Kosongkan = semua channel.`;
+
+    // Update counter on click
+    container.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+      cb.addEventListener("change", updateChannelCounter);
+    });
+
+    if (counter) {
+      counter.textContent = `${channels.length} channel. Kosongkan = semua channel.`;
+      counter.classList.remove("has-selection");
+    }
   } catch (err) {
     console.error("[Auto Responders] Failed to load channels:", err);
-    sel.innerHTML = `<option disabled>❌ Gagal memuat channel: ${escapeHtml(String(err))}</option>`;
+    container.innerHTML = `<div class='channel-item'><span>❌ Gagal memuat channel: ${escapeHtml(String(err))}</span></div>`;
     if (counter) counter.textContent = "Gagal memuat channel.";
   }
+}
+
+function updateChannelCounter() {
+  const container = document.getElementById("ar-channels");
+  const counter = document.getElementById("ar-channels-count");
+  if (!container || !counter) return;
+  const checked = container.querySelectorAll("input[type=checkbox]:checked").length;
+  counter.textContent =
+    checked === 0
+      ? "Tidak ada dipilih (berlaku untuk semua channel)"
+      : `${checked} channel dipilih`;
+  counter.classList.toggle("has-selection", checked > 0);
 }
 
 /**
@@ -319,21 +339,7 @@ function setupEventListeners() {
     });
   }
 
-  // Channel multi-select counter
-  const chanSel = document.getElementById("ar-channels");
-  const chanCount = document.getElementById("ar-channels-count");
-  if (chanSel && chanCount) {
-    const update = () => {
-      const n = chanSel.selectedOptions.length;
-      chanCount.textContent =
-        n === 0
-          ? "Tidak ada dipilih (berlaku untuk semua channel)"
-          : `${n} channel dipilih`;
-      chanCount.classList.toggle("has-selection", n > 0);
-    };
-    chanSel.addEventListener("change", update);
-    update();
-  }
+  // Channel counter is updated by populateChannelSelects / editResponder
 
   // Response type change
   const responseTypeEl = document.getElementById("ar-response-type");
@@ -383,7 +389,7 @@ async function saveResponder() {
   const form = document.getElementById("ar-form");
   if (!form) return;
 
-  const channelsSel = document.getElementById("ar-channels");
+  const channelsContainer = document.getElementById("ar-channels");
 
   // Use base64 data URL if uploaded
   const urlInput = document.getElementById("ar-response-image-url");
@@ -408,8 +414,8 @@ async function saveResponder() {
     match_whole_word: document.getElementById("ar-whole-word").checked,
     mention_user: document.getElementById("ar-mention-user").checked,
     delete_trigger: document.getElementById("ar-delete-trigger").checked,
-    channel_ids: channelsSel
-      ? Array.from(channelsSel.selectedOptions).map((o) => o.value)
+    channel_ids: channelsContainer
+      ? Array.from(channelsContainer.querySelectorAll("input[type=checkbox]:checked")).map((cb) => cb.value)
       : [],
     enabled: true,
   };
@@ -497,7 +503,7 @@ async function editResponder(id) {
     document.getElementById("ar-delete-trigger").checked =
       ar.delete_trigger || false;
 
-    const chanSel = document.getElementById("ar-channels");
+    const chanContainer = document.getElementById("ar-channels");
 
     function extractIds(value) {
       if (Array.isArray(value)) return value.map(String);
@@ -512,33 +518,27 @@ async function editResponder(id) {
         ar.include_channels,
     );
 
-    function applySelection(sel, ids) {
-      if (!sel) return;
-      const idSet = new Set(ids.map(String));
-      Array.from(sel.options).forEach((opt) => {
-        opt.selected = idSet.has(String(opt.value));
-      });
-      sel.dispatchEvent(new Event("change"));
-    }
-
-    // Poll until channels are loaded (max 10 attempts, 300ms interval)
+    // Poll until channels are loaded, then check the matching ones
     let attempts = 0;
     const maxAttempts = 10;
     const pollInterval = 300;
 
-    function tryApplySelection() {
-      const isLoaded =
-        chanSel &&
-        chanSel.options.length > 1 &&
-        !chanSel.options[0].disabled;
-      if (isLoaded || attempts >= maxAttempts) {
-        applySelection(chanSel, channelIds);
+    function tryApply() {
+      const checkboxes = chanContainer?.querySelectorAll("input[type=checkbox]");
+      if ((checkboxes && checkboxes.length > 0) || attempts >= maxAttempts) {
+        if (checkboxes) {
+          const idSet = new Set(channelIds.map(String));
+          checkboxes.forEach((cb) => {
+            cb.checked = idSet.has(String(cb.value));
+          });
+          updateChannelCounter();
+        }
         return;
       }
       attempts++;
-      setTimeout(tryApplySelection, pollInterval);
+      setTimeout(tryApply, pollInterval);
     }
-    tryApplySelection();
+    tryApply();
 
     // Trigger change event to show/hide options
     const responseTypeEl = document.getElementById("ar-response-type");
