@@ -148,20 +148,55 @@
           </div>
         </div>
 
-        <!-- Tools -->
-        <div class="nav-section" data-section="Tools">
+        <!-- AI & Automation -->
+        <div class="nav-section" data-section="AI">
           <div class="section-header">
-            <span class="section-title">🛠️ Tools</span>
+            <span class="section-title">🤖 AI & Automation</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </div>
           <div class="section-items">
-            <!-- AI Chat: posisi PALING ATAS -->
             <a href="/dashboard/{{ guild_id }}/ai-chat" class="nav-item {% if active_page == 'ai_chat' %}active{% endif %}" data-search="ai chat bot gemini artificial intelligence">
               <span class="nav-icon">🧠</span>
               <span class="nav-label">AI Chat</span>
             </a>
+            <a href="/dashboard/{{ guild_id }}/auto-responders" class="nav-item {% if active_page == 'auto_responders' %}active{% endif %}" data-search="auto responder otomatis">
+              <span class="nav-icon">🤖</span>
+              <span class="nav-label">Auto Responders</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Moderation -->
+        <div class="nav-section" data-section="Moderation">
+          <div class="section-header">
+            <span class="section-title">🛡️ Moderation</span>
+            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="section-items">
+            <a href="/dashboard/{{ guild_id }}/actions" class="nav-item {% if active_page == 'actions' %}active{% endif %}" data-search="actions tindakan moderation">
+              <span class="nav-icon">⚡</span>
+              <span class="nav-label">Actions</span>
+            </a>
+            <a href="/dashboard/{{ guild_id }}/anti-spam" class="nav-item {% if active_page == 'anti_spam' %}active{% endif %}" data-search="anti spam filter whitelist">
+              <span class="nav-icon">🛡️</span>
+              <span class="nav-label">Anti Spam</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div class="nav-section" data-section="Content">
+          <div class="section-header">
+            <span class="section-title">📝 Content</span>
+            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="section-items">
             <a href="/dashboard/{{ guild_id }}/message-builder" class="nav-item {% if active_page == 'message_builder' %}active{% endif %}" data-search="message builder custom">
               <span class="nav-icon">✏️</span>
               <span class="nav-label">Message Builder</span>
@@ -170,19 +205,18 @@
               <span class="nav-icon">📄</span>
               <span class="nav-label">Templates</span>
             </a>
-            <a href="/dashboard/{{ guild_id }}/actions" class="nav-item {% if active_page == 'actions' %}active{% endif %}" data-search="actions tindakan">
-              <span class="nav-icon">⚡</span>
-              <span class="nav-label">Actions</span>
-            </a>
-            <a href="/dashboard/{{ guild_id }}/auto-responders" class="nav-item {% if active_page == 'auto_responders' %}active{% endif %}" data-search="auto responder otomatis">
-              <span class="nav-icon">🤖</span>
-              <span class="nav-label">Auto Responders</span>
-            </a>
-            <a href="/dashboard/{{ guild_id }}/anti-spam" class="nav-item {% if active_page == 'anti_spam' %}active{% endif %}" data-search="anti spam filter whitelist">
-              <span class="nav-icon">🛡️</span>
-              <span class="nav-label">Anti Spam</span>
-            </a>
-            <!-- Settings: posisi PALING BAWAH di Tools -->
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="nav-section" data-section="Settings">
+          <div class="section-header">
+            <span class="section-title">⚙️ Settings</span>
+            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="section-items">
             <a href="/dashboard/{{ guild_id }}/settings" class="nav-item {% if active_page == 'settings' %}active{% endif %}" data-search="settings pengaturan konfigurasi">
               <span class="nav-icon">⚙️</span>
               <span class="nav-label">Settings</span>
