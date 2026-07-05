@@ -209,14 +209,34 @@
             if(whInput) whInput.value = c.webhook_url || '';
             var tyInput = document.getElementById('donation-thank-you');
             if(tyInput) tyInput.value = c.thank_you_message || tyInput.placeholder;
+            updateDonationStatus(c.enabled !== false);
           });
       });
 
-    // Save settings
-    document.getElementById('donation-save-settings').addEventListener('click', function(){
-      var btn = this;
+    // Toggle → update status banner
+    document.getElementById('donation-enabled').addEventListener('change', function(e){
+      updateDonationStatus(e.target.checked);
+    });
+
+    function updateDonationStatus(enabled){
+      var banner = document.getElementById('donationStatusBanner');
+      var text = document.getElementById('donationStatusText');
+      if(!banner || !text) return;
+      if(enabled){
+        banner.className = 'status-banner active';
+        text.innerHTML = 'Fitur donasi sedang <strong>aktif</strong>.';
+      } else {
+        banner.className = 'status-banner inactive';
+        text.innerHTML = 'Fitur donasi sedang <strong>nonaktif</strong>.';
+      }
+    }
+
+    // Save settings (form submit)
+    document.getElementById('donationSettingsForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      var btn = document.getElementById('donation-save-settings');
       btn.disabled = true;
-      btn.textContent = '⏳ Menyimpan...';
+      btn.classList.add('loading');
       fetch('/api/donations/' + guildId + '/settings', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -236,7 +256,7 @@
       .catch(function(){ showToast('❌ Network error', 'error'); })
       .finally(function(){
         btn.disabled = false;
-        btn.textContent = '💾 Simpan Pengaturan';
+        btn.classList.remove('loading');
       });
     });
   }
