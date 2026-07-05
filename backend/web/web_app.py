@@ -899,7 +899,7 @@ def donation_settings_page(guild_id: str):
 @app.route("/api/donations/<guild_id>/settings", methods=["GET"])
 def api_donation_get_settings(guild_id: str):
     cfg = _get_feature_config(str(guild_id), "donation_settings")
-    defaults = {"enabled": True, "channel_id": "", "min_amount": 0, "webhook_url": ""}
+    defaults = {"enabled": True, "channel_id": "", "min_amount": 0, "webhook_url": "", "thank_you_message": ""}
     return jsonify({"success": True, "config": {**defaults, **cfg}}), 200
 
 
@@ -914,8 +914,9 @@ def api_donation_save_settings(guild_id: str):
         channel_id = str(payload.get("channel_id", ""))
         min_amount = int(payload.get("min_amount", 0))
         webhook_url = str(payload.get("webhook_url", ""))
+        thank_you_message = str(payload.get("thank_you_message", ""))
         db.collection("guild_settings").document(str(guild_id)).set(
-            {"donation_settings": {"enabled": enabled, "channel_id": channel_id, "min_amount": min_amount, "webhook_url": webhook_url}},
+            {"donation_settings": {"enabled": enabled, "channel_id": channel_id, "min_amount": min_amount, "webhook_url": webhook_url, "thank_you_message": thank_you_message}},
             merge=True,
         )
         return jsonify({"success": True, "message": "Donation settings saved."}), 200
@@ -927,15 +928,26 @@ def api_donation_save_settings(guild_id: str):
 # Donation Webhook — Discord embed sender
 # ==========================================================
 
-def _send_donation_webhook(webhook_url: str, embed: dict):
-    """Send an embed to a Discord webhook URL."""
+def _send_donation_webhook(webhook_url: str, content: str = "", embed: dict = None):
+    """Send a text message + embed to a Discord webhook URL."""
     if not webhook_url:
         return
     try:
-        payload = {"embeds": [embed]}
+        payload = {"content": content}
+        if embed:
+            payload["embeds"] = [embed]
         requests.post(webhook_url, json=payload, timeout=10)
     except Exception as e:
         print(f"[WEBHOOK] ⚠️ Gagal kirim webhook: {e}")
+
+
+def _render_thank_you(template: str, donor: str, amount: int, platform: str) -> str:
+    """Replace variables in thank-you message template."""
+    if not template:
+        return ""
+    amount_str = f"Rp {amount:,}"
+    result = template.replace("{user}", donor).replace("{amount}", amount_str).replace("{platform}", platform)
+    return result
 
 
 # ==========================================================
@@ -976,6 +988,7 @@ def webhook_saweria(guild_id: str):
         cfg = _get_feature_config(str(guild_id), "donation_settings")
         webhook_url = (cfg or {}).get("webhook_url", "")
         if webhook_url:
+            ty_msg = _render_thank_you((cfg or {}).get("thank_you_message", ""), donatur, amount, "Saweria")
             embed = {
                 "title": "💰 Donasi Saweria Masuk",
                 "description": f"**Rp {amount:,}** dari **{donatur}**",
@@ -988,7 +1001,7 @@ def webhook_saweria(guild_id: str):
             if tx_id_ext:
                 embed["fields"].append({"name": "ID Eksternal", "value": tx_id_ext, "inline": True})
             embed["fields"].append({"name": "Status", "value": "✅ Completed (auto)", "inline": True})
-            _send_donation_webhook(webhook_url, embed)
+            _send_donation_webhook(webhook_url, content=ty_msg, embed=embed)
 
         print(f"[WEBHOOK-SAWERIA] ✅ Donasi Rp {amount:,} dari {donatur} — ID {tid}")
         return jsonify({"success": True, "message": "OK"}), 200
@@ -1037,6 +1050,7 @@ def webhook_sociabuzz(guild_id: str):
         cfg = _get_feature_config(str(guild_id), "donation_settings")
         webhook_url = (cfg or {}).get("webhook_url", "")
         if webhook_url:
+            ty_msg = _render_thank_you((cfg or {}).get("thank_you_message", ""), donor, amount, "Sociabuzz")
             embed = {
                 "title": "💰 Donasi Sociabuzz Masuk",
                 "description": f"**Rp {amount:,}** dari **{donor}**",
@@ -1049,7 +1063,7 @@ def webhook_sociabuzz(guild_id: str):
             if tx_id_ext:
                 embed["fields"].append({"name": "ID Eksternal", "value": tx_id_ext, "inline": True})
             embed["fields"].append({"name": "Status", "value": "✅ Completed (auto)", "inline": True})
-            _send_donation_webhook(webhook_url, embed)
+            _send_donation_webhook(webhook_url, content=ty_msg, embed=embed)
 
         print(f"[WEBHOOK-SOCIABUZZ] ✅ Donasi Rp {amount:,} dari {donor} — ID {tid}")
         return jsonify({"success": True, "message": "OK"}), 200

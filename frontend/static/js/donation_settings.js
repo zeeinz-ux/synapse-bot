@@ -206,6 +206,8 @@
             document.getElementById('donation-min-amount').value = c.min_amount || 0;
             var whInput = document.getElementById('donation-webhook-url');
             if(whInput) whInput.value = c.webhook_url || '';
+            var tyInput = document.getElementById('donation-thank-you');
+            if(tyInput) tyInput.value = c.thank_you_message || tyInput.placeholder;
           });
       });
 
@@ -221,7 +223,8 @@
           enabled: document.getElementById('donation-enabled').checked,
           channel_id: document.getElementById('donation-channel').value,
           min_amount: parseInt(document.getElementById('donation-min-amount').value) || 0,
-          webhook_url: (document.getElementById('donation-webhook-url')?.value || '').trim()
+          webhook_url: (document.getElementById('donation-webhook-url')?.value || '').trim(),
+          thank_you_message: (document.getElementById('donation-thank-you')?.value || '').trim()
         })
       })
       .then(function(r){ return r.json(); })

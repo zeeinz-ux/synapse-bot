@@ -100,6 +100,11 @@
         <input type="url" id="donation-webhook-url" class="form-input" placeholder="https://discord.com/api/webhooks/...">
         <small>Buat webhook di channel Discord → copy URL → paste di sini. Notifikasi otomatis terkirim via webhook (tanpa bot).</small>
       </div>
+      <div class="form-group">
+        <label for="donation-thank-you">Pesan Ucapan Terima Kasih</label>
+        <textarea id="donation-thank-you" class="form-textarea" rows="4" placeholder="✨ New Support Unlocked! Terima kasih {user} telah mendonasikan {amount} untuk supportnya. Kontribusi kamu sangat berharga bagi aku! 💎🙏">✨ New Support Unlocked! Terima kasih {user} telah mendonasikan {amount} untuk supportnya. Kontribusi kamu sangat berharga bagi aku! 💎🙏</textarea>
+        <small>Variabel: <code>{user}</code> = nama donor, <code>{amount}</code> = nominal (Rp), <code>{platform}</code> = Saweria/Sociabuzz. Kosongkan untuk kirim embed saja tanpa teks.</small>
+      </div>
       <hr style="border:none;border-top:1px solid var(--border-color);margin:1.5rem 0;">
       <h3 style="margin:0 0 1rem 0;font-size:1rem;">🔗 Endpoint Webhook Eksternal</h3>
       <p style="color:var(--text-muted);margin:0 0 1rem 0;font-size:0.875rem;">Copy URL ini ke dashboard <strong>Saweria</strong> / <strong>Sociabuzz</strong> — donasi otomatis tercatat & masuk ke Discord.</p>
