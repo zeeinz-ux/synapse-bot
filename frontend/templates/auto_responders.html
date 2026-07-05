@@ -81,6 +81,28 @@
             <label for="ar-response-image-url">URL Gambar</label>
             <input type="text" id="ar-response-image-url" placeholder="https://...">
           </div>
+          <div class="form-group">
+            <label for="ar-response-image-upload">Atau upload file</label>
+            <input type="file" id="ar-response-image-upload" accept="image/png,image/jpeg,image/gif,image/webp">
+            <small>Maks 400KB. File akan dikonversi ke base64.</small>
+          </div>
+          <div id="image-preview" class="image-preview" style="display: none;">
+            <img id="image-preview-img" src="" alt="preview">
+            <button type="button" class="btn btn-secondary btn-sm" id="image-preview-clear">✕ Hapus</button>
+          </div>
+        </div>
+
+        <!-- Embed Preview -->
+        <div class="embed-preview" id="embed-preview" style="display: none;">
+          <h3>Preview</h3>
+          <div class="embed-preview-card" id="embed-preview-card">
+            <div class="embed-preview-color" id="embed-preview-color"></div>
+            <div class="embed-preview-body">
+              <div class="embed-preview-title" id="embed-preview-title">Judul Embed</div>
+              <div class="embed-preview-desc" id="embed-preview-desc">Deskripsi response...</div>
+              <img class="embed-preview-thumb" id="embed-preview-thumb" src="" alt="" style="display: none;">
+            </div>
+          </div>
         </div>
 
         <div class="form-row">
@@ -107,21 +129,12 @@
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group half">
-            <label for="ar-include-channels">Include Channels</label>
-            <select id="ar-include-channels" multiple>
-              <option disabled>⏳ Memuat channel…</option>
-            </select>
-            <small id="ar-include-channels-count" class="channel-counter">Memuat…</small>
-          </div>
-          <div class="form-group half">
-            <label for="ar-exclude-channels">Exclude Channels</label>
-            <select id="ar-exclude-channels" multiple>
-              <option disabled>⏳ Memuat channel…</option>
-            </select>
-            <small id="ar-exclude-channels-count" class="channel-counter">Memuat…</small>
-          </div>
+        <div class="form-group">
+          <label for="ar-channels">Pilih Channel (kosongkan untuk semua channel)</label>
+          <select id="ar-channels" multiple>
+            <option disabled>⏳ Memuat channel…</option>
+          </select>
+          <small id="ar-channels-count" class="channel-counter">Memuat…</small>
         </div>
 
         <div class="checkbox-group vertical">
@@ -144,8 +157,17 @@
     <!-- List Responders -->
     <div class="card list-card">
       <h2>Daftar Auto-Responders</h2>
-      <div id="ar-list" class="ar-list">
+      <div class="list-toolbar">
+        <input type="text" id="ar-search" class="search-input" placeholder="🔍 Cari keyword..." />
+        <span class="list-count" id="ar-count">0</span>
+      </div>
+      <div id="ar-list" class="ar-list" data-reorder="true">
         <div class="loading">Memuat data...</div>
+      </div>
+      <div class="reorder-hint" id="reorder-hint" style="display:none;">
+        <span>💡 Seret 🟰 untuk mengubah urutan.</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="reorder-save">💾 Simpan Urutan</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="reorder-cancel">Batal</button>
       </div>
     </div>
   </div>

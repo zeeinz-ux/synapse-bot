@@ -1291,6 +1291,18 @@ def api_auto_responders_save(guild_id: str):
             responder_id = "ar_" + str(int(time.time() * 1000))
         payload["id"] = responder_id  # echo back so frontend can update UI
     config = {k: v for k, v in payload.items() if k != "id"}
+    # Auto-assign order for new responders
+    if "order" not in config:
+        try:
+            settings = _ar_bridge_response(guild_id, lambda: ar_get_guild_settings_fresh(str(guild_id)))
+            existing = settings.get("responders", {}) or {}
+            max_order = 0
+            for c in existing.values():
+                if isinstance(c, dict):
+                    max_order = max(max_order, c.get("order", 0))
+            config["order"] = max_order + 1
+        except Exception:
+            config["order"] = 0
     try:
         ok = _ar_bridge_response(
             guild_id,
@@ -1389,6 +1401,37 @@ def api_auto_responders_delete(guild_id: str):
             trip_firestore_circuit()
         print(f"[AUTO-RESPONSE WEB] ❌ delete failed: {e}")
         return jsonify({"success": False, "error": str(e), "message": "Delete failed."}), 500
+
+
+@app.route("/api/auto-responders/<guild_id>/reorder", methods=["POST"])
+def api_auto_responders_reorder(guild_id: str):
+    if firestore_circuit_open():
+        retry = int(firestore_retry_after())
+        return jsonify({"success": False, "error": "circuit_open", "message": f"Database rate-limited. Retry in {retry}s.", "retry_after": retry}), 503
+    payload = request.get_json(silent=True) or {}
+    order_list = payload.get("order", [])
+    if not order_list:
+        return jsonify({"success": False, "message": "order list is empty."}), 400
+    try:
+        settings = _ar_bridge_response(guild_id, lambda: ar_get_guild_settings_fresh(str(guild_id)))
+        responders = dict(settings.get("responders", {}) or {})
+        for item in order_list:
+            rid = item.get("id")
+            new_order = item.get("order")
+            if rid and new_order is not None and rid in responders:
+                responders[rid]["order"] = new_order
+        # Save whole responders dict
+        doc_ref = db.collection("guild_settings").document(str(guild_id))
+        def _blocking():
+            doc_ref.set({"auto_responders": responders}, merge=True)
+        _ar_bridge_response(guild_id, lambda: asyncio.to_thread(_blocking))
+        return jsonify({"success": True, "message": "Reorder saved."}), 200
+    except Exception as e:
+        if _is_quota_error(e):
+            trip_firestore_circuit()
+        print(f"[AUTO-RESPONSE WEB] ❌ reorder failed: {e}")
+        return jsonify({"success": False, "error": str(e), "message": "Reorder failed."}), 500
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Anti-Spam Page & API
