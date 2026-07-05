@@ -95,11 +95,12 @@ function escapeHtml(s) {
  * when channels are loaded.
  */
 async function populateChannelSelects() {
-  const container = document.getElementById("ar-channels");
+  const sel = document.getElementById("ar-channels");
   const counter = document.getElementById("ar-channels-count");
-  if (!container) return;
+  if (!sel) return;
 
-  container.innerHTML = "<div class='channel-item'><span>⏳ Memuat channel…</span></div>";
+  const loadingHtml = "<option disabled>⏳ Memuat channel…</option>";
+  sel.innerHTML = loadingHtml;
   if (counter) counter.textContent = "Memuat…";
 
   try {
@@ -109,49 +110,26 @@ async function populateChannelSelects() {
     const channels = data.channels || [];
 
     if (channels.length === 0) {
-      container.innerHTML = "<div class='channel-item'><span>⚠️ Belum ada channel terdaftar.</span></div>";
+      sel.innerHTML = "<option disabled>⚠️ Belum ada channel terdaftar. Tunggu bot sync.</option>";
       if (counter) counter.textContent = "Channel belum tersedia — coba refresh.";
       return;
     }
 
     channels.sort((a, b) => a.name.localeCompare(b.name));
 
-    container.innerHTML = channels
-      .map(
-        (c) =>
-          `<label class="channel-item" data-id="${escapeHtml(c.id)}">
-            <input type="checkbox" value="${escapeHtml(c.id)}" />
-            <span class="channel-name"># ${escapeHtml(c.name)}</span>
-          </label>`,
-      )
+    sel.innerHTML = channels
+      .map((c) => `<option value="${escapeHtml(c.id)}"># ${escapeHtml(c.name)}</option>`)
       .join("");
 
-    // Update counter on click
-    container.querySelectorAll("input[type=checkbox]").forEach((cb) => {
-      cb.addEventListener("change", updateChannelCounter);
-    });
-
     if (counter) {
-      counter.textContent = `${channels.length} channel. Kosongkan = semua channel.`;
+      counter.textContent = `${channels.length} channel — tahan Ctrl/Cmd untuk pilih banyak. Kosongkan = semua channel.`;
       counter.classList.remove("has-selection");
     }
   } catch (err) {
     console.error("[Auto Responders] Failed to load channels:", err);
-    container.innerHTML = `<div class='channel-item'><span>❌ Gagal memuat channel: ${escapeHtml(String(err))}</span></div>`;
+    sel.innerHTML = `<option disabled>❌ Gagal memuat channel: ${escapeHtml(String(err))}</option>`;
     if (counter) counter.textContent = "Gagal memuat channel.";
   }
-}
-
-function updateChannelCounter() {
-  const container = document.getElementById("ar-channels");
-  const counter = document.getElementById("ar-channels-count");
-  if (!container || !counter) return;
-  const checked = container.querySelectorAll("input[type=checkbox]:checked").length;
-  counter.textContent =
-    checked === 0
-      ? "Tidak ada dipilih (berlaku untuk semua channel)"
-      : `${checked} channel dipilih`;
-  counter.classList.toggle("has-selection", checked > 0);
 }
 
 /**
@@ -339,7 +317,21 @@ function setupEventListeners() {
     });
   }
 
-  // Channel counter is updated by populateChannelSelects / editResponder
+  // Channel multi-select counter
+  const chanSel2 = document.getElementById("ar-channels");
+  const chanCount2 = document.getElementById("ar-channels-count");
+  if (chanSel2 && chanCount2) {
+    const update = () => {
+      const n = chanSel2.selectedOptions.length;
+      chanCount2.textContent =
+        n === 0
+          ? "Tidak ada dipilih (berlaku untuk semua channel)"
+          : `${n} channel dipilih`;
+      chanCount2.classList.toggle("has-selection", n > 0);
+    };
+    chanSel2.addEventListener("change", update);
+    update();
+  }
 
   // Response type change
   const responseTypeEl = document.getElementById("ar-response-type");
@@ -389,7 +381,7 @@ async function saveResponder() {
   const form = document.getElementById("ar-form");
   if (!form) return;
 
-  const channelsContainer = document.getElementById("ar-channels");
+  const channelsSel = document.getElementById("ar-channels");
 
   // Use base64 data URL if uploaded
   const urlInput = document.getElementById("ar-response-image-url");
@@ -414,8 +406,8 @@ async function saveResponder() {
     match_whole_word: document.getElementById("ar-whole-word").checked,
     mention_user: document.getElementById("ar-mention-user").checked,
     delete_trigger: document.getElementById("ar-delete-trigger").checked,
-    channel_ids: channelsContainer
-      ? Array.from(channelsContainer.querySelectorAll("input[type=checkbox]:checked")).map((cb) => cb.value)
+    channel_ids: channelsSel
+      ? Array.from(channelsSel.selectedOptions).map((o) => o.value)
       : [],
     enabled: true,
   };
@@ -503,7 +495,7 @@ async function editResponder(id) {
     document.getElementById("ar-delete-trigger").checked =
       ar.delete_trigger || false;
 
-    const chanContainer = document.getElementById("ar-channels");
+    const chanSel = document.getElementById("ar-channels");
 
     function extractIds(value) {
       if (Array.isArray(value)) return value.map(String);
@@ -518,21 +510,27 @@ async function editResponder(id) {
         ar.include_channels,
     );
 
-    // Poll until channels are loaded, then check the matching ones
+    function applySelection(sel, ids) {
+      if (!sel) return;
+      const idSet = new Set(ids.map(String));
+      Array.from(sel.options).forEach((opt) => {
+        opt.selected = idSet.has(String(opt.value));
+      });
+      sel.dispatchEvent(new Event("change"));
+    }
+
+    // Poll until channels are loaded
     let attempts = 0;
     const maxAttempts = 10;
     const pollInterval = 300;
 
     function tryApply() {
-      const checkboxes = chanContainer?.querySelectorAll("input[type=checkbox]");
-      if ((checkboxes && checkboxes.length > 0) || attempts >= maxAttempts) {
-        if (checkboxes) {
-          const idSet = new Set(channelIds.map(String));
-          checkboxes.forEach((cb) => {
-            cb.checked = idSet.has(String(cb.value));
-          });
-          updateChannelCounter();
-        }
+      const isLoaded =
+        chanSel &&
+        chanSel.options.length > 1 &&
+        !chanSel.options[0].disabled;
+      if (isLoaded || attempts >= maxAttempts) {
+        applySelection(chanSel, channelIds);
         return;
       }
       attempts++;
