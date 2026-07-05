@@ -95,6 +95,28 @@
         <label for="donation-min-amount">Minimal Donasi (Rp)</label>
         <input type="number" id="donation-min-amount" class="form-input" min="0" value="0" placeholder="0 = tidak ada minimal">
       </div>
+      <div class="form-group">
+        <label for="donation-webhook-url">Discord Webhook URL</label>
+        <input type="url" id="donation-webhook-url" class="form-input" placeholder="https://discord.com/api/webhooks/...">
+        <small>Buat webhook di channel Discord → copy URL → paste di sini. Notifikasi otomatis terkirim via webhook (tanpa bot).</small>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--border-color);margin:1.5rem 0;">
+      <h3 style="margin:0 0 1rem 0;font-size:1rem;">🔗 Endpoint Webhook Eksternal</h3>
+      <p style="color:var(--text-muted);margin:0 0 1rem 0;font-size:0.875rem;">Copy URL ini ke dashboard <strong>Saweria</strong> / <strong>Sociabuzz</strong> — donasi otomatis tercatat & masuk ke Discord.</p>
+      <div class="form-group">
+        <label>Saweria</label>
+        <div class="webhook-url-copy">
+          <code id="saweria-webhook-url">{{ request.url_root }}api/webhook/saweria/{{ guild_id }}</code>
+          <button class="btn-copy" data-target="saweria-webhook-url">📋 Copy</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Sociabuzz</label>
+        <div class="webhook-url-copy">
+          <code id="sociabuzz-webhook-url">{{ request.url_root }}api/webhook/sociabuzz/{{ guild_id }}</code>
+          <button class="btn-copy" data-target="sociabuzz-webhook-url">📋 Copy</button>
+        </div>
+      </div>
       <div class="form-actions">
         <button id="donation-save-settings" class="btn btn-primary">💾 Simpan Pengaturan</button>
       </div>

@@ -899,7 +899,7 @@ def donation_settings_page(guild_id: str):
 @app.route("/api/donations/<guild_id>/settings", methods=["GET"])
 def api_donation_get_settings(guild_id: str):
     cfg = _get_feature_config(str(guild_id), "donation_settings")
-    defaults = {"enabled": True, "channel_id": "", "min_amount": 0}
+    defaults = {"enabled": True, "channel_id": "", "min_amount": 0, "webhook_url": ""}
     return jsonify({"success": True, "config": {**defaults, **cfg}}), 200
 
 
@@ -913,12 +913,148 @@ def api_donation_save_settings(guild_id: str):
         enabled = bool(payload.get("enabled", True))
         channel_id = str(payload.get("channel_id", ""))
         min_amount = int(payload.get("min_amount", 0))
+        webhook_url = str(payload.get("webhook_url", ""))
         db.collection("guild_settings").document(str(guild_id)).set(
-            {"donation_settings": {"enabled": enabled, "channel_id": channel_id, "min_amount": min_amount}},
+            {"donation_settings": {"enabled": enabled, "channel_id": channel_id, "min_amount": min_amount, "webhook_url": webhook_url}},
             merge=True,
         )
         return jsonify({"success": True, "message": "Donation settings saved."}), 200
     except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+# ==========================================================
+# Donation Webhook — Discord embed sender
+# ==========================================================
+
+def _send_donation_webhook(webhook_url: str, embed: dict):
+    """Send an embed to a Discord webhook URL."""
+    if not webhook_url:
+        return
+    try:
+        payload = {"embeds": [embed]}
+        requests.post(webhook_url, json=payload, timeout=10)
+    except Exception as e:
+        print(f"[WEBHOOK] ⚠️ Gagal kirim webhook: {e}")
+
+
+# ==========================================================
+# Webhook — Saweria
+# ==========================================================
+
+@app.route("/api/webhook/saweria/<guild_id>", methods=["POST"])
+def webhook_saweria(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 503
+    try:
+        data = request.get_json(silent=True) or {}
+        donatur = data.get("donatur_name", "Anonim")
+        amount = int(data.get("amount", 0))
+        message = data.get("message", "")
+        tx_id_ext = data.get("transaction_id", "")
+        created = data.get("created_at", "")
+
+        if amount <= 0:
+            return jsonify({"success": False, "message": "Invalid amount"}), 400
+
+        doc_ref = db.collection("transactions").add({
+            "user_id": f"saweria:{donatur}",
+            "guild_id": str(guild_id),
+            "type": "donation",
+            "source": "saweria",
+            "amount": amount,
+            "donor_name": donatur,
+            "payment_method": "Saweria",
+            "status": "completed",
+            "note": message,
+            "external_id": tx_id_ext,
+            "created_at": firestore.SERVER_TIMESTAMP,
+        })
+        tid = doc_ref[1].id
+
+        # Send Discord webhook if configured
+        cfg = _get_feature_config(str(guild_id), "donation_settings")
+        webhook_url = (cfg or {}).get("webhook_url", "")
+        if webhook_url:
+            embed = {
+                "title": "💰 Donasi Saweria Masuk",
+                "description": f"**Rp {amount:,}** dari **{donatur}**",
+                "color": 0x00FF00,
+                "fields": [],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            if message:
+                embed["fields"].append({"name": "Pesan", "value": message, "inline": False})
+            if tx_id_ext:
+                embed["fields"].append({"name": "ID Eksternal", "value": tx_id_ext, "inline": True})
+            embed["fields"].append({"name": "Status", "value": "✅ Completed (auto)", "inline": True})
+            _send_donation_webhook(webhook_url, embed)
+
+        print(f"[WEBHOOK-SAWERIA] ✅ Donasi Rp {amount:,} dari {donatur} — ID {tid}")
+        return jsonify({"success": True, "message": "OK"}), 200
+    except Exception as e:
+        print(f"[WEBHOOK-SAWERIA] ❌ Error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+# ==========================================================
+# Webhook — Sociabuzz
+# ==========================================================
+
+@app.route("/api/webhook/sociabuzz/<guild_id>", methods=["POST"])
+def webhook_sociabuzz(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 503
+    try:
+        data = request.get_json(silent=True) or {}
+        donor = data.get("donor_name") or data.get("donor", "Anonim")
+        raw_amount = data.get("amount", "0")
+        amount = int(float(str(raw_amount).replace(",", "").replace(".", "")))
+        message = data.get("message", "")
+        tx_id_ext = data.get("transaction_id", "")
+        payment_method = data.get("payment_method", "Sociabuzz")
+        status_ext = data.get("status", "success")
+
+        if amount <= 0:
+            return jsonify({"success": False, "message": "Invalid amount"}), 400
+
+        doc_ref = db.collection("transactions").add({
+            "user_id": f"sociabuzz:{donor}",
+            "guild_id": str(guild_id),
+            "type": "donation",
+            "source": "sociabuzz",
+            "amount": amount,
+            "donor_name": donor,
+            "payment_method": payment_method,
+            "status": "completed" if status_ext == "success" else "pending",
+            "note": message,
+            "external_id": tx_id_ext,
+            "created_at": firestore.SERVER_TIMESTAMP,
+        })
+        tid = doc_ref[1].id
+
+        # Send Discord webhook if configured
+        cfg = _get_feature_config(str(guild_id), "donation_settings")
+        webhook_url = (cfg or {}).get("webhook_url", "")
+        if webhook_url:
+            embed = {
+                "title": "💰 Donasi Sociabuzz Masuk",
+                "description": f"**Rp {amount:,}** dari **{donor}**",
+                "color": 0x00FF00,
+                "fields": [],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            if message:
+                embed["fields"].append({"name": "Pesan", "value": message, "inline": False})
+            if tx_id_ext:
+                embed["fields"].append({"name": "ID Eksternal", "value": tx_id_ext, "inline": True})
+            embed["fields"].append({"name": "Status", "value": "✅ Completed (auto)", "inline": True})
+            _send_donation_webhook(webhook_url, embed)
+
+        print(f"[WEBHOOK-SOCIABUZZ] ✅ Donasi Rp {amount:,} dari {donor} — ID {tid}")
+        return jsonify({"success": True, "message": "OK"}), 200
+    except Exception as e:
+        print(f"[WEBHOOK-SOCIABUZZ] ❌ Error: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 

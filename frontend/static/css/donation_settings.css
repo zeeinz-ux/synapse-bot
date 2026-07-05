@@ -120,3 +120,21 @@
 .note-input { padding: 0.2rem 0.4rem; background: var(--bg-surface2); border: 1px solid var(--accent-primary); border-radius: 4px; color: var(--text-secondary); font-size: 0.8rem; width: 140px; outline: none; }
 .donation-table td { vertical-align: middle; }
 .donation-table td code { font-size: 0.75rem; }
+
+.webhook-url-copy {
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.webhook-url-copy code {
+  flex: 1; padding: 0.5rem 0.75rem; background: var(--bg-surface2);
+  border: 1px solid var(--border2); border-radius: 6px;
+  font-size: 0.75rem; color: var(--text-muted); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.btn-copy {
+  padding: 0.4rem 0.75rem; border: 1px solid var(--border2);
+  border-radius: 6px; background: var(--bg-surface3);
+  color: var(--text-tertiary); font-size: 0.75rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: 0.15s; flex-shrink: 0;
+}
+.btn-copy:hover { background: #333; color: var(--text-secondary); }
+.btn-copy.copied { background: #1a3a1a; color: #57f287; border-color: #57f287; }

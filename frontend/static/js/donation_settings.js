@@ -204,6 +204,8 @@
             document.getElementById('donation-enabled').checked = c.enabled !== false;
             if(c.channel_id) sel.value = c.channel_id;
             document.getElementById('donation-min-amount').value = c.min_amount || 0;
+            var whInput = document.getElementById('donation-webhook-url');
+            if(whInput) whInput.value = c.webhook_url || '';
           });
       });
 
@@ -218,7 +220,8 @@
         body: JSON.stringify({
           enabled: document.getElementById('donation-enabled').checked,
           channel_id: document.getElementById('donation-channel').value,
-          min_amount: parseInt(document.getElementById('donation-min-amount').value) || 0
+          min_amount: parseInt(document.getElementById('donation-min-amount').value) || 0,
+          webhook_url: (document.getElementById('donation-webhook-url')?.value || '').trim()
         })
       })
       .then(function(r){ return r.json(); })
@@ -232,5 +235,45 @@
         btn.textContent = '💾 Simpan Pengaturan';
       });
     });
+  }
+  // Copy webhook URL buttons
+  document.querySelectorAll('.btn-copy').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var targetId = this.dataset.target;
+      var codeEl = document.getElementById(targetId);
+      if(!codeEl) return;
+      var text = codeEl.textContent.trim();
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){
+          btn.textContent = '✅ Copied!';
+          btn.classList.add('copied');
+          setTimeout(function(){
+            btn.textContent = '📋 Copy';
+            btn.classList.remove('copied');
+          }, 2000);
+        }).catch(function(){
+          fallbackCopy(text, btn);
+        });
+      } else {
+        fallbackCopy(text, btn);
+      }
+    });
+  });
+  function fallbackCopy(text, btn){
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      btn.textContent = '✅ Copied!';
+      btn.classList.add('copied');
+      setTimeout(function(){
+        btn.textContent = '📋 Copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    } catch(e) {}
+    document.body.removeChild(ta);
   }
 })();
