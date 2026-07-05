@@ -67,6 +67,9 @@
             var created = tx.created_at ? tx.created_at.slice(0,19).replace('T',' ') : '—';
             var statusClass = tx.status === 'completed' ? 'status-completed' : 'status-pending';
             var statusLabel = tx.status === 'completed' ? 'Completed' : 'Pending';
+            var confirmBtn = tx.status === 'completed'
+              ? '<span class="status-completed">✔️</span>'
+              : '<button class="btn-confirm-donation" data-tx="' + tx.id + '">✔️ Confirm</button>';
             html += '<tr>'
               + '<td><code>' + tx.id.slice(0,8) + '…</code></td>'
               + '<td><img class="user-avatar" src="' + defaultAvatar(tx.user_id) + '" loading="lazy"><code>' + tx.user_id + '</code></td>'
@@ -74,15 +77,48 @@
               + '<td>' + (tx.payment_method || '—').toUpperCase() + '</td>'
               + '<td><span class="' + statusClass + '">' + statusLabel + '</span></td>'
               + '<td>' + created + '</td>'
+              + '<td class="action-col">' + confirmBtn + '</td>'
               + '<td>' + (tx.note || '—') + '</td></tr>';
           }
         } else {
-          html = '<tr><td colspan="7" class="loading">Belum ada data donasi</td></tr>';
+          html = '<tr><td colspan="8" class="loading">Belum ada data donasi</td></tr>';
         }
         document.getElementById('donationHistoryBody').innerHTML = html;
+
+        // Bind confirm buttons
+        document.querySelectorAll('.btn-confirm-donation').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            var txId = this.dataset.tx;
+            if(!confirm('Konfirmasi donasi ' + txId.slice(0,8) + '…?')) return;
+            var self = this;
+            self.disabled = true;
+            self.textContent = '⏳...';
+            fetch('/api/donations/' + guildId + '/confirm', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({id: txId})
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(res){
+              if(res.success){
+                // reload
+                location.reload();
+              } else {
+                alert('Gagal: ' + (res.message || 'unknown'));
+                self.disabled = false;
+                self.textContent = '✔️ Confirm';
+              }
+            })
+            .catch(function(){
+              alert('Network error');
+              self.disabled = false;
+              self.textContent = '✔️ Confirm';
+            });
+          });
+        });
       })
       .catch(function(){
-        document.getElementById('donationHistoryBody').innerHTML = '<tr><td colspan="7" class="loading">Gagal memuat data</td></tr>';
+        document.getElementById('donationHistoryBody').innerHTML = '<tr><td colspan="8" class="loading">Gagal memuat data</td></tr>';
       });
   }
 })();

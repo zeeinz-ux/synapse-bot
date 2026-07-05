@@ -77,3 +77,19 @@
 .method-list li:last-child { border-bottom: none; }
 .method-name { font-size: 0.875rem; color: var(--text-secondary); font-weight: 600; }
 .method-count { font-size: 0.875rem; color: var(--text-muted); }
+
+.btn-confirm-donation {
+  padding: 0.25rem 0.6rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #1a3a1a;
+  color: #57f287;
+  transition: 0.15s;
+  white-space: nowrap;
+}
+.btn-confirm-donation:hover { background: #1e4a1e; }
+.btn-confirm-donation:disabled { opacity: 0.5; cursor: not-allowed; }
+.action-col { text-align: center; }

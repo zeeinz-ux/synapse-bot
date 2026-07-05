@@ -315,6 +315,31 @@ def api_donation_stats(guild_id: str):
         return jsonify({"success": False, "message": str(e)}), 500
 
 
+@app.route("/api/donations/<guild_id>/confirm", methods=["POST"])
+def api_donation_confirm(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firebase unavailable"}), 200
+    payload = request.get_json(silent=True) or {}
+    tx_id = payload.get("id")
+    if not tx_id:
+        return jsonify({"success": False, "message": "Missing transaction id"}), 400
+    try:
+        doc_ref = db.collection("transactions").document(tx_id)
+        doc = doc_ref.get()
+        if not doc.exists:
+            return jsonify({"success": False, "message": "Transaction not found"}), 404
+        data = doc.to_dict()
+        if data.get("guild_id") != str(guild_id):
+            return jsonify({"success": False, "message": "Guild mismatch"}), 403
+        if data.get("status") == "completed":
+            return jsonify({"success": True, "message": "Already completed"}), 200
+        doc_ref.update({"status": "completed"})
+        return jsonify({"success": True, "message": "Confirmed", "id": tx_id}), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 # ==========================================================
 # Helper — baca config feature dari Firestore
 # ==========================================================

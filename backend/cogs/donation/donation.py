@@ -98,5 +98,36 @@ class DonationCog(commands.Cog):
         if isinstance(error, commands.MissingPermissions):
             await ctx.send("❌ Kamu tidak punya izin! (Admin only)", ephemeral=True)
 
+    @commands.hybrid_command(name="donasi-confirm", description="Konfirmasi donasi pending menjadi completed (Admin)")
+    @app_commands.describe(transaction_id="ID transaksi yang mau dikonfirmasi")
+    @commands.has_permissions(administrator=True)
+    async def donasi_confirm(self, ctx: commands.Context, transaction_id: str):
+        if not hasattr(self.bot, 'db') or not self.bot.db:
+            return await ctx.send("❌ Database tidak aktif!", ephemeral=True)
+        try:
+            doc_ref = self.bot.db.collection("transactions").document(transaction_id)
+            doc = await asyncio.to_thread(doc_ref.get)
+            if not doc.exists:
+                await ctx.send(f"❌ Transaksi `{transaction_id}` tidak ditemukan.", ephemeral=True)
+                return
+            data = doc.to_dict()
+            if data.get("status") == "completed":
+                await ctx.send(f"⚠️ Transaksi `{transaction_id}` sudah completed.", ephemeral=True)
+                return
+            await asyncio.to_thread(doc_ref.update, {"status": "completed"})
+            await ctx.send(
+                f"✅ Donasi **Rp {data.get('amount', 0):,}** dari <@{data.get('user_id', '')}> dikonfirmasi!\n"
+                f"🆔 ID: `{transaction_id}`",
+                ephemeral=True
+            )
+        except Exception as e:
+            await ctx.send("❌ Gagal mengkonfirmasi donasi.", ephemeral=True)
+            print(f"[DONATION] ❌ Confirm error: {e}")
+
+    @donasi_confirm.error
+    async def donasi_confirm_error(self, ctx: commands.Context, error):
+        if isinstance(error, commands.MissingPermissions):
+            await ctx.send("❌ Kamu tidak punya izin! (Admin only)", ephemeral=True)
+
 async def setup(bot):
     await bot.add_cog(DonationCog(bot))
