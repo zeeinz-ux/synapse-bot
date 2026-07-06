@@ -56,7 +56,7 @@ RESPONSE_CACHE_TTL = 300       # cache response 5 menit
 # ── Tier 1: Google AI Studio ──
 GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 GOOGLE_MODEL = "gemini-3.5-flash"
-GOOGLE_VISION_MODEL = "gemini-2.5-flash"
+GOOGLE_VISION_MODEL = "gemini-2.0-flash"
 
 # ── Tier 2: Groq ──
 GROQ_API_BASE = "https://api.groq.com/openai/v1"
