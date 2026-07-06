@@ -56,6 +56,7 @@ RESPONSE_CACHE_TTL = 300       # cache response 5 menit
 # ── Tier 1: Google AI Studio ──
 GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 GOOGLE_MODEL = "gemini-3.5-flash"
+GOOGLE_VISION_MODEL = "gemini-2.5-flash"
 
 # ── Tier 2: Groq ──
 GROQ_API_BASE = "https://api.groq.com/openai/v1"
@@ -426,7 +427,11 @@ class AIChat(commands.Cog):
             else:
                 parts[0]["text"] = f"{system_prompt}\n\n{user_message}"
 
-            url = f"{GOOGLE_API_BASE}/models/{GOOGLE_MODEL}:generateContent?key={self.google_api_key}"
+            model = GOOGLE_VISION_MODEL if has_images else GOOGLE_MODEL
+            url = f"{GOOGLE_API_BASE}/models/{model}:generateContent?key={self.google_api_key}"
+
+            if has_images:
+                print(f"[AI VISION] 🖼️ Using model={model}, {len(images)} image(s)")
 
             async with self.session.post(url, headers={"Content-Type": "application/json"}, json=payload) as resp:
                 status = resp.status
