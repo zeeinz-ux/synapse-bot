@@ -97,13 +97,15 @@
 
     <div class="form-group">
       <label>AI Engine Stack</label>
-      <p class="field-hint">Arsitektur 3-tier fallback di backend. Auto-switch tanpa restart bot.</p>
+      <p class="field-hint">Arsitektur 4-tier fallback di backend. Auto-switch tanpa restart bot.</p>
       <div class="engine-stack-info">
         <div class="tier-badge tier-1">⚡ Tier 1: Gemini 3.5 Flash (Google AI Studio)</div>
         <div class="tier-arrow">↓</div>
         <div class="tier-badge tier-2">🚀 Tier 2: Llama 3.3 70B (Groq)</div>
         <div class="tier-arrow">↓</div>
-        <div class="tier-badge tier-3">🌐 Tier 3: Gemini 2.5 Flash (OpenRouter)</div>
+        <div class="tier-badge tier-3">🧠 Tier 3: open-mistral-nemo (Mistral)</div>
+        <div class="tier-arrow">↓</div>
+        <div class="tier-badge tier-4">🌀 Tier 4: command-r-plus (Cohere)</div>
       </div>
     </div>
 
@@ -130,7 +132,7 @@
   </div>
 </div>
 
-<!-- Info & Limitasi Card — v4.6 Triple API -->
+<!-- Info & Limitasi Card — v4.8 Quad API -->
 <div class="card">
   <div class="card-header">
     <span class="card-icon">📊</span>
@@ -176,17 +178,33 @@
 
     <hr class="tier-divider">
 
-    <!-- Tier 3: OpenRouter -->
+    <!-- Tier 3: Mistral -->
     <div class="tier-info">
       <div class="tier-header">
         <span class="tier-dot tier-3-dot"></span>
-        <strong>Tier 3 — OpenRouter</strong>
+        <strong>Tier 3 — Mistral</strong>
+        <span class="tier-tag backup">BACKUP</span>
+      </div>
+      <div class="tier-details">
+        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">open-mistral-nemo</span></div>
+        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">1 req/min (Free Tier)</span></div>
+        <div class="detail-row"><span class="detail-label">Latency</span><span class="detail-value">~500-1500ms</span></div>
+      </div>
+    </div>
+
+    <hr class="tier-divider">
+
+    <!-- Tier 4: Cohere -->
+    <div class="tier-info">
+      <div class="tier-header">
+        <span class="tier-dot tier-4-dot"></span>
+        <strong>Tier 4 — Cohere</strong>
         <span class="tier-tag fallback">LAST RESORT</span>
       </div>
       <div class="tier-details">
-        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">google/gemini-2.5-flash:free</span></div>
-        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">Sesuai provider</span></div>
-        <div class="detail-row"><span class="detail-label">Fallback</span><span class="detail-value">Hanya aktif jika T1 & T2 down</span></div>
+        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">command-r-plus</span></div>
+        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">5 req/min (Free Tier)</span></div>
+        <div class="detail-row"><span class="detail-label">Fallback</span><span class="detail-value">Hanya aktif jika T1-T3 down</span></div>
       </div>
     </div>
 
