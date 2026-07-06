@@ -63,9 +63,13 @@ GOOGLE_VISION_MODEL = "gemini-3.1-flash"
 GROQ_API_BASE = "https://api.groq.com/openai/v1"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
-# ── Tier 3: Atomesus ──
-ATOMESUS_API_BASE = "https://api.atomesus.com/v1"
-ATOMESUS_MODEL = "cipher"
+# ── Tier 3: Mistral ──
+MISTRAL_API_BASE = "https://api.mistral.ai/v1"
+MISTRAL_MODEL = "open-mistral-nemo"
+
+# ── Tier 4: Cohere ──
+COHERE_API_BASE = "https://api.cohere.com/v2"
+COHERE_MODEL = "command-r-plus"
 
 # ── Circuit Breaker ──
 CIRCUIT_BREAKER_THRESHOLD = 3       # fail streak sebelum circuit open
@@ -83,7 +87,8 @@ class AIChat(commands.Cog):
         # API Keys
         self.google_api_key = os.getenv("GEMINI_API_KEY", "")
         self.groq_api_key = os.getenv("GROQ_API_KEY", "")
-        self.atomesus_api_key = os.getenv("ATOMESUS_API_KEY", "")
+        self.mistral_api_key = os.getenv("MISTRAL_API_KEY", "")
+        self.cohere_api_key = os.getenv("COHERE_API_KEY", "")
 
         # Circuit Breaker State (Tier 1: Gemini)
         self._gemini_circuit_open = False
@@ -94,8 +99,10 @@ class AIChat(commands.Cog):
             print("[AI CHAT] ⚠️ GEMINI_API_KEY tidak ditemukan!")
         if not self.groq_api_key:
             print("[AI CHAT] ⚠️ GROQ_API_KEY tidak ditemukan!")
-        if not self.atomesus_api_key:
-            print("[AI CHAT] ⚠️ ATOMESUS_API_KEY tidak ditemukan!")
+        if not self.mistral_api_key:
+            print("[AI CHAT] ⚠️ MISTRAL_API_KEY tidak ditemukan!")
+        if not self.cohere_api_key:
+            print("[AI CHAT] ⚠️ COHERE_API_KEY tidak ditemukan!")
 
         self.session: aiohttp.ClientSession | None = None
 
@@ -118,7 +125,7 @@ class AIChat(commands.Cog):
 
         self._last_history_prune: float = 0.0
 
-        print("[AI CHAT] ✅ Cog loaded. Triple API: Google → Groq → Atomesus")
+        print("[AI CHAT] ✅ Cog loaded. Quad API: Google → Groq → Mistral → Cohere")
 
     async def cog_load(self):
         if self.session and not self.session.closed:
@@ -558,7 +565,7 @@ class AIChat(commands.Cog):
             return "EXCEPTION", False
 
     # ═══════════════════════════════════════════════════════════════════════
-    # TIER 3: OpenRouter
+    # TIER 3: Mistral (OpenAI-compatible)
     # ═══════════════════════════════════════════════════════════════════════
 
     @tenacity.retry(
@@ -568,23 +575,22 @@ class AIChat(commands.Cog):
         retry_error_callback=return_failure_tuple
     )
 
-    async def _call_atomesus(
+    async def _call_mistral(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
-        """Call Atomesus (Cipher 8B). Return (response_text, success)."""
-        if not self.atomesus_api_key or not self.session:
+        """Call Mistral (open-mistral-nemo). Return (response_text, success)."""
+        if not self.mistral_api_key or not self.session:
             return "API_KEY_MISSING", False
 
         try:
-            # Atomesus gak support system role — prepend ke user message
-            messages = []
+            messages = [{"role": "system", "content": system_prompt}]
             for item in history:
                 role = "assistant" if item["role"] == "assistant" else "user"
                 messages.append({"role": role, "content": item["content"]})
-            messages.append({"role": "user", "content": f"{system_prompt}\n\n{user_message}"})
+            messages.append({"role": "user", "content": user_message})
 
             payload = {
-                "model": ATOMESUS_MODEL,
+                "model": MISTRAL_MODEL,
                 "messages": messages,
                 "temperature": temperature,
                 "top_p": 0.95,
@@ -593,10 +599,10 @@ class AIChat(commands.Cog):
 
             headers = {
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.atomesus_api_key}",
+                "Authorization": f"Bearer {self.mistral_api_key}",
             }
 
-            url = f"{ATOMESUS_API_BASE}/chat/completions"
+            url = f"{MISTRAL_API_BASE}/chat/completions"
 
             async with self.session.post(url, headers=headers, json=payload) as resp:
                 status = resp.status
@@ -606,11 +612,11 @@ class AIChat(commands.Cog):
                     data = {}
 
                 if status == 429:
-                    print("[AI CHAT] ⛔ Atomesus Rate Limit (429)")
+                    print("[AI CHAT] ⛔ Mistral Rate Limit (429)")
                     return "RATE_LIMIT", False
 
                 if status != 200:
-                    print(f"[AI CHAT] ❌ Atomesus HTTP {status}")
+                    print(f"[AI CHAT] ❌ Mistral HTTP {status}")
                     return f"HTTP_{status}", False
 
                 choices = data.get("choices", [])
@@ -620,7 +626,72 @@ class AIChat(commands.Cog):
                 return choices[0].get("message", {}).get("content", "").strip(), True
 
         except Exception as e:
-            print(f"[AI CHAT] ❌ Atomesus Exception: {type(e).__name__}")
+            print(f"[AI CHAT] ❌ Mistral Exception: {type(e).__name__}")
+            return "EXCEPTION", False
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TIER 4: Cohere (v2 OpenAI-compatible)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @tenacity.retry(
+        wait=tenacity.wait_exponential(min=1, max=2), 
+        stop=tenacity.stop_after_attempt(2),
+        retry=tenacity.retry_if_result(lambda res: res[1] is False),
+        retry_error_callback=return_failure_tuple
+    )
+
+    async def _call_cohere(
+        self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
+    ) -> tuple[str, bool]:
+        """Call Cohere (command-r-plus). Return (response_text, success)."""
+        if not self.cohere_api_key or not self.session:
+            return "API_KEY_MISSING", False
+
+        try:
+            messages = [{"role": "system", "content": system_prompt}]
+            for item in history:
+                role = "assistant" if item["role"] == "assistant" else "user"
+                messages.append({"role": role, "content": item["content"]})
+            messages.append({"role": "user", "content": user_message})
+
+            payload = {
+                "model": COHERE_MODEL,
+                "messages": messages,
+                "temperature": temperature,
+                "top_p": 0.95,
+                "max_tokens": 8192,
+            }
+
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.cohere_api_key}",
+            }
+
+            url = f"{COHERE_API_BASE}/chat"
+
+            async with self.session.post(url, headers=headers, json=payload) as resp:
+                status = resp.status
+                try:
+                    data = await resp.json()
+                except Exception:
+                    data = {}
+
+                if status == 429:
+                    print("[AI CHAT] ⛔ Cohere Rate Limit (429)")
+                    return "RATE_LIMIT", False
+
+                if status != 200:
+                    print(f"[AI CHAT] ❌ Cohere HTTP {status}")
+                    return f"HTTP_{status}", False
+
+                choices = data.get("choices", [])
+                if not choices:
+                    return "EMPTY_CHOICES", False
+
+                return choices[0].get("message", {}).get("content", "").strip(), True
+
+        except Exception as e:
+            print(f"[AI CHAT] ❌ Cohere Exception: {type(e).__name__}")
             return "EXCEPTION", False
         
     # ═══════════════════════════════════════════════════════════════════════
@@ -724,26 +795,39 @@ class AIChat(commands.Cog):
                     self._set_cached_response(user_message, system_prompt, temperature, response)
                 print("[AI CHAT] ✅ Tier 2 Success (Groq)")
                 return response
-            print(f"[AI CHAT] ⚠️ Tier 2 Fail ({response}). Switching to Tier 3 (Atomesus)...")
+            print(f"[AI CHAT] ⚠️ Tier 2 Fail ({response}). Switching to Tier 3 (Mistral)...")
 
-        # ── Tier 3: Atomesus (Last Resort) ──
-        if self.atomesus_api_key:
-            print("[AI CHAT] 🚀 [TIER 3] Trying Atomesus (Cipher 8B)...")
-            response, success = await self._call_atomesus(
+        # ── Tier 3: Mistral ──
+        if self.mistral_api_key:
+            print("[AI CHAT] 🚀 [TIER 3] Trying Mistral (open-mistral-nemo)...")
+            response, success = await self._call_mistral(
                 user_message, history, system_prompt, temperature
             )
             if success and response:
                 if not history:
                     self._set_cached_response(user_message, system_prompt, temperature, response)
-                print("[AI CHAT] ✅ Tier 3 Success (Atomesus)")
+                print("[AI CHAT] ✅ Tier 3 Success (Mistral)")
                 return response
-            print(f"[AI CHAT] ❌ Tier 3 Fail ({response})")
+            print(f"[AI CHAT] ⚠️ Tier 3 Fail ({response}). Switching to Tier 4 (Cohere)...")
+
+        # ── Tier 4: Cohere ──
+        if self.cohere_api_key:
+            print("[AI CHAT] 🚀 [TIER 4] Trying Cohere (command-r-plus)...")
+            response, success = await self._call_cohere(
+                user_message, history, system_prompt, temperature
+            )
+            if success and response:
+                if not history:
+                    self._set_cached_response(user_message, system_prompt, temperature, response)
+                print("[AI CHAT] ✅ Tier 4 Success (Cohere)")
+                return response
+            print(f"[AI CHAT] ❌ Tier 4 Fail ({response})")
 
         # ── All Tiers Failed ──
-        if not self.google_api_key and not self.groq_api_key and not self.atomesus_api_key:
+        if not self.google_api_key and not self.groq_api_key and not self.mistral_api_key and not self.cohere_api_key:
             return "❌ Tidak ada API key yang tersedia di environment (.env). Hubungi admin bot."
 
-        if self._gemini_circuit_open and not self.groq_api_key and not self.atomesus_api_key:
+        if self._gemini_circuit_open and not self.groq_api_key and not self.mistral_api_key and not self.cohere_api_key:
             return (
                 "⚠️ Kuota harian Google AI Studio lu udah habis dan tidak ada backup API tersedia.\n"
                 "Tunggu beberapa jam lagi ya bro!"
@@ -751,7 +835,7 @@ class AIChat(commands.Cog):
 
         return (
             "Waduh, semua mesin AI-nya lagi pusing nih, bro! 🧠💥\n"
-            "Google AI Studio limit (circuit open), Groq juga down, dan Atomesus ikut error.\n"
+            "Google AI Studio limit (circuit open), Groq juga down, Mistral dan Cohere error.\n"
             "Coba tunggu beberapa menit lagi baru chat gua ya!"
         )
 
