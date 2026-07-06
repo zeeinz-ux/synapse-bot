@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 import aiohttp
 import tenacity
@@ -113,6 +113,8 @@ class AIChat(commands.Cog):
         # ── Response cache (content_hash -> (response, timestamp)) ──
         self._response_cache: dict[str, tuple[str, float]] = {}
 
+        self._last_history_prune: float = 0.0
+
         print("[AI CHAT] ✅ Cog loaded. Triple API: Google → Groq → OpenRouter")
 
     async def cog_load(self):
@@ -127,10 +129,13 @@ class AIChat(commands.Cog):
         self.session = aiohttp.ClientSession(
             timeout=timeout
         )
+
+        self.history_prune_loop.start()
       
         print("[AI CHAT] ✅ HTTP session initialized")
 
     async def cog_unload(self):
+        self.history_prune_loop.cancel()
         if self.session:
             await self.session.close()
             print("[AI CHAT] ✅ HTTP session closed")
@@ -841,9 +846,50 @@ class AIChat(commands.Cog):
         await self._save_chat_history(guild_id, user_id, user_message, response_text, personality)
         await self._send_response(ctx, user_id, response_text)
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # BACKGROUND: History Pruning (setiap 6 jam)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @tasks.loop(hours=6)
+    async def history_prune_loop(self):
+        """Hapus history chat yg udah >30 hari gak ada interaksi."""
+        if db is None:
+            return
+
+        try:
+            cutoff = datetime.now(timezone.utc).timestamp() - (30 * 86400)
+            guild_docs = db.collection("guild_settings").stream()
+
+            for guild_doc in guild_docs:
+                guild_id = guild_doc.id
+                chat_docs = (
+                    db.collection("guild_settings")
+                    .document(guild_id)
+                    .collection("ai_chat")
+                    .stream()
+                )
+                for chat_doc in chat_docs:
+                    data = chat_doc.to_dict()
+                    updated = data.get("updated_at")
+                    if isinstance(updated, datetime):
+                        if updated.timestamp() < cutoff:
+                            chat_doc.reference.delete()
+                            print(f"[AI PRUNE] 🗑️ Hapus history user {chat_doc.id} (guild {guild_id})")
+
+            print("[AI PRUNE] ✅ Selesai prune history")
+        except Exception as e:
+            print(f"[AI PRUNE] ⚠️ Error: {e}")
+
+    @history_prune_loop.before_loop
+    async def before_history_prune(self):
+        await self.bot.wait_until_ready()
+
     @commands.hybrid_command(name="ask", description="Tanya apa saja ke AI Synapse")
     async def ask(self, ctx: commands.Context, pertanyaan: str):
         
+        # 0. Cleanup stale cooldowns
+        self._cleanup_cooldowns()
+
         # 1. Setup Data
         guild_id = str(ctx.guild.id)
         user_id = str(ctx.author.id)

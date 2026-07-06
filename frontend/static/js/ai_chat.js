@@ -175,7 +175,6 @@
       channel_id: els.channel ? els.channel.value : "",
       temperature: els.temperature ? parseFloat(els.temperature.value) : 0.75,
       dedicated_ai_channel: els.dedicatedToggle ? els.dedicatedToggle.checked : false,
-      model: "gemini-2.5-flash",
     };
 
     const originalText = els.saveBtn ? els.saveBtn.innerHTML : "💾 Simpan Pengaturan";

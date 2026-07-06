@@ -1853,7 +1853,6 @@ def ai_chat_save(guild_id):
 
         personality = data.get("personality", "friendly")
         channel_id = data.get("channel_id", "").strip()
-        model = data.get("model", "gemini-2.5-flash")
         temperature = float(data.get("temperature", 0.75))
         dedicated_ai_channel = data.get("dedicated_ai_channel", False)
 
@@ -1870,7 +1869,6 @@ def ai_chat_save(guild_id):
             "ai_chat": {
                 "personality": personality,
                 "channel_id": channel_id,
-                "model": model,
                 "temperature": temperature,
                 "dedicated_ai_channel": dedicated_ai_channel if channel_id else False,
                 "updated_at": datetime.now(timezone.utc),
@@ -1893,7 +1891,6 @@ def api_ai_chat_settings(guild_id):
         defaults = {
             "personality": "friendly",
             "channel_id": "",
-            "model": "gemini-2.5-flash",
             "temperature": 0.75,
             "dedicated_ai_channel": False,
         }
@@ -1923,7 +1920,6 @@ def api_ai_chat_settings(guild_id):
             "ai_chat": {
                 "personality": ai_chat.get("personality", "friendly"),
                 "channel_id": ai_chat.get("channel_id", ""),
-                "model": ai_chat.get("model", "gemini-2.5-flash"),
                 "temperature": ai_chat.get("temperature", 0.75),
                 "dedicated_ai_channel": ai_chat.get("dedicated_ai_channel", False),
             }
