@@ -35,12 +35,6 @@
   </div>
   {% endif %}
 
-  <div class="tab-bar">
-    <a href="/dashboard/{{ guild_id }}/donation" class="tab-item {% if active_page == 'donation' %}active{% endif %}">💳 Riwayat</a>
-    <a href="/dashboard/{{ guild_id }}/donation/stats" class="tab-item {% if active_page == 'donation_stats' %}active{% endif %}">📈 Statistik</a>
-    <a href="/dashboard/{{ guild_id }}/donation/settings" class="tab-item {% if active_page == 'donation_settings' %}active{% endif %}">⚙️ Pengaturan</a>
-  </div>
-
   {% if active_page == 'donation_stats' %}
   <div class="donation-stats-grid" id="donationStatsGrid">
     <div class="stat-card">

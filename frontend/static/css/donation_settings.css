@@ -16,19 +16,6 @@
 }
 #donationPage .page-header p { color: #8e8e9a; font-size: 0.9rem; margin: 0; }
 
-/* ── Tab Bar ── */
-#donationPage .tab-bar {
-  display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
-}
-#donationPage .tab-item {
-  display: inline-flex; align-items: center; gap: 0.4rem;
-  padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
-  text-decoration: none; color: #8e8e9a; background: #1e1e22;
-  border: 1px solid #2a2a30; transition: all 0.15s;
-}
-#donationPage .tab-item:hover { background: #2a2a30; color: #e0e0e6; }
-#donationPage .tab-item.active { background: #2d1b3d; border-color: #9B59B6; color: #c084d6; }
-
 /* ── Status Banner ── */
 #donationPage .status-banner {
   display: flex; align-items: center; gap: 0.6rem;
