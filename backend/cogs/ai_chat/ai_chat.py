@@ -575,11 +575,12 @@ class AIChat(commands.Cog):
             return "API_KEY_MISSING", False
 
         try:
-            messages = [{"role": "system", "content": system_prompt}]
+            # Atomesus gak support system role — prepend ke user message
+            messages = []
             for item in history:
                 role = "assistant" if item["role"] == "assistant" else "user"
                 messages.append({"role": role, "content": item["content"]})
-            messages.append({"role": "user", "content": user_message})
+            messages.append({"role": "user", "content": f"{system_prompt}\n\n{user_message}"})
 
             payload = {
                 "model": ATOMESUS_MODEL,
