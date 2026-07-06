@@ -1,6 +1,5 @@
 import discord
 import asyncio
-import os
 from discord.ext import commands
 from discord import app_commands
 from firebase_admin import firestore
@@ -8,6 +7,23 @@ from firebase_admin import firestore
 class BoostCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    async def _get_notification_channel(self, guild_id: str):
+        """Ambil channel notifikasi dari config boost_announce per-guild."""
+        if not hasattr(self.bot, 'db') or not self.bot.db:
+            return None
+        try:
+            def _fetch():
+                return self.bot.db.collection("guild_settings").document(guild_id).get()
+            doc = await asyncio.to_thread(_fetch)
+            if doc.exists:
+                cfg = doc.to_dict().get("boost_announce", {}) or {}
+                ch_id = cfg.get("channel_id", "")
+                if ch_id:
+                    return self.bot.get_channel(int(ch_id))
+        except Exception as e:
+            print(f"[BOOST] ⚠️ Gagal baca channel notif: {e}")
+        return None
 
     # ==========================================================================
     # STARTUP: Scan existing boosters di semua guild
@@ -88,8 +104,8 @@ class BoostCog(commands.Cog):
                 _, doc_ref = self.bot.db.collection("boosts").add(data_boost)
                 print(f"[FIREBASE] ✅ Data boost tersimpan! ID: {doc_ref.id}")
 
-                # Kirim notif ke channel
-                log_channel = self.bot.get_channel(int(os.getenv("BOOST_NOTIF_CHANNEL_ID", 0))) if os.getenv("BOOST_NOTIF_CHANNEL_ID") else None
+                # Kirim notif ke channel per-guild
+                log_channel = await self._get_notification_channel(str(guild.id))
                 if log_channel:
                     embed = discord.Embed(
                         title="🚀 Server Boost Baru!",
@@ -130,7 +146,7 @@ class BoostCog(commands.Cog):
                 print(f"[FIREBASE] ✅ Status boost {user.name} diupdate ke expired. ({updated_count} dokumen)")
 
                 # Kirim notif unboost
-                log_channel = self.bot.get_channel(int(os.getenv("BOOST_NOTIF_CHANNEL_ID", 0))) if os.getenv("BOOST_NOTIF_CHANNEL_ID") else None
+                log_channel = await self._get_notification_channel(str(user.guild.id))
                 if log_channel:
                     embed = discord.Embed(
                         title="💔 Boost Berakhir",
@@ -222,8 +238,8 @@ class BoostCog(commands.Cog):
             _, doc_ref = self.bot.db.collection("boosts").add(data_boost)
             asyncio.create_task(self._auto_delete(doc_ref))
 
-            # Kirim notif ke channel
-            log_channel = self.bot.get_channel(NOTIF_CHANNEL_ID)
+            # Kirim notif ke channel per-guild
+            log_channel = await self._get_notification_channel(str(ctx.guild.id))
             if log_channel:
                 embed = discord.Embed(
                     title="🧪 Simulasi Boost (Test)",
