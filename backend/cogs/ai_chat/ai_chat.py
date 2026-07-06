@@ -427,37 +427,48 @@ class AIChat(commands.Cog):
             else:
                 parts[0]["text"] = f"{system_prompt}\n\n{user_message}"
 
-            model = GOOGLE_VISION_MODEL if has_images else GOOGLE_MODEL
-            url = f"{GOOGLE_API_BASE}/models/{model}:generateContent?key={self.google_api_key}"
-
+            models_to_try = [GOOGLE_MODEL]
             if has_images:
-                print(f"[AI VISION] 🖼️ Using model={model}, {len(images)} image(s)")
+                models_to_try = [GOOGLE_MODEL, GOOGLE_VISION_MODEL]
 
-            async with self.session.post(url, headers={"Content-Type": "application/json"}, json=payload) as resp:
-                status = resp.status
-                try:
-                    data = await resp.json()
-                except Exception:
-                    data = {}
+            last_status = 0
+            for model in models_to_try:
+                url = f"{GOOGLE_API_BASE}/models/{model}:generateContent?key={self.google_api_key}"
+                if has_images:
+                    print(f"[AI VISION] 🖼️ Trying model={model}, {len(images)} image(s)")
 
-                if status == 429:
-                    err_msg = data.get("error", {}).get("message", "Rate limit or quota exhausted.")
-                    print(f"[AI CHAT] ⛔ Google Rate Limit (429): {err_msg[:100]}")
-                    return "RATE_LIMIT", False
+                async with self.session.post(url, headers={"Content-Type": "application/json"}, json=payload) as resp:
+                    status = resp.status
+                    try:
+                        data = await resp.json()
+                    except Exception:
+                        data = {}
 
-                if status != 200:
-                    print(f"[AI CHAT] ❌ Google HTTP {status}")
-                    return f"HTTP_{status}", False
+                    if status == 429:
+                        err_msg = data.get("error", {}).get("message", "Rate limit or quota exhausted.")
+                        print(f"[AI CHAT] ⛔ Google Rate Limit (429): {err_msg[:100]}")
+                        return "RATE_LIMIT", False
 
-                candidates = data.get("candidates", [])
-                if not candidates:
-                    return "EMPTY_CANDIDATES", False
+                    if status == 503 and model != models_to_try[-1]:
+                        print(f"[AI VISION] ⚠️ {model} returned 503, falling back to next model...")
+                        last_status = status
+                        continue
 
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if not parts:
-                    return "EMPTY_PARTS", False
+                    if status != 200:
+                        print(f"[AI CHAT] ❌ Google HTTP {status} ({model})")
+                        return f"HTTP_{status}", False
 
-                return parts[0].get("text", "").strip(), True
+                    candidates = data.get("candidates", [])
+                    if not candidates:
+                        return "EMPTY_CANDIDATES", False
+
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if not parts:
+                        return "EMPTY_PARTS", False
+
+                    return parts[0].get("text", "").strip(), True
+
+            return f"HTTP_{last_status}", False
 
         except Exception as e:
             print(f"[AI CHAT] ❌ Google Exception: {type(e).__name__}")
