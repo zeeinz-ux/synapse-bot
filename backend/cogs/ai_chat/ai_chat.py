@@ -52,6 +52,7 @@ DEFAULT_PERSONALITY = "friendly"
 
 # ── Daily Quota ──
 DAILY_QUOTA_LIMIT = 1500      # Gemini free tier ~1500 request/hari
+QUOTA_RESERVE_THRESHOLD = 200 # sisakan quota ini khusus buat Vision (image spam, /ask gambar)
 RESPONSE_CACHE_TTL = 300       # cache response 5 menit
 
 # ── Tier 1: Google AI Studio ──
@@ -209,6 +210,11 @@ class AIChat(commands.Cog):
         if not self.google_api_key or not self.session:
             return False
 
+        # ── Cek quota — vision prioritas utama, pake sampe quota beneran abis ──
+        if not self._check_daily_quota():
+            print("[AI VISION] ⚠️ Quota Gemini habis — image spam detection mati")
+            return False
+
         try:
             import base64
             b64 = base64.b64encode(image_data).decode()
@@ -229,6 +235,7 @@ class AIChat(commands.Cog):
             async with self.session.post(url, headers={"Content-Type": "application/json"}, json=payload) as resp:
                 if resp.status != 200:
                     return False
+                self._daily_count += 1
                 data = await resp.json()
                 candidates = data.get("candidates", [])
                 if not candidates:
@@ -695,7 +702,7 @@ class AIChat(commands.Cog):
             return "EXCEPTION", False
         
     # ═══════════════════════════════════════════════════════════════════════
-    # MASTER FALLBACK ENGINE (Triple Tier)
+    # MASTER FALLBACK ENGINE (Quad Tier + Quota Reserve)
     # ═══════════════════════════════════════════════════════════════════════
 
     def _check_daily_quota(self) -> bool:
@@ -704,6 +711,11 @@ class AIChat(commands.Cog):
             self._daily_count = 0
             self._daily_quota_date = today
         return self._daily_count < DAILY_QUOTA_LIMIT
+
+    def _quota_reserve_available(self) -> bool:
+        """Cek apakah quota Gemini masih di atas reserve threshold (buat Vision)."""
+        self._check_daily_quota()
+        return self._daily_count < (DAILY_QUOTA_LIMIT - QUOTA_RESERVE_THRESHOLD)
 
     def _get_cached_response(self, user_message: str, system_prompt: str, temperature: float) -> str | None:
         cache_key = hashlib.md5(f"{user_message}|{system_prompt}|{temperature}".encode()).hexdigest()[:32]
@@ -726,9 +738,11 @@ class AIChat(commands.Cog):
         self, user_message: str, history: List[Dict], system_prompt: str,
         temperature: float = 0.75, images: list[dict] | None = None
     ) -> str:
-        """Triple API Fallback Engine with Lightweight Circuit Breaker.
+        """Quad API Fallback Engine — Gemini primary, with quota reserve for Vision.
 
-        images: list of {"mime_type": str, "data": base64_str} — only Gemini tier supports vision.
+        • Vision (has_images=True): always tries Gemini first. Jika quota habis → error.
+        • Text (has_images=False): pake Gemini cuma kalo masih di atas quota reserve (200).
+          Setelah reserve threshold, langsung skip ke Groq biar hemat Gemini buat Vision.
         """
 
         now = datetime.now(timezone.utc).timestamp()
@@ -743,14 +757,28 @@ class AIChat(commands.Cog):
         has_images = bool(images)
 
         # ── Daily Quota Check ──
-        if not self._check_daily_quota():
-            print(f"[AI CHAT] ⚠️ Daily quota ({DAILY_QUOTA_LIMIT}) exhausted. Skipping Gemini, fallback only.")
-            if has_images:
-                return "❌ Maaf, fitur gambar lagi tidak tersedia karena kuota Gemini habis. Coba tanpa gambar ya!"
-            # Skip Gemini, langsung ke Groq/OpenRouter
+        quota_exhausted = not self._check_daily_quota()
+        reserve_ok = self._quota_reserve_available()
 
-        # ── Tier 1: Google AI Studio (Primary) ──
-        if self.google_api_key:
+        # ── Deciding phase: should we try Gemini for this request? ──
+        can_use_gemini = (
+            self.google_api_key
+            and not quota_exhausted
+            and (has_images or reserve_ok)
+        )
+
+        if not can_use_gemini and self.google_api_key:
+            if quota_exhausted:
+                print(f"[AI CHAT] ⚠️ Daily quota ({DAILY_QUOTA_LIMIT}) exhausted.")
+                if has_images:
+                    return "❌ Maaf, fitur gambar lagi tidak tersedia karena kuota Gemini habis. Coba tanpa gambar ya!"
+            elif not reserve_ok and not has_images:
+                remaining = DAILY_QUOTA_LIMIT - self._daily_count
+                print(f"[AI CHAT] ⚠️ Gemini reserve ({remaining} left). Skipping Gemini for text, fallback only.")
+            # Fall through to Groq/Mistral/Cohere
+
+        # ── Tier 1: Google AI Studio (Primary, privileged for Vision) ──
+        if can_use_gemini:
             if self._gemini_circuit_open:
                 if now >= self._gemini_circuit_until:
                     self._gemini_circuit_open = False
@@ -759,8 +787,9 @@ class AIChat(commands.Cog):
                 else:
                     remaining = int(self._gemini_circuit_until - now)
                     print(f"[AI CHAT] ⚠️ Tier 1 Circuit OPEN ({remaining}s left). Skip to Tier 2 (Groq)...")
+                    can_use_gemini = False
 
-            if not self._gemini_circuit_open:
+            if can_use_gemini:
                 response, success = await self._call_google_gemini(
                     user_message, history, system_prompt, temperature, images
                 )
@@ -835,7 +864,7 @@ class AIChat(commands.Cog):
 
         return (
             "Waduh, semua mesin AI-nya lagi pusing nih, bro! 🧠💥\n"
-            "Google AI Studio limit (circuit open), Groq juga down, Mistral dan Cohere error.\n"
+            "Gemini quota limit/reserve, Groq down, Mistral dan Cohere error.\n"
             "Coba tunggu beberapa menit lagi baru chat gua ya!"
         )
 
