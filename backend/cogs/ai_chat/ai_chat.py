@@ -394,8 +394,9 @@ class AIChat(commands.Cog):
             return "API_KEY_MISSING", False
 
         try:
+            has_images = bool(images)
             parts = [{"text": user_message}]
-            if images:
+            if has_images:
                 for img in images:
                     parts.append({
                         "inline_data": {
@@ -411,7 +412,6 @@ class AIChat(commands.Cog):
             contents.append({"role": "user", "parts": parts})
 
             payload = {
-            "system_instruction": {"parts": [{"text": system_prompt}]},
             "contents": contents,
             "generationConfig": {
                 "temperature": temperature,
@@ -419,6 +419,12 @@ class AIChat(commands.Cog):
                 "maxOutputTokens": 1024,
             },
         }
+            # system_instruction + inline_data causes 503 on some models;
+            # prepend system prompt to user text when images are present.
+            if not has_images:
+                payload["system_instruction"] = {"parts": [{"text": system_prompt}]}
+            else:
+                parts[0]["text"] = f"{system_prompt}\n\n{user_message}"
 
             url = f"{GOOGLE_API_BASE}/models/{GOOGLE_MODEL}:generateContent?key={self.google_api_key}"
 
