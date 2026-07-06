@@ -34,7 +34,7 @@ Format pesan:
    ✅ Benar: "P40 = data ke-(40/100)*(n+1) = data ke-20,4"
    ✅ Benar: "Rumus Momen: SK = (Q3 - 2*Q2 + Q1) / (Q3 - Q1)"
    ❌ Salah: "X̄ = ΣfX / Σf"
-   ❌ Salah: "$$\\bar{{X}} = \\frac{{{\\sum fX}}}{{{\\sum f}}}$$"
+   ❌ Salah: "$$\\bar{X} = \\frac{\\sum fX}{\\sum f}$$"
    ❌ Salah: "σ = √[Σf(X-X̄)²/n]"
    ❌ Salah: "Skₚ = (X̄ - Mₒ) / s"
 • Untuk tabel, pakai format teks biasa pakai spasi/tab, atau bungkus dalam code block (```) pakai pipe.

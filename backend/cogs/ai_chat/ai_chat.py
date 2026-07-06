@@ -902,7 +902,7 @@ class AIChat(commands.Cog):
         )
         history = await self._get_chat_history(guild_id, user_id)
         server_ctx = self._build_server_context(guild)
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.format(personality=personality, server_context=server_ctx)
+        system_prompt = SYSTEM_PROMPT_TEMPLATE.replace("{personality}", personality).replace("{server_context}", server_ctx)
 
         # ── Typing indicator langsung membungkus pemanggilan API ──
         # Sengaja TIDAK dibungkus try-except tambahan: _call_ai sudah aman
