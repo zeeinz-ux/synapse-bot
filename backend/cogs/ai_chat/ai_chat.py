@@ -20,6 +20,7 @@ Deskripsi : Triple API Fallback — Google AI Studio (T1) → Groq (T2) → Open
 """
 import re
 import os
+import base64
 import hashlib
 import time as time_module
 import asyncio
@@ -385,18 +386,29 @@ class AIChat(commands.Cog):
     )
 
     async def _call_google_gemini(
-        self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
+        self, user_message: str, history: List[Dict], system_prompt: str,
+        temperature: float = 0.75, images: list[dict] | None = None
     ) -> tuple[str, bool]:
         """Call Google AI Studio. Return (response_text, success)."""
         if not self.google_api_key or not self.session:
             return "API_KEY_MISSING", False
 
         try:
+            parts = [{"text": user_message}]
+            if images:
+                for img in images:
+                    parts.append({
+                        "inline_data": {
+                            "mime_type": img["mime_type"],
+                            "data": img["data"]
+                        }
+                    })
+
             contents = []
             for item in history:
                 role = "model" if item["role"] == "assistant" else "user"
                 contents.append({"role": role, "parts": [{"text": item["content"]}]})
-            contents.append({"role": "user", "parts": [{"text": user_message}]})
+            contents.append({"role": "user", "parts": parts})
 
             payload = {
             "system_instruction": {"parts": [{"text": system_prompt}]},
@@ -610,27 +622,34 @@ class AIChat(commands.Cog):
             self._response_cache = {k: v for k, v in self._response_cache.items() if v[1] > cutoff}
 
     async def _call_ai(
-        self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
+        self, user_message: str, history: List[Dict], system_prompt: str,
+        temperature: float = 0.75, images: list[dict] | None = None
     ) -> str:
-        """Triple API Fallback Engine with Lightweight Circuit Breaker."""
+        """Triple API Fallback Engine with Lightweight Circuit Breaker.
+
+        images: list of {"mime_type": str, "data": base64_str} — only Gemini tier supports vision.
+        """
 
         now = datetime.now(timezone.utc).timestamp()
 
-        # ── Response Cache Check ──
-        if not history:
+        # ── Response Cache Check (skip when images present) ──
+        if not history and not images:
             cached = self._get_cached_response(user_message, system_prompt, temperature)
             if cached:
                 print("[AI CHAT] 💾 Response cache HIT")
                 return cached
 
+        has_images = bool(images)
+
         # ── Daily Quota Check ──
         if not self._check_daily_quota():
             print(f"[AI CHAT] ⚠️ Daily quota ({DAILY_QUOTA_LIMIT}) exhausted. Skipping Gemini, fallback only.")
+            if has_images:
+                return "❌ Maaf, fitur gambar lagi tidak tersedia karena kuota Gemini habis. Coba tanpa gambar ya!"
             # Skip Gemini, langsung ke Groq/OpenRouter
 
         # ── Tier 1: Google AI Studio (Primary) ──
         if self.google_api_key:
-            # Circuit breaker check
             if self._gemini_circuit_open:
                 if now >= self._gemini_circuit_until:
                     self._gemini_circuit_open = False
@@ -642,17 +661,16 @@ class AIChat(commands.Cog):
 
             if not self._gemini_circuit_open:
                 response, success = await self._call_google_gemini(
-                    user_message, history, system_prompt, temperature
+                    user_message, history, system_prompt, temperature, images
                 )
                 if success and response:
                     self._gemini_fail_streak = 0
                     self._daily_count += 1
-                    if not history:
+                    if not history and not has_images:
                         self._set_cached_response(user_message, system_prompt, temperature, response)
                     print(f"[AI CHAT] ✅ Tier 1 Success (Gemini) [{self._daily_count}/{DAILY_QUOTA_LIMIT}]")
                     return response
 
-                # Gemini failed — increment streak & check circuit breaker
                 self._gemini_fail_streak += 1
                 if self._gemini_fail_streak >= CIRCUIT_BREAKER_THRESHOLD:
                     self._gemini_circuit_open = True
@@ -660,6 +678,10 @@ class AIChat(commands.Cog):
                     print(f"[AI CHAT] 🔴 Tier 1 Circuit OPEN ({CIRCUIT_BREAKER_COOLDOWN // 3600}h) — {self._gemini_fail_streak}x fail")
                 else:
                     print(f"[AI CHAT] ⚠️ Tier 1 Fail ({response}). Switching to Tier 2 (Groq)...")
+
+            # If images present and Gemini failed, don't fallback — other tiers don't support vision
+            if has_images:
+                return "❌ Maaf, fitur gambar cuma didukung oleh Gemini. Coba lagi nanti ya!"
 
         # ── Tier 2: Groq (Backup) ──
         if self.groq_api_key:
@@ -737,9 +759,34 @@ class AIChat(commands.Cog):
                 await ctx.reply(full_text, mention_author=False)
 
     # ═══════════════════════════════════════════════════════════════════════
+    # IMAGE EXTRACTION HELPER
+    # ═══════════════════════════════════════════════════════════════════════
+
+    _ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
+    _MAX_IMAGE_SIZE = 4 * 1024 * 1024
+    _MAX_IMAGES = 4
+
+    async def _extract_images_from_attachments(self, attachments: list[discord.Attachment]) -> list[dict]:
+        images = []
+        for att in attachments:
+            if len(images) >= self._MAX_IMAGES:
+                break
+            if att.content_type not in self._ALLOWED_IMAGE_TYPES:
+                continue
+            if att.size > self._MAX_IMAGE_SIZE:
+                continue
+            try:
+                data = await att.read()
+                b64 = base64.b64encode(data).decode()
+                images.append({"mime_type": att.content_type, "data": b64})
+            except Exception:
+                continue
+        return images
+
+    # ═══════════════════════════════════════════════════════════════════════
     # CORE PROCESSOR
     # ═══════════════════════════════════════════════════════════════════════
-    async def _process_ai_chat(self, ctx, user_message: str, guild: discord.Guild, user: discord.User):
+    async def _process_ai_chat(self, ctx, user_message: str, guild: discord.Guild, user: discord.User, images: list[dict] | None = None):
         guild_id = str(guild.id)
         user_id = str(user.id)
 
@@ -840,7 +887,8 @@ class AIChat(commands.Cog):
                 user_message,
                 history,
                 system_prompt,
-                temperature
+                temperature,
+                images
             )
 
         await self._save_chat_history(guild_id, user_id, user_message, response_text, personality)
@@ -885,7 +933,7 @@ class AIChat(commands.Cog):
         await self.bot.wait_until_ready()
 
     @commands.hybrid_command(name="ask", description="Tanya apa saja ke AI Synapse")
-    async def ask(self, ctx: commands.Context, pertanyaan: str):
+    async def ask(self, ctx: commands.Context, pertanyaan: str, gambar: discord.Attachment | None = None):
         
         # 0. Cleanup stale cooldowns
         self._cleanup_cooldowns()
@@ -912,13 +960,33 @@ class AIChat(commands.Cog):
         # 4. Set Cooldown Setelah Lolos Defer
         self._cooldowns[key] = now
 
-        # 5. Proses AI Chat
+        # 5. Extract image if provided
+        images = []
+        if gambar:
+            if gambar.content_type not in self._ALLOWED_IMAGE_TYPES:
+                await ctx.send("❌ Tipe file gambar tidak didukung. Gunakan PNG, JPG, GIF, atau WEBP.")
+                return
+            if gambar.size > self._MAX_IMAGE_SIZE:
+                await ctx.send("❌ Ukuran gambar terlalu besar (maks 4MB).")
+                return
+            try:
+                data = await gambar.read()
+                b64 = base64.b64encode(data).decode()
+                images.append({"mime_type": gambar.content_type, "data": b64})
+                print(f"[AI VISION] 📸 /ask with image ({gambar.content_type})")
+            except Exception as e:
+                print(f"[AI VISION] ⚠️ Gagal baca gambar: {e}")
+                await ctx.send("❌ Gagal membaca gambar. Coba lagi ya!")
+                return
+
+        # 6. Proses AI Chat
         try:
             await self._process_ai_chat(
                 ctx=ctx,
                 user_message=pertanyaan,
                 guild=ctx.guild,
                 user=ctx.author,
+                images=images or None,
             )
         except Exception as e:
             print(f"[AI CHAT] ❌ Fatal error di /ask: {e}")
@@ -1001,12 +1069,18 @@ class AIChat(commands.Cog):
 
         self._cooldowns[key] = now
 
+        # 5. Extract images from attachments
+        images = await self._extract_images_from_attachments(message.attachments)
+        if images:
+            print(f"[AI VISION] 📸 {len(images)} image(s) attached")
+
         try:
             await self._process_ai_chat(
                 ctx=message,
                 user_message=content,
                 guild=message.guild,
                 user=message.author,
+                images=images,
             )
         except Exception as e:
             print(f"[AI CHAT] ❌ Fatal error di on_message: {e}")
