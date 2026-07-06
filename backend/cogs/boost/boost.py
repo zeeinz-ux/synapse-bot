@@ -4,6 +4,13 @@ from discord.ext import commands
 from discord import app_commands
 from firebase_admin import firestore
 
+# ═══════════════════════════════════════════════════
+# Firestore Composite Indexes (wajib bikin manual):
+# Collection: boosts
+#   1. user_id (Asc) + guild_id (Asc) + status (Asc)
+#   2. guild_id (Asc)  — otomatis (single field)
+# ═══════════════════════════════════════════════════
+
 class BoostCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -40,32 +47,37 @@ class BoostCog(commands.Cog):
             return
         for guild in self.bot.guilds:
             try:
-                members = []
+                count = 0
                 async for m in guild.fetch_members(limit=None):
-                    members.append(m)
+                    if m.premium_since is None:
+                        count += 1
+                        if count % 100 == 0:
+                            await asyncio.sleep(0)
+                        continue
+                    uid = str(m.id)
+                    gid = str(guild.id)
+                    existing = list(self.bot.db.collection("boosts")
+                        .where("user_id", "==", uid)
+                        .where("guild_id", "==", gid)
+                        .where("status", "==", "active")
+                        .limit(1).stream())
+                    if existing:
+                        count += 1
+                        continue
+                    self.bot.db.collection("boosts").add({
+                        "user_id": uid,
+                        "guild_id": gid,
+                        "type": "server_boost",
+                        "boosted_at": m.premium_since,
+                        "status": "active",
+                    })
+                    print(f"[BOOST] 📦 Existing booster recorded: {m.name} ({uid}) in {guild.name}")
+                    count += 1
+                    if count % 100 == 0:
+                        await asyncio.sleep(0)
             except Exception as e:
                 print(f"[BOOST] ⚠️ Gagal fetch members {guild.name}: {e}")
                 continue
-            for member in members:
-                if member.premium_since is None:
-                    continue
-                uid = str(member.id)
-                gid = str(guild.id)
-                existing = list(self.bot.db.collection("boosts")
-                    .where("user_id", "==", uid)
-                    .where("guild_id", "==", gid)
-                    .where("status", "==", "active")
-                    .limit(1).stream())
-                if existing:
-                    continue
-                self.bot.db.collection("boosts").add({
-                    "user_id": uid,
-                    "guild_id": gid,
-                    "type": "server_boost",
-                    "boosted_at": member.premium_since,
-                    "status": "active",
-                })
-                print(f"[BOOST] 📦 Existing booster recorded: {member.name} ({uid}) in {guild.name}")
         print("[BOOST] ✅ Scan existing boosters selesai.")
 
     async def _auto_delete(self, doc_ref, delay=60):
@@ -132,7 +144,7 @@ class BoostCog(commands.Cog):
 
             try:
                 boosts_ref = self.bot.db.collection("boosts")
-                query = boosts_ref.where("user_id", "==", str(user.id)).where("status", "==", "active")
+                query = boosts_ref.where("user_id", "==", str(user.id)).where("guild_id", "==", str(user.guild.id)).where("status", "==", "active")
 
                 docs = query.stream()
                 updated_count = 0
