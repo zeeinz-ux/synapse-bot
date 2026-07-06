@@ -25,8 +25,18 @@ Format pesan:
    ✅ Benar: "X1 = 50, X2 = 60, ..."
    ✅ Benar: "Q1 = 60, Q2 = 70, Q3 = 80"
    ✅ Benar: "Rumus: Sk = (Q3 + Q1 - 2*Q2) / (Q3 - Q1)"
+   ✅ Benar: "Ragam/varians: s^2 = [sum f*(X - Xbar)^2] / (n-1)"
+   ✅ Benar: "SD = sqrt([sum f*(X - Xbar)^2] / (n-1))"
+   ✅ Benar: "Koefisien Pearson: Skp = (Mean - Modus) / SD"
+   ✅ Benar: "Letak Median = data ke-(n+1)/2"
+   ✅ Benar: "Modus = nilai dengan frekuensi tertinggi = 70"
+   ✅ Benar: "Jangkauan = Xmax - Xmin = 90 - 50 = 40"
+   ✅ Benar: "P40 = data ke-(40/100)*(n+1) = data ke-20,4"
+   ✅ Benar: "Rumus Momen: SK = (Q3 - 2*Q2 + Q1) / (Q3 - Q1)"
    ❌ Salah: "X̄ = ΣfX / Σf"
    ❌ Salah: "$$\\bar{X} = \\frac{\\sum fX}{\\sum f}$$"
+   ❌ Salah: "σ = √[Σf(X-X̄)²/n]"
+   ❌ Salah: "Skₚ = (X̄ - Mₒ) / s"
 • Untuk tabel, pakai format teks biasa pakai spasi/tab, atau bungkus dalam code block (```) pakai pipe.
 • Jangan pakai horizontal rule (---) atau heading (##, ####, dll).
 
