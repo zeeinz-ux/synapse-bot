@@ -50,46 +50,7 @@ class GeneralCog(commands.Cog):
         minutes, seconds = divmod(remainder, 60)
         return f"{hours}h {minutes}m {seconds}s"
 
-    @commands.hybrid_command(name="help", description="Menampilkan daftar semua command")
-    async def slash_help(self, ctx: commands.Context):
-        embed = discord.Embed(
-            title="📋 Daftar Slash Command",
-            description=f"Total **{len(self.bot.commands)}** command terdaftar. Gunakan `/` untuk trigger:",
-            color=discord.Color.blue()
-        )
 
-        cog_emoji = {
-            "GeneralCog": "🌐",
-            "Leveling": "⭐",
-            "Boost": "🚀",
-            "AutoResponder": "🤖",
-            "AIChat": "🧠",
-            "Donation": "💰",
-        }
-
-        cogs: dict[str, list[commands.Command]] = {}
-        for cmd in sorted(self.bot.commands, key=lambda c: c.name):
-            cog_name = cmd.cog.qualified_name if cmd.cog else "Other"
-            cogs.setdefault(cog_name, []).append(cmd)
-
-        for cog_name, cmds in sorted(cogs.items()):
-            emoji = cog_emoji.get(cog_name, "📦")
-            lines = []
-            for cmd in cmds:
-                desc = (cmd.description or cmd.short_doc or "—").split("\n")[0][:60]
-                sign = cmd.signature or ""
-                sign = " ".join(sign.split()[:3])
-                line = f"`/{cmd.name} {sign}` — {desc}"
-                if len(line) > 100:
-                    line = line[:97] + "..."
-                lines.append(line)
-            value = "\n".join(lines)
-            if len(value) > 1024:
-                value = value[:1000] + "\n… *(truncated)*"
-            embed.add_field(name=f"{emoji} {cog_name}", value=value, inline=False)
-
-        embed.set_footer(text=f"Requested by {ctx.author.name}")
-        await ctx.send(embed=embed, ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(GeneralCog(bot))
