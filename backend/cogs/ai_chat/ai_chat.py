@@ -124,8 +124,8 @@ class AIChat(commands.Cog):
             return
       
         timeout = aiohttp.ClientTimeout(
-            total=45,
-            connect=15
+            total=60,
+            connect=20
         )
       
         self.session = aiohttp.ClientSession(
@@ -394,50 +394,49 @@ class AIChat(commands.Cog):
         if not self.google_api_key or not self.session:
             return "API_KEY_MISSING", False
 
-        try:
-            has_images = bool(images)
-            parts = [{"text": user_message}]
-            if has_images:
-                for img in images:
-                    parts.append({
-                        "inline_data": {
-                            "mime_type": img["mime_type"],
-                            "data": img["data"]
-                        }
-                    })
+        has_images = bool(images)
+        parts = [{"text": user_message}]
+        if has_images:
+            for img in images:
+                parts.append({
+                    "inline_data": {
+                        "mime_type": img["mime_type"],
+                        "data": img["data"]
+                    }
+                })
 
-            contents = []
-            for item in history:
-                role = "model" if item["role"] == "assistant" else "user"
-                contents.append({"role": role, "parts": [{"text": item["content"]}]})
-            contents.append({"role": "user", "parts": parts})
+        contents = []
+        for item in history:
+            role = "model" if item["role"] == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": item["content"]}]})
+        contents.append({"role": "user", "parts": parts})
 
-            payload = {
-            "contents": contents,
-            "generationConfig": {
-                "temperature": temperature,
-                "topP": 0.95,
-                "maxOutputTokens": 1024,
-            },
-        }
-            # system_instruction + inline_data causes 503 on some models;
-            # prepend system prompt to user text when images are present.
-            if not has_images:
-                payload["system_instruction"] = {"parts": [{"text": system_prompt}]}
-            else:
-                parts[0]["text"] = f"{system_prompt}\n\n{user_message}"
+        payload = {
+        "contents": contents,
+        "generationConfig": {
+            "temperature": temperature,
+            "topP": 0.95,
+            "maxOutputTokens": 1024,
+        },
+    }
+        if not has_images:
+            payload["system_instruction"] = {"parts": [{"text": system_prompt}]}
+        else:
+            parts[0]["text"] = f"{system_prompt}\n\n{user_message}"
 
-            models_to_try = [GOOGLE_MODEL]
-            if has_images:
-                models_to_try = [GOOGLE_MODEL, GOOGLE_VISION_MODEL]
+        models_to_try = [GOOGLE_MODEL]
+        if has_images:
+            models_to_try = [GOOGLE_MODEL, GOOGLE_VISION_MODEL]
 
-            last_status = 0
-            for model in models_to_try:
+        last_status = 0
+        for model in models_to_try:
+            try:
                 url = f"{GOOGLE_API_BASE}/models/{model}:generateContent?key={self.google_api_key}"
                 if has_images:
                     print(f"[AI VISION] 🖼️ Trying model={model}, {len(images)} image(s)")
 
-                async with self.session.post(url, headers={"Content-Type": "application/json"}, json=payload) as resp:
+                vision_timeout = aiohttp.ClientTimeout(total=120, connect=30) if has_images else None
+                async with self.session.post(url, headers={"Content-Type": "application/json"}, json=payload, timeout=vision_timeout) as resp:
                     status = resp.status
                     try:
                         data = await resp.json()
@@ -462,17 +461,26 @@ class AIChat(commands.Cog):
                     if not candidates:
                         return "EMPTY_CANDIDATES", False
 
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if not parts:
+                    ret_parts = candidates[0].get("content", {}).get("parts", [])
+                    if not ret_parts:
                         return "EMPTY_PARTS", False
 
-                    return parts[0].get("text", "").strip(), True
+                    return ret_parts[0].get("text", "").strip(), True
 
-            return f"HTTP_{last_status}", False
+            except asyncio.TimeoutError:
+                if model != models_to_try[-1]:
+                    print(f"[AI VISION] ⏱️ {model} timed out, falling back to next model...")
+                    continue
+                print(f"[AI VISION] ⏱️ {model} timed out (last model)")
+                return "TIMEOUT", False
+            except Exception as e:
+                if model != models_to_try[-1]:
+                    print(f"[AI VISION] ⚠️ {model} error ({type(e).__name__}), falling back...")
+                    continue
+                print(f"[AI CHAT] ❌ Google Exception ({model}): {type(e).__name__}")
+                return "EXCEPTION", False
 
-        except Exception as e:
-            print(f"[AI CHAT] ❌ Google Exception: {type(e).__name__}")
-            return "EXCEPTION", False
+        return f"HTTP_{last_status}", False
 
     # ═══════════════════════════════════════════════════════════════════════
     # TIER 2: Groq (Llama 3.3 70B)
