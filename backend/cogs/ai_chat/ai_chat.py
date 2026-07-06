@@ -48,6 +48,10 @@ MAX_HISTORY_PAIRS = 5
 COOLDOWN_SECONDS = 5
 DEFAULT_PERSONALITY = "friendly"
 
+# ── Daily Quota ──
+DAILY_QUOTA_LIMIT = 1500      # Gemini free tier ~1500 request/hari
+RESPONSE_CACHE_TTL = 300       # cache response 5 menit
+
 # ── Tier 1: Google AI Studio ──
 GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 GOOGLE_MODEL = "gemini-3.5-flash"
@@ -101,6 +105,13 @@ class AIChat(commands.Cog):
         # Cache compiled regex untuk strip mention bot di on_message
         # (di-build sekali saat dibutuhkan, lihat on_message)
         self._mention_pattern: "re.Pattern | None" = None
+
+        # ── Daily quota tracking ──
+        self._daily_count = 0
+        self._daily_quota_date = datetime.now(timezone.utc).date()
+
+        # ── Response cache (content_hash -> (response, timestamp)) ──
+        self._response_cache: dict[str, tuple[str, float]] = {}
 
         print("[AI CHAT] ✅ Cog loaded. Triple API: Google → Groq → OpenRouter")
 
@@ -564,12 +575,48 @@ class AIChat(commands.Cog):
     # MASTER FALLBACK ENGINE (Triple Tier)
     # ═══════════════════════════════════════════════════════════════════════
 
+    def _check_daily_quota(self) -> bool:
+        today = datetime.now(timezone.utc).date()
+        if today != self._daily_quota_date:
+            self._daily_count = 0
+            self._daily_quota_date = today
+        return self._daily_count < DAILY_QUOTA_LIMIT
+
+    def _get_cached_response(self, user_message: str, system_prompt: str, temperature: float) -> str | None:
+        cache_key = hashlib.md5(f"{user_message}|{system_prompt}|{temperature}".encode()).hexdigest()[:32]
+        cached = self._response_cache.get(cache_key)
+        if cached:
+            text, ts = cached
+            if time_module.time() - ts < RESPONSE_CACHE_TTL:
+                return text
+            del self._response_cache[cache_key]
+        return None
+
+    def _set_cached_response(self, user_message: str, system_prompt: str, temperature: float, response: str):
+        cache_key = hashlib.md5(f"{user_message}|{system_prompt}|{temperature}".encode()).hexdigest()[:32]
+        self._response_cache[cache_key] = (response, time_module.time())
+        if len(self._response_cache) > 200:
+            cutoff = time_module.time() - RESPONSE_CACHE_TTL
+            self._response_cache = {k: v for k, v in self._response_cache.items() if v[1] > cutoff}
+
     async def _call_ai(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> str:
         """Triple API Fallback Engine with Lightweight Circuit Breaker."""
 
         now = datetime.now(timezone.utc).timestamp()
+
+        # ── Response Cache Check ──
+        if not history:
+            cached = self._get_cached_response(user_message, system_prompt, temperature)
+            if cached:
+                print("[AI CHAT] 💾 Response cache HIT")
+                return cached
+
+        # ── Daily Quota Check ──
+        if not self._check_daily_quota():
+            print(f"[AI CHAT] ⚠️ Daily quota ({DAILY_QUOTA_LIMIT}) exhausted. Skipping Gemini, fallback only.")
+            # Skip Gemini, langsung ke Groq/OpenRouter
 
         # ── Tier 1: Google AI Studio (Primary) ──
         if self.google_api_key:
@@ -589,7 +636,10 @@ class AIChat(commands.Cog):
                 )
                 if success and response:
                     self._gemini_fail_streak = 0
-                    print("[AI CHAT] ✅ Tier 1 Success (Gemini)")
+                    self._daily_count += 1
+                    if not history:
+                        self._set_cached_response(user_message, system_prompt, temperature, response)
+                    print(f"[AI CHAT] ✅ Tier 1 Success (Gemini) [{self._daily_count}/{DAILY_QUOTA_LIMIT}]")
                     return response
 
                 # Gemini failed — increment streak & check circuit breaker
@@ -608,6 +658,8 @@ class AIChat(commands.Cog):
                 user_message, history, system_prompt, temperature
             )
             if success and response:
+                if not history:
+                    self._set_cached_response(user_message, system_prompt, temperature, response)
                 print("[AI CHAT] ✅ Tier 2 Success (Groq)")
                 return response
             print(f"[AI CHAT] ⚠️ Tier 2 Fail ({response}). Switching to Tier 3 (OpenRouter)...")
@@ -619,6 +671,8 @@ class AIChat(commands.Cog):
                 user_message, history, system_prompt, temperature
             )
             if success and response:
+                if not history:
+                    self._set_cached_response(user_message, system_prompt, temperature, response)
                 print("[AI CHAT] ✅ Tier 3 Success (OpenRouter)")
                 return response
             print(f"[AI CHAT] ❌ Tier 3 Fail ({response})")
@@ -735,12 +789,11 @@ class AIChat(commands.Cog):
             channel_id = str(ctx.channel.id)
             typing_ctx = ctx.channel
 
-        # ── REVISI: Tambahkan tanda # pada 4 baris di bawah ini untuk mematikan fiturnya ──
-        # if not self._is_channel_allowed(settings, channel_id):
-        #     await self._send_response(
-        #         ctx, user_id, "⚠️ AI Chat hanya bisa digunakan di channel yang sudah diatur oleh admin."
-        #     )
-        #     return
+        if not self._is_channel_allowed(settings, channel_id):
+            await self._send_response(
+                ctx, user_id, "⚠️ AI Chat hanya bisa digunakan di channel yang sudah diatur oleh admin."
+            )
+            return
 
         personality = settings.get(
             "personality",
@@ -866,8 +919,8 @@ class AIChat(commands.Cog):
         if not settings.get("enabled", False):
             return
 
-        # if not self._is_channel_allowed(settings, str(message.channel.id)):
-        #     return
+        if not self._is_channel_allowed(settings, str(message.channel.id)):
+            return
 
         # 3. Clean content
         # Pakai regex yang match persis format mention Discord (<@id> atau <@!id>)

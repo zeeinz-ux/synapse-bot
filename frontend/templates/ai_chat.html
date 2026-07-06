@@ -61,6 +61,19 @@
       </select>
     </div>
 
+    <div class="form-group" id="dedicated-toggle-row" style="display:none;">
+      <div class="dedicated-row">
+        <div class="dedicated-info">
+          <span class="dedicated-label">Dedicated AI Channel</span>
+          <span class="field-hint">Bot otomatis merespon SETIAP pesan di channel ini tanpa perlu mention <code>@Synapse</code> atau command <code>/ask</code>.</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="dedicated-toggle" {% if dedicated_ai_channel %}checked{% endif %}>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
     <div class="form-group">
       <label for="personality-select">Personality AI</label>
       <p class="field-hint">Gaya bahasa AI akan menyesuaikan personality ini.</p>
@@ -136,10 +149,11 @@
         <span class="tier-tag primary">PRIMARY</span>
       </div>
       <div class="tier-details">
-        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">Gemini 2.5 Flash</span></div>
+        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">Gemini 3.5 Flash</span></div>
         <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">60 req/minute</span></div>
-        <div class="detail-row"><span class="detail-label">Daily Limit</span><span class="detail-value">~1,500 requests</span></div>
+        <div class="detail-row"><span class="detail-label">Daily Quota</span><span class="detail-value">~1,500 requests (tracked)</span></div>
         <div class="detail-row"><span class="detail-label">Circuit Breaker</span><span class="detail-value">Auto-skip 2h setelah 3x fail</span></div>
+        <div class="detail-row"><span class="detail-label">Response Cache</span><span class="detail-value">5 menit (pertanyaan sama)</span></div>
       </div>
     </div>
 

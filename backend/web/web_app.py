@@ -1776,11 +1776,37 @@ def api_guild_channels(guild_id: str):
 @login_required
 def ai_chat_page(guild_id: str):
     channels = get_guild_channels(guild_id)
+    ai_chat_enabled = False
+    personality = "friendly"
+    ai_chat_channel = ""
+    temperature = 0.75
+    dedicated_ai_channel = False
+
+    try:
+        if db is not None:
+            doc_ref = db.collection("guild_settings").document(str(guild_id))
+            doc = doc_ref.get()
+            if doc.exists:
+                data = doc.to_dict()
+                ai_chat_enabled = data.get("ai_chat_enabled", False)
+                ai_cfg = data.get("ai_chat", {})
+                personality = ai_cfg.get("personality", "friendly")
+                ai_chat_channel = ai_cfg.get("channel_id", "")
+                temperature = ai_cfg.get("temperature", 0.75)
+                dedicated_ai_channel = ai_cfg.get("dedicated_ai_channel", False)
+    except Exception:
+        pass
+
     return _render_page(
         "ai_chat.html",
         active_page="ai_chat",
         guild_id=guild_id,
-        channels=channels
+        channels=channels,
+        ai_chat_enabled=ai_chat_enabled,
+        personality=personality,
+        ai_chat_channel=ai_chat_channel,
+        temperature=temperature,
+        dedicated_ai_channel=dedicated_ai_channel,
     )
 
 
@@ -1821,7 +1847,7 @@ def ai_chat_toggle(guild_id):
 def ai_chat_save(guild_id):
     try:
         if request.is_json:
-            data = request.get_json()
+            data = request.get_json(silent=True) or {}
         else:
             data = request.form.to_dict()
 
@@ -1829,6 +1855,7 @@ def ai_chat_save(guild_id):
         channel_id = data.get("channel_id", "").strip()
         model = data.get("model", "gemini-2.5-flash")
         temperature = float(data.get("temperature", 0.75))
+        dedicated_ai_channel = data.get("dedicated_ai_channel", False)
 
         valid_personalities = ["friendly", "formal", "tsundere", "sarcastic", "wise"]
         if personality not in valid_personalities:
@@ -1839,14 +1866,13 @@ def ai_chat_save(guild_id):
 
         doc_ref = db.collection("guild_settings").document(str(guild_id))
         
-        # IMPLEMENTASI: Menambahkan dedicated_ai_channel secara dinamis ke Firestore
         doc_ref.set({
             "ai_chat": {
                 "personality": personality,
                 "channel_id": channel_id,
                 "model": model,
                 "temperature": temperature,
-                "dedicated_ai_channel": True if channel_id else False, # True jika channel dipilih, False jika 'Semua Channel'
+                "dedicated_ai_channel": dedicated_ai_channel if channel_id else False,
                 "updated_at": datetime.now(timezone.utc),
             }
         }, merge=True)
@@ -1864,16 +1890,19 @@ def ai_chat_save(guild_id):
 @app.route("/api/ai-chat/settings/<guild_id>")
 def api_ai_chat_settings(guild_id):
     try:
+        defaults = {
+            "personality": "friendly",
+            "channel_id": "",
+            "model": "gemini-2.5-flash",
+            "temperature": 0.75,
+            "dedicated_ai_channel": False,
+        }
+
         if db is None:
             return jsonify({
                 "success": True,
                 "ai_chat_enabled": False,
-                "ai_chat": {
-                    "personality": "friendly",
-                    "channel_id": "",
-                    "model": "gemini-2.5-flash",
-                    "temperature": 0.75,
-                }
+                "ai_chat": defaults
             }), 200
 
         doc_ref = db.collection("guild_settings").document(str(guild_id))
@@ -1883,12 +1912,7 @@ def api_ai_chat_settings(guild_id):
             return jsonify({
                 "success": True,
                 "ai_chat_enabled": False,
-                "ai_chat": {
-                    "personality": "friendly",
-                    "channel_id": "",
-                    "model": "gemini-2.5-flash",
-                    "temperature": 0.75,
-                }
+                "ai_chat": defaults
             }), 200
 
         data = doc.to_dict()
@@ -1901,6 +1925,7 @@ def api_ai_chat_settings(guild_id):
                 "channel_id": ai_chat.get("channel_id", ""),
                 "model": ai_chat.get("model", "gemini-2.5-flash"),
                 "temperature": ai_chat.get("temperature", 0.75),
+                "dedicated_ai_channel": ai_chat.get("dedicated_ai_channel", False),
             }
         }), 200
 
