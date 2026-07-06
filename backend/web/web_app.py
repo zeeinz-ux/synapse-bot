@@ -161,22 +161,25 @@ def api_boost_history(guild_id: str):
         return jsonify({"success": False, "boosts": [], "message": "Firebase unavailable"}), 200
     try:
         all_docs = list(db.collection("boosts").limit(20).stream())
-        all_guilds = set()
-        for d in all_docs:
-            g = d.to_dict().get("guild_id", "")
-            if g: all_guilds.add(g)
-        print(f"[BOOST API] 📊 Total boost di DB: {len(all_docs)}, guild_ids: {all_guilds}")
-        print(f"[BOOST API] 📊 Dicari guild_id={guild_id}, cocok? {guild_id in all_guilds}")
-
         docs = [d for d in all_docs if d.to_dict().get("guild_id") == str(guild_id)]
+        # Resolve user info from Discord API via bot guild data
+        bot_guilds = current_app.config.get("BOT_GUILDS", {})
+        guild_data = bot_guilds.get(str(guild_id), {})
+        members = {str(m["user"]["id"]): m["user"] for m in guild_data.get("members", [])}
+
         boosts = []
         for doc in docs:
             d = doc.to_dict()
             boosted_at = d.get("boosted_at")
             unboosted_at = d.get("unboosted_at")
+            uid = d.get("user_id", "")
+            user = members.get(uid, {})
+            avatar_hash = user.get("avatar", "")
             boosts.append({
                 "id": doc.id,
-                "user_id": d.get("user_id", ""),
+                "user_id": uid,
+                "username": user.get("username", ""),
+                "avatar_url": f"https://cdn.discordapp.com/avatars/{uid}/{avatar_hash}.png" if avatar_hash else "",
                 "type": d.get("type", "server_boost"),
                 "status": d.get("status", "active"),
                 "boosted_at": boosted_at.isoformat() if hasattr(boosted_at, "isoformat") else str(boosted_at or ""),
@@ -197,6 +200,11 @@ def api_boost_stats(guild_id: str):
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
     try:
         docs = list(db.collection("boosts").where("guild_id", "==", str(guild_id)).stream())
+        # Resolve user info
+        bot_guilds = current_app.config.get("BOT_GUILDS", {})
+        guild_data = bot_guilds.get(str(guild_id), {})
+        members = {str(m["user"]["id"]): m["user"] for m in guild_data.get("members", [])}
+
         total = len(docs)
         active = sum(1 for d in docs if d.to_dict().get("status") == "active")
         expired = total - active
@@ -222,6 +230,17 @@ def api_boost_stats(guild_id: str):
                     next_at = active
         progress = min(active / next_at * 100, 100) if next_at > 0 else 100
 
+        top_users_list = []
+        for uid, count in top:
+            user = members.get(uid, {})
+            avatar_hash = user.get("avatar", "")
+            top_users_list.append({
+                "user_id": uid,
+                "username": user.get("username", ""),
+                "avatar_url": f"https://cdn.discordapp.com/avatars/{uid}/{avatar_hash}.png" if avatar_hash else "",
+                "count": count,
+            })
+
         return jsonify({
             "success": True,
             "total": total,
@@ -231,7 +250,7 @@ def api_boost_stats(guild_id: str):
             "next_tier": next_tier,
             "next_at": next_at,
             "progress": round(progress, 1),
-            "top_users": [{"user_id": uid, "count": c} for uid, c in top],
+            "top_users": top_users_list,
         }), 200
     except Exception as e:
         print(f"[BOOST API] ❌ stats error: {e}")

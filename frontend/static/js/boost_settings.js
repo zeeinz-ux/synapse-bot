@@ -2,6 +2,15 @@
   var guildId = window.CURRENT_GUILD_ID;
   var isStats = document.getElementById('statsGrid') !== null;
 
+  function userAvatar(u){
+    if(u.avatar_url) return u.avatar_url;
+    var defaultIdx = (parseInt(u.user_id) >> 22) % 5;
+    return 'https://cdn.discordapp.com/embed/avatars/' + defaultIdx + '.png';
+  }
+  function userName(u){
+    return u.username || u.user_id;
+  }
+
   if (isStats) {
     fetch('/api/boosts/' + guildId + '/stats')
       .then(function(r){ return r.json(); })
@@ -18,11 +27,9 @@
         if(d.top_users && d.top_users.length){
           for(var i=0; i<d.top_users.length; i++){
             var u = d.top_users[i];
-            var defaultIdx = (parseInt(u.user_id) >> 22) % 5;
-            var avatar = 'https://cdn.discordapp.com/embed/avatars/' + defaultIdx + '.png';
             html += '<tr><td>' + (i+1) + '</td>'
-              + '<td><img class="user-avatar" src="' + avatar + '" loading="lazy">'
-              + '<code>' + u.user_id + '</code></td>'
+              + '<td><img class="user-avatar" src="' + userAvatar(u) + '" loading="lazy">'
+              + '<span class="user-name-cell">' + userName(u) + '</span></td>'
               + '<td>' + u.count + 'x</td></tr>';
           }
         } else {
@@ -48,10 +55,9 @@
             var unboosted = b.unboosted_at ? b.unboosted_at.slice(0,19).replace('T',' ') : '—';
             var statusClass = b.status === 'active' ? 'status-active' : 'status-expired';
             var statusLabel = b.status === 'active' ? 'Active' : 'Expired';
-            var defaultIdx = (parseInt(b.user_id) >> 22) % 5;
-            var avatar = 'https://cdn.discordapp.com/embed/avatars/' + defaultIdx + '.png';
             html += '<tr>'
-              + '<td><img class="user-avatar" src="' + avatar + '" loading="lazy"><code>' + b.user_id + '</code></td>'
+              + '<td><img class="user-avatar" src="' + userAvatar(b) + '" loading="lazy">'
+              + '<span class="user-name-cell">' + userName(b) + '</span></td>'
               + '<td>' + boosted + '</td>'
               + '<td><span class="' + statusClass + '">' + statusLabel + '</span></td>'
               + '<td>' + unboosted + '</td>'

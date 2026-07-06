@@ -6,8 +6,6 @@ import base64
 from PIL import Image, ImageDraw, ImageFont
 import aiohttp
 
-from backend.cogs.database.firebase_setup import db
-
 
 class BoostAnnounceCog(commands.Cog, name="BoostAnnounce"):
     """Cog untuk mengirim pesan otomatis saat member melakukan server boost."""
@@ -35,10 +33,10 @@ class BoostAnnounceCog(commands.Cog, name="BoostAnnounce"):
         )
 
     async def get_boost_config(self, guild_id: str) -> dict | None:
-        if db is None:
+        if not hasattr(self.bot, 'db') or self.bot.db is None:
             return None
         def _fetch():
-            return db.collection("guild_settings").document(guild_id).get()
+            return self.bot.db.collection("guild_settings").document(guild_id).get()
         try:
             doc = await asyncio.to_thread(_fetch)
             if not doc.exists:

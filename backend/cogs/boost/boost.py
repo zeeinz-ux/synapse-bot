@@ -1,13 +1,9 @@
 import discord
 import asyncio
+import os
 from discord.ext import commands
 from discord import app_commands
 from firebase_admin import firestore
-
-
-# Hapus inisialisasi 'db' yang salah dari sini
-
-NOTIF_CHANNEL_ID = 1505826133097316434
 
 class BoostCog(commands.Cog):
     def __init__(self, bot):
@@ -93,7 +89,7 @@ class BoostCog(commands.Cog):
                 print(f"[FIREBASE] ✅ Data boost tersimpan! ID: {doc_ref.id}")
 
                 # Kirim notif ke channel
-                log_channel = self.bot.get_channel(NOTIF_CHANNEL_ID)
+                log_channel = self.bot.get_channel(int(os.getenv("BOOST_NOTIF_CHANNEL_ID", 0))) if os.getenv("BOOST_NOTIF_CHANNEL_ID") else None
                 if log_channel:
                     embed = discord.Embed(
                         title="🚀 Server Boost Baru!",
@@ -134,7 +130,7 @@ class BoostCog(commands.Cog):
                 print(f"[FIREBASE] ✅ Status boost {user.name} diupdate ke expired. ({updated_count} dokumen)")
 
                 # Kirim notif unboost
-                log_channel = self.bot.get_channel(NOTIF_CHANNEL_ID)
+                log_channel = self.bot.get_channel(int(os.getenv("BOOST_NOTIF_CHANNEL_ID", 0))) if os.getenv("BOOST_NOTIF_CHANNEL_ID") else None
                 if log_channel:
                     embed = discord.Embed(
                         title="💔 Boost Berakhir",
