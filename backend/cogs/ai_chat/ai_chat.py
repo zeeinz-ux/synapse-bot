@@ -276,6 +276,11 @@ class AIChat(commands.Cog):
         allowed_channel = settings.get("channel_id", "")
         if not allowed_channel:
             return True
+        # Dedicated mode: channel_id cuma nentuin channel auto-response.
+        # Channel lain tetap boleh pake mention/ask.
+        if settings.get("dedicated_ai_channel", False):
+            return True
+        # Restriction mode: cuma channel_id yang boleh pake AI (mention/ask).
         return str(channel_id) == str(allowed_channel)
     
     def _is_dedicated_ai_channel(

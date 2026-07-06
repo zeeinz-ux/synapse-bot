@@ -52,7 +52,7 @@
 
     <div class="form-group">
       <label for="channel-select">Channel AI Chat</label>
-      <p class="field-hint">Pilih channel khusus untuk AI Chat. Kosongkan agar AI merespons di SEMUA channel.</p>
+      <p class="field-hint">Pilih channel untuk AI Chat. Kosongkan agar AI merespons di SEMUA channel via mention/<code>/ask</code>.</p>
       <select id="channel-select" class="form-select">
         <option value="">Semua Channel</option>
         {% for ch in channels %}
@@ -65,7 +65,7 @@
       <div class="dedicated-row">
         <div class="dedicated-info">
           <span class="dedicated-label">Dedicated AI Channel</span>
-          <span class="field-hint">Bot otomatis merespon SETIAP pesan di channel ini tanpa perlu mention <code>@Synapse</code> atau command <code>/ask</code>.</span>
+          <span class="field-hint">Aktifkan: bot auto-response di channel ini tanpa mention/<code>/ask</code>. Channel lain tetap bisa via mention/<code>/ask</code>.<br>Nonaktifkan: AI cuma bisa dipakai di channel ini (harus mention/<code>/ask</code>). Channel lain diblokir.</span>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="dedicated-toggle" {% if dedicated_ai_channel %}checked{% endif %}>
