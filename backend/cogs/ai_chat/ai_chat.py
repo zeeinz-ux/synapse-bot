@@ -22,6 +22,7 @@ import re
 import os
 import base64
 import hashlib
+import traceback
 import time as time_module
 import asyncio
 from datetime import datetime, timezone
@@ -1018,6 +1019,7 @@ class AIChat(commands.Cog):
                 images=images or None,
             )
         except Exception as e:
+            traceback.print_exc()
             print(f"[AI CHAT] ❌ Fatal error di /ask: {e}")
             try:    
                 await ctx.send("❌ Terjadi error internal. Coba lagi nanti ya!")
