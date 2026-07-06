@@ -69,7 +69,7 @@ MISTRAL_MODEL = "open-mistral-nemo"
 
 # ── Tier 4: Cohere ──
 COHERE_API_BASE = "https://api.cohere.com/v2"
-COHERE_MODEL = "command-r-plus"
+COHERE_MODEL = "command-a-03-2025"
 
 # ── Circuit Breaker ──
 CIRCUIT_BREAKER_THRESHOLD = 3       # fail streak sebelum circuit open
@@ -643,7 +643,7 @@ class AIChat(commands.Cog):
     async def _call_cohere(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
-        """Call Cohere (command-r-plus). Return (response_text, success)."""
+        """Call Cohere (command-a-03-2025). Return (response_text, success)."""
         if not self.cohere_api_key or not self.session:
             return "API_KEY_MISSING", False
 
@@ -684,11 +684,11 @@ class AIChat(commands.Cog):
                     print(f"[AI CHAT] ❌ Cohere HTTP {status}")
                     return f"HTTP_{status}", False
 
-                choices = data.get("choices", [])
-                if not choices:
-                    return "EMPTY_CHOICES", False
-
-                return choices[0].get("message", {}).get("content", "").strip(), True
+                msg = data.get("message", {})
+                content_blocks = msg.get("content", [])
+                if content_blocks:
+                    return content_blocks[0].get("text", "").strip(), True
+                return "EMPTY_RESPONSE", False
 
         except Exception as e:
             print(f"[AI CHAT] ❌ Cohere Exception: {type(e).__name__}")
