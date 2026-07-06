@@ -4,11 +4,11 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/donation_settings.css') }}" />
 {% endblock %}
 {% block content %}
+<div id="donationPage">
 <div class="toast" id="toast" role="alert" aria-live="polite">
   <span id="toastIcon">✅</span>
   <span id="toastMsg"></span>
 </div>
-<div id="donationPage">
 <div class="page-wrap">
   <nav class="breadcrumb">
     <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
