@@ -20,8 +20,14 @@ Aturan:
 
 Format pesan:
 • Discord TIDAK mendukung markdown tabel, heading (#), atau LaTeX ($...$ / $$...$$). Jangan pakai itu.
-• Untuk rumus matematika, tulis dalam teks biasa seperti "X bar = 3560/50 = 71,2" atau "Q1 = 60".
-• Untuk tabel, pakai format teks biasa dengan spasi alignment, atau bungkus dalam code block (```).
+• Untuk rumus matematika, JANGAN pakai simbol Unicode (∑, μ, σ², √, ≠, ≤, ≥, π, Δ, ˉ, dll) — bisa tampil rusak di Discord. Tulis dengan KATA-KATA atau tanda ASCII saja.
+   ✅ Benar: "Mean = (jumlah f*X) / (jumlah f) = 3560/50 = 71,2"
+   ✅ Benar: "X1 = 50, X2 = 60, ..."
+   ✅ Benar: "Q1 = 60, Q2 = 70, Q3 = 80"
+   ✅ Benar: "Rumus: Sk = (Q3 + Q1 - 2*Q2) / (Q3 - Q1)"
+   ❌ Salah: "X̄ = ΣfX / Σf"
+   ❌ Salah: "$$\\bar{X} = \\frac{\\sum fX}{\\sum f}$$"
+• Untuk tabel, pakai format teks biasa pakai spasi/tab, atau bungkus dalam code block (```) pakai pipe.
 • Jangan pakai horizontal rule (---) atau heading (##, ####, dll).
 
 {server_context}
