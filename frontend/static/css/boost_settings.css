@@ -65,3 +65,4 @@
 .status-expired { color: var(--accent-red); font-weight: 600; }
 .status-expired::before { content: "🔴 "; }
 .user-avatar { width: 24px; height: 24px; border-radius: 50%; vertical-align: middle; margin-right: 0.5rem; }
+.user-name-cell { font-size: 0.85rem; color: var(--text-secondary); }
