@@ -416,7 +416,7 @@ class AIChat(commands.Cog):
         "generationConfig": {
             "temperature": temperature,
             "topP": 0.95,
-            "maxOutputTokens": 4096,
+            "maxOutputTokens": 8192,
         },
     }
         if not has_images:
@@ -512,7 +512,7 @@ class AIChat(commands.Cog):
                 "messages": messages,
                 "temperature": temperature,
                 "top_p": 0.95,
-                "max_tokens": 4096,
+                "max_tokens": 8192,
             }
 
             headers = {
@@ -586,7 +586,7 @@ class AIChat(commands.Cog):
                 "messages": messages,
                 "temperature": temperature,
                 "top_p": 0.95,
-                "max_tokens": 4096,
+                "max_tokens": 8192,
             }
 
             headers = {
