@@ -1,7 +1,7 @@
 (function(){
   var guildId = window.CURRENT_GUILD_ID;
   var isStats = document.getElementById('donationStatsGrid') !== null;
-  var isSettings = document.getElementById('donationSettingsCard') !== null;
+  var isSettings = document.getElementById('donationSettingsForm') !== null;
 
   function fmtRupiah(n){
     return 'Rp ' + Number(n).toLocaleString('id-ID');
@@ -108,7 +108,7 @@
         document.getElementById('topDonorsBody').innerHTML = '<li style="padding:1.25rem;text-align:center;color:#888;">Gagal memuat data</li>';
         document.getElementById('methodBody').innerHTML = '<li style="padding:1.25rem;text-align:center;color:#888;">Gagal memuat data</li>';
       });
-  } else {
+  } else if (!isSettings) {
     fetch('/api/donations/' + guildId + '/history')
       .then(function(r){ return r.json(); })
       .then(function(d){
