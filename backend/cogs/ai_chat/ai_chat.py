@@ -6,7 +6,7 @@ File    : backend/cogs/ai_chat.py
 Deskripsi : Triple API Fallback — Google AI Studio (T1) → Groq (T2) → OpenRouter (T3)
   • Tier 1: Google AI Studio — Primary (Gemini 3.5 Flash / 3.1 Flash vision)
   • Tier 2: Groq — Backup (Llama 3.3 70B Versatile)
-  • Tier 3: OpenRouter — Last Resort (Gemini 2.5 Flash Free)
+  • Tier 3: Atomesus — Last Resort (Cipher 8B)
   • Lightweight Circuit Breaker: Gemini auto-skip 2h setelah 3x fail berturut-turut
   • Compact structured logging — 1 line per tier switch
   • Slash command /ask + Mention handler (@bot)
@@ -62,9 +62,9 @@ GOOGLE_VISION_MODEL = "gemini-3.1-flash"
 GROQ_API_BASE = "https://api.groq.com/openai/v1"
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
-# ── Tier 3: OpenRouter ──
-OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL = "google/gemini-2.5-flash:free"
+# ── Tier 3: Atomesus ──
+ATOMESUS_API_BASE = "https://api.atomesus.com/v1"
+ATOMESUS_MODEL = "cipher"
 
 # ── Circuit Breaker ──
 CIRCUIT_BREAKER_THRESHOLD = 3       # fail streak sebelum circuit open
@@ -82,7 +82,7 @@ class AIChat(commands.Cog):
         # API Keys
         self.google_api_key = os.getenv("GEMINI_API_KEY", "")
         self.groq_api_key = os.getenv("GROQ_API_KEY", "")
-        self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "")
+        self.atomesus_api_key = os.getenv("ATOMESUS_API_KEY", "")
 
         # Circuit Breaker State (Tier 1: Gemini)
         self._gemini_circuit_open = False
@@ -93,8 +93,8 @@ class AIChat(commands.Cog):
             print("[AI CHAT] ⚠️ GEMINI_API_KEY tidak ditemukan!")
         if not self.groq_api_key:
             print("[AI CHAT] ⚠️ GROQ_API_KEY tidak ditemukan!")
-        if not self.openrouter_api_key:
-            print("[AI CHAT] ⚠️ OPENROUTER_API_KEY tidak ditemukan!")
+        if not self.atomesus_api_key:
+            print("[AI CHAT] ⚠️ ATOMESUS_API_KEY tidak ditemukan!")
 
         self.session: aiohttp.ClientSession | None = None
 
@@ -117,7 +117,7 @@ class AIChat(commands.Cog):
 
         self._last_history_prune: float = 0.0
 
-        print("[AI CHAT] ✅ Cog loaded. Triple API: Google → Groq → OpenRouter")
+        print("[AI CHAT] ✅ Cog loaded. Triple API: Google → Groq → Atomesus")
 
     async def cog_load(self):
         if self.session and not self.session.closed:
@@ -567,11 +567,11 @@ class AIChat(commands.Cog):
         retry_error_callback=return_failure_tuple
     )
 
-    async def _call_openrouter(
+    async def _call_atomesus(
         self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
     ) -> tuple[str, bool]:
-        """Call OpenRouter. Return (response_text, success)."""
-        if not self.openrouter_api_key or not self.session:
+        """Call Atomesus (Cipher 8B). Return (response_text, success)."""
+        if not self.atomesus_api_key or not self.session:
             return "API_KEY_MISSING", False
 
         try:
@@ -582,7 +582,7 @@ class AIChat(commands.Cog):
             messages.append({"role": "user", "content": user_message})
 
             payload = {
-                "model": OPENROUTER_MODEL,
+                "model": ATOMESUS_MODEL,
                 "messages": messages,
                 "temperature": temperature,
                 "top_p": 0.95,
@@ -591,12 +591,10 @@ class AIChat(commands.Cog):
 
             headers = {
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.openrouter_api_key}",
-                "HTTP-Referer": "https://my-discord-bot-my-discord-bot.up.railway.app/dashboard/1290376615439892591/ai-chat",
-                "X-Title": "Synapse Discord Bot",
+                "Authorization": f"Bearer {self.atomesus_api_key}",
             }
 
-            url = f"{OPENROUTER_API_BASE}/chat/completions"
+            url = f"{ATOMESUS_API_BASE}/chat/completions"
 
             async with self.session.post(url, headers=headers, json=payload) as resp:
                 status = resp.status
@@ -606,11 +604,11 @@ class AIChat(commands.Cog):
                     data = {}
 
                 if status == 429:
-                    print("[AI CHAT] ⛔ OpenRouter Rate Limit (429)")
+                    print("[AI CHAT] ⛔ Atomesus Rate Limit (429)")
                     return "RATE_LIMIT", False
 
                 if status != 200:
-                    print(f"[AI CHAT] ❌ OpenRouter HTTP {status}")
+                    print(f"[AI CHAT] ❌ Atomesus HTTP {status}")
                     return f"HTTP_{status}", False
 
                 choices = data.get("choices", [])
@@ -620,7 +618,7 @@ class AIChat(commands.Cog):
                 return choices[0].get("message", {}).get("content", "").strip(), True
 
         except Exception as e:
-            print(f"[AI CHAT] ❌ OpenRouter Exception: {type(e).__name__}")
+            print(f"[AI CHAT] ❌ Atomesus Exception: {type(e).__name__}")
             return "EXCEPTION", False
         
     # ═══════════════════════════════════════════════════════════════════════
@@ -724,26 +722,26 @@ class AIChat(commands.Cog):
                     self._set_cached_response(user_message, system_prompt, temperature, response)
                 print("[AI CHAT] ✅ Tier 2 Success (Groq)")
                 return response
-            print(f"[AI CHAT] ⚠️ Tier 2 Fail ({response}). Switching to Tier 3 (OpenRouter)...")
+            print(f"[AI CHAT] ⚠️ Tier 2 Fail ({response}). Switching to Tier 3 (Atomesus)...")
 
-        # ── Tier 3: OpenRouter (Last Resort) ──
-        if self.openrouter_api_key:
-            print("[AI CHAT] 🌐 [TIER 3] Trying OpenRouter...")
-            response, success = await self._call_openrouter(
+        # ── Tier 3: Atomesus (Last Resort) ──
+        if self.atomesus_api_key:
+            print("[AI CHAT] 🚀 [TIER 3] Trying Atomesus (Cipher 8B)...")
+            response, success = await self._call_atomesus(
                 user_message, history, system_prompt, temperature
             )
             if success and response:
                 if not history:
                     self._set_cached_response(user_message, system_prompt, temperature, response)
-                print("[AI CHAT] ✅ Tier 3 Success (OpenRouter)")
+                print("[AI CHAT] ✅ Tier 3 Success (Atomesus)")
                 return response
             print(f"[AI CHAT] ❌ Tier 3 Fail ({response})")
 
         # ── All Tiers Failed ──
-        if not self.google_api_key and not self.groq_api_key and not self.openrouter_api_key:
+        if not self.google_api_key and not self.groq_api_key and not self.atomesus_api_key:
             return "❌ Tidak ada API key yang tersedia di environment (.env). Hubungi admin bot."
 
-        if self._gemini_circuit_open and not self.groq_api_key and not self.openrouter_api_key:
+        if self._gemini_circuit_open and not self.groq_api_key and not self.atomesus_api_key:
             return (
                 "⚠️ Kuota harian Google AI Studio lu udah habis dan tidak ada backup API tersedia.\n"
                 "Tunggu beberapa jam lagi ya bro!"
@@ -751,7 +749,7 @@ class AIChat(commands.Cog):
 
         return (
             "Waduh, semua mesin AI-nya lagi pusing nih, bro! 🧠💥\n"
-            "Google AI Studio limit (circuit open), Groq juga down, dan OpenRouter ikut error.\n"
+            "Google AI Studio limit (circuit open), Groq juga down, dan Atomesus ikut error.\n"
             "Coba tunggu beberapa menit lagi baru chat gua ya!"
         )
 
