@@ -4,7 +4,7 @@ COG: AI Chat Module v4.7 — Synapse Discord Bot
 ================================================================================
 File    : backend/cogs/ai_chat.py
 Deskripsi : Triple API Fallback — Google AI Studio (T1) → Groq (T2) → OpenRouter (T3)
-  • Tier 1: Google AI Studio — Primary (Gemini 2.0 Flash)
+  • Tier 1: Google AI Studio — Primary (Gemini 3.5 Flash / 3.1 Flash vision)
   • Tier 2: Groq — Backup (Llama 3.3 70B Versatile)
   • Tier 3: OpenRouter — Last Resort (Gemini 2.5 Flash Free)
   • Lightweight Circuit Breaker: Gemini auto-skip 2h setelah 3x fail berturut-turut
@@ -55,9 +55,9 @@ RESPONSE_CACHE_TTL = 300       # cache response 5 menit
 
 # ── Tier 1: Google AI Studio ──
 GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-GOOGLE_MODEL = "gemini-2.0-flash"
+GOOGLE_MODEL = "gemini-3.5-flash"
 
-GOOGLE_VISION_MODEL = "gemini-1.5-pro"
+GOOGLE_VISION_MODEL = "gemini-3.1-flash"
 # ── Tier 2: Groq ──
 GROQ_API_BASE = "https://api.groq.com/openai/v1"
 GROQ_MODEL = "llama-3.3-70b-versatile"
