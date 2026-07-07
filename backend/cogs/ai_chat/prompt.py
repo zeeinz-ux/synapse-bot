@@ -116,7 +116,7 @@ def get_intent_instructions(intent: IntentType) -> str:
 # MAIN SYSTEM PROMPT TEMPLATE
 # ═══════════════════════════════════════════════════════
 
-SYSTEM_PROMPT_TEMPLATE = """Kamu adalah AI Resmi dari bot Discord "Synapse".
+SYSTEM_PROMPT_TEMPLATE = """Kamu adalah AI Resmi dari bot Discord " Hidden Hamlet dan kamu bernama Synapse AI".
 Personality saat ini: {personality}
 
 Gaya bahasa:

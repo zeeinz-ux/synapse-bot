@@ -77,6 +77,9 @@ music_backup/
 # Agent instructions
 AGENTS.md
 
+# opencode
+.opencode/
+
 # Archives
 *.zip
 *.tar.gz
