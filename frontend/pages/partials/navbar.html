@@ -20,20 +20,6 @@
 
     <!-- Desktop actions -->
     <div class="nav-actions">
-      <!-- Language switcher -->
-      <div class="nav-lang">
-        <button class="lang-toggle" id="langToggle" aria-label="Switch language" aria-expanded="false" aria-controls="langDropdown">
-          {% if lang == "id" %}🇮🇩{% elif lang == "en" %}EN{% endif %}
-          <svg class="lang-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
-        <div class="lang-dropdown" id="langDropdown" aria-hidden="true">
-          <button class="lang-option {% if lang == 'id' %}active{% endif %}" data-lang="id">🇮🇩 {{ "lang.id" | t }}</button>
-          <button class="lang-option {% if lang == 'en' %}active{% endif %}" data-lang="en">EN {{ "lang.en" | t }}</button>
-        </div>
-      </div>
-
       {% if user %}
       <div class="navbar-user">
         <img class="navbar-avatar" src="{{ avatar_url }}" alt="{{ user.username }}" title="{{ user.username }}" />
@@ -68,6 +54,20 @@
       </svg>
       {{ "nav.invite" | t }}
     </a>
+
+      <!-- Language switcher -->
+      <div class="nav-lang">
+        <button class="lang-toggle" id="langToggle" aria-label="Switch language" aria-expanded="false" aria-controls="langDropdown">
+          {% if lang == "id" %}🇮🇩{% elif lang == "en" %}EN{% endif %}
+          <svg class="lang-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+        <div class="lang-dropdown" id="langDropdown" aria-hidden="true">
+          <button class="lang-option {% if lang == 'id' %}active{% endif %}" data-lang="id">🇮🇩 {{ "lang.id" | t }}</button>
+          <button class="lang-option {% if lang == 'en' %}active{% endif %}" data-lang="en">EN {{ "lang.en" | t }}</button>
+        </div>
+      </div>
     </div><!-- /.nav-actions -->
 
     <!-- Hamburger (mobile) -->
