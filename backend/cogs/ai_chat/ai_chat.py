@@ -940,7 +940,9 @@ class AIChat(commands.Cog):
                 self.content = content
                 self.author = author
                 self.guild = guild
-                self.mention_everyone = False 
+                self.mention_everyone = False
+                self.embeds = []
+                self.attachments = []
         
         mock_msg = MockMsg(user_message, user, guild)
 
