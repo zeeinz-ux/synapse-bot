@@ -3,6 +3,7 @@ import ast
 import operator
 import random
 import asyncio
+from time import time
 from typing import Dict, Any
 from datetime import datetime, timezone
 
@@ -161,8 +162,16 @@ def run_tools(user_message: str) -> str:
 
 PREFS_COLLECTION = "guild_settings"
 
+_PREFS_CACHE: Dict[str, tuple] = {}
+_PREFS_TTL = 60  # seconds
+
 
 async def get_user_prefs(guild_id: str, user_id: str) -> Dict[str, Any]:
+    key = f"prefs:{guild_id}:{user_id}"
+    now = time()
+    cached = _PREFS_CACHE.get(key)
+    if cached and cached[1] > now:
+        return cached[0]
     if db is None:
         return {}
     try:
@@ -174,7 +183,9 @@ async def get_user_prefs(guild_id: str, user_id: str) -> Dict[str, Any]:
         )
         doc = await asyncio.to_thread(doc_ref.get)
         if doc.exists:
-            return doc.to_dict()
+            data = doc.to_dict()
+            _PREFS_CACHE[key] = (data, now + _PREFS_TTL)
+            return data
     except Exception:
         pass
     return {}
@@ -193,6 +204,7 @@ async def save_user_pref(guild_id: str, user_id: str, key: str, value: Any) -> N
         def _blocking():
             doc_ref.set({key: value, "updated_at": datetime.now(timezone.utc)}, merge=True)
         await asyncio.to_thread(_blocking)
+        _PREFS_CACHE.pop(f"prefs:{guild_id}:{user_id}", None)
     except Exception:
         pass
 
@@ -242,6 +254,7 @@ async def update_user_style_prefs(guild_id: str, user_id: str, user_msg: str, as
                 "last_interaction": datetime.now(timezone.utc),
             }, merge=True)
         await asyncio.to_thread(_blocking)
+        _PREFS_CACHE.pop(f"prefs:{guild_id}:{user_id}", None)
     except Exception:
         pass
 

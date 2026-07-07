@@ -63,6 +63,10 @@ DAILY_QUOTA_LIMIT = 1500      # Gemini free tier ~1500 request/hari
 QUOTA_RESERVE_THRESHOLD = 200 # sisakan quota ini khusus buat Vision (image spam, /ask gambar)
 RESPONSE_CACHE_TTL = 300       # cache response 5 menit
 
+# ── In-memory cache untuk Firestore reads ──
+_HISTORY_CACHE: Dict[str, tuple] = {}
+_HISTORY_TTL = 60  # seconds
+
 # ── Tier 1: Google AI Studio ──
 GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 GOOGLE_MODEL = "gemini-3.5-flash"
@@ -324,6 +328,11 @@ class AIChat(commands.Cog):
         )
 
     async def _get_chat_history(self, guild_id: str, user_id: str) -> List[Dict[str, Any]]:
+        key = f"history:{guild_id}:{user_id}"
+        now = time_module.time()
+        cached = _HISTORY_CACHE.get(key)
+        if cached and cached[1] > now:
+            return cached[0]
         try:
             doc_ref = (
                 db.collection("guild_settings")
@@ -336,7 +345,9 @@ class AIChat(commands.Cog):
                 return []
             data = doc.to_dict()
             history = data.get("history", [])
-            return [h for h in history if isinstance(h, dict) and "role" in h and "content" in h]
+            result = [h for h in history if isinstance(h, dict) and "role" in h and "content" in h]
+            _HISTORY_CACHE[key] = (result, now + _HISTORY_TTL)
+            return result
         except Exception as e:
             print(f"[AI CHAT] ⚠️ Error ambil history: {e}")
             return []
@@ -374,6 +385,7 @@ class AIChat(commands.Cog):
                 )
 
             await asyncio.to_thread(_blocking_set)
+            _HISTORY_CACHE.pop(f"history:{guild_id}:{user_id}", None)
         except Exception as e:
             # Trip the SHARED circuit breaker if Firestore returned 429,
             # so other cogs (leveling, stats) stop hammering too.
