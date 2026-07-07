@@ -57,9 +57,9 @@ class BoostCog(commands.Cog):
                     uid = str(m.id)
                     gid = str(guild.id)
                     existing = list(self.bot.db.collection("boosts")
-                        .where("user_id", "==", uid)
-                        .where("guild_id", "==", gid)
-                        .where("status", "==", "active")
+                        .where(filter=("user_id", "==", uid))
+                        .where(filter=("guild_id", "==", gid))
+                        .where(filter=("status", "==", "active"))
                         .limit(1).stream())
                     if existing:
                         count += 1
@@ -144,7 +144,7 @@ class BoostCog(commands.Cog):
 
             try:
                 boosts_ref = self.bot.db.collection("boosts")
-                query = boosts_ref.where("user_id", "==", str(user.id)).where("guild_id", "==", str(user.guild.id)).where("status", "==", "active")
+                query = boosts_ref.where(filter=("user_id", "==", str(user.id))).where(filter=("guild_id", "==", str(user.guild.id))).where(filter=("status", "==", "active"))
 
                 docs = query.stream()
                 updated_count = 0
@@ -194,7 +194,7 @@ class BoostCog(commands.Cog):
 
         try:
             boosts_ref = self.bot.db.collection("boosts")
-            query = boosts_ref.where("user_id", "==", str(member.id))
+            query = boosts_ref.where(filter=("user_id", "==", str(member.id)))
             docs = list(query.stream())
 
             if not docs:
