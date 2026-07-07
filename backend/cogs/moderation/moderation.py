@@ -219,6 +219,14 @@ class Moderation(commands.Cog):
                             flagged = True
                             break
 
+            # ── Layer 3b: OCR fallback kalo Gemini Vision gak bisa / skip ──
+            if not flagged and self.img_detector.can_ocr():
+                ocr_text = await self.img_detector.ocr_text_via_api(data, self._session)
+                if ocr_text and self.img_detector.is_ocr_spam(ocr_text):
+                    print(f"[OCR] Spam detected in image: '{ocr_text[:100]}'")
+                    flagged = True
+                    break
+
         if flagged:
             self.img_detector.flag_as_spam(img_hash)
             await self._save_spam_hash(img_hash)

@@ -1,5 +1,8 @@
 import io
+import base64
 import time
+import os
+from datetime import datetime, timezone
 from typing import Optional
 
 import aiohttp
@@ -7,6 +10,13 @@ from PIL import Image
 
 
 class ImageSpamDetector:
+    OCR_KEYWORDS = [
+        "mrbeast", "cugamb", "usdt", "withdrawal success",
+        "free crypto", "claim now", "free nitro",
+        "steamcommunity", "discord-nitro", "login verify",
+        "gift", "giveaway", "free-discord",
+    ]
+
     def __init__(self):
         # ── Layer 1: Image rate limit ──
         self._user_image_times: dict[str, list[float]] = {}
@@ -31,6 +41,14 @@ class ImageSpamDetector:
         self.max_vision_per_minute = 10
         self._vision_minute_count = 0
         self._vision_minute_start = 0.0
+
+        # ── Layer 3b: OCR fallback (Google Cloud Vision API) ──
+        self.vision_api_key = os.getenv("GOOGLE_VISION_API_KEY", "")
+        self._last_ocr = 0.0
+        self.ocr_cooldown = 5.0
+        self.ocr_daily_max = 500
+        self._ocr_today = 0
+        self._ocr_date = datetime.now(timezone.utc).date()
 
     # ── Layer 1: Rate limit ──
 
@@ -161,6 +179,49 @@ class ImageSpamDetector:
                 return data
         except Exception:
             return None
+
+    # ── Layer 3b: OCR fallback via Google Cloud Vision API ──
+
+    def can_ocr(self) -> bool:
+        if not self.vision_api_key:
+            return False
+        now = time.time()
+        if now - self._last_ocr < self.ocr_cooldown:
+            return False
+        today = datetime.now(timezone.utc).date()
+        if today != self._ocr_date:
+            self._ocr_today = 0
+            self._ocr_date = today
+        if self._ocr_today >= self.ocr_daily_max:
+            return False
+        self._last_ocr = now
+        self._ocr_today += 1
+        return True
+
+    async def ocr_text_via_api(self, image_data: bytes, session: aiohttp.ClientSession) -> str:
+        if not self.vision_api_key:
+            return ""
+        try:
+            b64 = base64.b64encode(image_data).decode()
+            payload = {
+                "requests": [{
+                    "image": {"content": b64},
+                    "features": [{"type": "TEXT_DETECTION", "maxResults": 1}]
+                }]
+            }
+            url = f"https://vision.googleapis.com/v1/images:annotate?key={self.vision_api_key}"
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    return ""
+                data = await resp.json()
+                texts = data.get("responses", [{}])[0].get("textAnnotations", [])
+                return texts[0]["description"].lower().strip() if texts else ""
+        except Exception as e:
+            print(f"[OCR] Error: {e}")
+            return ""
+
+    def is_ocr_spam(self, text: str) -> bool:
+        return any(kw in text for kw in self.OCR_KEYWORDS)
 
     # ── Extract image URLs from message ──
 
