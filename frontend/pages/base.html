@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -33,7 +33,7 @@
           <div class="bot-info">
             <h1 class="bot-name">Synapse</h1>
             <span class="bot-status {% if s.online %}online{% else %}offline{% endif %}">
-              {% if s.online %}● Online{% else %}○ Offline{% endif %}
+              {% if s.online %}● {{ "base.online" | t }}{% else %}○ {{ "base.offline" | t }}{% endif %}
             </span>
           </div>
         </div>
@@ -47,7 +47,7 @@
       </div>
       {% if s.guilds_list %}
       <div class="guild-selector">
-        <label class="selector-label">🌐 Pilih Server</label>
+        <label class="selector-label">{{ "base.select_server" | t }}</label>
         <select class="guild-dropdown" id="guildDropdown" data-current-guild="{{ guild_id }}">
           {% for guild in s.guilds_list %}
           <option value="{{ guild.id }}">{{ guild.name }} ({{ guild.member_count }} members)</option>
@@ -60,14 +60,13 @@
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.3-4.3"></path>
         </svg>
-        <input type="text" placeholder="Cari modul..." id="moduleSearch" />
+        <input type="text" placeholder="{{ 'base.search_module' | t }}" id="moduleSearch" />
         <kbd>Ctrl+K</kbd>
       </div>
       <nav class="sidebar-nav">
-        <!-- General -->
         <div class="nav-section" data-section="General">
           <div class="section-header">
-            <span class="section-title">📊 General</span>
+            <span class="section-title">{{ "base.section.general" | t }}</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
@@ -75,15 +74,14 @@
           <div class="section-items">
             <a href="/dashboard" class="nav-item {% if active_page == 'main' %}active{% endif %}" data-search="main dashboard home">
               <span class="nav-icon">🏠</span>
-              <span class="nav-label">Dashboard</span>
+              <span class="nav-label">{{ "base.nav.dashboard" | t }}</span>
             </a>
           </div>
         </div>
 
-        <!-- Announcements -->
         <div class="nav-section" data-section="Announcements">
           <div class="section-header">
-            <span class="section-title">📢 Announcements</span>
+            <span class="section-title">{{ "base.section.announcements" | t }}</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
@@ -91,23 +89,22 @@
           <div class="section-items">
             <a href="/dashboard/{{ guild_id }}/welcome" class="nav-item {% if active_page == 'welcome' %}active{% endif %}" data-search="welcome join sambutan">
               <span class="nav-icon">👋</span>
-              <span class="nav-label">Join</span>
+              <span class="nav-label">{{ "base.nav.join" | t }}</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/welcome/leave" class="nav-item {% if active_page == 'leave' %}active{% endif %}" data-search="leave keluar goodbye">
               <span class="nav-icon">👋</span>
-              <span class="nav-label">Leave</span>
+              <span class="nav-label">{{ "base.nav.leave" | t }}</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/welcome/ban" class="nav-item {% if active_page == 'ban' %}active{% endif %}" data-search="ban banned">
               <span class="nav-icon">🚫</span>
-              <span class="nav-label">Ban</span>
+              <span class="nav-label">{{ "base.nav.ban" | t }}</span>
             </a>
           </div>
         </div>
 
-        <!-- Boost Tracker -->
         <div class="nav-section" data-section="Boost">
           <div class="section-header">
-            <span class="section-title">💎 Boost Tracker</span>
+            <span class="section-title">{{ "base.section.boost" | t }}</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
@@ -115,23 +112,22 @@
           <div class="section-items">
             <a href="/dashboard/{{ guild_id }}/welcome/boost" class="nav-item {% if active_page == 'boost_welcome' %}active{% endif %}" data-search="boost announcement pengumuman">
               <span class="nav-icon">💎</span>
-              <span class="nav-label">Boost</span>
+              <span class="nav-label">{{ "base.nav.boost" | t }}</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/boost" class="nav-item {% if active_page == 'boost_tracker' %}active{% endif %}" data-search="boost tracker riwayat">
               <span class="nav-icon">📊</span>
-              <span class="nav-label">Riwayat Boost</span>
+              <span class="nav-label">{{ "base.nav.boost_history" | t }}</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/boost/stats" class="nav-item {% if active_page == 'boost_stats' %}active{% endif %}" data-search="boost statistics statistik">
               <span class="nav-icon">📈</span>
-              <span class="nav-label">Statistik</span>
+              <span class="nav-label">{{ "base.nav.boost_stats" | t }}</span>
             </a>
           </div>
         </div>
 
-        <!-- Donation Tracker -->
         <div class="nav-section" data-section="donation">
           <div class="section-header">
-            <span class="section-title">💰 Donation Tracker</span>
+            <span class="section-title">{{ "base.section.donation" | t }}</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
@@ -139,23 +135,22 @@
           <div class="section-items">
             <a href="/dashboard/{{ guild_id }}/donation/settings" class="nav-item {% if active_page == 'donation_settings' %}active{% endif %}" data-search="donation donasi pengaturan config">
               <span class="nav-icon">💰</span>
-              <span class="nav-label">Donation</span>
+              <span class="nav-label">{{ "base.nav.donation" | t }}</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/donation" class="nav-item {% if active_page == 'donation' %}active{% endif %}" data-search="donation donasi riwayat history">
               <span class="nav-icon">💳</span>
-              <span class="nav-label">Riwayat Donasi</span>
+              <span class="nav-label">{{ "base.nav.donation_history" | t }}</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/donation/stats" class="nav-item {% if active_page == 'donation_stats' %}active{% endif %}" data-search="donation statistik statistics">
               <span class="nav-icon">📈</span>
-              <span class="nav-label">Statistik</span>
+              <span class="nav-label">{{ "base.nav.donation_stats" | t }}</span>
             </a>
           </div>
         </div>
 
-        <!-- AI & Automation -->
         <div class="nav-section" data-section="AI">
           <div class="section-header">
-            <span class="section-title">🤖 AI & Automation</span>
+            <span class="section-title">{{ "base.section.ai" | t }}</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
@@ -163,19 +158,18 @@
           <div class="section-items">
             <a href="/dashboard/{{ guild_id }}/ai-chat" class="nav-item {% if active_page == 'ai_chat' %}active{% endif %}" data-search="ai chat bot gemini artificial intelligence">
               <span class="nav-icon">🧠</span>
-              <span class="nav-label">AI Chat</span>
+              <span class="nav-label">{{ "base.nav.ai_chat" | t }}</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/auto-responders" class="nav-item {% if active_page == 'auto_responders' %}active{% endif %}" data-search="auto responder otomatis">
               <span class="nav-icon">🤖</span>
-              <span class="nav-label">Auto Responders</span>
+              <span class="nav-label">{{ "base.nav.auto_responders" | t }}</span>
             </a>
           </div>
         </div>
 
-        <!-- Moderation -->
         <div class="nav-section" data-section="Moderation">
           <div class="section-header">
-            <span class="section-title">🛡️ Moderation</span>
+            <span class="section-title">{{ "base.section.moderation" | t }}</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
@@ -183,19 +177,18 @@
           <div class="section-items">
             <a href="/dashboard/{{ guild_id }}/actions" class="nav-item {% if active_page == 'actions' %}active{% endif %}" data-search="actions tindakan moderation">
               <span class="nav-icon">⚡</span>
-              <span class="nav-label">Actions</span>
+              <span class="nav-label">{{ "base.nav.actions" | t }}</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/anti-spam" class="nav-item {% if active_page == 'anti_spam' %}active{% endif %}" data-search="anti spam filter whitelist">
               <span class="nav-icon">🛡️</span>
-              <span class="nav-label">Anti Spam</span>
+              <span class="nav-label">{{ "base.nav.anti_spam" | t }}</span>
             </a>
           </div>
         </div>
 
-        <!-- Content -->
         <div class="nav-section" data-section="Content">
           <div class="section-header">
-            <span class="section-title">📝 Content</span>
+            <span class="section-title">{{ "base.section.content" | t }}</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
@@ -203,19 +196,18 @@
           <div class="section-items">
             <a href="/dashboard/{{ guild_id }}/message-builder" class="nav-item {% if active_page == 'message_builder' %}active{% endif %}" data-search="message builder custom">
               <span class="nav-icon">✏️</span>
-              <span class="nav-label">Message Builder</span>
+              <span class="nav-label">{{ "base.nav.message_builder" | t }}</span>
             </a>
             <a href="/dashboard/{{ guild_id }}/templates" class="nav-item {% if active_page == 'templates' %}active{% endif %}" data-search="template templat">
               <span class="nav-icon">📄</span>
-              <span class="nav-label">Templates</span>
+              <span class="nav-label">{{ "base.nav.templates" | t }}</span>
             </a>
           </div>
         </div>
 
-        <!-- Settings -->
         <div class="nav-section" data-section="Settings">
           <div class="section-header">
-            <span class="section-title">⚙️ Settings</span>
+            <span class="section-title">{{ "base.section.settings" | t }}</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
@@ -223,7 +215,7 @@
           <div class="section-items">
             <a href="/dashboard/{{ guild_id }}/settings" class="nav-item {% if active_page == 'settings' %}active{% endif %}" data-search="settings pengaturan konfigurasi">
               <span class="nav-icon">⚙️</span>
-              <span class="nav-label">Settings</span>
+              <span class="nav-label">{{ "base.nav.settings" | t }}</span>
             </a>
           </div>
         </div>

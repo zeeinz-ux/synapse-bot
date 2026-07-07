@@ -67,6 +67,27 @@ Session(app)
 
 
 # ==========================================================
+# Translation / i18n
+# ==========================================================
+_translations = {}
+_trans_dir = os.path.join(os.path.dirname(__file__), "translations")
+for _f in os.listdir(_trans_dir):
+    if _f.endswith(".json"):
+        _lang = _f.replace(".json", "")
+        with open(os.path.join(_trans_dir, _f), "r", encoding="utf-8") as _fp:
+            _translations[_lang] = json.load(_fp)
+
+@app.template_filter("t")
+def _translate(key):
+    lang = session.get("lang", "id")
+    return _translations.get(lang, {}).get(key, _translations.get("id", {}).get(key, key))
+
+@app.context_processor
+def _inject_lang():
+    return dict(lang=session.get("lang", "id"))
+
+
+# ==========================================================
 # Discord OAuth2 Login
 # ==========================================================
 
@@ -623,6 +644,14 @@ def home():
         user=user,
         avatar_url=_discord_avatar_url(user) if user else "",
     )
+
+@app.route("/api/lang", methods=["POST"])
+def api_set_lang():
+    data = request.get_json() or {}
+    lang = data.get("lang", "id")
+    if lang in _translations:
+        session["lang"] = lang
+    return jsonify({"success": True, "lang": session.get("lang", "id")})
 
 @app.route("/api/stats")
 def api_stats():

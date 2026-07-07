@@ -76,6 +76,41 @@
     });
   });
 
+  // ── Language switcher ──
+  const langToggle = document.getElementById("langToggle");
+  const langDropdown = document.getElementById("langDropdown");
+  if (langToggle && langDropdown) {
+    langToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isOpen = langDropdown.classList.toggle("open");
+      langToggle.classList.toggle("open", isOpen);
+      langToggle.setAttribute("aria-expanded", isOpen);
+      langDropdown.setAttribute("aria-hidden", !isOpen);
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!langToggle.contains(e.target) && !langDropdown.contains(e.target)) {
+        langDropdown.classList.remove("open");
+        langToggle.classList.remove("open");
+        langToggle.setAttribute("aria-expanded", "false");
+        langDropdown.setAttribute("aria-hidden", "true");
+      }
+    });
+  }
+
+  document.querySelectorAll(".lang-option[data-lang]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const lang = btn.dataset.lang;
+      fetch("/api/lang", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lang: lang }),
+      }).then((r) => r.json()).then((d) => {
+        if (d.success) location.reload();
+      });
+    });
+  });
+
   // ── Active nav link by scroll position ──
   const allSections = document.querySelectorAll("section[id]");
   const allNavLinks = document.querySelectorAll(".navbar-links a");

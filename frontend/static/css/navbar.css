@@ -256,6 +256,133 @@
   font-size: 0.95rem;
 }
 
+/* ── Language Switcher ── */
+.nav-lang {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.55rem;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--sidebar-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
+  line-height: 1;
+}
+
+.lang-toggle:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+  background: rgba(88, 101, 242, 0.1);
+}
+
+.lang-chevron {
+  transition: transform 0.2s ease;
+}
+
+.lang-toggle.open .lang-chevron {
+  transform: rotate(180deg);
+}
+
+.lang-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  background: rgba(24, 24, 27, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--sidebar-border);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 1100;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.lang-dropdown.open {
+  display: flex;
+}
+
+.lang-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.lang-option:hover {
+  color: var(--text-primary);
+  background: var(--hover-bg);
+}
+
+.lang-option.active {
+  color: var(--accent);
+  background: rgba(88, 101, 242, 0.12);
+}
+
+/* ── Language Switcher (mobile) ── */
+.mobile-lang-section {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--sidebar-border);
+  margin-bottom: 0.25rem;
+}
+
+.mobile-lang-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mobile-lang-options {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.lang-option.mobile {
+  flex: 1;
+  justify-content: center;
+  padding: 0.6rem 0.5rem;
+  border: 1px solid var(--sidebar-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+.lang-option.mobile:hover {
+  border-color: var(--accent);
+}
+
+.lang-option.mobile.active {
+  border-color: var(--accent);
+  background: rgba(88, 101, 242, 0.12);
+}
+
 /* ── User Avatar + Logout ── */
 .navbar-user {
   display: flex;

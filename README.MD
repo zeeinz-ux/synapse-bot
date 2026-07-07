@@ -48,7 +48,7 @@ A multifunctional Discord bot with a web dashboard, AI chat (multi-provider), mo
 
 | Page | Route | Description |
 |------|-------|-------------|
-| Landing | `/` | Bot stats, sakura petals animation |
+| Landing | `/` | Bot stats, sakura petals animation, language switcher |
 | Dashboard | `/dashboard/<guild>/` | Server overview — real-time stats |
 | Welcome | `/dashboard/<guild>/welcome` | Welcome settings with live preview |
 | Leave | `/dashboard/<guild>/welcome/leave` | Leave announcement config |
@@ -64,6 +64,24 @@ A multifunctional Discord bot with a web dashboard, AI chat (multi-provider), mo
 | Templates | `/dashboard/<guild>/templates` | Message templates |
 | Message Builder | `/dashboard/<guild>/message-builder` | Compose & send Discord messages from dashboard |
 | Settings | `/dashboard/<guild>/settings` | Guild feature toggles |
+
+### i18n / Multilingual Dashboard
+
+The dashboard supports **session-based language switching** via JSON translation files.
+
+| Feature | Detail |
+|---------|--------|
+| Storage | Flask session (`session["lang"]`) — persists across login |
+| Default | `id` (Indonesian) |
+| Available | `id`, `en` |
+| Switcher | Dropdown in landing page navbar |
+| File format | `backend/web/translations/{lang}.json` — plain key-value pairs |
+| Template usage | `{% raw %}{{ "nav.home" \| t }}{% endraw %}` — Jinja2 filter |
+| Fallback | Missing keys fall back to `id.json`, then return the key as-is |
+
+Translation files live at `backend/web/translations/`. To add a new language:
+1. Create `{code}.json` in that folder (copy structure from `en.json`)
+2. Add a `<button data-lang="code">` in `frontend/pages/partials/navbar.html`
 
 ### Auth & Permissions
 
@@ -103,7 +121,8 @@ discord-bot/
 │   │   ├── constants.py       # Bot constants
 │   │   └── logger.py          # Rotating file + stdout logger
 │   ├── web/                   # Flask dashboard
-│   │   └── web_app.py         # 70+ routes, OAuth2, settings pages
+│   │   ├── web_app.py         # 70+ routes, OAuth2, settings pages
+│   │   └── translations/      # JSON translation files (id.json, en.json, ...)
 │   ├── scripts/               # Utility scripts
 │   │   └── backup_firestore.py # Firestore backup & restore CLI
 │   └── main.py                # Bot entrypoint (setup_hook auto-loads cogs)
@@ -111,8 +130,8 @@ discord-bot/
 │   ├── pages/                 # 19 Jinja2 HTML pages
 │   │   └── partials/          # navbar, footer, layout partials
 │   └── static/
-│       ├── css/               # 21 page-specific stylesheets
-│       ├── js/                # 21 page-specific scripts
+│       ├── css/               # Page-specific stylesheets
+│       ├── js/                # Page-specific scripts
 │       └── fonts/             # Roboto font family (variable + static)
 ├── cookies/                   # YouTube cookies (Netscape format, optional — from env)
 ├── flask_session/             # Flask-Session file storage (gitignored)
@@ -182,6 +201,7 @@ See `backend/.env.example` for the full list. Key variables:
 - **Memory monitor**: Reads `/proc/self/status` VmRSS every 5 min, triggers `gc.collect()` when RSS exceeds 300MB (Railway 512MB limit).
 - **Prefix `!`** alongside slash commands (hybrid, discord.py). Slash commands sync on `on_ready`.
 - **Console language**: Mixed Indonesian + English throughout codebase.
+- **i18n**: Session-based multilingual dashboard via `backend/web/translations/*.json`. Uses a Jinja2 filter `{{ "key" | t }}` with automatic fallback to Indonesian. Add a new language by creating a JSON file + dropdown option.
 - **Image uploads**: Images >400KB are auto-compressed before storing as base64 data URLs in Firestore. Max upload 50MB.
 
 ## License

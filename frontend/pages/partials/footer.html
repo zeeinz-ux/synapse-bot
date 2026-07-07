@@ -4,24 +4,24 @@
       <span class="footer-brand-text">𝓢𝓎𝓃𝒶𝓅𝓈ℯ</span>
     </div>
     <ul class="footer-links">
-      <li><a href="#home">Home</a></li>
-      <li><a href="#faq">FAQ</a></li>
-      <li><a href="#commands">Commands</a></li>
-      <li><a href="#about">About Me</a></li>
-      <li><a href="https://discord.gg/kwPr32AhGH" target="_blank" rel="noopener noreferrer">Support</a></li>
+      <li><a href="#home">{{ "nav.home" | t }}</a></li>
+      <li><a href="#faq">{{ "nav.faq" | t }}</a></li>
+      <li><a href="#commands">{{ "nav.commands" | t }}</a></li>
+      <li><a href="#about">{{ "nav.about" | t }}</a></li>
+      <li><a href="https://discord.gg/kwPr32AhGH" target="_blank" rel="noopener noreferrer">{{ "nav.support" | t }}</a></li>
     </ul>
     <div class="footer-actions">
       {% if user %}
-      <a href="/dashboard" class="btn-footer-dashboard">🔓 Buka Dashboard</a>
+      <a href="/dashboard" class="btn-footer-dashboard">🔓 {{ "hero.dashboard" | t }}</a>
       {% else %}
-      <a href="/login" class="btn-footer-login">🔒 Buka Dashboard</a>
+      <a href="/login" class="btn-footer-login">🔒 {{ "hero.dashboard" | t }}</a>
       {% endif %}
       <a href="https://discord.com/oauth2/authorize?client_id=1505849571039907900&permissions=8&scope=bot%20applications.commands"
          target="_blank" rel="noopener noreferrer"
-         class="btn-footer-invite">Invite Bot</a>
+         class="btn-footer-invite">{{ "nav.invite" | t }}</a>
     </div>
   </div>
   <div class="footer-bottom">
-    <span>&copy; <span id="year"></span> Synapse. Dibuat dengan &hearts; untuk komunitas Discord.</span>
+    <span>{{ "footer.copyright" | t }}</span>
   </div>
 </footer>
