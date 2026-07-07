@@ -64,8 +64,8 @@
           </svg>
         </button>
         <div class="lang-dropdown" id="langDropdown" aria-hidden="true">
-          <button class="lang-option {% if lang == 'id' %}active{% endif %}" data-lang="id">🇮🇩 {{ "lang.id" | t }}</button>
-          <button class="lang-option {% if lang == 'en' %}active{% endif %}" data-lang="en">EN {{ "lang.en" | t }}</button>
+          <button class="lang-option {% if lang == 'id' %}active{% endif %}" data-lang="id"><span class="lang-flag">🇮🇩</span> {{ "lang.id" | t }}</button>
+          <button class="lang-option {% if lang == 'en' %}active{% endif %}" data-lang="en"><span class="lang-flag">EN</span> {{ "lang.en" | t }}</button>
         </div>
       </div>
     </div><!-- /.nav-actions -->
@@ -90,8 +90,8 @@
   <div class="mobile-lang-section">
     <span class="mobile-lang-label">🌐 Language</span>
     <div class="mobile-lang-options">
-      <button class="lang-option mobile {% if lang == 'id' %}active{% endif %}" data-lang="id">🇮🇩 {{ "lang.id" | t }}</button>
-      <button class="lang-option mobile {% if lang == 'en' %}active{% endif %}" data-lang="en">EN {{ "lang.en" | t }}</button>
+      <button class="lang-option mobile {% if lang == 'id' %}active{% endif %}" data-lang="id"><span class="lang-flag">🇮🇩</span> {{ "lang.id" | t }}</button>
+      <button class="lang-option mobile {% if lang == 'en' %}active{% endif %}" data-lang="en"><span class="lang-flag">EN</span> {{ "lang.en" | t }}</button>
     </div>
   </div>
 

@@ -101,15 +101,8 @@
   document.querySelectorAll(".lang-option[data-lang]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const lang = btn.dataset.lang;
-      fetch("/api/lang", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lang: lang }),
-      }).then((r) => r.json()).then((d) => {
-        if (d.success) location.reload();
-      }).catch(function() {
-        location.reload();
-      });
+      const next = encodeURIComponent(location.pathname + location.search);
+      location.href = "/api/lang/" + lang + "?next=" + next;
     });
   });
 

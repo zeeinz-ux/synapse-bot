@@ -645,13 +645,12 @@ def home():
         avatar_url=_discord_avatar_url(user) if user else "",
     )
 
-@app.route("/api/lang", methods=["POST"])
-def api_set_lang():
-    data = request.get_json() or {}
-    lang = data.get("lang", "id")
+@app.route("/api/lang/<lang>")
+def api_set_lang(lang):
     if lang in _translations:
         session["lang"] = lang
-    return jsonify({"success": True, "lang": session.get("lang", "id")})
+    next_url = request.args.get("next") or request.referrer or "/"
+    return redirect(next_url)
 
 @app.route("/api/stats")
 def api_stats():
