@@ -63,9 +63,15 @@ DAILY_QUOTA_LIMIT = 1500      # Gemini free tier ~1500 request/hari
 QUOTA_RESERVE_THRESHOLD = 200 # sisakan quota ini khusus buat Vision (image spam, /ask gambar)
 RESPONSE_CACHE_TTL = 300       # cache response 5 menit
 
+# ── Rate limit per-user ──
+RATE_LIMIT_MAX = 10
+RATE_LIMIT_WINDOW = 30
+RATE_LIMIT_COOLDOWN = 60
+
 # ── In-memory cache untuk Firestore reads ──
 _HISTORY_CACHE: Dict[str, tuple] = {}
 _HISTORY_TTL = 60  # seconds
+_USER_RATE_LIMITS: Dict[int, list] = {}
 
 # ── Tier 1: Google AI Studio ──
 GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
@@ -137,6 +143,7 @@ class AIChat(commands.Cog):
         self._response_cache: dict[str, tuple[str, float]] = {}
 
         self._last_history_prune: float = 0.0
+        self._owner_id: int | None = None
 
         print("[AI CHAT] ✅ Cog loaded. Quad API: Google → Groq → Mistral → Cohere")
 
@@ -947,11 +954,48 @@ class AIChat(commands.Cog):
         return images
 
     # ═══════════════════════════════════════════════════════════════════════
+    # RATE LIMIT PER-USER
+    # ═══════════════════════════════════════════════════════════════════════
+    async def _check_rate_limit(self, user: discord.User, ctx) -> bool:
+        if self._owner_id is None:
+            try:
+                app = await self.bot.application_info()
+                self._owner_id = app.owner.id
+            except Exception:
+                self._owner_id = 0
+        if user.id == self._owner_id:
+            return False
+
+        now = time_module.time()
+        timestamps = _USER_RATE_LIMITS.get(user.id, [])
+        timestamps = [t for t in timestamps if now - t < RATE_LIMIT_WINDOW]
+
+        if len(timestamps) >= RATE_LIMIT_MAX:
+            if now - timestamps[-1] < RATE_LIMIT_COOLDOWN:
+                try:
+                    await user.send("⏡ Cooldown — kamu terlalu cepat. Tunggu 60 detik ya.")
+                except Exception:
+                    try:
+                        await ctx.reply("⏡ Cooldown — kamu terlalu cepat. Tunggu 60 detik ya.", delete_after=5)
+                    except Exception:
+                        pass
+                return True
+            _USER_RATE_LIMITS[user.id] = [now]
+            return False
+
+        _USER_RATE_LIMITS.setdefault(user.id, []).append(now)
+        return False
+
+    # ═══════════════════════════════════════════════════════════════════════
     # CORE PROCESSOR
     # ═══════════════════════════════════════════════════════════════════════
     async def _process_ai_chat(self, ctx, user_message: str, guild: discord.Guild, user: discord.User, images: list[dict] | None = None):
         guild_id = str(guild.id)
         user_id = str(user.id)
+
+        # ── Rate limit per-user ──
+        if await self._check_rate_limit(user, ctx):
+            return
 
         # ── [NEW] REVISI: Gatekeeper (Local Check) ──
         # Kita buat objek tiruan (Mock) agar SpamEngine bisa membaca data pesan
