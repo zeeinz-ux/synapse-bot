@@ -14,7 +14,7 @@ _MAX_CACHE_AGE = 120
 _cache: dict[str, tuple[float, str]] = {}
 
 _SEARCH_TRIGGER_KEYWORDS = [
-    "info", "berita", "update", "terbaru", "terkini",
+    "info", "berita", "news", "update", "terbaru", "terkini",
     "sekarang", "saat ini", "hari ini", "tahun ini",
     "2025", "2026", "2027", "realtime", "real-time", "live",
     "skor", "score", "hasil", "result", "peringkat", "rank",
@@ -23,13 +23,26 @@ _SEARCH_TRIGGER_KEYWORDS = [
     "kapan", "dimana", "di mana", "kenapa",
 ]
 
+_QUESTION_WORDS = [
+    r"\bwho\b", r"\bwhat\b", r"\bwhen\b", r"\bwhere\b", r"\bwhy\b", r"\bhow\b",
+    r"\bwhich\b", r"\bwhom\b", r"\bwhose\b",
+]
+
+_SEARCH_INTENTS = {
+    IntentType.SEARCH, IntentType.SPORTS, IntentType.POLITICS,
+    IntentType.ECONOMY, IntentType.TECHNOLOGY, IntentType.HEALTH,
+}
+
 
 def needs_web_search(user_message: str, intent: IntentType) -> bool:
-    if intent == IntentType.SEARCH:
+    if intent in _SEARCH_INTENTS:
         return True
-    text = user_message.lower().strip()
-    if any(kw in text for kw in _SEARCH_TRIGGER_KEYWORDS):
-        return True
+    if intent == IntentType.CHAT:
+        text = user_message.lower().strip()
+        if any(kw in text for kw in _SEARCH_TRIGGER_KEYWORDS):
+            return True
+        if any(re.search(p, text) for p in _QUESTION_WORDS):
+            return True
     return False
 
 
