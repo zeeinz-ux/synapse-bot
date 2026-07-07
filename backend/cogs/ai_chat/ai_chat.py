@@ -43,9 +43,8 @@ from ...utils.firestore_stats import (
     firestore_retry_after,
     _is_quota_error,
 )
-from .prompt import SYSTEM_PROMPT_TEMPLATE
+from .prompt import SYSTEM_PROMPT_TEMPLATE, get_intent_instructions
 from .chat_enhancer import (
-    get_intent_instructions,
     run_tools,
     get_user_prefs,
     enhance_server_context,
