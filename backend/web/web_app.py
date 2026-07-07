@@ -1720,6 +1720,11 @@ _MOD_DEFAULTS = {
     "whitelist_users": [],
     "whitelist_roles": [],
     "report_channel": "",
+    "custom_keywords": [],
+    "raid_protection": False,
+    "raid_threshold": 10,
+    "raid_window": 300,
+    "raid_action": "kick",
 }
 
 @app.route("/dashboard/<guild_id>/anti-spam")

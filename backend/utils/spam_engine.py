@@ -61,10 +61,14 @@ class SpamEngine:
         text = re.sub(r"\s+", " ", text).strip()
         return text
 
-    def _has_keyword(self, text: str) -> bool:
+    def _has_keyword(self, text: str, custom_keywords: list[str] | None = None) -> bool:
         normalized = self._normalize(text)
         compact = re.sub(r"\s+", "", normalized)
-        return any(kw in normalized or kw in compact for kw in self.keywords)
+        if any(kw in normalized or kw in compact for kw in self.keywords):
+            return True
+        if custom_keywords:
+            return any(kw.lower() in normalized or kw.lower().replace(" ", "") in compact for kw in custom_keywords)
+        return False
 
     def _has_suspicious_url(self, text: str) -> bool:
         return any(p.search(text) for p in self.compiled_url_patterns)
@@ -168,7 +172,7 @@ class SpamEngine:
         recent = [(t, c) for t, c in self._msg_contents[user_id] if now - t < 30]
         return sum(1 for _, c in recent if c == content) >= threshold
 
-    def get_risk_score(self, message) -> int:
+    def get_risk_score(self, message, custom_keywords: list[str] | None = None) -> int:
         if hasattr(message.author, "guild_permissions") and message.author.guild_permissions.manage_messages:
             return 0
 
@@ -195,7 +199,7 @@ class SpamEngine:
                 if account_age < 7:
                     score += 5
 
-        if self._has_keyword(all_text):
+        if self._has_keyword(all_text, custom_keywords):
             score += 5
 
         if hasattr(message.author, "created_at"):

@@ -16,6 +16,9 @@ class Moderation(commands.Cog):
         self.img_detector = ImageSpamDetector()
         self._session: aiohttp.ClientSession | None = None
         self.report_channel_id = 1517948052537868449
+        self._join_timestamps: dict[int, list[float]] = {}
+        self._raid_mode: dict[int, bool] = {}
+        self._raid_lock: dict[int, float] = {}
 
     async def cog_load(self):
         if self._session is None or self._session.closed:
@@ -103,7 +106,8 @@ class Moderation(commands.Cog):
             await self.bot.process_commands(message)
             return
 
-        current_score = self.engine.get_risk_score(message)
+        custom_kw = cfg.get("custom_keywords", [])
+        current_score = self.engine.get_risk_score(message, custom_keywords=custom_kw)
         account_age = 0
         if hasattr(message.author, "created_at"):
             account_age = (datetime.datetime.now(timezone.utc) - message.author.created_at).days
@@ -159,6 +163,61 @@ class Moderation(commands.Cog):
                 return
 
         await self.bot.process_commands(message)
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member):
+        guild_id = member.guild.id
+
+        # Auto-recover raid mode setelah 10 menit gak ada aktivitas
+        if self._raid_mode.get(guild_id, False) and time.time() - self._raid_lock.get(guild_id, 0) > 600:
+            self._raid_mode[guild_id] = False
+            print(f"[RAID] ✅ Raid mode auto-recovered for {member.guild.name}")
+
+        cfg = await self._get_config(str(guild_id))
+        if not cfg.get("raid_protection", False) or not cfg.get("enabled", True):
+            return
+
+        now = time.time()
+        window = cfg.get("raid_window", 300)
+        threshold = cfg.get("raid_threshold", 10)
+        action = cfg.get("raid_action", "kick")
+
+        self._join_timestamps.setdefault(guild_id, [])
+        self._join_timestamps[guild_id] = [
+            t for t in self._join_timestamps[guild_id] if now - t < window
+        ]
+        self._join_timestamps[guild_id].append(now)
+
+        if len(self._join_timestamps[guild_id]) >= threshold:
+            if self._raid_mode.get(guild_id, False):
+                if action == "ban":
+                    await member.ban(reason="Raid protection: mass-join")
+                elif action == "timeout":
+                    await member.timeout(datetime.timedelta(hours=1), reason="Raid protection")
+                else:
+                    await member.kick(reason="Raid protection: mass-join")
+                return
+
+            self._raid_mode[guild_id] = True
+            self._raid_lock[guild_id] = now
+
+            if action == "ban":
+                await member.ban(reason="Raid protection: mass-join")
+            elif action == "timeout":
+                await member.timeout(datetime.timedelta(hours=1), reason="Raid protection")
+            else:
+                await member.kick(reason="Raid protection: mass-join")
+
+            report_ch_id = cfg.get("report_channel", "") or str(self.report_channel_id)
+            report_channel = self.bot.get_channel(int(report_ch_id)) if report_ch_id else None
+            if report_channel:
+                await report_channel.send(
+                    f"🚨 **Raid Protection**\n"
+                    f"Mass-join detected in **{member.guild.name}**\n"
+                    f"Threshold: {threshold} joins in {window//60} menit\n"
+                    f"Action: {action.upper()}"
+                )
+            print(f"[RAID] ⚠️ Raid detected in {member.guild.name} — {len(self._join_timestamps[guild_id])} joins in {window//60}min")
 
     async def _check_image_spam(self, message, image_urls: list[tuple[str, str]]) -> bool:
         """Check images in message. Returns True if flagged as spam."""

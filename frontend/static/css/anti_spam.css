@@ -140,3 +140,19 @@ select.wl-input { cursor: pointer; }
   padding-right: 2rem;
 }
 .channel-card .form-select:focus { border-color: var(--accent-primary); }
+
+/* ── Raid card ── */
+.raid-card { grid-column: 1 / -1; }
+.raid-config { margin-top: 1rem; }
+.raid-config .form-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+.raid-config .form-group { flex: 1; min-width: 120px; }
+.raid-config .form-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-tertiary); margin-bottom: 0.3rem; }
+.raid-config .form-input, .raid-config .form-select {
+  width: 100%; padding: 0.5rem 0.75rem;
+  background: var(--bg-surface2); border: 1px solid var(--border2);
+  border-radius: 6px; color: var(--text-secondary); font-size: 0.875rem;
+}
+
+/* ── Keywords card ── */
+.keywords-card { grid-column: 1 / -1; }
+.keyword-input-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }

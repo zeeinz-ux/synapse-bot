@@ -81,6 +81,53 @@
       </div>
     </div>
 
+    <!-- Raid Protection -->
+    <div class="card raid-card">
+      <h2>🛡️ Raid Protection</h2>
+      <p class="whitelist-desc">Deteksi mass-join dalam waktu singkat dan ambil tindakan otomatis.</p>
+      <label class="filter-item">
+        <div class="filter-info">
+          <span class="filter-name">Aktifkan Raid Protection</span>
+          <span class="filter-desc">Pantau kecepatan join member baru</span>
+        </div>
+        <input type="checkbox" id="raid-toggle" class="toggle-input">
+        <span class="toggle-slider sm"></span>
+      </label>
+      <div id="raid-config" class="raid-config">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="raid-threshold">Threshold (join)</label>
+            <input type="number" id="raid-threshold" class="form-input" value="10" min="3" max="50">
+          </div>
+          <div class="form-group">
+            <label for="raid-window">Dalam (menit)</label>
+            <input type="number" id="raid-window" class="form-input" value="5" min="1" max="30">
+          </div>
+          <div class="form-group">
+            <label for="raid-action">Tindakan</label>
+            <select id="raid-action" class="form-select">
+              <option value="kick">Kick</option>
+              <option value="ban">Ban</option>
+              <option value="timeout">Timeout 1 jam</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Custom Keywords -->
+    <div class="card keywords-card">
+      <h2>📝 Custom Keywords</h2>
+      <p class="whitelist-desc">Keyword tambahan khusus server ini. Dicocokkan secara <strong>parsial</strong> (case-insensitive).</p>
+      <div class="keyword-input-row">
+        <input type="text" id="kw-input" placeholder="Masukkan keyword..." class="wl-input">
+        <button id="kw-add" class="btn btn-primary btn-sm">➕ Tambah</button>
+      </div>
+      <div id="kw-list" class="tag-list">
+        <div class="loading">Memuat...</div>
+      </div>
+    </div>
+
     <!-- Whitelist -->
     <div class="card whitelist-card">
       <h2>✅ Whitelist</h2>
