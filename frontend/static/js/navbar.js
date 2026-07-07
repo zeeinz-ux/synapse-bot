@@ -107,6 +107,8 @@
         body: JSON.stringify({ lang: lang }),
       }).then((r) => r.json()).then((d) => {
         if (d.success) location.reload();
+      }).catch(function() {
+        location.reload();
       });
     });
   });
