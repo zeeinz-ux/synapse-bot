@@ -55,7 +55,7 @@ _base_dir = os.path.dirname(os.path.abspath(__file__))
 app = Flask(
     __name__,
     static_folder=os.path.join(_base_dir, "../../frontend/static"),
-    template_folder=os.path.join(_base_dir, "../../frontend/templates")
+    template_folder=os.path.join(_base_dir, "../../frontend/pages")
 )
 
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
