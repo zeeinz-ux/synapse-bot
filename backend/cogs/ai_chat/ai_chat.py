@@ -44,6 +44,13 @@ from ...utils.firestore_stats import (
     _is_quota_error,
 )
 from .prompt import SYSTEM_PROMPT_TEMPLATE
+from .chat_enhancer import (
+    get_intent_instructions,
+    run_tools,
+    get_user_prefs,
+    enhance_server_context,
+    update_user_style_prefs,
+)
 
 # ── Konstanta ──
 MAX_HISTORY_PAIRS = 5
@@ -1011,13 +1018,23 @@ class AIChat(commands.Cog):
             f"intent={intent.value}"
         )
 
+        # ── [ENHANCE] Intent-specific instructions ──
+        intent_instructions = get_intent_instructions(intent)
+
         temperature = settings.get(
             "temperature",
             0.75
         )
         history = await self._get_chat_history(guild_id, user_id)
         server_ctx = self._build_server_context(guild)
+        user_prefs = await get_user_prefs(guild_id, user_id)
+        server_ctx = enhance_server_context(server_ctx, intent_instructions, user_prefs)
         system_prompt = SYSTEM_PROMPT_TEMPLATE.replace("{personality}", personality).replace("{server_context}", server_ctx)
+
+        # ── [ENHANCE] Local tools ──
+        tool_result = run_tools(user_message)
+        if tool_result:
+            user_message = f"{tool_result}\nPertanyaan user: {user_message}"
 
         # ── Typing indicator langsung membungkus pemanggilan API ──
         # Sengaja TIDAK dibungkus try-except tambahan: _call_ai sudah aman
@@ -1035,6 +1052,9 @@ class AIChat(commands.Cog):
                 temperature,
                 images
             )
+
+        # ── [ENHANCE] Background update user preferences -- fire & forget ──
+        asyncio.ensure_future(update_user_style_prefs(guild_id, user_id, user_message, response_text))
 
         await self._save_chat_history(guild_id, user_id, user_message, response_text, personality)
         await self._send_response(ctx, user_id, response_text)
