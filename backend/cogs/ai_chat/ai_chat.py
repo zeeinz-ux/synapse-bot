@@ -51,6 +51,8 @@ from .chat_enhancer import (
     enhance_server_context,
     update_user_style_prefs,
 )
+from .web_search import search_web, needs_web_search
+from ...utils.intent_router import IntentType
 
 # ── Konstanta ──
 MAX_HISTORY_PAIRS = 5
@@ -1032,9 +1034,21 @@ class AIChat(commands.Cog):
         system_prompt = SYSTEM_PROMPT_TEMPLATE.replace("{personality}", personality).replace("{server_context}", server_ctx)
 
         # ── [ENHANCE] Local tools ──
-        tool_result = run_tools(user_message)
+        raw_user_message = user_message
+        tool_result = run_tools(raw_user_message)
         if tool_result:
-            user_message = f"{tool_result}\nPertanyaan user: {user_message}"
+            user_message = f"{tool_result}\nPertanyaan user: {raw_user_message}"
+
+        # ── [ENHANCE] Web search untuk info real-time ──
+        if needs_web_search(raw_user_message, intent):
+            search_results = await search_web(raw_user_message, self.session)
+            if search_results:
+                user_message = (
+                    f"[WEB SEARCH RESULTS]\n{search_results}\n"
+                    f"[/WEB SEARCH RESULTS]\n\n"
+                    f"Pertanyaan user: {raw_user_message}"
+                )
+                print(f"[AI SEARCH] +{search_results.count(chr(10)) + 1} hasil pencarian")
 
         # ── Typing indicator langsung membungkus pemanggilan API ──
         # Sengaja TIDAK dibungkus try-except tambahan: _call_ai sudah aman
