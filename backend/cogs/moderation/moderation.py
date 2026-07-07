@@ -64,17 +64,8 @@ class Moderation(commands.Cog):
         if db is None:
             return
         expired = self.img_detector.get_expired_hashes()
-        if not expired:
-            return
-        try:
-            batch = db.batch()
-            for h in expired:
-                doc_ref = db.collection("spam_hashes").document(str(h))
-                batch.delete(doc_ref)
-            await asyncio.to_thread(batch.commit)
-            print(f"[MODERATION] 🧹 Cleaned {len(expired)} expired spam hashes from Firestore")
-        except Exception as e:
-            print(f"[MODERATION] ⚠️ Gagal cleanup expired hashes: {e}")
+        if expired:
+            print(f"[MODERATION] 🧹 Cleaned {len(expired)} expired spam hashes from memory (Firestore keeps permanent)")
 
     async def _get_config(self, guild_id: str) -> dict:
         if db is None:
@@ -117,9 +108,16 @@ class Moderation(commands.Cog):
         if hasattr(message.author, "created_at"):
             account_age = (datetime.datetime.now(timezone.utc) - message.author.created_at).days
 
-        # ── Heuristic trigger (score >= 5) → AI verify before escalating ──
+        # ── Heuristic trigger (score >= 5) → skip AI kalo akun <60hr / join <7hr / score >=10 ──
         if cfg.get("filter_heuristic", True) and current_score >= 5:
-            if cfg.get("filter_ai", True):
+            # ── Skip AI condition ──
+            join_age_days = 999
+            if hasattr(message.author, "joined_at") and message.author.joined_at:
+                join_age_days = (datetime.datetime.now(timezone.utc) - message.author.joined_at).days
+
+            skip_ai = account_age < 60 or join_age_days < 7 or current_score >= 10
+
+            if not skip_ai and cfg.get("filter_ai", True):
                 ai_cog = self.bot.get_cog("AIChat")
                 if ai_cog:
                     is_ai_spam = await ai_cog.analyze_spam(
@@ -133,7 +131,6 @@ class Moderation(commands.Cog):
                     # AI disagrees → masih flag tapi hukuman diturunkan (timeout aja)
                     await self.handle_spam_light(message, "Filter Dasar: Pesan mencurigakan (dilemahkan oleh AI)")
                     return
-            # AI gak available → pakai heuristic langsung
             await self.handle_spam(message, "Filter Dasar: Terdeteksi kata kunci/link mencurigakan")
             return
 
@@ -173,7 +170,7 @@ class Moderation(commands.Cog):
         for url, mime in image_urls:
             # Layer 1: Rate limit
             if self.img_detector.track_image_sent(user_id):
-                await self.handle_spam_light(message, "Filter Gambar: Mengirim gambar terlalu cepat")
+                await self.handle_spam(message, "Filter Gambar: Mengirim gambar terlalu cepat")
                 return True
 
             # Download image
@@ -194,17 +191,20 @@ class Moderation(commands.Cog):
             # Layer 2b: Duplicate image from same user
             dup_count = self.img_detector.count_duplicate(user_id, img_hash)
             if dup_count >= self.img_detector.dup_threshold:
-                await self.handle_spam_light(message, "Filter Gambar: Mengirim gambar yang sama berulang kali")
+                await self.handle_spam(message, "Filter Gambar: Mengirim gambar yang sama berulang kali")
                 return True
 
             # Layer 3: Gemini Vision (only for suspicious users)
             account_age = 0
             if hasattr(message.author, "created_at"):
                 account_age = (datetime.datetime.now(timezone.utc) - message.author.created_at).days
-            is_new = account_age < 7
+            join_age_days = 999
+            if hasattr(message.author, "joined_at") and message.author.joined_at:
+                join_age_days = (datetime.datetime.now(timezone.utc) - message.author.joined_at).days
+            is_suspicious = account_age < 60 or join_age_days < 7
             is_flooding = self.img_detector.is_sending_images_fast(user_id)
 
-            if is_new or is_flooding or dup_count >= 2:
+            if is_suspicious or is_flooding or dup_count >= 2:
                 cached = self.img_detector.get_vision_cache(img_hash)
                 if cached is not None:
                     if cached:
@@ -287,6 +287,9 @@ class Moderation(commands.Cog):
                 embed.add_field(name="Channel", value=message.channel.mention, inline=True)
                 embed.add_field(name="Peringatan Ke", value=strikes, inline=True)
                 embed.add_field(name="Isi Pesan", value=f"||{message.content[:500]}||", inline=False)
+                if message.attachments:
+                    files = "\n".join([f"||{a.url}||" for a in message.attachments[:3]])
+                    embed.add_field(name="Lampiran", value=files, inline=False)
                 await report_channel.send(embed=embed)
 
             try:
@@ -320,6 +323,9 @@ class Moderation(commands.Cog):
                 )
                 embed.add_field(name="Alasan", value=reason, inline=False)
                 embed.add_field(name="Isi Pesan", value=f"||{message.content[:500]}||", inline=False)
+                if message.attachments:
+                    files = "\n".join([f"||{a.url}||" for a in message.attachments[:3]])
+                    embed.add_field(name="Lampiran", value=files, inline=False)
                 await report_channel.send(embed=embed)
 
             print(f"[MODERATION] {message.author} Light timeout (10m): {reason}")

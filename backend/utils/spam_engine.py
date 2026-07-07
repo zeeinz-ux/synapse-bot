@@ -202,9 +202,16 @@ class SpamEngine:
             account_age = (datetime.now(timezone.utc) - message.author.created_at).days
             if account_age < 1:
                 score += 5
-            elif account_age < 3:
+            elif account_age < 60:
+                score += 5
+
+        if hasattr(message.author, "joined_at") and message.author.joined_at:
+            join_seconds = (datetime.now(timezone.utc) - message.author.joined_at).total_seconds()
+            if join_seconds < 3600:
+                score += 5
+            elif join_seconds < 86400:
                 score += 3
-            elif account_age < 7:
+            elif join_seconds < 604800:
                 score += 2
 
         user_id = str(message.author.id)

@@ -17,7 +17,7 @@ class ImageSpamDetector:
         self._known_spam_hashes: dict[int, float] = {}
         self._user_hashes: dict[str, list[int]] = {}
         self.hash_threshold = 6
-        self.spam_hash_ttl = 3600
+        self.spam_hash_ttl = 604800
         self.dup_threshold = 3
 
         # ── Layer 2b: Duplicate within session ──
