@@ -267,12 +267,12 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.35rem 0.55rem;
+  padding: 0.5rem 0.55rem;
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid var(--sidebar-border);
   border-radius: var(--radius-sm);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
