@@ -253,7 +253,7 @@
   function loadGalleryImages(targetId){
     var grid = document.getElementById('mbGalleryGrid');
     grid.innerHTML = '<div class="gallery-empty">Memuat gambar...</div>';
-    fetch('/api/guilds/' + guildId + '/images')
+    fetch('/api/gallery/images')
       .then(function(r){ return r.json(); })
       .then(function(d){
         if(!d.success || !d.images.length){
@@ -331,7 +331,7 @@
         previewImg.src = e.target.result;
         resizeImage(file, 1200, 0.85).then(function(resized){
           status.textContent = 'Mengupload...';
-          fetch('/api/message-builder/' + guildId + '/upload', {
+          fetch('/api/gallery/upload', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({

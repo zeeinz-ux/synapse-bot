@@ -19,6 +19,7 @@ Fitur:
 import re
 import asyncio
 import time
+import os
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 
@@ -391,7 +392,16 @@ class AutoResponderCog(commands.Cog, name="AutoResponder"):
                 await message.channel.send(content)
 
     async def _download_image(self, url: str) -> bytes:
-        """Download image from URL."""
+        """Download image from URL or read from local gallery."""
+        if url.startswith("/static/gallery/"):
+            try:
+                _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                fpath = os.path.join(_project_root, "frontend", "static", "gallery", os.path.basename(url))
+                if os.path.exists(fpath):
+                    with open(fpath, "rb") as f:
+                        return f.read()
+            except Exception:
+                pass
         import aiohttp
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:

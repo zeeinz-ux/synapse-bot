@@ -1289,6 +1289,58 @@ def api_mb_upload(guild_id: str):
 
 
 # ==========================================================
+# Gallery — file-based image storage
+# ==========================================================
+GALLERY_DIR = os.path.join(_base_dir, "../../frontend/static/gallery")
+
+@app.route("/api/gallery/images", methods=["GET"])
+def api_gallery_images():
+    images = []
+    try:
+        os.makedirs(GALLERY_DIR, exist_ok=True)
+        exts = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+        for fname in sorted(os.listdir(GALLERY_DIR)):
+            ext = os.path.splitext(fname)[1].lower()
+            if ext in exts:
+                images.append({
+                    "url": f"/static/gallery/{fname}",
+                    "label": fname,
+                    "filename": fname,
+                })
+    except Exception as e:
+        print(f"[GALLERY] ❌ list error: {e}")
+    return jsonify({"success": True, "images": images, "count": len(images)}), 200
+
+
+@app.route("/api/gallery/upload", methods=["POST"])
+@login_required
+def api_gallery_upload():
+    try:
+        data = request.get_json() or {}
+        data_url = data.get("data_url", "")
+        filename = data.get("filename", "upload.png")
+        if not data_url or not data_url.startswith("data:image"):
+            return jsonify({"success": False, "message": "Invalid image data"}), 400
+
+        header, b64 = data_url.split(",", 1)
+        raw = base64.b64decode(b64)
+        safe_name = f"{int(time.time())}_{filename.replace(' ', '_')}"
+        os.makedirs(GALLERY_DIR, exist_ok=True)
+        fpath = os.path.join(GALLERY_DIR, safe_name)
+        with open(fpath, "wb") as f:
+            f.write(raw)
+        print(f"[GALLERY] ✅ Saved: {safe_name} ({len(raw)} bytes)")
+        return jsonify({
+            "success": True,
+            "url": f"/static/gallery/{safe_name}",
+            "filename": safe_name,
+        }), 200
+    except Exception as e:
+        print(f"[GALLERY] ❌ upload error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+# ==========================================================
 # ROUTES — Tools
 # ==========================================================
 @app.route("/dashboard/<guild_id>/message-builder")
@@ -1914,6 +1966,20 @@ def api_guild_images(guild_id: str):
             url = img.get("url", "").strip()
             if url:
                 images.append({"url": url, "label": img.get("label", "MB Upload"), "source": "message_builder"})
+        try:
+            exts = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+            os.makedirs(GALLERY_DIR, exist_ok=True)
+            for fname in sorted(os.listdir(GALLERY_DIR)):
+                ext = os.path.splitext(fname)[1].lower()
+                if ext in exts:
+                    images.append({
+                        "url": f"/static/gallery/{fname}",
+                        "label": fname,
+                        "filename": fname,
+                        "source": "gallery",
+                    })
+        except Exception:
+            pass
     except Exception as e:
         print(f"[WEB-IMAGES] ❌ Gagal baca Firestore: {e}")
         return jsonify({"success": False, "images": [], "message": str(e)}), 500

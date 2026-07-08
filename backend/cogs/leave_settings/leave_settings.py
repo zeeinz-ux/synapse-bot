@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import asyncio
 import io
+import os
 import base64
 from PIL import Image, ImageDraw, ImageFont
 import aiohttp
@@ -116,6 +117,20 @@ class LeaveSettingsCog(commands.Cog, name="LeaveSettings"):
                 return image_bytes
             except Exception as e:
                 print(f"[LEAVE] ⚠️ Base64 decode error: {type(e).__name__}: {e}")
+                return None
+        if url.startswith("/static/gallery/"):
+            try:
+                _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                fpath = os.path.join(_project_root, "frontend", "static", "gallery", os.path.basename(url))
+                if os.path.exists(fpath):
+                    with open(fpath, "rb") as f:
+                        data = f.read()
+                    print(f"[LEAVE] ✅ Read gallery file: {os.path.basename(url)} ({len(data)} bytes)")
+                    return data
+                print(f"[LEAVE] ⚠️ Gallery file not found: {fpath}")
+                return None
+            except Exception as e:
+                print(f"[LEAVE] ⚠️ Gallery read error: {type(e).__name__}: {e}")
                 return None
         try:
             headers = {

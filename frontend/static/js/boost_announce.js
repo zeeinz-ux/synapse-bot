@@ -308,6 +308,49 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // ── Dynamic Gallery (from /api/gallery/images) ──
+  document.querySelectorAll(".gallery-toggle-dynamic").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var grid = document.getElementById(this.dataset.grid + "Dynamic");
+      if (!grid) return;
+      if (grid.dataset.loaded) {
+        grid.classList.toggle("open");
+        return;
+      }
+      grid.dataset.loaded = "1";
+      var inputTarget = this.dataset.input;
+      fetch("/api/gallery/images")
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.success || !d.images.length) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:1rem;color:var(--text-muted);font-size:0.8rem;">Belum ada gambar</div>';
+            grid.classList.add("open");
+            return;
+          }
+          var html = "";
+          d.images.forEach(function (img) {
+            html += '<img src="' + img.url + '" class="gallery-item" data-input="' + inputTarget + '" loading="lazy" style="cursor:pointer;border-radius:var(--r-md);aspect-ratio:16/9;object-fit:cover;width:100%;border:2px solid var(--border);transition:border-color 0.15s;" />';
+          });
+          grid.innerHTML = html;
+          grid.querySelectorAll(".gallery-item").forEach(function (item) {
+            item.addEventListener("click", function () {
+              var input = document.getElementById(this.dataset.input);
+              if (input) {
+                input.value = this.src;
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                document.querySelectorAll(".gallery-grid").forEach(function (g) { g.classList.remove("open"); });
+              }
+            });
+          });
+          grid.classList.add("open");
+        })
+        .catch(function () {
+          grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:1rem;color:var(--text-muted);font-size:0.8rem;">Gagal muat</div>';
+          grid.classList.add("open");
+        });
+    });
+  });
+
   if (boostForm) {
     boostForm.addEventListener("submit", async function (e) {
       e.preventDefault();

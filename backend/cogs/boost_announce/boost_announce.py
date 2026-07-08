@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import asyncio
 import io
+import os
 import base64
 from PIL import Image, ImageDraw, ImageFont
 import aiohttp
@@ -115,6 +116,20 @@ class BoostAnnounceCog(commands.Cog, name="BoostAnnounce"):
                 return image_bytes
             except Exception as e:
                 print(f"[BOOST-ANNOUNCE] ⚠️ Base64 decode error: {type(e).__name__}: {e}")
+                return None
+        if url.startswith("/static/gallery/"):
+            try:
+                _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                fpath = os.path.join(_project_root, "frontend", "static", "gallery", os.path.basename(url))
+                if os.path.exists(fpath):
+                    with open(fpath, "rb") as f:
+                        data = f.read()
+                    print(f"[BOOST-ANNOUNCE] ✅ Read gallery file: {os.path.basename(url)} ({len(data)} bytes)")
+                    return data
+                print(f"[BOOST-ANNOUNCE] ⚠️ Gallery file not found: {fpath}")
+                return None
+            except Exception as e:
+                print(f"[BOOST-ANNOUNCE] ⚠️ Gallery read error: {type(e).__name__}: {e}")
                 return None
         try:
             headers = {
