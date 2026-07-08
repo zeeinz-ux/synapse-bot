@@ -15,7 +15,10 @@
     fetch('/api/boosts/' + guildId + '/stats')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success) return;
+        if(!d.success){
+          document.getElementById('topBody').innerHTML = '<tr><td colspan="3" class="loading">Gagal: ' + (d.message || 'unknown') + '</td></tr>';
+          return;
+        }
         document.getElementById('statTotal').textContent = d.total;
         document.getElementById('statActive').textContent = d.active;
         document.getElementById('statExpired').textContent = d.expired;
@@ -44,7 +47,10 @@
     fetch('/api/boosts/' + guildId + '/history')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success) return;
+        if(!d.success){
+          document.getElementById('historyBody').innerHTML = '<tr><td colspan="5" class="loading">Gagal: ' + (d.message || 'unknown') + '</td></tr>';
+          return;
+        }
         var countEl = document.getElementById('boostCount');
         if(countEl) countEl.textContent = d.count + ' event';
         var html = '';

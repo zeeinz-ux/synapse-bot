@@ -182,12 +182,16 @@ def api_boost_history(guild_id: str):
     if db is None:
         return jsonify({"success": False, "boosts": [], "message": "Firebase unavailable"}), 200
     try:
-        all_docs = list(db.collection("boosts").limit(20).stream())
-        docs = [d for d in all_docs if d.to_dict().get("guild_id") == str(guild_id)]
+        docs = list(db.collection("boosts")
+                     .where(filter=FieldFilter("guild_id", "==", str(guild_id)))
+                     .limit(50).stream())
         # Resolve user info from Discord API via bot guild data
         bot_guilds = current_app.config.get("BOT_GUILDS", {})
         guild_data = bot_guilds.get(str(guild_id), {})
         members = {str(m["user"]["id"]): m["user"] for m in guild_data.get("members", [])}
+
+        docs = [d for d in docs if d.to_dict().get("boosted_at") is not None]
+        docs.sort(key=lambda d: d.to_dict()["boosted_at"], reverse=True)
 
         boosts = []
         for doc in docs:
@@ -208,7 +212,6 @@ def api_boost_history(guild_id: str):
                 "unboosted_at": unboosted_at.isoformat() if hasattr(unboosted_at, "isoformat") else str(unboosted_at or ""),
                 "note": d.get("note", ""),
             })
-        boosts.sort(key=lambda b: b["boosted_at"], reverse=True)
         return jsonify({"success": True, "boosts": boosts, "count": len(boosts)}), 200
     except Exception as e:
         traceback.print_exc()
@@ -2341,6 +2344,7 @@ def save_welcome_ban(guild_id: str):
 # ==========================================================
 # ROUTES — Boost Announce Save (POST)
 # ==========================================================
+@login_required
 @app.route("/dashboard/<guild_id>/welcome/boost/save", methods=["POST"])
 def save_welcome_boost(guild_id: str):
     if db is None:
