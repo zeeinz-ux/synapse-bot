@@ -290,7 +290,8 @@ def api_donation_history(guild_id: str):
         docs = list(db.collection("transactions")
                      .where(filter=("guild_id", "==", str(guild_id)))
                      .limit(50).stream())
-        docs.sort(key=lambda d: d.to_dict().get("created_at", 0) or 0, reverse=True)
+        docs = [d for d in docs if d.to_dict().get("created_at") is not None]
+        docs.sort(key=lambda d: d.to_dict()["created_at"], reverse=True)
         # Resolve user info from Discord API via bot guild data
         bot_guilds = current_app.config.get("BOT_GUILDS", {})
         guild_data = bot_guilds.get(str(guild_id), {})
@@ -972,8 +973,17 @@ def api_donation_save_settings(guild_id: str):
 
 
 # ==========================================================
-# Donation Webhook — Discord embed sender
+# Donation — Helpers
 # ==========================================================
+
+def _delete_donation_doc(doc_id: str):
+    """Delete a transaction document by ID. Used for test donation cleanup."""
+    try:
+        db.collection("transactions").document(doc_id).delete()
+        print(f"[DONATION] 🗑️ Deleted test donation {doc_id}")
+    except Exception as e:
+        print(f"[DONATION] ⚠️ Failed to delete test donation {doc_id}: {e}")
+
 
 def _send_donation_webhook(webhook_url: str, content: str = "", embed: dict = None):
     """Send a text message + embed to a Discord webhook URL."""
@@ -1005,6 +1015,7 @@ def _render_thank_you(template: str, donor: str, amount: int, platform: str) -> 
 def webhook_saweria(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 503
+    is_test = request.args.get("test") == "1"
     try:
         data = request.get_json(silent=True) or {}
         donatur = data.get("donatur_name", "Anonim")
@@ -1016,7 +1027,7 @@ def webhook_saweria(guild_id: str):
         if amount <= 0:
             return jsonify({"success": False, "message": "Invalid amount"}), 400
 
-        doc_ref = db.collection("transactions").add({
+        doc_data = {
             "user_id": f"saweria:{donatur}",
             "guild_id": str(guild_id),
             "type": "donation",
@@ -1028,8 +1039,17 @@ def webhook_saweria(guild_id: str):
             "note": message,
             "external_id": tx_id_ext,
             "created_at": firestore.SERVER_TIMESTAMP,
-        })
+        }
+        if is_test:
+            doc_data["test"] = True
+
+        doc_ref = db.collection("transactions").add(doc_data)
         tid = doc_ref[1].id
+
+        if is_test:
+            threading.Timer(60, lambda: _delete_donation_doc(tid)).start()
+            print(f"[WEBHOOK-SAWERIA] 🧪 Test donasi Rp {amount:,} dari {donatur} — ID {tid} (auto-delete 60s)")
+            return jsonify({"success": True, "message": "TEST_OK", "test": True, "id": tid}), 200
 
         # Send Discord webhook if configured
         cfg = _get_feature_config(str(guild_id), "donation_settings")
@@ -1065,6 +1085,7 @@ def webhook_saweria(guild_id: str):
 def webhook_sociabuzz(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 503
+    is_test = request.args.get("test") == "1"
     try:
         data = request.get_json(silent=True) or {}
         donor = data.get("donor_name") or data.get("donor", "Anonim")
@@ -1078,7 +1099,7 @@ def webhook_sociabuzz(guild_id: str):
         if amount <= 0:
             return jsonify({"success": False, "message": "Invalid amount"}), 400
 
-        doc_ref = db.collection("transactions").add({
+        doc_data = {
             "user_id": f"sociabuzz:{donor}",
             "guild_id": str(guild_id),
             "type": "donation",
@@ -1090,8 +1111,17 @@ def webhook_sociabuzz(guild_id: str):
             "note": message,
             "external_id": tx_id_ext,
             "created_at": firestore.SERVER_TIMESTAMP,
-        })
+        }
+        if is_test:
+            doc_data["test"] = True
+
+        doc_ref = db.collection("transactions").add(doc_data)
         tid = doc_ref[1].id
+
+        if is_test:
+            threading.Timer(60, lambda: _delete_donation_doc(tid)).start()
+            print(f"[WEBHOOK-SOCIABUZZ] 🧪 Test donasi Rp {amount:,} dari {donor} — ID {tid} (auto-delete 60s)")
+            return jsonify({"success": True, "message": "TEST_OK", "test": True, "id": tid}), 200
 
         # Send Discord webhook if configured
         cfg = _get_feature_config(str(guild_id), "donation_settings")

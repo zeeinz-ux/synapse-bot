@@ -70,7 +70,11 @@
     fetch('/api/donations/' + guildId + '/stats')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success) return;
+        if(!d.success){
+          document.getElementById('topDonorsBody').innerHTML = '<li style="padding:1.25rem;text-align:center;color:#888;">Gagal: ' + (d.message || 'unknown') + '</li>';
+          document.getElementById('methodBody').innerHTML = '<li style="padding:1.25rem;text-align:center;color:#888;">Gagal: ' + (d.message || 'unknown') + '</li>';
+          return;
+        }
         document.getElementById('statTotalCount').textContent = d.total_count;
         document.getElementById('statTotalAmount').textContent = fmtRupiah(d.total_amount);
         document.getElementById('statAverage').textContent = fmtRupiah(d.average_amount);
@@ -112,7 +116,10 @@
     fetch('/api/donations/' + guildId + '/history')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success) return;
+        if(!d.success){
+          document.getElementById('donationHistoryBody').innerHTML = '<tr><td colspan="8" class="loading">Gagal: ' + (d.message || 'unknown') + '</td></tr>';
+          return;
+        }
         var countEl = document.getElementById('donationCount');
         if(countEl) countEl.textContent = d.count + ' transaksi';
         var html = '';
@@ -200,7 +207,10 @@
         fetch('/api/donations/' + guildId + '/settings')
           .then(function(r){ return r.json(); })
           .then(function(cfg){
-            if(!cfg.success) return;
+            if(!cfg.success){
+              showToast('❌ Gagal muat pengaturan: ' + (cfg.message || 'unknown'), 'error');
+              return;
+            }
             var c = cfg.config || {};
             document.getElementById('donation-enabled').checked = c.enabled !== false;
             if(c.channel_id) sel.value = c.channel_id;
