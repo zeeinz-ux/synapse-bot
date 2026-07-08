@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 
 import importlib
 import traceback
+import json
 
 load_dotenv()
 
@@ -88,6 +89,77 @@ async def setup_hook():
 bot.setup_hook = setup_hook
 
 import os as _os
+
+CONTROL_QUEUE_DIR = os.path.join(_project_root, "control_queue")
+
+async def _control_queue_consumer():
+    while True:
+        try:
+            await asyncio.sleep(5)
+            if not os.path.isdir(CONTROL_QUEUE_DIR):
+                continue
+            for fname in os.listdir(CONTROL_QUEUE_DIR):
+                if not fname.endswith(".json"):
+                    continue
+                fpath = os.path.join(CONTROL_QUEUE_DIR, fname)
+                try:
+                    with open(fpath, "r") as f:
+                        cmd = json.load(f)
+                    action = cmd.get("action")
+                    data = cmd.get("data", {})
+                    guild_id = cmd.get("guild_id")
+
+                    if action == "send_message":
+                        channel_id = data.get("channel_id")
+                        embed_dict = data.get("embed", {})
+                        content = data.get("content", "")
+
+                        channel = bot.get_channel(int(channel_id))
+                        if not channel:
+                            log.warning("[Queue] Channel %s not found", channel_id)
+                            os.remove(fpath)
+                            continue
+
+                        embed = discord.Embed()
+                        if embed_dict.get("title"):
+                            embed.title = embed_dict["title"]
+                        if embed_dict.get("description"):
+                            embed.description = embed_dict["description"]
+                        if embed_dict.get("color"):
+                            embed.color = int(embed_dict["color"], 16)
+                        if embed_dict.get("author_name"):
+                            embed.set_author(
+                                name=embed_dict["author_name"],
+                                icon_url=embed_dict.get("author_icon") or None,
+                            )
+                        if embed_dict.get("thumbnail"):
+                            embed.set_thumbnail(url=embed_dict["thumbnail"])
+                        if embed_dict.get("image"):
+                            embed.set_image(url=embed_dict["image"])
+                        if embed_dict.get("footer_text"):
+                            embed.set_footer(
+                                text=embed_dict["footer_text"],
+                                icon_url=embed_dict.get("footer_icon") or None,
+                            )
+                        for f in embed_dict.get("fields", []):
+                            embed.add_field(
+                                name=f.get("name", "\u200b"),
+                                value=f.get("value", "\u200b"),
+                                inline=f.get("inline", False),
+                            )
+
+                        await channel.send(content=content or None, embed=embed)
+                        log.info("[Queue] Sent message to channel %s", channel_id)
+
+                    os.remove(fpath)
+                except Exception as e:
+                    log.error("[Queue] Error processing %s: %s", fname, e)
+                    os.remove(fpath)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            log.error("[Queue] Consumer error: %s", e)
+
 async def _memory_monitor():
     while True:
         try:
@@ -204,6 +276,10 @@ async def on_ready():
     if not hasattr(bot, "_memory_monitor_task") or bot._memory_monitor_task.done():
         bot._memory_monitor_task = asyncio.create_task(_memory_monitor())
         log.info("Memory monitor started (5 min interval)")
+
+    if not hasattr(bot, "_queue_consumer_task") or bot._queue_consumer_task.done():
+        bot._queue_consumer_task = asyncio.create_task(_control_queue_consumer())
+        log.info("Control queue consumer started (5s interval)")
 
     try:
         synced = await bot.tree.sync()

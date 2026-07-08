@@ -1158,6 +1158,14 @@ def webhook_sociabuzz(guild_id: str):
 
 
 # ==========================================================
+# Control Queue — file-based bridge antara web & bot
+# ==========================================================
+CONTROL_QUEUE_DIR = os.path.join(_project_root, "control_queue")
+
+def _ensure_queue_dir():
+    os.makedirs(CONTROL_QUEUE_DIR, exist_ok=True)
+
+# ==========================================================
 # API — Message Builder
 # ==========================================================
 
