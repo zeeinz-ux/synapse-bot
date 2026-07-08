@@ -207,6 +207,6 @@ See `backend/.env.example` for the full list. Key variables:
 
 ## License
 
-Proprietary — All Rights Reserved. See `LICENSE` for details.
+Proprietary — All Rights Reserved. See `LICENSE` for the full license agreement.
 
 © 2026 zeeinz-ux. Unauthorized use, reproduction, modification, or distribution is prohibited.
