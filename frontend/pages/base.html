@@ -48,11 +48,14 @@
       {% if s.guilds_list %}
       <div class="guild-selector">
         <label class="selector-label">{{ "base.select_server" | t }}</label>
-        <select class="guild-dropdown" id="guildDropdown" data-current-guild="{{ guild_id }}">
-          {% for guild in s.guilds_list %}
-          <option value="{{ guild.id }}">{{ guild.name }} ({{ guild.member_count }} members)</option>
-          {% endfor %}
-        </select>
+        <div class="guild-selector-current" id="guildSelectorCurrent">
+          <div class="guild-current-icon" id="guildCurrentIcon">?</div>
+          <select class="guild-dropdown" id="guildDropdown" data-current-guild="{{ guild_id }}">
+            {% for guild in s.guilds_list %}
+            <option value="{{ guild.id }}" data-icon="{{ guild.icon or '' }}" data-name="{{ guild.name }}">{{ guild.name }} ({{ guild.member_count }} members)</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
       {% endif %}
       <div class="sidebar-search">
@@ -285,13 +288,32 @@
   <script>
     (function() {
       var currentGuild = "{{ guild_id }}";
-      window.CURRENT_GUILD_ID = currentGuild;  // ← GLOBAL: available for all child scripts
+      window.CURRENT_GUILD_ID = currentGuild;
+
+      function setGuildIcon(sel) {
+        var opt = sel.options[sel.selectedIndex];
+        var iconEl = document.getElementById('guildCurrentIcon');
+        if (!iconEl) return;
+        var icon = opt && opt.dataset.icon;
+        var name = opt && opt.dataset.name;
+        if (icon) {
+          var url = icon.startsWith('http') ? icon : 'https://cdn.discordapp.com/icons/' + opt.value + '/' + icon + '.png';
+          iconEl.style.backgroundImage = 'url(' + url + ')';
+          iconEl.textContent = '';
+        } else {
+          iconEl.style.backgroundImage = '';
+          iconEl.textContent = (name || '?')[0].toUpperCase();
+        }
+      }
+
       ["guildDropdown", "mobileGuildDropdown"].forEach(function(id) {
         var sel = document.getElementById(id);
         if (!sel) return;
         for (var i = 0; i < sel.options.length; i++) {
           if (sel.options[i].value === currentGuild) { sel.options[i].selected = true; break; }
         }
+        setGuildIcon(sel);
+        sel.addEventListener('change', function() { setGuildIcon(this); });
       });
     })();
   </script>

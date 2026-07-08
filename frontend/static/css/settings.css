@@ -10,6 +10,7 @@
 
 .set-server-info { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
 .set-server-icon { width: 64px; height: 64px; border-radius: var(--r-lg); flex-shrink: 0; background-size: cover; background-position: center; background-color: var(--bg-surface3); }
+.set-server-icon.no-icon { display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; color: var(--text-muted); }
 .set-server-name { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; }
 .set-server-id { font-size: 0.8rem; color: var(--text-muted); font-family: monospace; }
 

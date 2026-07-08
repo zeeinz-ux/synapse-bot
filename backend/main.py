@@ -274,7 +274,12 @@ async def update_stats():
             ])
 
         guilds_list = [
-            {"id": str(g.id), "name": g.name, "member_count": g.member_count or 0}
+            {
+                "id": str(g.id),
+                "name": g.name,
+                "member_count": g.member_count or 0,
+                "icon": g.icon.url if g.icon else None
+            }
             for g in bot.guilds
         ]
 

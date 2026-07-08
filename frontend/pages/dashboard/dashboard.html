@@ -42,12 +42,28 @@
     <div class="dash-server-grid">
       {% for g in s.guilds_list %}
       <a href="/dashboard/{{ g.id }}/" class="dash-server-card">
-        <div class="dash-server-name">{{ g.name }}</div>
-        <div class="dash-server-count">{{ g.member_count }} members</div>
+        <div class="dash-server-icon" data-icon="{{ g.icon or '' }}" data-name="{{ g.name }}" data-id="{{ g.id }}"></div>
+        <div>
+          <div class="dash-server-name">{{ g.name }}</div>
+          <div class="dash-server-count">{{ g.member_count }} members</div>
+        </div>
       </a>
       {% endfor %}
     </div>
   </section>
+  <script>
+    document.querySelectorAll('.dash-server-icon').forEach(function(el) {
+      var icon = el.dataset.icon;
+      var name = el.dataset.name;
+      var id = el.dataset.id;
+      if (icon) {
+        var url = icon.startsWith('http') ? icon : 'https://cdn.discordapp.com/icons/' + id + '/' + icon + '.png';
+        el.style.backgroundImage = 'url(' + url + ')';
+      } else {
+        el.textContent = (name || '?')[0].toUpperCase();
+      }
+    });
+  </script>
 
   <footer class="dash-footer">
     <p>Powered by Synapse</p>

@@ -3,6 +3,15 @@
 
   function qs(id){ return document.getElementById(id); }
 
+  function showToast(msg, type){
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:8px;font-size:0.85rem;font-weight:600;z-index:9999;transition:opacity 0.3s;color:#fff;' +
+      (type === 'error' ? 'background:#ed4245;' : 'background:#3ba55c;');
+    document.body.appendChild(t);
+    setTimeout(function(){ t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 300); }, 2500);
+  }
+
   function loadChannels(selId){
     fetch('/api/actions/' + guildId + '/channels')
       .then(function(r){ return r.json(); })
@@ -69,26 +78,43 @@
         qs('setServerId').textContent = 'ID: ' + (g.id || '—');
         qs('setMemberCount').textContent = (g.member_count || 0).toLocaleString();
         // Try to get icon
-        var iconUrl = g.icon ? 'https://cdn.discordapp.com/icons/' + g.id + '/' + g.icon + '.png' : null;
-        if(iconUrl){
-          qs('setServerIcon').style.backgroundImage = 'url(' + iconUrl + ')';
+        var iconEl = qs('setServerIcon');
+        if (g.icon) {
+          var iconUrl = g.icon.startsWith('http') ? g.icon : 'https://cdn.discordapp.com/icons/' + g.id + '/' + g.icon + '.png';
+          iconEl.style.backgroundImage = 'url(' + iconUrl + ')';
+          iconEl.classList.remove('no-icon');
+        } else {
+          iconEl.classList.add('no-icon');
+          iconEl.textContent = (g.name || '?')[0].toUpperCase();
         }
       });
   }
 
-  function loadSettings(){
-    fetch('/api/settings/' + guildId + '/features')
+  function loadConfig(){
+    fetch('/api/settings/' + guildId + '/config')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success){
-          console.warn('[SETTINGS] Gagal muat settings:', d.message || 'unknown');
+        if(!d.success || !d.config){
+          console.warn('[SETTINGS] Gagal muat config:', d && d.message || 'unknown');
           return;
         }
+        var cfg = d.config;
+        // Set log channel
+        var sel = qs('logChannel');
+        if(sel && cfg.log_channel){
+          for(var i=0; i<sel.options.length; i++){
+            if(sel.options[i].value === cfg.log_channel){
+              sel.options[i].selected = true;
+              break;
+            }
+          }
+        }
+        // Set bot language
+        var langSel = qs('botLanguage');
+        if(langSel && cfg.bot_language){
+          langSel.value = cfg.bot_language;
+        }
       });
-
-    // Load stored log channel
-    fetch('/api/settings/' + guildId + '/features')
-      .then(function(){ /* no-op, firebase already has it */ });
   }
 
   // --- Init ---
@@ -96,15 +122,15 @@
     loadGuildInfo();
     loadFeatures();
     loadChannels('logChannel');
-    setTimeout(function(){
-      // Try to load existing log_channel value after channels loaded
-    }, 500);
+    // Load config after channels have time to populate
+    setTimeout(function(){ loadConfig(); }, 600);
 
     // Save logging
     qs('saveLoggingBtn').addEventListener('click', function(){
       var btn = this;
       var data = {
         log_channel: qs('logChannel').value,
+        bot_language: qs('botLanguage').value,
       };
       btn.textContent = '⏳...';
       btn.disabled = true;
@@ -115,10 +141,10 @@
       })
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(d.success) alert('✅ Disimpan!');
-        else alert('❌ ' + (d.message || 'Gagal'));
+        if(d.success) showToast('✅ Disimpan!');
+        else showToast('❌ ' + (d.message || 'Gagal'), 'error');
       })
-      .catch(function(){ alert('❌ Gagal menyimpan'); })
+      .catch(function(){ showToast('❌ Gagal menyimpan', 'error'); })
       .finally(function(){ btn.textContent = '💾 Simpan'; btn.disabled = false; });
     });
 
@@ -127,7 +153,7 @@
       btn.addEventListener('click', function(){
         var feature = this.dataset.feature;
         var name = this.dataset.name;
-        if(!confirm('Reset ' + name + ' ke default?')) return;
+        if(!window.confirm('Reset ' + name + ' ke default?')) return;
         this.textContent = '⏳...';
         fetch('/api/settings/' + guildId + '/reset', {
           method: 'POST',
@@ -137,11 +163,11 @@
         .then(function(r){ return r.json(); })
         .then(function(d){
           if(d.success){
-            alert('✅ ' + name + ' di-reset!');
+            showToast('✅ ' + name + ' di-reset!');
             loadFeatures();
-          } else alert('❌ ' + (d.message || 'Gagal'));
+          } else showToast('❌ ' + (d.message || 'Gagal'), 'error');
         })
-        .catch(function(){ alert('❌ Gagal reset'); })
+        .catch(function(){ showToast('❌ Gagal reset', 'error'); })
         .finally(function(){ btn.textContent = '↻ Reset'; });
       });
     });

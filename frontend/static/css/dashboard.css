@@ -176,11 +176,18 @@ a:hover { text-decoration: underline; }
   display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.75rem;
 }
 .dash-server-card {
-  display: block; padding: 0.75rem 1rem; background: var(--bg-surface);
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem;
+  background: var(--bg-surface);
   border: 1px solid var(--border); border-radius: var(--r-md);
   transition: border-color 0.15s, background 0.15s;
 }
 .dash-server-card:hover { border-color: var(--accent-primary); background: var(--bg-hover); text-decoration: none; }
+.dash-server-icon {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  background-size: cover; background-position: center; background-color: var(--bg-surface3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; font-weight: 700; color: var(--text-muted);
+}
 .dash-server-name { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); }
 .dash-server-count { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; }
 

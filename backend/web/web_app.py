@@ -616,6 +616,7 @@ def _get_filtered_stats():
                     "id": ug["id"],
                     "name": ug["name"],
                     "member_count": bg.get("member_count", 0),
+                    "icon": bg.get("icon") or ug.get("icon"),
                 })
         stats["guilds_list"] = merged
     return stats
@@ -757,6 +758,26 @@ def api_settings_save(guild_id: str):
     except Exception as e:
         print(f"[SETTINGS API] save error: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/settings/<guild_id>/config")
+@login_required
+def api_settings_config(guild_id: str):
+    if db is None:
+        return jsonify({"success": True, "config": {}}), 200
+    try:
+        doc = db.collection("guild_settings").document(guild_id).get()
+        data = doc.to_dict() if doc.exists else {}
+        return jsonify({
+            "success": True,
+            "config": {
+                "log_channel": data.get("log_channel", ""),
+                "bot_language": data.get("bot_language", "id"),
+            }
+        }), 200
+    except Exception as e:
+        print(f"[SETTINGS API] config error: {e}")
+        return jsonify({"success": False, "config": {}}), 500
 
 
 @app.route("/api/settings/<guild_id>/reset", methods=["POST"])
