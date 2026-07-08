@@ -17,6 +17,7 @@ import requests
 from functools import wraps
 from datetime import datetime, timezone
 from PIL import Image
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 # ==========================================================
 # Import relative dari dalam backend/ folder
@@ -220,7 +221,7 @@ def api_boost_stats(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
     try:
-        docs = list(db.collection("boosts").where(filter=("guild_id", "==", str(guild_id))).stream())
+        docs = list(db.collection("boosts").where(filter=FieldFilter("guild_id", "==", str(guild_id))).stream())
         # Resolve user info
         bot_guilds = current_app.config.get("BOT_GUILDS", {})
         guild_data = bot_guilds.get(str(guild_id), {})
@@ -288,7 +289,7 @@ def api_donation_history(guild_id: str):
         return jsonify({"success": False, "donations": [], "message": "Firebase unavailable"}), 200
     try:
         docs = list(db.collection("transactions")
-                     .where(filter=("guild_id", "==", str(guild_id)))
+                     .where(filter=FieldFilter("guild_id", "==", str(guild_id)))
                      .limit(50).stream())
         docs = [d for d in docs if d.to_dict().get("created_at") is not None]
         docs.sort(key=lambda d: d.to_dict()["created_at"], reverse=True)
@@ -328,7 +329,7 @@ def api_donation_stats(guild_id: str):
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
     try:
         docs = list(db.collection("transactions")
-                     .where(filter=("guild_id", "==", str(guild_id)))
+                     .where(filter=FieldFilter("guild_id", "==", str(guild_id)))
                      .stream())
         # Resolve user info
         bot_guilds = current_app.config.get("BOT_GUILDS", {})
