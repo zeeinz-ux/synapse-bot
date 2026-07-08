@@ -140,7 +140,7 @@
     div.innerHTML =
       '<div class="mb-field-item-header">'
       + '<span>Field #' + (idx + 1) + '</span>'
-      + '<div>'
+      + '<div class="btn-group">'
       + '<button type="button" class="btn-reorder-field btn-move-up" title="Naik">&#9650;</button>'
       + '<button type="button" class="btn-reorder-field btn-move-down" title="Turun">&#9660;</button>'
       + '<button type="button" class="btn-remove-field" title="Hapus">&#10005;</button>'
@@ -259,6 +259,21 @@
       });
   }
 
+  // ── Collapsible: Media & Footer ──
+  function initCollapsible(){
+    var toggle = document.getElementById('mbMediaToggle');
+    var body = document.getElementById('mbMediaBody');
+    var arrow = document.getElementById('mbMediaArrow');
+    if(!toggle || !body) return;
+    // Start collapsed
+    body.classList.add('hidden');
+    arrow.classList.add('collapsed');
+    toggle.addEventListener('click', function(){
+      body.classList.toggle('hidden');
+      arrow.classList.toggle('collapsed');
+    });
+  }
+
   // --- Init ---
   document.addEventListener('DOMContentLoaded', function(){
     // Bind inputs to preview + char count
@@ -292,6 +307,7 @@
       if(inp) updateCharCount(inp);
     }
 
+    initCollapsible();
     if(document.getElementById('mbAddField')) addField('','',false);
     renderPreview();
 

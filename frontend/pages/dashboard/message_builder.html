@@ -19,112 +19,151 @@
   </div>
 
   <div class="mb-layout">
-    <!-- Editor -->
+    <!-- LEFT: Editor -->
     <div class="mb-editor" id="mbEditorForm">
-      <div class="mb-section">
-        <div class="mb-section-title">Content</div>
-        <div class="mb-field">
-          <label>Plain text (opsional, dikirim sebelum embed)</label>
-          <input type="text" id="mbContent" placeholder="@everyone Cek announcement baru!">
-        </div>
-      </div>
 
-      <div class="mb-section">
-        <div class="mb-section-title">Embed</div>
-        <div class="mb-field">
-          <label>Title <span class="mb-char-count" data-for="mbTitle">0/256</span></label>
-          <input type="text" id="mbTitle" placeholder="Judul embed" maxlength="256">
+      <!-- Card: Basic Content -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">&#9998;</span>
+          <div class="card-title-group">
+            <h2>Basic Content</h2>
+            <p>Plain text dan embed utama</p>
+          </div>
         </div>
-        <div class="mb-field">
-          <label>Description <span class="mb-char-count" data-for="mbDesc">0/4096</span></label>
-          <textarea id="mbDesc" rows="3" placeholder="Deskripsi embed..." maxlength="4096"></textarea>
-        </div>
-        <div class="mb-field">
-          <label>Color</label>
-          <div class="mb-color-row">
-            <input type="color" id="mbColorPicker" value="#5865f2">
-            <input type="text" id="mbColor" value="5865f2" placeholder="5865f2">
+        <div class="card-body">
+          <div class="mb-field">
+            <label>Plain text <span class="mb-field-hint">(opsional, dikirim sebelum embed)</span></label>
+            <input type="text" id="mbContent" placeholder="@everyone Cek announcement baru!">
+          </div>
+          <div class="mb-field">
+            <label>Title <span class="mb-char-count" data-for="mbTitle">0/256</span></label>
+            <input type="text" id="mbTitle" placeholder="Judul embed" maxlength="256">
+          </div>
+          <div class="mb-field">
+            <label>Description <span class="mb-char-count" data-for="mbDesc">0/4096</span></label>
+            <textarea id="mbDesc" rows="3" placeholder="Deskripsi embed..." maxlength="4096"></textarea>
+          </div>
+          <div class="mb-field">
+            <label>Color</label>
+            <div class="mb-color-row">
+              <input type="color" id="mbColorPicker" value="#5865f2">
+              <input type="text" id="mbColor" value="5865f2" placeholder="5865f2">
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="mb-section">
-        <div class="mb-section-title">Author</div>
-        <div class="mb-field">
-          <label>Name</label>
-          <input type="text" id="mbAuthorName" placeholder="Nama author">
+      <!-- Card: Media & Footer (collapsible) -->
+      <div class="card">
+        <div class="card-header card-header-collapsible" id="mbMediaToggle">
+          <span class="card-icon">&#128247;</span>
+          <div class="card-title-group">
+            <h2>Media &amp; Footer</h2>
+            <p>Author, gambar, dan footer embed</p>
+          </div>
+          <span class="collapse-arrow" id="mbMediaArrow">&#9660;</span>
         </div>
-        <div class="mb-field">
-          <label>Icon URL</label>
-          <div class="mb-url-row">
-            <input type="text" id="mbAuthorIcon" placeholder="https://...">
-            <button type="button" class="btn-pick-image" data-target="mbAuthorIcon" title="Pilih dari upload">Pilih</button>
+        <div class="card-body card-body-collapsible" id="mbMediaBody">
+          <div class="mb-field">
+            <label>Author Name</label>
+            <input type="text" id="mbAuthorName" placeholder="Nama author">
+          </div>
+          <div class="mb-field">
+            <label>Author Icon</label>
+            <div class="mb-url-row">
+              <input type="text" id="mbAuthorIcon" placeholder="https://...">
+              <button type="button" class="btn-pick-image" data-target="mbAuthorIcon">Pilih</button>
+            </div>
+          </div>
+          <div class="mb-field">
+            <label>Thumbnail URL</label>
+            <div class="mb-url-row">
+              <input type="text" id="mbThumb" placeholder="https://...">
+              <button type="button" class="btn-pick-image" data-target="mbThumb">Pilih</button>
+            </div>
+          </div>
+          <div class="mb-field">
+            <label>Image URL</label>
+            <div class="mb-url-row">
+              <input type="text" id="mbImage" placeholder="https://...">
+              <button type="button" class="btn-pick-image" data-target="mbImage">Pilih</button>
+            </div>
+          </div>
+          <div class="mb-field">
+            <label>Footer Text <span class="mb-char-count" data-for="mbFooterText">0/2048</span></label>
+            <input type="text" id="mbFooterText" placeholder="Footer text" maxlength="2048">
+          </div>
+          <div class="mb-field">
+            <label>Footer Icon</label>
+            <div class="mb-url-row">
+              <input type="text" id="mbFooterIcon" placeholder="https://...">
+              <button type="button" class="btn-pick-image" data-target="mbFooterIcon">Pilih</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="mb-section">
-        <div class="mb-section-title">Media</div>
-        <div class="mb-field">
-          <label>Thumbnail URL</label>
-          <div class="mb-url-row">
-            <input type="text" id="mbThumb" placeholder="https://...">
-            <button type="button" class="btn-pick-image" data-target="mbThumb" title="Pilih dari upload">Pilih</button>
+      <!-- Card: Fields -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">&#9776;</span>
+          <div class="card-title-group">
+            <h2>Fields</h2>
+            <p>Field tambahan untuk embed</p>
           </div>
         </div>
-        <div class="mb-field">
-          <label>Image URL</label>
-          <div class="mb-url-row">
-            <input type="text" id="mbImage" placeholder="https://...">
-            <button type="button" class="btn-pick-image" data-target="mbImage" title="Pilih dari upload">Pilih</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="mb-section">
-        <div class="mb-section-title">Fields</div>
-        <div class="mb-fields-list" id="mbFieldsList"></div>
-        <button type="button" class="btn-add-field" id="mbAddField">+ Tambah Field</button>
-      </div>
-
-      <div class="mb-section">
-        <div class="mb-section-title">Footer</div>
-        <div class="mb-field">
-          <label>Text <span class="mb-char-count" data-for="mbFooterText">0/2048</span></label>
-          <input type="text" id="mbFooterText" placeholder="Footer text" maxlength="2048">
-        </div>
-        <div class="mb-field">
-          <label>Icon URL</label>
-          <div class="mb-url-row">
-            <input type="text" id="mbFooterIcon" placeholder="https://...">
-            <button type="button" class="btn-pick-image" data-target="mbFooterIcon" title="Pilih dari upload">Pilih</button>
-          </div>
+        <div class="card-body">
+          <div class="mb-fields-list" id="mbFieldsList"></div>
+          <button type="button" class="btn-add-field" id="mbAddField">+ Tambah Field</button>
         </div>
       </div>
     </div>
 
-    <!-- Preview + Actions -->
-    <div>
-      <div class="mb-preview">
-        <div class="mb-preview-title">Live Preview</div>
-        <div id="mbPreviewInner">
-          <div class="mb-empty-preview">Isi form di samping untuk melihat preview</div>
+    <!-- RIGHT: Preview + Actions -->
+    <div class="mb-sidebar">
+
+      <!-- Card: Preview -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">&#128065;</span>
+          <div class="card-title-group">
+            <h2>Live Preview</h2>
+            <p>Hasil embed akan tampil di sini</p>
+          </div>
+        </div>
+        <div class="card-body card-body-preview">
+          <div id="mbPreviewInner">
+            <div class="mb-empty-preview">Isi form di samping untuk melihat preview</div>
+          </div>
         </div>
       </div>
 
-      <div class="mb-field" style="margin-top:1rem;">
-        <label>Kirim ke channel</label>
-        <select id="mbChannel">
-          <option value="">— Pilih channel —</option>
-        </select>
+      <!-- Card: Send & Manage -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">&#10148;</span>
+          <div class="card-title-group">
+            <h2>Send &amp; Manage</h2>
+            <p>Kirim atau kelola template embed</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="mb-field">
+            <label>Kirim ke channel</label>
+            <select id="mbChannel">
+              <option value="">— Pilih channel —</option>
+            </select>
+          </div>
+          <div class="mb-actions">
+            <button class="btn btn-primary" id="mbSendBtn">Kirim</button>
+            <button class="btn btn-secondary" id="mbSaveBtn">Simpan</button>
+            <button class="btn btn-secondary" id="mbLoadBtn">Load</button>
+            <button class="btn btn-secondary btn-danger" id="mbClearBtn">Reset</button>
+          </div>
+        </div>
       </div>
 
-      <div class="mb-actions">
-        <button class="btn btn-send" id="mbSendBtn">Kirim</button>
-        <button class="btn btn-save" id="mbSaveBtn">Simpan</button>
-        <button class="btn btn-load" id="mbLoadBtn">Load</button>
-        <button class="btn btn-clear" id="mbClearBtn">Reset</button>
-      </div>
     </div>
   </div>
 </div>
