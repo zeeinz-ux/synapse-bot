@@ -683,12 +683,12 @@ def dashboard():
         first_id = str(guilds[0].get("id", ""))
         if first_id:
             return redirect(f"/dashboard/{first_id}/")
-    return _render_page("dashboard.html", active_page="main", guild_id="")
+    return _render_page("dashboard/dashboard.html", active_page="main", guild_id="")
 
 @app.route("/dashboard/<guild_id>/")
 @login_required
 def dashboard_guild(guild_id: str):
-    return _render_page("dashboard.html", active_page="main", guild_id=guild_id)
+    return _render_page("dashboard/dashboard.html", active_page="main", guild_id=guild_id)
 
 # ==========================================================
 # API — Settings
@@ -778,7 +778,7 @@ def api_settings_reset(guild_id: str):
 @app.route("/dashboard/<guild_id>/settings")
 @login_required
 def settings_page(guild_id: str):
-    return _render_page("settings.html", active_page="settings", guild_id=guild_id)
+    return _render_page("dashboard/settings.html", active_page="settings", guild_id=guild_id)
 
 # ==========================================================
 # ROUTES — Welcome / Announcements
@@ -808,7 +808,7 @@ def welcome_settings(guild_id: str):
     config = {**defaults, **current_config}
 
     return _render_page(
-        "welcome_settings.html",
+        "dashboard/welcome_settings.html",
         active_page="welcome",
         guild_id=guild_id,
         channels=channels,
@@ -840,7 +840,7 @@ def welcome_leave(guild_id: str):
     config = {**defaults, **current_config}
 
     return _render_page(
-        "leave_settings.html",
+        "dashboard/leave_settings.html",
         active_page="leave",
         guild_id=guild_id,
         channels=channels,
@@ -872,7 +872,7 @@ def welcome_ban(guild_id: str):
     config = {**defaults, **current_config}
 
     return _render_page(
-        "ban_settings.html",
+        "dashboard/ban_settings.html",
         active_page="ban",
         guild_id=guild_id,
         channels=channels,
@@ -904,7 +904,7 @@ def welcome_boost(guild_id: str):
     config = {**defaults, **current_config}
 
     return _render_page(
-        "boost_announce.html",
+        "dashboard/boost_announce.html",
         active_page="boost_welcome",
         guild_id=guild_id,
         channels=channels,
@@ -917,12 +917,12 @@ def welcome_boost(guild_id: str):
 @app.route("/dashboard/<guild_id>/boost")
 @login_required
 def boost_tracker(guild_id: str):
-    return _render_page("boost_settings.html", active_page="boost_tracker", guild_id=guild_id)
+    return _render_page("dashboard/boost_settings.html", active_page="boost_tracker", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/boost/stats")
 @login_required
 def boost_stats(guild_id: str):
-    return _render_page("boost_settings.html", active_page="boost_stats", guild_id=guild_id)
+    return _render_page("dashboard/boost_settings.html", active_page="boost_stats", guild_id=guild_id)
 
 # ==========================================================
 # ROUTES — Donation
@@ -930,17 +930,17 @@ def boost_stats(guild_id: str):
 @app.route("/dashboard/<guild_id>/donation")
 @login_required
 def donation_tracker(guild_id: str):
-    return _render_page("donation_settings.html", active_page="donation", guild_id=guild_id)
+    return _render_page("dashboard/donation_settings.html", active_page="donation", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/donation/stats")
 @login_required
 def donation_stats(guild_id: str):
-    return _render_page("donation_settings.html", active_page="donation_stats", guild_id=guild_id)
+    return _render_page("dashboard/donation_settings.html", active_page="donation_stats", guild_id=guild_id)
 
 @login_required
 @app.route("/dashboard/<guild_id>/donation/settings")
 def donation_settings_page(guild_id: str):
-    return _render_page("donation_settings.html", active_page="donation_settings", guild_id=guild_id)
+    return _render_page("dashboard/donation_settings.html", active_page="donation_settings", guild_id=guild_id)
 
 @login_required
 @app.route("/api/donations/<guild_id>/settings", methods=["GET"])
@@ -1232,7 +1232,7 @@ def api_mb_send(guild_id: str):
 @app.route("/dashboard/<guild_id>/message-builder")
 @login_required
 def message_builder(guild_id: str):
-    return _render_page("message_builder.html", active_page="message_builder", guild_id=guild_id)
+    return _render_page("dashboard/message_builder.html", active_page="message_builder", guild_id=guild_id)
 
 
 # ==========================================================
@@ -1368,7 +1368,7 @@ def api_templates_add_autoresponder(guild_id: str):
 @app.route("/dashboard/<guild_id>/templates")
 @login_required
 def templates_page(guild_id: str):
-    return _render_page("templates.html", active_page="templates", guild_id=guild_id)
+    return _render_page("dashboard/templates.html", active_page="templates", guild_id=guild_id)
 
 # ==========================================================
 # API — Actions (Level Rewards + Moderation Config)
@@ -1494,12 +1494,12 @@ def api_actions_moderation_save(guild_id: str):
 @app.route("/dashboard/<guild_id>/actions")
 @login_required
 def actions_page(guild_id: str):
-    return _render_page("actions.html", active_page="actions", guild_id=guild_id)
+    return _render_page("dashboard/actions.html", active_page="actions", guild_id=guild_id)
 
 @app.route("/dashboard/<guild_id>/auto-responders")
 @login_required
 def auto_responders(guild_id: str):
-    return _render_page("auto_responders.html", active_page="auto_responders", guild_id=guild_id)
+    return _render_page("dashboard/auto_responders.html", active_page="auto_responders", guild_id=guild_id)
 
 
 # ============================================================================
@@ -1758,7 +1758,7 @@ _MOD_DEFAULTS = {
 @app.route("/dashboard/<guild_id>/anti-spam")
 @login_required
 def anti_spam_page(guild_id: str):
-    return _render_page("anti_spam.html", active_page="anti_spam", guild_id=guild_id)
+    return _render_page("dashboard/anti_spam.html", active_page="anti_spam", guild_id=guild_id)
 
 @app.route("/api/anti-spam/<guild_id>/config")
 def api_anti_spam_config(guild_id: str):
@@ -1850,7 +1850,7 @@ def ai_chat_page(guild_id: str):
         pass
 
     return _render_page(
-        "ai_chat.html",
+        "dashboard/ai_chat.html",
         active_page="ai_chat",
         guild_id=guild_id,
         channels=channels,

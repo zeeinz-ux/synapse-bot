@@ -127,7 +127,8 @@ discord-bot/
 │   │   └── backup_firestore.py # Firestore backup & restore CLI
 │   └── main.py                # Bot entrypoint (setup_hook auto-loads cogs)
 ├── frontend/
-│   ├── pages/                 # 19 Jinja2 HTML pages
+│   ├── pages/                 # Jinja2 HTML pages
+│   │   ├── dashboard/         # Dashboard pages (extends base.html)
 │   │   └── partials/          # navbar, footer, layout partials
 │   └── static/
 │       ├── css/               # Page-specific stylesheets
