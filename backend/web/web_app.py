@@ -700,6 +700,7 @@ def dashboard_guild(guild_id: str):
 # ==========================================================
 
 @app.route("/api/settings/<guild_id>/info")
+@login_required
 def api_settings_info(guild_id: str):
     try:
         stats = get_stats_snapshot()
@@ -715,6 +716,7 @@ def api_settings_info(guild_id: str):
 
 
 @app.route("/api/settings/<guild_id>/features")
+@login_required
 def api_settings_features(guild_id: str):
     if db is None:
         return jsonify({"success": True, "features": {}}), 200
@@ -738,6 +740,7 @@ def api_settings_features(guild_id: str):
 
 
 @app.route("/api/settings/<guild_id>/save", methods=["POST"])
+@login_required
 def api_settings_save(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -757,6 +760,7 @@ def api_settings_save(guild_id: str):
 
 
 @app.route("/api/settings/<guild_id>/reset", methods=["POST"])
+@login_required
 def api_settings_reset(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -942,21 +946,21 @@ def donation_tracker(guild_id: str):
 def donation_stats(guild_id: str):
     return _render_page("dashboard/donation_settings.html", active_page="donation_stats", guild_id=guild_id)
 
-@login_required
 @app.route("/dashboard/<guild_id>/donation/settings")
+@login_required
 def donation_settings_page(guild_id: str):
     return _render_page("dashboard/donation_settings.html", active_page="donation_settings", guild_id=guild_id)
 
-@login_required
 @app.route("/api/donations/<guild_id>/settings", methods=["GET"])
+@login_required
 def api_donation_get_settings(guild_id: str):
     cfg = _get_feature_config(str(guild_id), "donation_settings")
     defaults = {"enabled": True, "channel_id": "", "min_amount": 0, "webhook_url": "", "thank_you_message": ""}
     return jsonify({"success": True, "config": {**defaults, **cfg}}), 200
 
 
-@login_required
 @app.route("/api/donations/<guild_id>/settings", methods=["POST"])
+@login_required
 def api_donation_save_settings(guild_id: str):
     payload = request.get_json(silent=True) or {}
     if db is None:
@@ -1158,6 +1162,7 @@ def webhook_sociabuzz(guild_id: str):
 # ==========================================================
 
 @app.route("/api/message-builder/<guild_id>/channels")
+@login_required
 def api_mb_channels(guild_id: str):
     try:
         bot_guilds = current_app.config.get("BOT_GUILDS", {})
@@ -1178,6 +1183,7 @@ def api_mb_channels(guild_id: str):
 
 
 @app.route("/api/message-builder/<guild_id>/templates", methods=["GET"])
+@login_required
 def api_mb_templates_list(guild_id: str):
     if db is None:
         return jsonify({"success": False, "templates": []}), 200
@@ -1188,7 +1194,7 @@ def api_mb_templates_list(guild_id: str):
         for tid, tpl in templates.items():
             tpl["id"] = tid
             result.append(tpl)
-        result.sort(key=lambda t: t.get("updated_at", ""), reverse=True)
+        result.sort(key=lambda t: t.get("updated_at") or 0, reverse=True)
         return jsonify({"success": True, "templates": result}), 200
     except Exception as e:
         print(f"[MB API] ❌ templates list error: {e}")
@@ -1196,6 +1202,7 @@ def api_mb_templates_list(guild_id: str):
 
 
 @app.route("/api/message-builder/<guild_id>/templates", methods=["POST"])
+@login_required
 def api_mb_templates_save(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1218,6 +1225,7 @@ def api_mb_templates_save(guild_id: str):
 
 
 @app.route("/api/message-builder/<guild_id>/templates/<template_id>", methods=["DELETE"])
+@login_required
 def api_mb_templates_delete(guild_id: str, template_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1232,6 +1240,7 @@ def api_mb_templates_delete(guild_id: str, template_id: str):
 
 
 @app.route("/api/message-builder/<guild_id>/send", methods=["POST"])
+@login_required
 def api_mb_send(guild_id: str):
     try:
         data = request.get_json() or {}
@@ -1409,6 +1418,7 @@ def templates_page(guild_id: str):
 # ==========================================================
 
 @app.route("/api/actions/<guild_id>/roles")
+@login_required
 def api_actions_roles(guild_id: str):
     try:
         roles = get_guild_roles(str(guild_id))
@@ -1420,6 +1430,7 @@ def api_actions_roles(guild_id: str):
 
 
 @app.route("/api/actions/<guild_id>/channels")
+@login_required
 def api_actions_channels(guild_id: str):
     try:
         chs = get_guild_channels(str(guild_id))
@@ -1430,6 +1441,7 @@ def api_actions_channels(guild_id: str):
 
 
 @app.route("/api/actions/<guild_id>/level-rewards", methods=["GET"])
+@login_required
 def api_actions_level_rewards_get(guild_id: str):
     if db is None:
         return jsonify({"success": False, "enabled": False, "rewards": [], "notify_channel": ""}), 200
@@ -1452,6 +1464,7 @@ def api_actions_level_rewards_get(guild_id: str):
 
 
 @app.route("/api/actions/<guild_id>/level-rewards", methods=["POST"])
+@login_required
 def api_actions_level_rewards_save(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1478,6 +1491,7 @@ def api_actions_level_rewards_save(guild_id: str):
 
 
 @app.route("/api/actions/<guild_id>/moderation", methods=["GET"])
+@login_required
 def api_actions_moderation_get(guild_id: str):
     if db is None:
         return jsonify({"success": False, "enabled": True}), 200
@@ -1501,6 +1515,7 @@ def api_actions_moderation_get(guild_id: str):
 
 
 @app.route("/api/actions/<guild_id>/moderation", methods=["POST"])
+@login_required
 def api_actions_moderation_save(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1795,6 +1810,7 @@ def anti_spam_page(guild_id: str):
     return _render_page("dashboard/anti_spam.html", active_page="anti_spam", guild_id=guild_id)
 
 @app.route("/api/anti-spam/<guild_id>/config")
+@login_required
 def api_anti_spam_config(guild_id: str):
     try:
         doc = db.collection("guild_settings").document(guild_id).get()
@@ -1806,6 +1822,7 @@ def api_anti_spam_config(guild_id: str):
         return jsonify({"success": False, "config": _MOD_DEFAULTS}), 200
 
 @app.route("/api/anti-spam/<guild_id>/save", methods=["POST"])
+@login_required
 def api_anti_spam_save(guild_id: str):
     try:
         payload = request.get_json(silent=True) or {}
@@ -1854,6 +1871,29 @@ def api_guild_channels(guild_id: str):
     # whatever we have; frontend shows friendly empty-state message.
     channels = get_guild_channels(str(guild_id))
     return jsonify({"success": True, "channels": channels or [], "count": len(channels or [])}), 200
+
+
+@app.route("/api/guilds/<guild_id>/images", methods=["GET"])
+@login_required
+def api_guild_images(guild_id: str):
+    images = []
+    if db is None:
+        return jsonify({"success": False, "images": [], "message": "Firestore tidak tersedia"}), 503
+    try:
+        doc = db.collection("guild_settings").document(str(guild_id)).get()
+        if not doc.exists:
+            return jsonify({"success": True, "images": []}), 200
+        data = doc.to_dict()
+        for feat in ("welcome", "leave", "ban", "boost_announce"):
+            cfg = data.get(feat, {})
+            for field, label in [("bg_image_url", "Background"), ("banner_bg_url", "Banner")]:
+                url = cfg.get(field, "").strip()
+                if url:
+                    images.append({"url": url, "label": f"{feat} {label}", "source": feat})
+    except Exception as e:
+        print(f"[WEB-IMAGES] ❌ Gagal baca Firestore: {e}")
+        return jsonify({"success": False, "images": [], "message": str(e)}), 500
+    return jsonify({"success": True, "images": images, "count": len(images)}), 200
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2344,8 +2384,8 @@ def save_welcome_ban(guild_id: str):
 # ==========================================================
 # ROUTES — Boost Announce Save (POST)
 # ==========================================================
-@login_required
 @app.route("/dashboard/<guild_id>/welcome/boost/save", methods=["POST"])
+@login_required
 def save_welcome_boost(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500

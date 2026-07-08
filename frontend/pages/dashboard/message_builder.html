@@ -13,7 +13,7 @@
 
   <div class="mb-header">
     <div>
-      <h1>✏️ Message Builder</h1>
+      <h1>Message Builder</h1>
       <p>Buat embed message visual, simpan template, dan kirim ke channel Discord.</p>
     </div>
   </div>
@@ -22,7 +22,7 @@
     <!-- Editor -->
     <div class="mb-editor" id="mbEditorForm">
       <div class="mb-section">
-        <div class="mb-section-title">📝 Content</div>
+        <div class="mb-section-title">Content</div>
         <div class="mb-field">
           <label>Plain text (opsional, dikirim sebelum embed)</label>
           <input type="text" id="mbContent" placeholder="@everyone Cek announcement baru!">
@@ -30,14 +30,14 @@
       </div>
 
       <div class="mb-section">
-        <div class="mb-section-title">🎨 Embed</div>
+        <div class="mb-section-title">Embed</div>
         <div class="mb-field">
-          <label>Title</label>
-          <input type="text" id="mbTitle" placeholder="Judul embed">
+          <label>Title <span class="mb-char-count" data-for="mbTitle">0/256</span></label>
+          <input type="text" id="mbTitle" placeholder="Judul embed" maxlength="256">
         </div>
         <div class="mb-field">
-          <label>Description</label>
-          <textarea id="mbDesc" rows="3" placeholder="Deskripsi embed..."></textarea>
+          <label>Description <span class="mb-char-count" data-for="mbDesc">0/4096</span></label>
+          <textarea id="mbDesc" rows="3" placeholder="Deskripsi embed..." maxlength="4096"></textarea>
         </div>
         <div class="mb-field">
           <label>Color</label>
@@ -49,44 +49,56 @@
       </div>
 
       <div class="mb-section">
-        <div class="mb-section-title">👤 Author</div>
+        <div class="mb-section-title">Author</div>
         <div class="mb-field">
           <label>Name</label>
           <input type="text" id="mbAuthorName" placeholder="Nama author">
         </div>
         <div class="mb-field">
           <label>Icon URL</label>
-          <input type="text" id="mbAuthorIcon" placeholder="https://...">
+          <div class="mb-url-row">
+            <input type="text" id="mbAuthorIcon" placeholder="https://...">
+            <button type="button" class="btn-pick-image" data-target="mbAuthorIcon" title="Pilih dari upload">Pilih</button>
+          </div>
         </div>
       </div>
 
       <div class="mb-section">
-        <div class="mb-section-title">🖼 Media</div>
+        <div class="mb-section-title">Media</div>
         <div class="mb-field">
           <label>Thumbnail URL</label>
-          <input type="text" id="mbThumb" placeholder="https://...">
+          <div class="mb-url-row">
+            <input type="text" id="mbThumb" placeholder="https://...">
+            <button type="button" class="btn-pick-image" data-target="mbThumb" title="Pilih dari upload">Pilih</button>
+          </div>
         </div>
         <div class="mb-field">
           <label>Image URL</label>
-          <input type="text" id="mbImage" placeholder="https://...">
+          <div class="mb-url-row">
+            <input type="text" id="mbImage" placeholder="https://...">
+            <button type="button" class="btn-pick-image" data-target="mbImage" title="Pilih dari upload">Pilih</button>
+          </div>
         </div>
       </div>
 
       <div class="mb-section">
-        <div class="mb-section-title">📋 Fields</div>
+        <div class="mb-section-title">Fields</div>
         <div class="mb-fields-list" id="mbFieldsList"></div>
         <button type="button" class="btn-add-field" id="mbAddField">+ Tambah Field</button>
       </div>
 
       <div class="mb-section">
-        <div class="mb-section-title">🔻 Footer</div>
+        <div class="mb-section-title">Footer</div>
         <div class="mb-field">
-          <label>Text</label>
-          <input type="text" id="mbFooterText" placeholder="Footer text">
+          <label>Text <span class="mb-char-count" data-for="mbFooterText">0/2048</span></label>
+          <input type="text" id="mbFooterText" placeholder="Footer text" maxlength="2048">
         </div>
         <div class="mb-field">
           <label>Icon URL</label>
-          <input type="text" id="mbFooterIcon" placeholder="https://...">
+          <div class="mb-url-row">
+            <input type="text" id="mbFooterIcon" placeholder="https://...">
+            <button type="button" class="btn-pick-image" data-target="mbFooterIcon" title="Pilih dari upload">Pilih</button>
+          </div>
         </div>
       </div>
     </div>
@@ -94,7 +106,7 @@
     <!-- Preview + Actions -->
     <div>
       <div class="mb-preview">
-        <div class="mb-preview-title">👁 Live Preview</div>
+        <div class="mb-preview-title">Live Preview</div>
         <div id="mbPreviewInner">
           <div class="mb-empty-preview">Isi form di samping untuk melihat preview</div>
         </div>
@@ -108,10 +120,10 @@
       </div>
 
       <div class="mb-actions">
-        <button class="btn btn-send" id="mbSendBtn">📤 Kirim</button>
-        <button class="btn btn-save" id="mbSaveBtn">💾 Simpan</button>
-        <button class="btn btn-load" id="mbLoadBtn">📂 Load</button>
-        <button class="btn btn-clear" id="mbClearBtn">🗑 Reset</button>
+        <button class="btn btn-send" id="mbSendBtn">Kirim</button>
+        <button class="btn btn-save" id="mbSaveBtn">Simpan</button>
+        <button class="btn btn-load" id="mbLoadBtn">Load</button>
+        <button class="btn btn-clear" id="mbClearBtn">Reset</button>
       </div>
     </div>
   </div>
@@ -120,13 +132,27 @@
 <!-- Load Template Modal -->
 <div class="modal-overlay" id="mbLoadModal">
   <div class="modal-box">
-    <h3>📂 Load Template</h3>
+    <h3>Load Template</h3>
     <p>Pilih template yang tersimpan untuk dimuat.</p>
     <div class="template-list" id="mbTemplateList">
       <div style="padding:1rem;text-align:center;color:#888;">Memuat...</div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-cancel" id="mbLoadClose">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Image Gallery Modal -->
+<div class="modal-overlay" id="mbGalleryModal">
+  <div class="modal-box modal-gallery">
+    <h3>Pilih Gambar</h3>
+    <p>Klik gambar untuk mengisi URL field.</p>
+    <div class="gallery-grid" id="mbGalleryGrid">
+      <div class="gallery-empty">Memuat gambar...</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" id="mbGalleryClose">Tutup</button>
     </div>
   </div>
 </div>

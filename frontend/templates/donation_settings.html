@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}{% if active_page == 'donation_stats' %}Statistik Donasi{% elif active_page == 'donation_settings' %}Pengaturan Donasi{% else %}Donasi{% endif %} — Synapse{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/donation_settings.css') }}" />
+{% endblock %}
+{% block content %}
+<div class="toast" id="toast" role="alert" aria-live="polite">
+</div>
+<div id="donationPage">
+<div class="page-wrap">
+  <nav class="breadcrumb">
+    <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
+    <span>›</span>
+    <span>Donasi</span>
+    {% if active_page == 'donation_stats' %}
+    <span>›</span>
+    <span>Statistik</span>
+    {% elif active_page == 'donation_settings' %}
+    <span>›</span>
+    <span>Pengaturan</span>
+    {% endif %}
+  </nav>
+
+  <div class="page-header">
+    <h1>{% if active_page == 'donation_stats' %}📈 Statistik Donasi{% elif active_page == 'donation_settings' %}⚙️ Pengaturan Donasi{% else %}💳 Donasi{% endif %}</h1>
+    <p>Kelola riwayat donasi, top donor, dan statistik kontribusi server.</p>
+  </div>
+
+  {% if active_page == 'donation_settings' %}
+  <div class="status-banner" id="donationStatusBanner">
+    <span class="status-dot"></span>
+    <span id="donationStatusText">Memuat...</span>
+  </div>
+  {% endif %}
+
+  {% if active_page == 'donation_stats' %}
+  <div class="donation-stats-grid" id="donationStatsGrid">
+    <div class="stat-card">
+      <div class="stat-value" id="statTotalCount">—</div>
+      <div class="stat-label">Total Transaksi</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value accent-teal" id="statTotalAmount">—</div>
+      <div class="stat-label">Total Donasi</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value accent-yellow" id="statAverage">—</div>
+      <div class="stat-label">Rata-rata</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value accent-green" id="statCompleted">—</div>
+      <div class="stat-label">Selesai</div>
+    </div>
+  </div>
+
+  <div class="stats-grid-2col">
+    <div class="card">
+      <h3 class="section-title">🏆 Top Donor</h3>
+      <ul class="top-donors-list" id="topDonorsBody">
+        <li class="loading-item">Memuat...</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 class="section-title">💳 Metode Pembayaran</h3>
+      <ul class="method-list" id="methodBody">
+        <li class="loading-item">Memuat...</li>
+      </ul>
+    </div>
+  </div>
+
+  {% elif active_page == 'donation_settings' %}
+  <form id="donationSettingsForm" novalidate>
+    <div class="card">
+      <h3 class="section-title">⚙️ Pengaturan Dasar</h3>
+      <div class="form-group">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-label">Fitur Donasi</span>
+            <span class="toggle-hint">Aktifkan/nonaktifkan pencatatan donasi di server ini</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="donation-enabled" checked />
+            <span class="switch-track"></span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="donation-channel">Log Channel</label>
+        <select id="donation-channel" class="form-control">
+          <option value="">— Tidak ada (nonaktif) —</option>
+        </select>
+        <div class="form-hint">Notifikasi donasi masuk & konfirmasi akan dikirim ke channel ini.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="donation-min-amount">Minimal Donasi (Rp)</label>
+        <input type="number" id="donation-min-amount" class="form-control" min="0" value="0" placeholder="0 = tidak ada minimal" />
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="section-title">🔔 Notifikasi Webhook</h3>
+      <div class="form-group">
+        <label class="form-label" for="donation-webhook-url">Discord Webhook URL</label>
+        <input type="url" id="donation-webhook-url" class="form-control" placeholder="https://discord.com/api/webhooks/..." />
+        <div class="form-hint">Buat webhook di channel Discord → copy URL → paste di sini. Notifikasi otomatis terkirim via webhook (tanpa bot).</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="donation-thank-you">Pesan Ucapan Terima Kasih</label>
+        <textarea id="donation-thank-you" class="form-control" rows="4" placeholder="✨ New Support Unlocked! Terima kasih {user} telah mendonasikan {amount} untuk supportnya. Kontribusi kamu sangat berharga bagi aku! 💎🙏">✨ New Support Unlocked! Terima kasih {user} telah mendonasikan {amount} untuk supportnya. Kontribusi kamu sangat berharga bagi aku! 💎🙏</textarea>
+        <div class="form-hint">Variabel: <code>{user}</code> = nama donor, <code>{amount}</code> = nominal (Rp), <code>{platform}</code> = Saweria/Sociabuzz. Kosongkan untuk kirim embed saja tanpa teks.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="section-title">🔗 Endpoint Webhook Eksternal</h3>
+      <p class="form-hint" style="margin-bottom:1rem;">Copy URL ini ke dashboard <strong>Saweria</strong> / <strong>Sociabuzz</strong> — donasi otomatis tercatat & masuk ke Discord.</p>
+      <div class="form-group">
+        <label class="form-label">Saweria</label>
+        <div class="webhook-url-copy">
+          <code id="saweria-webhook-url">https://{{ request.host }}/api/webhook/saweria/{{ guild_id }}</code>
+          <button type="button" class="btn-copy" data-target="saweria-webhook-url">📋 Copy</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sociabuzz</label>
+        <div class="webhook-url-copy">
+          <code id="sociabuzz-webhook-url">https://{{ request.host }}/api/webhook/sociabuzz/{{ guild_id }}</code>
+          <button type="button" class="btn-copy" data-target="sociabuzz-webhook-url">📋 Copy</button>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-save" id="donation-save-settings">
+      <span class="spinner"></span>
+      <span class="btn-text">💾 Simpan Pengaturan</span>
+    </button>
+  </form>
+
+  {% else %}
+  <div class="card">
+    <h3 class="section-title">💳 Riwayat Donasi <span class="badge" id="donationCount">Memuat...</span></h3>
+    <table class="donation-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>Amount</th>
+          <th>Metode</th>
+          <th>Status</th>
+          <th>Tanggal</th>
+          <th>Aksi</th>
+          <th>Catatan</th>
+        </tr>
+      </thead>
+      <tbody id="donationHistoryBody">
+        <tr><td colspan="8" class="loading">Memuat...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/donation_settings.js') }}"></script>
+{% endblock %}

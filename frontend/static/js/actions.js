@@ -8,7 +8,10 @@
     fetch('/api/actions/' + guildId + '/roles')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success) return;
+        if(!d.success){
+          console.warn('[ACTIONS] Gagal muat roles:', d.message || 'unknown');
+          return;
+        }
         rolesCache = d.roles || [];
         var selects = document.querySelectorAll('.role-select');
         for(var i=0; i<selects.length; i++){
@@ -21,7 +24,10 @@
     fetch('/api/actions/' + guildId + '/channels')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success || !d.channels) return;
+        if(!d.success || !d.channels){
+          console.warn('[ACTIONS] Gagal muat channels:', d && d.message || 'unknown');
+          return;
+        }
         var sel = qs(selId);
         if(!sel) return;
         sel.innerHTML = '<option value="">— Tidak ada —</option>';
@@ -203,7 +209,10 @@
     fetch('/api/actions/' + guildId + '/level-rewards')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success) return;
+        if(!d.success){
+          console.warn('[ACTIONS] Gagal muat level rewards:', d.message || 'unknown');
+          return;
+        }
         qs('levelRewardEnabled').checked = d.enabled;
         renderRewards(d.rewards);
         if(d.notify_channel){
@@ -217,7 +226,11 @@
     fetch('/api/actions/' + guildId + '/moderation')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(d.success) loadModerationConfig(d);
+        if(d.success){
+          loadModerationConfig(d);
+        } else {
+          console.warn('[ACTIONS] Gagal muat moderasi:', d.message || 'unknown');
+        }
       });
 
     // Add reward

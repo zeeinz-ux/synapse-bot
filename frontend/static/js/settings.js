@@ -7,7 +7,10 @@
     fetch('/api/actions/' + guildId + '/channels')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success || !d.channels) return;
+        if(!d.success || !d.channels){
+          console.warn('[SETTINGS] Gagal muat channels:', d && d.message || 'unknown');
+          return;
+        }
         var sel = qs(selId);
         if(!sel) return;
         sel.innerHTML = '<option value="">— Tidak ada —</option>';
@@ -25,7 +28,10 @@
     fetch('/api/settings/' + guildId + '/features')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success) return;
+        if(!d.success){
+          console.warn('[SETTINGS] Gagal muat fitur:', d.message || 'unknown');
+          return;
+        }
         var f = d.features || {};
         var labels = {
           welcome: '👋 Welcome',
@@ -54,7 +60,10 @@
     fetch('/api/settings/' + guildId + '/info')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success || !d.guild) return;
+        if(!d.success || !d.guild){
+          console.warn('[SETTINGS] Gagal muat info guild:', d && d.message || 'unknown');
+          return;
+        }
         var g = d.guild;
         qs('setServerName').textContent = g.name || 'Unknown';
         qs('setServerId').textContent = 'ID: ' + (g.id || '—');
@@ -71,7 +80,10 @@
     fetch('/api/settings/' + guildId + '/features')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(!d.success) return;
+        if(!d.success){
+          console.warn('[SETTINGS] Gagal muat settings:', d.message || 'unknown');
+          return;
+        }
       });
 
     // Load stored log channel
