@@ -1,4 +1,5 @@
 import io
+import json
 import base64
 import time
 import os
@@ -46,9 +47,17 @@ class ImageSpamDetector:
         self.vision_api_key = os.getenv("GOOGLE_VISION_API_KEY", "")
         self._last_ocr = 0.0
         self.ocr_cooldown = 5.0
-        self.ocr_daily_max = 500
+        self.ocr_daily_max = 50
         self._ocr_today = 0
         self._ocr_date = datetime.now(timezone.utc).date()
+        self.ocr_monthly_max = 900
+        self._ocr_monthly_count = 0
+        self._ocr_month = datetime.now(timezone.utc).strftime("%Y-%m")
+        self._ocr_counter_file = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..", "data", "ocr_counter.json"
+        )
+        self._load_ocr_counters()
 
     # ── Layer 1: Rate limit ──
 
@@ -90,11 +99,6 @@ class ImageSpamDetector:
         return (h1 ^ h2).bit_count()
 
     def is_known_spam_hash(self, img_hash: int) -> bool:
-        now = time.time()
-        self._known_spam_hashes = {
-            h: t for h, t in self._known_spam_hashes.items()
-            if now - t < self.spam_hash_ttl
-        }
         return any(
             self._hamming(img_hash, h) <= self.hash_threshold
             for h in self._known_spam_hashes
@@ -105,18 +109,11 @@ class ImageSpamDetector:
 
     def get_all_hashes(self) -> dict[int, float]:
         """Return {hash: timestamp} — for saving to Firestore."""
-        now = time.time()
-        return {
-            h: t for h, t in self._known_spam_hashes.items()
-            if now - t < self.spam_hash_ttl
-        }
+        return dict(self._known_spam_hashes)
 
     def load_hashes(self, hashes: dict[int, float]) -> None:
         """Load previously persisted hashes into memory."""
-        now = time.time()
-        for h, t in hashes.items():
-            if now - t < self.spam_hash_ttl:
-                self._known_spam_hashes[h] = t
+        self._known_spam_hashes.update(hashes)
 
     def get_expired_hashes(self) -> list[int]:
         """Return list of hash values that have exceeded TTL."""
@@ -192,11 +189,43 @@ class ImageSpamDetector:
         if today != self._ocr_date:
             self._ocr_today = 0
             self._ocr_date = today
+        current_month = datetime.now(timezone.utc).strftime("%Y-%m")
+        if current_month != self._ocr_month:
+            self._ocr_monthly_count = 0
+            self._ocr_month = current_month
         if self._ocr_today >= self.ocr_daily_max:
+            return False
+        if self._ocr_monthly_count >= self.ocr_monthly_max:
+            print(f"[OCR] Monthly limit reached ({self._ocr_monthly_count}), skipping")
             return False
         self._last_ocr = now
         self._ocr_today += 1
+        self._ocr_monthly_count += 1
+        self._save_ocr_counters()
         return True
+
+    def _save_ocr_counters(self) -> None:
+        data = {
+            "month": self._ocr_month,
+            "monthly_count": self._ocr_monthly_count,
+            "date": str(self._ocr_date),
+            "daily_count": self._ocr_today,
+        }
+        os.makedirs(os.path.dirname(self._ocr_counter_file), exist_ok=True)
+        with open(self._ocr_counter_file, "w") as f:
+            json.dump(data, f)
+
+    def _load_ocr_counters(self) -> None:
+        try:
+            with open(self._ocr_counter_file) as f:
+                data = json.load(f)
+            now = datetime.now(timezone.utc)
+            if data.get("month") == now.strftime("%Y-%m"):
+                self._ocr_monthly_count = data.get("monthly_count", 0)
+            if data.get("date") == str(now.date()):
+                self._ocr_today = data.get("daily_count", 0)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
 
     async def ocr_text_via_api(self, image_data: bytes, session: aiohttp.ClientSession) -> str:
         if not self.vision_api_key:
