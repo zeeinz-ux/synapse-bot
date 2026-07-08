@@ -24,8 +24,9 @@ class Moderation(commands.Cog):
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
 
-        # Load persisted spam hashes dari Firestore
+        # Load persisted spam hashes + OCR counters dari Firestore
         await self._load_spam_hashes()
+        await self.img_detector.load_ocr_counters()
 
     async def cog_unload(self):
         if self._session and not self._session.closed:
@@ -279,7 +280,7 @@ class Moderation(commands.Cog):
                             break
 
             # ── Layer 3b: OCR fallback kalo Gemini Vision gak bisa / skip ──
-            if not flagged and self.img_detector.can_ocr():
+            if not flagged and await self.img_detector.can_ocr():
                 ocr_text = await self.img_detector.ocr_text_via_api(data, self._session)
                 if ocr_text and self.img_detector.is_ocr_spam(ocr_text):
                     print(f"[OCR] Spam detected in image: '{ocr_text[:100]}'")

@@ -1,10 +1,12 @@
 import io
-import json
+import asyncio
 import base64
 import time
 import os
 from datetime import datetime, timezone
 from typing import Optional
+
+from backend.cogs.database.firebase_setup import db
 
 import aiohttp
 from PIL import Image
@@ -53,11 +55,9 @@ class ImageSpamDetector:
         self.ocr_monthly_max = 900
         self._ocr_monthly_count = 0
         self._ocr_month = datetime.now(timezone.utc).strftime("%Y-%m")
-        self._ocr_counter_file = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "..", "data", "ocr_counter.json"
-        )
-        self._load_ocr_counters()
+        self._ocr_loaded = False
+        self._last_ocr_save = 0.0
+        self._ocr_debounce = 30
 
     # ── Layer 1: Rate limit ──
 
@@ -179,7 +179,7 @@ class ImageSpamDetector:
 
     # ── Layer 3b: OCR fallback via Google Cloud Vision API ──
 
-    def can_ocr(self) -> bool:
+    async def can_ocr(self) -> bool:
         if not self.vision_api_key:
             return False
         now = time.time()
@@ -201,31 +201,49 @@ class ImageSpamDetector:
         self._last_ocr = now
         self._ocr_today += 1
         self._ocr_monthly_count += 1
-        self._save_ocr_counters()
+        await self._save_ocr_counters()
         return True
 
-    def _save_ocr_counters(self) -> None:
-        data = {
-            "month": self._ocr_month,
-            "monthly_count": self._ocr_monthly_count,
-            "date": str(self._ocr_date),
-            "daily_count": self._ocr_today,
-        }
-        os.makedirs(os.path.dirname(self._ocr_counter_file), exist_ok=True)
-        with open(self._ocr_counter_file, "w") as f:
-            json.dump(data, f)
-
-    def _load_ocr_counters(self) -> None:
+    async def load_ocr_counters(self) -> None:
+        if db is None:
+            self._ocr_loaded = True
+            return
         try:
-            with open(self._ocr_counter_file) as f:
-                data = json.load(f)
-            now = datetime.now(timezone.utc)
-            if data.get("month") == now.strftime("%Y-%m"):
-                self._ocr_monthly_count = data.get("monthly_count", 0)
-            if data.get("date") == str(now.date()):
-                self._ocr_today = data.get("daily_count", 0)
-        except (FileNotFoundError, json.JSONDecodeError):
-            pass
+            doc_ref = db.collection("bot_stats").document("ocr_counter")
+            doc = await asyncio.to_thread(doc_ref.get)
+            if doc.exists:
+                data = doc.to_dict()
+                now = datetime.now(timezone.utc)
+                if data.get("month") == now.strftime("%Y-%m"):
+                    self._ocr_monthly_count = data.get("monthly_count", 0)
+                if data.get("date") == str(now.date()):
+                    self._ocr_today = data.get("daily_count", 0)
+        except Exception as e:
+            print(f"[OCR] Failed to load counters from Firestore: {e}")
+        self._ocr_loaded = True
+
+    async def _save_ocr_counters(self) -> None:
+        if db is None:
+            return
+        now_ts = time.time()
+        if now_ts - self._last_ocr_save < self._ocr_debounce:
+            return
+        self._last_ocr_save = now_ts
+        try:
+            doc_ref = db.collection("bot_stats").document("ocr_counter")
+            await asyncio.to_thread(
+                doc_ref.set,
+                {
+                    "month": self._ocr_month,
+                    "monthly_count": self._ocr_monthly_count,
+                    "date": str(self._ocr_date),
+                    "daily_count": self._ocr_today,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                },
+                merge=True,
+            )
+        except Exception as e:
+            print(f"[OCR] Failed to save counters to Firestore: {e}")
 
     async def ocr_text_via_api(self, image_data: bytes, session: aiohttp.ClientSession) -> str:
         if not self.vision_api_key:
