@@ -1164,22 +1164,8 @@ def webhook_sociabuzz(guild_id: str):
 @app.route("/api/message-builder/<guild_id>/channels")
 @login_required
 def api_mb_channels(guild_id: str):
-    try:
-        bot_guilds = current_app.config.get("BOT_GUILDS", {})
-        guild_data = bot_guilds.get(str(guild_id))
-        if not guild_data:
-            return jsonify({"success": False, "channels": []}), 200
-        channels = []
-        if "channels" in guild_data:
-            for ch in guild_data["channels"]:
-                ch_type = ch.get("type", 0)
-                if ch_type == 0:
-                    channels.append({"id": str(ch["id"]), "name": ch.get("name", "unknown")})
-        channels.sort(key=lambda c: c["name"])
-        return jsonify({"success": True, "channels": channels}), 200
-    except Exception as e:
-        print(f"[MB API] ❌ channels error: {e}")
-        return jsonify({"success": False, "channels": []}), 500
+    channels = get_guild_channels(str(guild_id))
+    return jsonify({"success": True, "channels": channels or []}), 200
 
 
 @app.route("/api/message-builder/<guild_id>/templates", methods=["GET"])
