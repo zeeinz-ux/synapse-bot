@@ -166,6 +166,41 @@
 .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 
 .modal-gallery { max-width: 560px !important; }
+
+/* ── Gallery upload zone ── */
+.mb-upload-zone {
+  border: 2px dashed var(--border2); border-radius: var(--r-md); padding: 1rem;
+  text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 0.75rem;
+  position: relative;
+}
+.mb-upload-zone:hover { border-color: var(--accent-primary); background: rgba(88,101,242,0.04); }
+.mb-upload-zone.dragover { border-color: var(--accent-primary); background: rgba(88,101,242,0.08); }
+.mb-file-input { display: none; }
+.mb-upload-content { transition: opacity 0.2s; }
+.mb-upload-zone.has-file .mb-upload-content { opacity: 0; }
+.mb-upload-icon { font-size: 1.4rem; margin-bottom: 0.2rem; }
+.mb-upload-text { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin: 0; }
+.mb-upload-subtext { font-size: 0.75rem; color: var(--text-muted); margin: 0.15rem 0 0; }
+.mb-upload-hint { font-size: 0.65rem; color: var(--text-muted2); margin: 0.3rem 0 0; }
+.mb-upload-preview {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.mb-upload-zone.has-file .mb-upload-preview { opacity: 1; }
+.mb-upload-preview img { max-height: 80px; max-width: 100%; border-radius: var(--r-xs); margin-bottom: 0.3rem; }
+.mb-upload-status { font-size: 0.7rem; color: var(--text-muted); }
+.mb-upload-status.uploading { color: var(--accent-primary); }
+.mb-upload-status.done { color: #22c55e; }
+.mb-upload-status.error { color: var(--accent-red); }
+
+.mb-gallery-divider {
+  display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;
+  color: var(--text-muted); font-size: 0.75rem;
+}
+.mb-gallery-divider::before, .mb-gallery-divider::after {
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}
 .gallery-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; max-height: 320px; overflow-y: auto;
   margin-bottom: 1rem;

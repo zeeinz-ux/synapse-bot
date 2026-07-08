@@ -23,6 +23,8 @@ from dotenv import load_dotenv
 import importlib
 import traceback
 import json
+import base64
+import io
 
 load_dotenv()
 
@@ -120,6 +122,26 @@ async def _control_queue_consumer():
                             os.remove(fpath)
                             continue
 
+                        files = []
+                        img_idx = 0
+
+                        def _data_url_to_file(data_url: str) -> str | None:
+                            nonlocal img_idx
+                            if not data_url or not data_url.startswith("data:image"):
+                                return data_url
+                            try:
+                                header, b64 = data_url.split(",", 1)
+                                ext = header.split(";")[0].split("/")[-1]
+                                if ext == "jpeg":
+                                    ext = "jpg"
+                                fname = f"mb_img_{img_idx}.{ext}"
+                                img_idx += 1
+                                raw = base64.b64decode(b64)
+                                files.append(discord.File(io.BytesIO(raw), filename=fname))
+                                return f"attachment://{fname}"
+                            except Exception:
+                                return data_url
+
                         embed = discord.Embed()
                         if embed_dict.get("title"):
                             embed.title = embed_dict["title"]
@@ -130,16 +152,16 @@ async def _control_queue_consumer():
                         if embed_dict.get("author_name"):
                             embed.set_author(
                                 name=embed_dict["author_name"],
-                                icon_url=embed_dict.get("author_icon") or None,
+                                icon_url=_data_url_to_file(embed_dict.get("author_icon")),
                             )
                         if embed_dict.get("thumbnail"):
-                            embed.set_thumbnail(url=embed_dict["thumbnail"])
+                            embed.set_thumbnail(url=_data_url_to_file(embed_dict["thumbnail"]))
                         if embed_dict.get("image"):
-                            embed.set_image(url=embed_dict["image"])
+                            embed.set_image(url=_data_url_to_file(embed_dict["image"]))
                         if embed_dict.get("footer_text"):
                             embed.set_footer(
                                 text=embed_dict["footer_text"],
-                                icon_url=embed_dict.get("footer_icon") or None,
+                                icon_url=_data_url_to_file(embed_dict.get("footer_icon")),
                             )
                         for f in embed_dict.get("fields", []):
                             embed.add_field(
@@ -148,7 +170,10 @@ async def _control_queue_consumer():
                                 inline=f.get("inline", False),
                             )
 
-                        await channel.send(content=content or None, embed=embed)
+                        kwargs = {"content": content or None, "embed": embed}
+                        if files:
+                            kwargs["files"] = files
+                        await channel.send(**kwargs)
                         log.info("[Queue] Sent message to channel %s", channel_id)
 
                     os.remove(fpath)

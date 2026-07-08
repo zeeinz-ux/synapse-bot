@@ -187,6 +187,26 @@
   <div class="modal-box modal-gallery">
     <h3>Pilih Gambar</h3>
     <p>Klik gambar untuk mengisi URL field.</p>
+
+    <!-- Upload from device -->
+    <div class="mb-upload-zone" id="mbGalleryUploadZone">
+      <input type="file" id="mbGalleryFileInput" accept="image/*" class="mb-file-input" />
+      <div class="mb-upload-content">
+        <div class="mb-upload-icon">&#128193;</div>
+        <p class="mb-upload-text">Upload dari device</p>
+        <p class="mb-upload-subtext">Klik atau drag &amp; drop gambar</p>
+        <p class="mb-upload-hint">PNG, JPG, GIF &bull; Maks 5MB</p>
+      </div>
+      <div class="mb-upload-preview" id="mbGalleryUploadPreview">
+        <img src="" alt="Preview" id="mbGalleryUploadPreviewImg" />
+        <div class="mb-upload-status" id="mbGalleryUploadStatus"></div>
+      </div>
+    </div>
+
+    <div class="mb-gallery-divider">
+      <span>Atau pilih dari gallery</span>
+    </div>
+
     <div class="gallery-grid" id="mbGalleryGrid">
       <div class="gallery-empty">Memuat gambar...</div>
     </div>

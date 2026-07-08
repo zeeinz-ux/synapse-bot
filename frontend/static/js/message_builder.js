@@ -222,18 +222,43 @@
     renderPreview();
   }
 
-  // ── Image gallery ──
-  function openGallery(targetId){
-    var modal = document.getElementById('mbGalleryModal');
+  // ── Image upload helpers ──
+  function resizeImage(file, maxWidth, quality){
+    if(maxWidth === void 0) maxWidth = 1200;
+    if(quality === void 0) quality = 0.85;
+    return new Promise(function(resolve, reject){
+      var img = new Image();
+      var reader = new FileReader();
+      reader.onload = function(e){ img.src = e.target.result; };
+      reader.onerror = function(err){ reject(err); };
+      img.onload = function(){
+        var width = img.width;
+        var height = img.height;
+        if(width > maxWidth){
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        var canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = function(err){ reject(err); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function loadGalleryImages(targetId){
     var grid = document.getElementById('mbGalleryGrid');
     grid.innerHTML = '<div class="gallery-empty">Memuat gambar...</div>';
-    modal.classList.add('open');
     fetch('/api/guilds/' + guildId + '/images')
       .then(function(r){ return r.json(); })
       .then(function(d){
         if(!d.success || !d.images.length){
           grid.innerHTML = '<div class="gallery-empty">'
-            + (d.success ? 'Belum ada gambar di upload settings' : 'Gagal memuat gambar: ' + (d.message || 'unknown'))
+            + (d.success ? 'Belum ada gambar tersimpan' : 'Gagal memuat gambar: ' + (d.message || 'unknown'))
             + '</div>';
           return;
         }
@@ -249,7 +274,7 @@
         grid.querySelectorAll('.gallery-item').forEach(function(el){
           el.addEventListener('click', function(){
             document.getElementById(targetId).value = this.dataset.url;
-            modal.classList.remove('open');
+            document.getElementById('mbGalleryModal').classList.remove('open');
             renderPreview();
           });
         });
@@ -257,6 +282,97 @@
       .catch(function(){
         grid.innerHTML = '<div class="gallery-empty">Gagal memuat gambar</div>';
       });
+  }
+
+  function setupUploadZone(targetId){
+    var zone = document.getElementById('mbGalleryUploadZone');
+    var input = document.getElementById('mbGalleryFileInput');
+    var preview = document.getElementById('mbGalleryUploadPreview');
+    var previewImg = document.getElementById('mbGalleryUploadPreviewImg');
+    var status = document.getElementById('mbGalleryUploadStatus');
+    if(!zone || !input) return;
+
+    function preventDefaults(e){ e.preventDefault(); e.stopPropagation(); }
+    function highlight(){ zone.classList.add('dragover'); }
+    function unhighlight(){ zone.classList.remove('dragover'); }
+
+    ['dragenter','dragover'].forEach(function(ev){ zone.addEventListener(ev, highlight, false); });
+    ['dragleave','drop'].forEach(function(ev){ zone.addEventListener(ev, unhighlight, false); });
+    ['dragenter','dragover','dragleave','drop'].forEach(function(ev){
+      zone.addEventListener(ev, preventDefaults, false);
+    });
+
+    zone.addEventListener('drop', function(e){
+      handleFiles(e.dataTransfer.files, targetId);
+    }, false);
+    zone.addEventListener('click', function(){ input.click(); });
+    input.addEventListener('change', function(){
+      handleFiles(this.files, targetId);
+    });
+
+    function handleFiles(files, tid){
+      if(!files.length) return;
+      var file = files[0];
+      if(!file.type.startsWith('image/')){
+        status.textContent = 'File harus gambar!';
+        status.className = 'mb-upload-status error';
+        return;
+      }
+      if(file.size > 5 * 1024 * 1024){
+        status.textContent = 'Maks 5MB!';
+        status.className = 'mb-upload-status error';
+        return;
+      }
+      zone.classList.add('has-file');
+      status.textContent = 'Memproses...';
+      status.className = 'mb-upload-status uploading';
+      var reader = new FileReader();
+      reader.onload = function(e){
+        previewImg.src = e.target.result;
+        resizeImage(file, 1200, 0.85).then(function(resized){
+          status.textContent = 'Mengupload...';
+          fetch('/api/message-builder/' + guildId + '/upload', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              data_url: resized,
+              filename: file.name,
+            }),
+          })
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            if(d.success){
+              status.textContent = 'Upload berhasil!';
+              status.className = 'mb-upload-status done';
+              setTimeout(function(){
+                zone.classList.remove('has-file');
+                previewImg.src = '';
+                status.textContent = '';
+                status.className = 'mb-upload-status';
+                input.value = '';
+                loadGalleryImages(tid);
+              }, 800);
+            } else {
+              status.textContent = 'Gagal: ' + (d.message || 'unknown');
+              status.className = 'mb-upload-status error';
+            }
+          })
+          .catch(function(){
+            status.textContent = 'Gagal upload';
+            status.className = 'mb-upload-status error';
+          });
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  // ── Image gallery ──
+  function openGallery(targetId){
+    var modal = document.getElementById('mbGalleryModal');
+    modal.classList.add('open');
+    setupUploadZone(targetId);
+    loadGalleryImages(targetId);
   }
 
   // ── Collapsible: Media & Footer ──

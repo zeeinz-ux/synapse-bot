@@ -1263,6 +1263,31 @@ def api_mb_send(guild_id: str):
         return jsonify({"success": False, "message": str(e)}), 500
 
 
+@app.route("/api/message-builder/<guild_id>/upload", methods=["POST"])
+@login_required
+def api_mb_upload(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "message": "Firestore unavailable"}), 200
+    try:
+        data = request.get_json() or {}
+        data_url = data.get("data_url", "")
+        filename = data.get("filename", "upload.png")
+        if not data_url or not data_url.startswith("data:image"):
+            return jsonify({"success": False, "message": "Invalid image data"}), 400
+        ts = int(time.time())
+        image_id = f"mb_{ts}"
+        label = f"MB Upload {ts}"
+        db.collection("guild_settings").document(str(guild_id)).set(
+            {"message_builder_images": {image_id: {"url": data_url, "label": label, "uploaded_at": ts}}},
+            merge=True,
+        )
+        print(f"[MB API] ✅ Image saved: {filename} ({len(data_url)} chars)")
+        return jsonify({"success": True, "image_id": image_id}), 200
+    except Exception as e:
+        print(f"[MB API] ❌ upload error: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 # ==========================================================
 # ROUTES — Tools
 # ==========================================================
@@ -1884,6 +1909,11 @@ def api_guild_images(guild_id: str):
                 url = cfg.get(field, "").strip()
                 if url:
                     images.append({"url": url, "label": f"{feat} {label}", "source": feat})
+        mb_images = data.get("message_builder_images", {})
+        for iid, img in mb_images.items():
+            url = img.get("url", "").strip()
+            if url:
+                images.append({"url": url, "label": img.get("label", "MB Upload"), "source": "message_builder"})
     except Exception as e:
         print(f"[WEB-IMAGES] ❌ Gagal baca Firestore: {e}")
         return jsonify({"success": False, "images": [], "message": str(e)}), 500
