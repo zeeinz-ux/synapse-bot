@@ -1298,14 +1298,34 @@ def api_gallery_images():
     images = []
     try:
         os.makedirs(GALLERY_DIR, exist_ok=True)
+
+        # Read URL presets from urls.json
+        urls_path = os.path.join(GALLERY_DIR, "urls.json")
+        if os.path.exists(urls_path):
+            with open(urls_path, "r") as f:
+                urls_data = json.load(f)
+            if isinstance(urls_data, list):
+                for item in urls_data:
+                    url = item.get("url", "").strip()
+                    if url:
+                        images.append({
+                            "url": url,
+                            "label": item.get("label", "Preset"),
+                            "source": "preset",
+                        })
+
+        # Scan actual files in the folder
         exts = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
         for fname in sorted(os.listdir(GALLERY_DIR)):
+            if fname == "urls.json":
+                continue
             ext = os.path.splitext(fname)[1].lower()
             if ext in exts:
                 images.append({
                     "url": f"/static/gallery/{fname}",
                     "label": fname,
                     "filename": fname,
+                    "source": "file",
                 })
     except Exception as e:
         print(f"[GALLERY] ❌ list error: {e}")
