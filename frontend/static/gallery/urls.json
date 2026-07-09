@@ -1,15 +1,55 @@
 [
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/26233.jpg", "label": "Abstract Blue"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/77.jpg", "label": "Neon City"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/917.jpg", "label": "Aurora"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/87.jpg", "label": "Galaxy"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/25406.jpg", "label": "Minimal Wave"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/22695.jpg", "label": "Mountain Sunset"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/10378.jpg", "label": "Dark Forest"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/11273.jpg", "label": "Ocean Depth"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/4294.jpg", "label": "Cyberpunk"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/22577.png", "label": "Space Nebula"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/4962.png", "label": "Cherry Blossom"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/26344.png", "label": "Geometric Dark"},
-  {"url": "https://4kwallpapers.com/images/walls/thumbs_3t/25727.png", "label": "Vaporwave"}
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/26233.jpg",
+    "label": "Abstract Blue"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/77.jpg",
+    "label": "Neon City"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/917.jpg",
+    "label": "Aurora"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/87.jpg",
+    "label": "Galaxy"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/25406.jpg",
+    "label": "Minimal Wave"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/22695.jpg",
+    "label": "Mountain Sunset"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/10378.jpg",
+    "label": "Dark Forest"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/11273.jpg",
+    "label": "Ocean Depth"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/4294.jpg",
+    "label": "Cyberpunk"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/22577.png",
+    "label": "Space Nebula"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/4962.png",
+    "label": "Cherry Blossom"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/26344.png",
+    "label": "Geometric Dark"
+  },
+  {
+    "url": "https://4kwallpapers.com/images/walls/thumbs_3t/25727.png",
+    "label": "Vaporwave"
+  },
+  { "url": "https://cdn.koya.gg/gallery/l/8sl0HyB.png", "label": "Cat" }
 ]
