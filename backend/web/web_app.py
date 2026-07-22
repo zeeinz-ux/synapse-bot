@@ -2224,6 +2224,14 @@ def ai_chat_save(guild_id):
             }
         }, merge=True)
 
+        import uuid, json
+        try:
+            cq = os.path.join(CONTROL_QUEUE_DIR, f"inv_ai_{uuid.uuid4().hex}.json")
+            with open(cq, "w") as f:
+                json.dump({"action": "refresh_settings_cache", "guild_id": str(guild_id)}, f)
+        except Exception:
+            pass
+
         return jsonify({
             "success": True,
             "message": "Pengaturan AI Chat berhasil disimpan."

@@ -182,6 +182,11 @@ async def _control_queue_consumer():
                             await cog._get_rag_chunks(guild_id, force=True)
                             log.info("[Queue] Refreshed RAG cache for guild %s", guild_id)
 
+                    elif action == "refresh_settings_cache":
+                        from backend.cogs.ai_chat.ai_chat import _SETTINGS_CACHE
+                        _SETTINGS_CACHE.pop(guild_id, None)
+                        log.info("[Queue] Invalidated settings cache for guild %s", guild_id)
+
                     os.remove(fpath)
                 except Exception as e:
                     log.error("[Queue] Error processing %s: %s", fname, e)

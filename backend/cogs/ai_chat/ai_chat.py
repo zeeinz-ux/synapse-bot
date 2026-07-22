@@ -74,6 +74,10 @@ _HISTORY_TTL = 60
 _USER_RATE_LIMITS: Dict[int, list] = {}
 _GUILD_DAILY_LIMITS: Dict[str, dict] = {}
 _GUILD_RAG_CACHE: Dict[str, tuple] = {}  # guild_id -> (chunks, load_timestamp)
+_SETTINGS_CACHE: Dict[str, tuple] = {}  # guild_id -> (settings, timestamp)
+_SETTINGS_CACHE_TTL = 60
+_PREFS_CACHE: Dict[str, tuple] = {}  # guild_id_user_id -> (prefs, timestamp)
+_PREFS_CACHE_TTL = 60
 RAG_CACHE_MAX_CHUNKS = 5000
 RAG_CACHE_TTL = 300  # 5 menit
 
@@ -277,6 +281,10 @@ class AIChat(commands.Cog):
     # ── Firestore Settings ──
 
     async def _get_guild_ai_settings(self, guild_id: str) -> dict:
+        now = time_module.time()
+        cached = _SETTINGS_CACHE.get(guild_id)
+        if cached and now - cached[1] < _SETTINGS_CACHE_TTL:
+            return cached[0]
         try:
             doc_ref = db.collection("guild_settings").document(str(guild_id))
             doc = await asyncio.to_thread(doc_ref.get)
@@ -284,7 +292,7 @@ class AIChat(commands.Cog):
                 return {"enabled": False, "channel_id": ""}
             data = doc.to_dict()
             ai_chat = data.get("ai_chat", {})
-            return {
+            result = {
                 "enabled": data.get("ai_chat_enabled", False),
                 "channel_id": ai_chat.get("channel_id", ""),
                 "personality": ai_chat.get("personality", DEFAULT_PERSONALITY),
@@ -295,6 +303,8 @@ class AIChat(commands.Cog):
                 "rate_limit_window": ai_chat.get("rate_limit_window", RATE_LIMIT_WINDOW),
                 "rate_limit_cooldown": ai_chat.get("rate_limit_cooldown", RATE_LIMIT_COOLDOWN),
             }
+            _SETTINGS_CACHE[guild_id] = (result, now)
+            return result
         except Exception as e:
             print(f"[AI CHAT] Error ambil settings: {e}")
             return {"enabled": False, "channel_id": ""}
