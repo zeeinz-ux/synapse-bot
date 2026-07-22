@@ -121,6 +121,7 @@ class AIChat(commands.Cog):
         self._mention_pattern: re.Pattern | None = None
         self._last_history_prune: float = 0.0
         self._owner_id: int | None = None
+        self._creator_name: str = "Developer"
 
         if not self.google_api_key:
             print("[AI CHAT] GEMINI_API_KEY tidak ditemukan!")
@@ -157,6 +158,15 @@ class AIChat(commands.Cog):
         ]
 
         self.history_prune_loop.start()
+
+        # Fetch creator info from Discord app
+        try:
+            app = await self.bot.application_info()
+            self._creator_name = app.owner.name if app.owner else "Developer"
+            self._owner_id = app.owner.id if app.owner else None
+            print(f"[AI CHAT] Creator: {self._creator_name} ({self._owner_id})")
+        except Exception as e:
+            print(f"[AI CHAT] Gagal fetch app info: {e}")
 
         # Preload RAG cache for all guilds
         guild_ids = [str(g.id) for g in self.bot.guilds if g]
@@ -843,7 +853,7 @@ class AIChat(commands.Cog):
         server_ctx = self._build_server_context(guild)
         user_prefs = await get_user_prefs(guild_id, user_id)
         server_ctx = enhance_server_context(server_ctx, intent_instructions, user_prefs)
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.replace("{personality}", personality).replace("{server_context}", server_ctx)
+        system_prompt = SYSTEM_PROMPT_TEMPLATE.replace("{personality}", personality).replace("{server_context}", server_ctx).replace("{creator}", self._creator_name)
 
         relevant = await self._get_rag_relevant(guild_id, user_message)
         if relevant:
@@ -913,7 +923,7 @@ class AIChat(commands.Cog):
         server_ctx = self._build_server_context(guild)
         user_prefs = await get_user_prefs(guild_id, user_id)
         server_ctx = enhance_server_context(server_ctx, intent_instructions, user_prefs)
-        system_prompt = SYSTEM_PROMPT_TEMPLATE.replace("{personality}", personality).replace("{server_context}", server_ctx)
+        system_prompt = SYSTEM_PROMPT_TEMPLATE.replace("{personality}", personality).replace("{server_context}", server_ctx).replace("{creator}", self._creator_name)
         relevant = await self._get_rag_relevant(guild_id, user_message)
         if relevant:
             system_prompt += "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
