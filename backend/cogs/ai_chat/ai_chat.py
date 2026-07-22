@@ -1062,6 +1062,72 @@ class AIChat(commands.Cog):
                 pass
 
     # ═══════════════════════════════════════════════════════════════════════
+    # COMMANDS: RAG Knowledge Base (from Discord)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @commands.hybrid_command(name="rag-upload", description="Upload file ke RAG Knowledge Base")
+    @commands.has_permissions(manage_guild=True)
+    async def rag_upload(self, ctx: commands.Context, file: discord.Attachment):
+        guild_id = str(ctx.guild.id)
+        if file.size > 5 * 1024 * 1024:
+            await ctx.send("File terlalu besar. Maks 5MB.")
+            return
+        if not file.filename.lower().endswith(('.txt', '.pdf')):
+            await ctx.send("Hanya file TXT dan PDF yang didukung.")
+            return
+        await ctx.defer()
+        try:
+            from ...utils.rag_engine import extract_text, save_document
+            data = await file.read()
+            text = await extract_text(data, file.filename)
+            if not text:
+                await ctx.send("Gagal membaca file. Pastikan format TXT atau PDF valid.")
+                return
+            result = await save_document(guild_id, file.filename, text, len(data))
+            if result.get("success"):
+                await self._get_rag_chunks(guild_id, force=True)
+                await ctx.send(f"✅ **{file.filename}** berhasil ditambahkan ke Knowledge Base!")
+            else:
+                await ctx.send(f"Gagal menyimpan: {result.get('error', 'unknown error')}")
+        except Exception as e:
+            print(f"[RAG] Upload error: {e}")
+            await ctx.send("Terjadi error internal. Coba lagi nanti.")
+
+    @commands.hybrid_command(name="rag-list", description="Lihat daftar dokumen di RAG Knowledge Base")
+    @commands.has_permissions(manage_guild=True)
+    async def rag_list(self, ctx: commands.Context):
+        guild_id = str(ctx.guild.id)
+        await ctx.defer()
+        try:
+            from ...utils.rag_engine import list_documents
+            docs = await list_documents(guild_id)
+            if not docs:
+                await ctx.send("Belum ada dokumen di Knowledge Base.")
+                return
+            lines = [f"`{d['id'][:8]}` **{d['filename']}** — {d['chunk_count']} chunks, {d['size']} bytes"]
+            await ctx.send("**📚 RAG Knowledge Base**\n" + "\n".join(lines))
+        except Exception as e:
+            print(f"[RAG] List error: {e}")
+            await ctx.send("Gagal memuat daftar dokumen.")
+
+    @commands.hybrid_command(name="rag-delete", description="Hapus dokumen dari RAG Knowledge Base")
+    @commands.has_permissions(manage_guild=True)
+    async def rag_delete(self, ctx: commands.Context, doc_id: str):
+        guild_id = str(ctx.guild.id)
+        await ctx.defer()
+        try:
+            from ...utils.rag_engine import delete_document
+            ok = await delete_document(guild_id, doc_id)
+            if ok:
+                await self._get_rag_chunks(guild_id, force=True)
+                await ctx.send(f"✅ Dokumen `{doc_id[:8]}` berhasil dihapus.")
+            else:
+                await ctx.send("Dokumen tidak ditemukan atau gagal dihapus.")
+        except Exception as e:
+            print(f"[RAG] Delete error: {e}")
+            await ctx.send("Terjadi error internal.")
+
+    # ═══════════════════════════════════════════════════════════════════════
     # EVENT LISTENER: Mention @Synapse
     # ═══════════════════════════════════════════════════════════════════════
 
