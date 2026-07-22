@@ -176,6 +176,12 @@ async def _control_queue_consumer():
                         await channel.send(**kwargs)
                         log.info("[Queue] Sent message to channel %s", channel_id)
 
+                    elif action == "refresh_rag_cache":
+                        cog = bot.get_cog("AIChat")
+                        if cog and hasattr(cog, "_get_rag_chunks"):
+                            await cog._get_rag_chunks(guild_id, force=True)
+                            log.info("[Queue] Refreshed RAG cache for guild %s", guild_id)
+
                     os.remove(fpath)
                 except Exception as e:
                     log.error("[Queue] Error processing %s: %s", fname, e)

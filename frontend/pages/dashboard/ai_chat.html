@@ -96,16 +96,43 @@
     </div>
 
     <div class="form-group">
+      <label for="ai-model-select">Model Gemini</label>
+      <p class="field-hint">Pilih model Gemini yang digunakan untuk AI Chat. Default: gemini-3.6-flash.</p>
+      <input type="text" id="ai-model-input" class="form-input" value="{{ ai_model }}" placeholder="gemini-3.6-flash">
+    </div>
+
+    <div class="form-group">
+      <label>Rate Limit (per-user)</label>
+      <div class="rate-limit-grid" style="display:flex;gap:1rem;">
+        <div style="flex:1;">
+          <label for="rl-max" style="font-size:0.8rem;display:block;margin-bottom:0.25rem;">Max Request</label>
+          <input type="number" id="rl-max" class="form-input" value="{{ rate_limit_max }}" min="1" max="100" style="width:100%;">
+        </div>
+        <div style="flex:1;">
+          <label for="rl-window" style="font-size:0.8rem;display:block;margin-bottom:0.25rem;">Window (detik)</label>
+          <input type="number" id="rl-window" class="form-input" value="{{ rate_limit_window }}" min="5" max="300" style="width:100%;">
+        </div>
+        <div style="flex:1;">
+          <label for="rl-cooldown" style="font-size:0.8rem;display:block;margin-bottom:0.25rem;">Cooldown (detik)</label>
+          <input type="number" id="rl-cooldown" class="form-input" value="{{ rate_limit_cooldown }}" min="5" max="600" style="width:100%;">
+        </div>
+      </div>
+      <p class="field-hint">Contoh: Max 10 request per 30 detik, cooldown 60 detik.</p>
+    </div>
+
+    <div class="form-group">
       <label>AI Engine Stack</label>
       <p class="field-hint">Arsitektur 4-tier fallback di backend. Auto-switch tanpa restart bot.</p>
       <div class="engine-stack-info">
-        <div class="tier-badge tier-1">⚡ Tier 1: Gemini 3.5 Flash (Google AI Studio)</div>
+        <div class="tier-badge tier-1">⚡ Tier 1: Gemini (Google AI Studio)</div>
         <div class="tier-arrow">↓</div>
         <div class="tier-badge tier-2">🚀 Tier 2: Llama 3.3 70B (Groq)</div>
         <div class="tier-arrow">↓</div>
         <div class="tier-badge tier-3">🧠 Tier 3: open-mistral-nemo (Mistral)</div>
         <div class="tier-arrow">↓</div>
         <div class="tier-badge tier-4">🌀 Tier 4: command-a-03-2025 (Cohere)</div>
+        <div class="tier-arrow">↓</div>
+        <div class="tier-badge tier-5">🌐 Tier 5: OpenRouter (free models)</div>
       </div>
     </div>
 
@@ -151,7 +178,7 @@
         <span class="tier-tag primary">PRIMARY</span>
       </div>
       <div class="tier-details">
-        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">Gemini 3.5 Flash</span></div>
+        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">Gemini (per-guild config)</span></div>
         <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">60 req/minute</span></div>
         <div class="detail-row"><span class="detail-label">Daily Quota</span><span class="detail-value">~1,500 requests (tracked)</span></div>
         <div class="detail-row"><span class="detail-label">Circuit Breaker</span><span class="detail-value">Auto-skip 2h setelah 3x fail</span></div>

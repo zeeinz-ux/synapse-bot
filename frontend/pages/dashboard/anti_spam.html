@@ -81,6 +81,30 @@
       </div>
     </div>
 
+    <!-- New Account Action -->
+    <div class="card new-account-card">
+      <h2>🧑‍🌾 Akun Baru</h2>
+      <p class="whitelist-desc">Tindakan otomatis untuk akun dibawah umur tertentu yang terdeteksi spam.</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="new-account-max-age">Batas umur akun (hari)</label>
+          <input type="number" id="new-account-max-age" class="form-input" value="60" min="1" max="365">
+        </div>
+        <div class="form-group">
+          <label for="new-account-action">Tindakan</label>
+          <select id="new-account-action" class="form-select">
+            <option value="ban">Ban</option>
+            <option value="kick">Kick</option>
+            <option value="timeout">Timeout</option>
+          </select>
+        </div>
+        <div class="form-group" id="new-account-duration-group">
+          <label for="new-account-duration">Durasi (jam) — untuk Timeout</label>
+          <input type="number" id="new-account-duration" class="form-input" value="1" min="1" max="168">
+        </div>
+      </div>
+    </div>
+
     <!-- Raid Protection -->
     <div class="card raid-card">
       <h2>🛡️ Raid Protection</h2>

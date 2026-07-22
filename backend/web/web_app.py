@@ -1914,6 +1914,9 @@ _MOD_DEFAULTS = {
     "raid_threshold": 10,
     "raid_window": 300,
     "raid_action": "kick",
+    "new_account_max_age": 60,
+    "new_account_action": "ban",
+    "new_account_timeout_hours": 1,
 }
 
 @app.route("/dashboard/<guild_id>/anti-spam")
@@ -1945,6 +1948,75 @@ def api_anti_spam_save(guild_id: str):
     except Exception as e:
         print(f"[ANTI-SPAM] ❌ save error: {e}")
         return jsonify({"success": False, "message": f"Gagal menyimpan: {e}"}), 500
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RAG — Knowledge Base
+# ============================================================================
+
+@app.route("/dashboard/<guild_id>/rag")
+@login_required
+def rag_page(guild_id: str):
+    return _render_page("dashboard/rag.html", active_page="rag", guild_id=guild_id)
+
+@app.route("/api/rag/<guild_id>/documents")
+@login_required
+def api_rag_documents(guild_id: str):
+    import asyncio
+    from backend.utils.rag_engine import list_documents
+    try:
+        docs = asyncio.new_event_loop().run_until_complete(list_documents(guild_id))
+        return jsonify({"success": True, "documents": docs}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/rag/<guild_id>/upload", methods=["POST"])
+@login_required
+def api_rag_upload(guild_id: str):
+    import asyncio, base64
+    from backend.utils.rag_engine import extract_text, save_document
+    try:
+        payload = request.get_json(silent=True) or {}
+        filename = payload.get("filename", "unknown.txt")
+        data_b64 = payload.get("data", "")
+        file_data = base64.b64decode(data_b64)
+        text = asyncio.new_event_loop().run_until_complete(extract_text(file_data, filename))
+        if not text:
+            return jsonify({"success": False, "error": "Gagal membaca file. Pastikan format TXT atau PDF valid."}), 400
+        result = asyncio.new_event_loop().run_until_complete(save_document(guild_id, filename, text, len(file_data)))
+        if not result.get("success"):
+            return jsonify({"success": False, "error": result.get("error", "Gagal menyimpan")}), 500
+        _signal_rag_refresh(guild_id)
+        return jsonify({"success": True, "doc_id": result["doc_id"]}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/api/rag/<guild_id>/delete", methods=["POST"])
+@login_required
+def api_rag_delete(guild_id: str):
+    import asyncio
+    from backend.utils.rag_engine import delete_document
+    try:
+        payload = request.get_json(silent=True) or {}
+        doc_id = payload.get("doc_id", "")
+        ok = asyncio.new_event_loop().run_until_complete(delete_document(guild_id, doc_id))
+        if ok:
+            _signal_rag_refresh(guild_id)
+            return jsonify({"success": True}), 200
+        return jsonify({"success": False, "error": "Gagal menghapus"}), 500
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+def _signal_rag_refresh(guild_id: str):
+    import uuid, json
+    cmd = {"action": "refresh_rag_cache", "guild_id": guild_id, "data": {}}
+    fname = f"rag_refresh_{uuid.uuid4().hex[:8]}.json"
+    fpath = os.path.join(CONTROL_QUEUE_DIR, fname)
+    try:
+        with open(fpath, "w") as f:
+            json.dump(cmd, f)
+        print(f"[RAG] Refresh signal sent for guild {guild_id}")
+    except Exception as e:
+        print(f"[RAG] Signal error: {e}")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ROUTES — AI Chat v4.5 (Gemini 2.5 Flash + OpenRouter + Temperature Support)
@@ -2038,6 +2110,10 @@ def ai_chat_page(guild_id: str):
     ai_chat_channel = ""
     temperature = 0.75
     dedicated_ai_channel = False
+    ai_model = "gemini-3.6-flash"
+    rate_limit_max = 10
+    rate_limit_window = 30
+    rate_limit_cooldown = 60
 
     try:
         if db is not None:
@@ -2051,6 +2127,10 @@ def ai_chat_page(guild_id: str):
                 ai_chat_channel = ai_cfg.get("channel_id", "")
                 temperature = ai_cfg.get("temperature", 0.75)
                 dedicated_ai_channel = ai_cfg.get("dedicated_ai_channel", False)
+                ai_model = ai_cfg.get("ai_model", "gemini-3.6-flash")
+                rate_limit_max = ai_cfg.get("rate_limit_max", 10)
+                rate_limit_window = ai_cfg.get("rate_limit_window", 30)
+                rate_limit_cooldown = ai_cfg.get("rate_limit_cooldown", 60)
     except Exception:
         pass
 
@@ -2064,6 +2144,10 @@ def ai_chat_page(guild_id: str):
         ai_chat_channel=ai_chat_channel,
         temperature=temperature,
         dedicated_ai_channel=dedicated_ai_channel,
+        ai_model=ai_model,
+        rate_limit_max=rate_limit_max,
+        rate_limit_window=rate_limit_window,
+        rate_limit_cooldown=rate_limit_cooldown,
     )
 
 
@@ -2112,6 +2196,10 @@ def ai_chat_save(guild_id):
         channel_id = data.get("channel_id", "").strip()
         temperature = float(data.get("temperature", 0.75))
         dedicated_ai_channel = data.get("dedicated_ai_channel", False)
+        ai_model = data.get("ai_model", "gemini-3.6-flash")
+        rate_limit_max = int(data.get("rate_limit_max", 10))
+        rate_limit_window = int(data.get("rate_limit_window", 30))
+        rate_limit_cooldown = int(data.get("rate_limit_cooldown", 60))
 
         valid_personalities = ["friendly", "formal", "tsundere", "sarcastic", "wise"]
         if personality not in valid_personalities:
@@ -2128,6 +2216,10 @@ def ai_chat_save(guild_id):
                 "channel_id": channel_id,
                 "temperature": temperature,
                 "dedicated_ai_channel": dedicated_ai_channel if channel_id else False,
+                "ai_model": ai_model,
+                "rate_limit_max": max(1, min(rate_limit_max, 100)),
+                "rate_limit_window": max(5, min(rate_limit_window, 300)),
+                "rate_limit_cooldown": max(5, min(rate_limit_cooldown, 600)),
                 "updated_at": datetime.now(timezone.utc),
             }
         }, merge=True)
@@ -2150,6 +2242,10 @@ def api_ai_chat_settings(guild_id):
             "channel_id": "",
             "temperature": 0.75,
             "dedicated_ai_channel": False,
+            "ai_model": "gemini-3.6-flash",
+            "rate_limit_max": 10,
+            "rate_limit_window": 30,
+            "rate_limit_cooldown": 60,
         }
 
         if db is None:
@@ -2179,6 +2275,10 @@ def api_ai_chat_settings(guild_id):
                 "channel_id": ai_chat.get("channel_id", ""),
                 "temperature": ai_chat.get("temperature", 0.75),
                 "dedicated_ai_channel": ai_chat.get("dedicated_ai_channel", False),
+                "ai_model": ai_chat.get("ai_model", "gemini-3.6-flash"),
+                "rate_limit_max": ai_chat.get("rate_limit_max", 10),
+                "rate_limit_window": ai_chat.get("rate_limit_window", 30),
+                "rate_limit_cooldown": ai_chat.get("rate_limit_cooldown", 60),
             }
         }), 200
 

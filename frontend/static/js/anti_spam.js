@@ -15,6 +15,9 @@ let config = {
   raid_threshold: 10,
   raid_window: 300,
   raid_action: "kick",
+  new_account_max_age: 60,
+  new_account_action: "ban",
+  new_account_timeout_hours: 1,
 };
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -93,6 +96,12 @@ function applyConfig() {
   document.getElementById("raid-action").value = config.raid_action || "kick";
   toggleRaidConfig(!!config.raid_protection);
 
+  document.getElementById("new-account-max-age").value = config.new_account_max_age || 60;
+  document.getElementById("new-account-action").value = config.new_account_action || "ban";
+  toggleNewAccountDuration(config.new_account_action || "ban");
+  const durEl = document.getElementById("new-account-duration");
+  if (durEl) durEl.value = config.new_account_timeout_hours || 1;
+
   renderUserTags(config.whitelist_users || []);
   renderRoleTags(config.whitelist_roles || []);
   renderKeywordTags(config.custom_keywords || []);
@@ -152,6 +161,18 @@ function setupEventListeners() {
   });
   document.getElementById("raid-action")?.addEventListener("change", function (e) {
     config.raid_action = e.target.value;
+  });
+
+  // New account
+  document.getElementById("new-account-max-age")?.addEventListener("change", function (e) {
+    config.new_account_max_age = parseInt(e.target.value) || 60;
+  });
+  document.getElementById("new-account-action")?.addEventListener("change", function (e) {
+    config.new_account_action = e.target.value;
+    toggleNewAccountDuration(e.target.value);
+  });
+  document.getElementById("new-account-duration")?.addEventListener("change", function (e) {
+    config.new_account_timeout_hours = parseInt(e.target.value) || 1;
   });
 
   // Keywords
@@ -296,6 +317,11 @@ function renderKeywordTags(keywords) {
       removeKeyword(this.dataset.kw);
     });
   });
+}
+
+function toggleNewAccountDuration(action) {
+  const el = document.getElementById("new-account-duration-group");
+  if (el) el.style.display = action === "timeout" ? "block" : "none";
 }
 
 async function saveConfig() {

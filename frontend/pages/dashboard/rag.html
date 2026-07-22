@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}RAG — Synapse{% endblock %}
+{% block extra_css %}
+<style>
+.rag-dropzone {
+  border: 2px dashed #555;
+  border-radius: 8px;
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  margin-bottom: 1.5rem;
+}
+.rag-dropzone:hover,
+.rag-dropzone.dragover {
+  border-color: #7289da;
+  background: rgba(114,137,218,.08);
+}
+.rag-dropzone input { display: none; }
+.rag-dropzone p { margin: 0; color: #aaa; font-size: .9rem; }
+.rag-dropzone p strong { color: #ddd; }
+.doc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem 1rem;
+  background: #1e1e1e;
+  border-radius: 6px;
+  margin-bottom: .5rem;
+}
+.doc-info { flex: 1; }
+.doc-name { font-weight: 600; color: #eee; }
+.doc-meta { font-size: .8rem; color: #888; margin-top: 2px; }
+.doc-delete {
+  background: none;
+  border: 1px solid #e74c3c;
+  color: #e74c3c;
+  padding: .3rem .7rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: .8rem;
+  transition: background .2s;
+}
+.doc-delete:hover { background: #e74c3c; color: #fff; }
+.doc-list { margin-top: 1rem; }
+.empty-state { color: #666; text-align: center; padding: 2rem; }
+.loading { color: #888; text-align: center; padding: 1rem; }
+</style>
+{% endblock %}
+{% block content %}
+<input type="hidden" id="guild-id" value="{{ guild_id }}">
+<div class="page-wrap">
+  <nav class="breadcrumb">
+    <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
+    <span>›</span>
+    <span>RAG</span>
+  </nav>
+  <div class="page-header">
+    <div class="header-content">
+      <h1>📚 RAG — Knowledge Base</h1>
+      <p>Upload dokumen (TXT, PDF) biar AI bisa jawab berdasarkan data server lo.</p>
+    </div>
+  </div>
+  <div class="content-grid">
+    <div class="card">
+      <h2>Upload Dokumen</h2>
+      <div class="rag-dropzone" id="dropzone">
+        <input type="file" id="file-input" accept=".txt,.pdf">
+        <p><strong>Klik atau drag & drop</strong> file TXT / PDF</p>
+        <p style="font-size:.8rem;color:#666;margin-top:8px;">Maks 5MB per file</p>
+      </div>
+      <div id="upload-progress" class="loading" style="display:none;">Uploading...</div>
+    </div>
+    <div class="card">
+      <h2>Dokumen Tersimpan</h2>
+      <div id="doc-list" class="doc-list">
+        <div class="loading">Memuat...</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const guildId = document.getElementById('guild-id').value;
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); if (e.dataTransfer.files.length) upload(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', () => { if (fileInput.files.length) upload(fileInput.files[0]); });
+
+async function upload(file) {
+  if (file.size > 5 * 1024 * 1024) { alert('File terlalu besar (maks 5MB)'); return; }
+  document.getElementById('upload-progress').style.display = 'block';
+  try {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(',')[1];
+      const resp = await fetch(`/api/rag/${guildId}/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, data: base64 }),
+      });
+      const result = await resp.json();
+      document.getElementById('upload-progress').style.display = 'none';
+      if (result.success) { loadDocs(); }
+      else { alert('Gagal: ' + (result.error || 'unknown')); }
+    };
+    reader.readAsDataURL(file);
+  } catch (e) { document.getElementById('upload-progress').style.display = 'none'; alert('Error: ' + e.message); }
+}
+
+async function loadDocs() {
+  const el = document.getElementById('doc-list');
+  try {
+    const resp = await fetch(`/api/rag/${guildId}/documents`);
+    const data = await resp.json();
+    if (!data.success || !data.documents.length) {
+      el.innerHTML = '<div class="empty-state">Belum ada dokumen. Upload file TXT atau PDF.</div>';
+      return;
+    }
+    el.innerHTML = data.documents.map(d => `
+      <div class="doc-item">
+        <div class="doc-info">
+          <div class="doc-name">${escapeHtml(d.filename)}</div>
+          <div class="doc-meta">${d.chunk_count} chunks &middot; ${(d.size / 1024).toFixed(1)} KB &middot; ${d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString() : ''}</div>
+        </div>
+        <button class="doc-delete" onclick="delDoc('${d.id}')">Hapus</button>
+      </div>
+    `).join('');
+  } catch (e) { el.innerHTML = '<div class="empty-state">Error loading documents.</div>'; }
+}
+
+async function delDoc(id) {
+  if (!confirm('Hapus dokumen ini?')) return;
+  await fetch(`/api/rag/${guildId}/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ doc_id: id }),
+  });
+  loadDocs();
+}
+
+function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+loadDocs();
+</script>
+{% endblock %}

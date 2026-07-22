@@ -87,7 +87,7 @@ class Moderation(commands.Cog):
         cfg = await self._get_config(guild_id)
         key = f"strike_{strikes}"
         defaults = {
-            1: {"action": "timeout", "duration_hours": 1},
+            1: {"action": "timeout", "duration_hours": 24},
             2: {"action": "kick"},
             3: {"action": "ban"},
         }
@@ -309,39 +309,63 @@ class Moderation(commands.Cog):
 
             await message.delete()
 
-            user_id = str(message.author.id)
-            strike_key = f"{guild_id}_{user_id}"
-            doc_ref = db.collection("strikes").document(strike_key)
-            doc = await asyncio.to_thread(doc_ref.get)
-            if doc.exists:
-                data = doc.to_dict()
-                if time.time() - data.get("last_strike", 0) > 86400:
-                    strikes = 0
+            account_age = 999
+            if hasattr(message.author, "created_at"):
+                account_age = (datetime.datetime.now(timezone.utc) - message.author.created_at).days
+
+            new_account_max_age = cfg.get("new_account_max_age", 60)
+            new_account_action = cfg.get("new_account_action", "ban")
+
+            if account_age < new_account_max_age:
+                na_action = new_account_action
+                if na_action == "ban":
+                    await message.author.ban(reason=f"Auto-Ban (akun <{new_account_max_age}hr): {reason}")
+                    punishment_msg = f"BAN (akun baru < {new_account_max_age} hari)"
+                elif na_action == "kick":
+                    await message.author.kick(reason=f"Auto-Kick (akun <{new_account_max_age}hr): {reason}")
+                    punishment_msg = f"KICK (akun baru < {new_account_max_age} hari)"
+                elif na_action == "timeout":
+                    hours = cfg.get("new_account_timeout_hours", 1)
+                    duration = datetime.timedelta(hours=hours)
+                    await message.author.timeout(duration, reason=f"Spam (akun baru): {reason}")
+                    punishment_msg = f"TIMEOUT {hours} jam (akun baru)"
                 else:
-                    strikes = data.get("count", 0)
+                    await message.author.ban(reason=f"Auto-Ban (akun <{new_account_max_age}hr): {reason}")
+                    punishment_msg = f"BAN (akun baru < {new_account_max_age} hari)"
+                strikes = "-"
             else:
-                strikes = 0
-            strikes += 1
-            await asyncio.to_thread(doc_ref.set, {"count": strikes, "last_strike": time.time()})
+                user_id = str(message.author.id)
+                strike_key = f"{guild_id}_{user_id}"
+                doc_ref = db.collection("strikes").document(strike_key)
+                doc = await asyncio.to_thread(doc_ref.get)
+                if doc.exists:
+                    data = doc.to_dict()
+                    if time.time() - data.get("last_strike", 0) > 86400:
+                        strikes = 0
+                    else:
+                        strikes = data.get("count", 0)
+                else:
+                    strikes = 0
+                strikes += 1
+                await asyncio.to_thread(doc_ref.set, {"count": strikes, "last_strike": time.time()})
 
-            punishment_msg = ""
-            action_cfg = await self._get_action(guild_id, min(strikes, 3))
-            action = action_cfg.get("action", "ban")
+                action_cfg = await self._get_action(guild_id, min(strikes, 3))
+                action = action_cfg.get("action", "ban")
 
-            if action == "ban":
-                await message.author.ban(reason=f"Auto-Ban: {reason}")
-                punishment_msg = "BAN permanen"
-            elif action == "kick":
-                await message.author.kick(reason=f"Auto-Kick: {reason}")
-                punishment_msg = "KICK"
-            elif action == "timeout":
-                hours = action_cfg.get("duration_hours", 1)
-                duration = datetime.timedelta(hours=hours)
-                await message.author.timeout(duration, reason=f"Spam: {reason}")
-                punishment_msg = f"TIMEOUT {hours} jam"
-            else:
-                await message.author.ban(reason=f"Auto-Ban: {reason}")
-                punishment_msg = "BAN permanen"
+                if action == "ban":
+                    await message.author.ban(reason=f"Auto-Ban: {reason}")
+                    punishment_msg = "BAN permanen"
+                elif action == "kick":
+                    await message.author.kick(reason=f"Auto-Kick: {reason}")
+                    punishment_msg = "KICK"
+                elif action == "timeout":
+                    hours = action_cfg.get("duration_hours", 1)
+                    duration = datetime.timedelta(hours=hours)
+                    await message.author.timeout(duration, reason=f"Spam: {reason}")
+                    punishment_msg = f"TIMEOUT {hours} jam"
+                else:
+                    await message.author.ban(reason=f"Auto-Ban: {reason}")
+                    punishment_msg = "BAN permanen"
 
             report_ch_id = cfg.get("report_channel", "") or str(self.report_channel_id)
             report_channel = self.bot.get_channel(int(report_ch_id))
@@ -353,19 +377,20 @@ class Moderation(commands.Cog):
                 )
                 embed.add_field(name="Alasan", value=reason, inline=False)
                 embed.add_field(name="Channel", value=message.channel.mention, inline=True)
-                embed.add_field(name="Peringatan Ke", value=strikes, inline=True)
-                embed.add_field(name="Isi Pesan", value=f"||{message.content[:500]}||", inline=False)
-                if message.attachments:
-                    files = "\n".join([f"||{a.url}||" for a in message.attachments[:3]])
-                    embed.add_field(name="Lampiran", value=files, inline=False)
+                embed.add_field(name="Usia Akun", value=f"{account_age} hari", inline=True)
+                embed.add_field(name="Peringatan Ke", value=str(strikes), inline=True)
                 await report_channel.send(embed=embed)
+                spoiler_lines = [f"||{message.content[:500]}||"]
+                for a in message.attachments[:3]:
+                    spoiler_lines.append(f"||{a.url}||")
+                await report_channel.send("\n".join(spoiler_lines))
 
             try:
-                await message.author.send(f"Peringatan! Kamu telah di-{punishment_msg} dari server {message.guild.name} karena melakukan spam. Ini adalah peringatan ke-{strikes}.")
+                await message.author.send(f"Kamu telah di-{punishment_msg} dari server {message.guild.name} karena melanggar aturan. Ini adalah peringatan ke-{strikes}.")
             except discord.Forbidden:
                 print(f"[MODERATION] Gagal kirim DM ke {message.author}, DM ditutup.")
 
-            print(f"[MODERATION] {message.author} Strike {strikes}: {reason}")
+            print(f"[MODERATION] {message.author} {punishment_msg}: {reason}")
         except Exception as e:
             print(f"[ERROR] Gagal moderasi: {e}")
 
@@ -390,11 +415,11 @@ class Moderation(commands.Cog):
                     description=f"User **{message.author.name}** ({message.author.id}) di-TIMEOUT 10 menit"
                 )
                 embed.add_field(name="Alasan", value=reason, inline=False)
-                embed.add_field(name="Isi Pesan", value=f"||{message.content[:500]}||", inline=False)
-                if message.attachments:
-                    files = "\n".join([f"||{a.url}||" for a in message.attachments[:3]])
-                    embed.add_field(name="Lampiran", value=files, inline=False)
                 await report_channel.send(embed=embed)
+                spoiler_lines = [f"||{message.content[:500]}||"]
+                for a in message.attachments[:3]:
+                    spoiler_lines.append(f"||{a.url}||")
+                await report_channel.send("\n".join(spoiler_lines))
 
             print(f"[MODERATION] {message.author} Light timeout (10m): {reason}")
         except Exception as e:

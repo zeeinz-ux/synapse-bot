@@ -1,22 +1,19 @@
 """
-================================================================================
-COG: AI Chat Module v4.7 — Synapse Discord Bot
-================================================================================
-File    : backend/cogs/ai_chat.py
-Deskripsi : Triple API Fallback — Google AI Studio (T1) → Groq (T2) → OpenRouter (T3)
-  • Tier 1: Google AI Studio — Primary (Gemini 3.5 Flash / 3.1 Flash vision)
-  • Tier 2: Groq — Backup (Llama 3.3 70B Versatile)
-  • Tier 3: Atomesus — Last Resort (Cipher 8B)
-  • Lightweight Circuit Breaker: Gemini auto-skip 2h setelah 3x fail berturut-turut
-  • Compact structured logging — 1 line per tier switch
+===============================================================================
+COG: AI Chat Module v5.0 — Synapse Discord Bot
+===============================================================================
+File    : backend/cogs/ai_chat/ai_chat.py
+Deskripsi : 5-Tier API Fallback Engine — modular provider system
+  • Tier 1: Gemini — Primary (text + vision), circuit breaker, quota reserve
+  • Tier 2: Groq — Backup (Llama 3.3 70B)
+  • Tier 3: Mistral — Third (open-mistral-nemo)
+  • Tier 4: Cohere — Fourth (command-a-03-2025)
+  • Tier 5: OpenRouter — Last resort (auto-prioritize free models)
   • Slash command /ask + Mention handler (@bot)
   • Channel restriction, personality, temperature via dashboard
   • Chat history Firestore (max 5 pasang Q&A per user)
-  • [v4.7] Spam Detection Guard — analyze_spam() aktif di awal _process_ai_chat
-  • [v4.7] Personalized Mention — setiap respons AI diawali <@user_id>
-  • [v4.7] Regex-accurate bot-mention stripping di on_message
-  • [v4.7] typing() langsung membungkus _call_ai tanpa try-except ganda
-================================================================================
+  • v5.0: Provider system dipisah ke backend/cogs/ai_chat/providers/
+===============================================================================
 """
 import re
 import os
@@ -32,7 +29,6 @@ import discord
 from discord.ext import commands, tasks
 
 import aiohttp
-import tenacity
 
 from ..database.firebase_setup import db
 from ...utils.spam_engine import SpamEngine
@@ -43,7 +39,7 @@ from ...utils.firestore_stats import (
     firestore_retry_after,
     _is_quota_error,
 )
-from .prompt import SYSTEM_PROMPT_TEMPLATE, get_intent_instructions
+from .prompt import SYSTEM_PROMPT_TEMPLATE, get_intent_instructions, SPAM_ANALYSIS_SYSTEM_PROMPT
 from .chat_enhancer import (
     run_tools,
     get_user_prefs,
@@ -51,51 +47,43 @@ from .chat_enhancer import (
     update_user_style_prefs,
 )
 from .web_search import search_web, needs_web_search
-from ...utils.intent_router import IntentType
+from .providers import (
+    GeminiProvider,
+    GroqProvider,
+    MistralProvider,
+    CohereProvider,
+    OpenRouterProvider,
+)
 
 # ── Konstanta ──
 MAX_HISTORY_PAIRS = 5
 COOLDOWN_SECONDS = 5
 DEFAULT_PERSONALITY = "friendly"
 
-# ── Daily Quota ──
-DAILY_QUOTA_LIMIT = 1500      # Gemini free tier ~1500 request/hari
-QUOTA_RESERVE_THRESHOLD = 200 # sisakan quota ini khusus buat Vision (image spam, /ask gambar)
-RESPONSE_CACHE_TTL = 300       # cache response 5 menit
-
-# ── Rate limit per-user ──
+# ── Rate limit per-user (defaults, overridable per-guild) ──
 RATE_LIMIT_MAX = 10
 RATE_LIMIT_WINDOW = 30
 RATE_LIMIT_COOLDOWN = 60
 
+# ── Cache ──
+RESPONSE_CACHE_TTL = 300
+
 # ── In-memory cache untuk Firestore reads ──
 _HISTORY_CACHE: Dict[str, tuple] = {}
-_HISTORY_TTL = 60  # seconds
+_HISTORY_TTL = 60
 _USER_RATE_LIMITS: Dict[int, list] = {}
+_GUILD_DAILY_LIMITS: Dict[str, dict] = {}
+_GUILD_RAG_CACHE: Dict[str, tuple] = {}  # guild_id -> (chunks, load_timestamp)
+RAG_CACHE_MAX_CHUNKS = 5000
+RAG_CACHE_TTL = 300  # 5 menit
 
-# ── Tier 1: Google AI Studio ──
-GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-GOOGLE_MODEL = "gemini-3.5-flash"
+# ── Guild daily limit (per-server) ──
+GUILD_DAILY_MAX = 100
 
-GOOGLE_VISION_MODEL = "gemini-3.1-flash"
-# ── Tier 2: Groq ──
-GROQ_API_BASE = "https://api.groq.com/openai/v1"
-GROQ_MODEL = "llama-3.3-70b-versatile"
+# ── Gemini quota constants (used in orchestrator for log messages) ──
+DAILY_QUOTA_LIMIT = 1500
+CIRCUIT_BREAKER_COOLDOWN = 7200
 
-# ── Tier 3: Mistral ──
-MISTRAL_API_BASE = "https://api.mistral.ai/v1"
-MISTRAL_MODEL = "open-mistral-nemo"
-
-# ── Tier 4: Cohere ──
-COHERE_API_BASE = "https://api.cohere.com/v2"
-COHERE_MODEL = "command-a-03-2025"
-
-# ── Circuit Breaker ──
-CIRCUIT_BREAKER_THRESHOLD = 3       # fail streak sebelum circuit open
-CIRCUIT_BREAKER_COOLDOWN = 7200     # 2 jam (detik)
-# FUNGSI INI WAJIB ADA: Mencegah RetryError crash, dan oper balik status gagal
-def return_failure_tuple(retry_state):
-    return "RETRY_LIMIT_EXCEEDED", False
 
 class AIChat(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -103,88 +91,118 @@ class AIChat(commands.Cog):
         self.engine = SpamEngine()
         self._cooldowns: Dict[tuple, float] = {}
 
-        # API Keys
+        # API Keys (passed to providers on cog_load)
         self.google_api_key = os.getenv("GEMINI_API_KEY", "")
         self.groq_api_key = os.getenv("GROQ_API_KEY", "")
         self.mistral_api_key = os.getenv("MISTRAL_API_KEY", "")
         self.cohere_api_key = os.getenv("COHERE_API_KEY", "")
-
-        # Circuit Breaker State (Tier 1: Gemini)
-        self._gemini_circuit_open = False
-        self._gemini_circuit_until = 0.0
-        self._gemini_fail_streak = 0
-
-        if not self.google_api_key:
-            print("[AI CHAT] ⚠️ GEMINI_API_KEY tidak ditemukan!")
-        if not self.groq_api_key:
-            print("[AI CHAT] ⚠️ GROQ_API_KEY tidak ditemukan!")
-        if not self.mistral_api_key:
-            print("[AI CHAT] ⚠️ MISTRAL_API_KEY tidak ditemukan!")
-        if not self.cohere_api_key:
-            print("[AI CHAT] ⚠️ COHERE_API_KEY tidak ditemukan!")
+        self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "")
 
         self.session: aiohttp.ClientSession | None = None
 
-        # Spam analysis cache (content hash -> (timestamp, result))
+        # Providers (initialized in cog_load)
+        self.gemini: GeminiProvider | None = None
+        self.groq: GroqProvider | None = None
+        self.mistral: MistralProvider | None = None
+        self.cohere: CohereProvider | None = None
+        self.openrouter: OpenRouterProvider | None = None
+
+        self._providers: list = []
+
+        # Spam analysis cache
         self._spam_cache: dict[str, tuple[float, bool]] = {}
-        self._spam_cache_ttl = 300  # 5 menit
-        self._spam_last_check: float = 0.0  # ratelimit antar spam check
-        self._spam_min_interval = 1.0  # minimal 1 detik antar panggilan spam AI
+        self._spam_cache_ttl = 300
+        self._spam_last_check: float = 0.0
+        self._spam_min_interval = 1.0
 
-        # Cache compiled regex untuk strip mention bot di on_message
-        # (di-build sekali saat dibutuhkan, lihat on_message)
-        self._mention_pattern: "re.Pattern | None" = None
-
-        # ── Daily quota tracking ──
-        self._daily_count = 0
-        self._daily_quota_date = datetime.now(timezone.utc).date()
-
-        # ── Response cache (content_hash -> (response, timestamp)) ──
+        # Response cache (shared across providers)
         self._response_cache: dict[str, tuple[str, float]] = {}
 
+        self._mention_pattern: re.Pattern | None = None
         self._last_history_prune: float = 0.0
         self._owner_id: int | None = None
 
-        print("[AI CHAT] ✅ Cog loaded. Quad API: Google → Groq → Mistral → Cohere")
+        if not self.google_api_key:
+            print("[AI CHAT] GEMINI_API_KEY tidak ditemukan!")
+        if not self.groq_api_key:
+            print("[AI CHAT] GROQ_API_KEY tidak ditemukan!")
+        if not self.mistral_api_key:
+            print("[AI CHAT] MISTRAL_API_KEY tidak ditemukan!")
+        if not self.cohere_api_key:
+            print("[AI CHAT] COHERE_API_KEY tidak ditemukan!")
+        if not self.openrouter_api_key:
+            print("[AI CHAT] OPENROUTER_API_KEY tidak ditemukan!")
 
     async def cog_load(self):
         if self.session and not self.session.closed:
             return
-      
-        timeout = aiohttp.ClientTimeout(
-            total=60,
-            connect=20
-        )
-      
-        self.session = aiohttp.ClientSession(
-            timeout=timeout
-        )
+
+        timeout = aiohttp.ClientTimeout(total=60, connect=20)
+        self.session = aiohttp.ClientSession(timeout=timeout)
+
+        self.gemini = GeminiProvider(self.session, self.google_api_key)
+        self.groq = GroqProvider(self.session, self.groq_api_key)
+        self.mistral = MistralProvider(self.session, self.mistral_api_key)
+        self.cohere = CohereProvider(self.session, self.cohere_api_key)
+        self.openrouter = OpenRouterProvider(self.session, self.openrouter_api_key)
+
+        await self.openrouter.initialize()
+
+        self._providers = [
+            self.gemini,
+            self.groq,
+            self.mistral,
+            self.cohere,
+            self.openrouter,
+        ]
 
         self.history_prune_loop.start()
-      
-        print("[AI CHAT] ✅ HTTP session initialized")
+
+        # Preload RAG cache for all guilds
+        guild_ids = [str(g.id) for g in self.bot.guilds if g]
+        if guild_ids:
+            await asyncio.gather(*[self._get_rag_chunks(gid) for gid in guild_ids], return_exceptions=True)
+            loaded = sum(1 for gid in guild_ids if _GUILD_RAG_CACHE.get(gid))
+            print(f"[RAG] Preloaded cache for {loaded}/{len(guild_ids)} guilds")
+
+        print("[AI CHAT] Cog loaded. 5-Tier: Gemini -> Groq -> Mistral -> Cohere -> OpenRouter")
 
     async def cog_unload(self):
         self.history_prune_loop.cancel()
         if self.session:
             await self.session.close()
-            print("[AI CHAT] ✅ HTTP session closed")
+            print("[AI CHAT] HTTP session closed")
+
+    # ── Response cache ──
+
+    def _get_cached_response(self, user_message: str, system_prompt: str, temperature: float) -> str | None:
+        cache_key = hashlib.md5(f"{user_message}|{system_prompt}|{temperature}".encode()).hexdigest()[:32]
+        cached = self._response_cache.get(cache_key)
+        if cached:
+            text, ts = cached
+            if time_module.time() - ts < RESPONSE_CACHE_TTL:
+                return text
+            del self._response_cache[cache_key]
+        return None
+
+    def _set_cached_response(self, user_message: str, system_prompt: str, temperature: float, response: str):
+        cache_key = hashlib.md5(f"{user_message}|{system_prompt}|{temperature}".encode()).hexdigest()[:32]
+        self._response_cache[cache_key] = (response, time_module.time())
+        if len(self._response_cache) > 200:
+            cutoff = time_module.time() - RESPONSE_CACHE_TTL
+            self._response_cache = {k: v for k, v in self._response_cache.items() if v[1] > cutoff}
+
+    # ── Spam analysis ──
 
     async def analyze_spam(self, content: str, risk_score: int = 0, account_age_days: int = 0, matched_keywords: list[str] | None = None) -> bool:
-        """
-        Deteksi spam berbasis AI dengan cache + rate-limit.
-        Groq diprioritaskan (lebih cepat, free tier lebih longgar).
-        """
         content_hash = hashlib.md5(content.encode()).hexdigest()[:16]
         now = time_module.time()
 
-        # ── Cache ──
         if content_hash in self._spam_cache:
             cached_time, cached_result = self._spam_cache[content_hash]
             if now - cached_time < self._spam_cache_ttl:
                 return cached_result
 
-        # ── Rate-limit ──
         since_last = now - self._spam_last_check
         if since_last < self._spam_min_interval:
             return False
@@ -201,13 +219,7 @@ class AIChat(commands.Cog):
             response = await self._call_ai(
                 user_message=prompt,
                 history=[],
-                system_prompt=(
-                    "Anda adalah moderator spam yang tegas dan konsisten. "
-                    "Analisis pesan berdasarkan konten dan konteks. "
-                    "Anggap mencurigakan jika: promosi judi/slot, scam giveaway, "
-                    "link phishing, akun baru kirim link mencurigakan. "
-                    "Jawab HANYA 'YA' atau 'TIDAK'."
-                ),
+                system_prompt=SPAM_ANALYSIS_SYSTEM_PROMPT,
                 temperature=0.1,
             )
 
@@ -217,7 +229,6 @@ class AIChat(commands.Cog):
             result = False
 
         self._spam_cache[content_hash] = (time_module.time(), result)
-
         if len(self._spam_cache) > 500:
             cutoff = time_module.time() - self._spam_cache_ttl
             self._spam_cache = {k: v for k, v in self._spam_cache.items() if v[0] > cutoff}
@@ -225,66 +236,36 @@ class AIChat(commands.Cog):
         return result
 
     async def analyze_image_spam(self, image_data: bytes, mime_type: str = "image/png") -> bool:
-        """Gemini Vision: analisis apakah gambar mengandung spam/judi/scam."""
-        if not self.google_api_key or not self.session:
-            return False
+        if self.gemini and self.gemini.quota_available:
+            result = await self.gemini.analyze_image_spam(image_data, mime_type)
+            if result:
+                return True
+        if self.openrouter and self.openrouter.is_available:
+            is_safe, reason = await self.openrouter.check_content_safety(
+                "Analisis gambar ini. Apakah mengandung: promosi judi/slot, scam, konten penipuan, atau phishing?",
+                image_data, mime_type,
+            )
+            if not is_safe:
+                return True
+        return False
 
-        # ── Cek quota — vision prioritas utama, pake sampe quota beneran abis ──
-        if not self._check_daily_quota():
-            print("[AI VISION] ⚠️ Quota Gemini habis — image spam detection mati")
-            return False
-
-        try:
-            import base64
-            b64 = base64.b64encode(image_data).decode()
-
-            payload = {
-                "contents": [{
-                    "parts": [
-                        {"text": "Analisis gambar ini. Apakah mengandung: promosi judi/slot, scam, "
-                                 "konten penipuan, atau phishing? Jawab HANYA 'YA' atau 'TIDAK'."},
-                        {"inline_data": {"mime_type": mime_type, "data": b64}},
-                    ]
-                }],
-                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 64},
-            }
-
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={self.google_api_key}"
-
-            async with self.session.post(url, headers={"Content-Type": "application/json"}, json=payload) as resp:
-                if resp.status != 200:
-                    return False
-                self._daily_count += 1
-                data = await resp.json()
-                candidates = data.get("candidates", [])
-                if not candidates:
-                    return False
-                text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                return "YA" in text.upper()
-        except Exception as e:
-            print(f"[AI VISION] Error: {e}")
-            return False
+    # ── Helpers ──
 
     def _cleanup_cooldowns(self):
-       now = datetime.now(timezone.utc).timestamp()
-       # Hanya simpan user yang cooldown-nya masih aktif (< 60 detik)
-       self._cooldowns = {k: v for k, v in self._cooldowns.items() if now - v < 60}
-        
-    
+        now = datetime.now(timezone.utc).timestamp()
+        self._cooldowns = {k: v for k, v in self._cooldowns.items() if now - v < 60}
+
     async def _defer_interaction(self, interaction: discord.Interaction):
         try:
-            # Respon instan agar interaksi tidak expired
             await interaction.response.defer(thinking=True)
         except discord.errors.HTTPException as e:
             if e.status == 429:
-                print(f"[AI CHAT] ⚠️ Kena Rate Limit saat defer! Bot sedang sibuk.")
+                    print(f"[AI CHAT] Kena Rate Limit saat defer! Bot sedang sibuk.")
             else:
                 print(f"[AI CHAT] Error lain saat defer: {e}")
-            
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # HELPER: Firestore Settings (ASYNC)
-    # ═══════════════════════════════════════════════════════════════════════
+    # ── Firestore Settings ──
+
     async def _get_guild_ai_settings(self, guild_id: str) -> dict:
         try:
             doc_ref = db.collection("guild_settings").document(str(guild_id))
@@ -296,39 +277,27 @@ class AIChat(commands.Cog):
             return {
                 "enabled": data.get("ai_chat_enabled", False),
                 "channel_id": ai_chat.get("channel_id", ""),
-                "personality": ai_chat.get(
-                    "personality",
-                    DEFAULT_PERSONALITY
-                ),
-                "temperature": ai_chat.get(
-                    "temperature",
-                    0.75
-                ),
-                "dedicated_ai_channel": ai_chat.get(
-                    "dedicated_ai_channel",
-                    False
-                ),
+                "personality": ai_chat.get("personality", DEFAULT_PERSONALITY),
+                "temperature": ai_chat.get("temperature", 0.75),
+                "dedicated_ai_channel": ai_chat.get("dedicated_ai_channel", False),
+                "ai_model": ai_chat.get("ai_model", "gemini-3.6-flash"),
+                "rate_limit_max": ai_chat.get("rate_limit_max", RATE_LIMIT_MAX),
+                "rate_limit_window": ai_chat.get("rate_limit_window", RATE_LIMIT_WINDOW),
+                "rate_limit_cooldown": ai_chat.get("rate_limit_cooldown", RATE_LIMIT_COOLDOWN),
             }
         except Exception as e:
-            print(f"[AI CHAT] ⚠️ Error ambil settings: {e}")
+            print(f"[AI CHAT] Error ambil settings: {e}")
             return {"enabled": False, "channel_id": ""}
 
     def _is_channel_allowed(self, settings: dict, channel_id: str) -> bool:
         allowed_channel = settings.get("channel_id", "")
         if not allowed_channel:
             return True
-        # Dedicated mode: channel_id cuma nentuin channel auto-response.
-        # Channel lain tetap boleh pake mention/ask.
         if settings.get("dedicated_ai_channel", False):
             return True
-        # Restriction mode: cuma channel_id yang boleh pake AI (mention/ask).
         return str(channel_id) == str(allowed_channel)
-    
-    def _is_dedicated_ai_channel(
-        self,
-        settings: dict,
-        channel_id: str
-    ) -> bool:
+
+    def _is_dedicated_ai_channel(self, settings: dict, channel_id: str) -> bool:
         return (
             settings.get("dedicated_ai_channel", False)
             and str(settings.get("channel_id", "")) == str(channel_id)
@@ -356,14 +325,12 @@ class AIChat(commands.Cog):
             _HISTORY_CACHE[key] = (result, now + _HISTORY_TTL)
             return result
         except Exception as e:
-            print(f"[AI CHAT] ⚠️ Error ambil history: {e}")
+            print(f"[AI CHAT] Error ambil history: {e}")
             return []
 
     async def _save_chat_history(
         self, guild_id: str, user_id: str, user_msg: str, assistant_msg: str, personality: str = DEFAULT_PERSONALITY
     ) -> None:
-        # Skip entirely if the shared Firestore circuit breaker is open.
-        # Prevents cascading 429s when stats writes already tripped it.
         if firestore_circuit_open():
             return
 
@@ -374,7 +341,6 @@ class AIChat(commands.Cog):
                 {"role": "user", "content": user_msg, "timestamp": now},
                 {"role": "assistant", "content": assistant_msg, "timestamp": now},
             ]
-            # max 5 pasang = 10 entries
             if len(new_history) > 10:
                 new_history = new_history[-10:]
 
@@ -394,519 +360,279 @@ class AIChat(commands.Cog):
             await asyncio.to_thread(_blocking_set)
             _HISTORY_CACHE.pop(f"history:{guild_id}:{user_id}", None)
         except Exception as e:
-            # Trip the SHARED circuit breaker if Firestore returned 429,
-            # so other cogs (leveling, stats) stop hammering too.
             if _is_quota_error(e):
                 trip_firestore_circuit()
                 retry = firestore_retry_after()
-                print(f"[AI CHAT] ⚠️ Quota exceeded; circuit breaker tripped for {int(retry)}s. Dropping history save.")
+                print(f"[AI CHAT] Quota exceeded; circuit breaker tripped for {int(retry)}s. Dropping history save.")
             else:
-                print(f"[AI CHAT] ⚠️ Error simpan history: {e}")
+                print(f"[AI CHAT] Error simpan history: {e}")
 
     def _build_server_context(self, guild: discord.Guild) -> str:
         if not guild:
             return ""
         try:
             return f"""[CONTEXT SERVER]
-• Nama Server : {guild.name}
-• ID Server : {guild.id}
-• Total Member: {guild.member_count or 0}
-• Boost Level : {guild.premium_tier}
-• Dibuat Pada : {guild.created_at.strftime('%Y-%m-%d')}
+- Nama Server : {guild.name}
+- ID Server : {guild.id}
+- Total Member: {guild.member_count or 0}
+- Boost Level : {guild.premium_tier}
+- Dibuat Pada : {guild.created_at.strftime('%Y-%m-%d')}
 """
         except Exception:
             return ""
 
     # ═══════════════════════════════════════════════════════════════════════
-    # TIER 1: Google AI Studio
+    # MASTER FALLBACK ENGINE (5-Tier)
     # ═══════════════════════════════════════════════════════════════════════
-    
-    @tenacity.retry(
-        wait=tenacity.wait_exponential(min=1, max=2), 
-        stop=tenacity.stop_after_attempt(1),
-        retry=tenacity.retry_if_result(lambda res: res[1] is False), # <--- PAKAI KOMA!
-        retry_error_callback=return_failure_tuple
-    )
-
-    async def _call_google_gemini(
-        self, user_message: str, history: List[Dict], system_prompt: str,
-        temperature: float = 0.75, images: list[dict] | None = None
-    ) -> tuple[str, bool]:
-        """Call Google AI Studio. Return (response_text, success)."""
-        if not self.google_api_key or not self.session:
-            return "API_KEY_MISSING", False
-
-        has_images = bool(images)
-        parts = [{"text": user_message}]
-        if has_images:
-            for img in images:
-                parts.append({
-                    "inline_data": {
-                        "mime_type": img["mime_type"],
-                        "data": img["data"]
-                    }
-                })
-
-        contents = []
-        for item in history:
-            role = "model" if item["role"] == "assistant" else "user"
-            contents.append({"role": role, "parts": [{"text": item["content"]}]})
-        contents.append({"role": "user", "parts": parts})
-
-        payload = {
-        "contents": contents,
-        "generationConfig": {
-            "temperature": temperature,
-            "topP": 0.95,
-            "maxOutputTokens": 8192,
-        },
-    }
-        if not has_images:
-            payload["system_instruction"] = {"parts": [{"text": system_prompt}]}
-        else:
-            parts[0]["text"] = f"{system_prompt}\n\n{user_message}"
-
-        models_to_try = [GOOGLE_MODEL]
-        if has_images:
-            models_to_try = [GOOGLE_MODEL, GOOGLE_VISION_MODEL]
-
-        last_status = 0
-        for model in models_to_try:
-            try:
-                url = f"{GOOGLE_API_BASE}/models/{model}:generateContent?key={self.google_api_key}"
-                if has_images:
-                    print(f"[AI VISION] 🖼️ Trying model={model}, {len(images)} image(s)")
-
-                vision_timeout = aiohttp.ClientTimeout(total=120, connect=30) if has_images else None
-                async with self.session.post(url, headers={"Content-Type": "application/json"}, json=payload, timeout=vision_timeout) as resp:
-                    status = resp.status
-                    try:
-                        data = await resp.json()
-                    except Exception:
-                        data = {}
-
-                    if status == 429:
-                        err_msg = data.get("error", {}).get("message", "Rate limit or quota exhausted.")
-                        print(f"[AI CHAT] ⛔ Google Rate Limit (429): {err_msg[:100]}")
-                        return "RATE_LIMIT", False
-
-                    if status == 503 and model != models_to_try[-1]:
-                        print(f"[AI VISION] ⚠️ {model} returned 503, falling back to next model...")
-                        last_status = status
-                        continue
-
-                    if status != 200:
-                        print(f"[AI CHAT] ❌ Google HTTP {status} ({model})")
-                        return f"HTTP_{status}", False
-
-                    candidates = data.get("candidates", [])
-                    if not candidates:
-                        return "EMPTY_CANDIDATES", False
-
-                    ret_parts = candidates[0].get("content", {}).get("parts", [])
-                    if not ret_parts:
-                        return "EMPTY_PARTS", False
-
-                    return ret_parts[0].get("text", "").strip(), True
-
-            except asyncio.TimeoutError:
-                if model != models_to_try[-1]:
-                    print(f"[AI VISION] ⏱️ {model} timed out, falling back to next model...")
-                    continue
-                print(f"[AI VISION] ⏱️ {model} timed out (last model)")
-                return "TIMEOUT", False
-            except Exception as e:
-                if model != models_to_try[-1]:
-                    print(f"[AI VISION] ⚠️ {model} error ({type(e).__name__}), falling back...")
-                    continue
-                print(f"[AI CHAT] ❌ Google Exception ({model}): {type(e).__name__}")
-                return "EXCEPTION", False
-
-        return f"HTTP_{last_status}", False
-
-    # ═══════════════════════════════════════════════════════════════════════
-    # TIER 2: Groq (Llama 3.3 70B)
-    # ═══════════════════════════════════════════════════════════════════════
-
-    @tenacity.retry(
-        wait=tenacity.wait_exponential(min=1, max=2), 
-        stop=tenacity.stop_after_attempt(2),
-        retry=tenacity.retry_if_result(lambda res: res[1] is False),
-        retry_error_callback=return_failure_tuple 
-    )
-
-    async def _call_groq(
-        self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
-    ) -> tuple[str, bool]:
-        """Call Groq API. Return (response_text, success)."""
-        if not self.groq_api_key or not self.session:
-            return "API_KEY_MISSING", False
-
-        try:
-            messages = [{"role": "system", "content": system_prompt}]
-            for item in history:
-                role = "assistant" if item["role"] == "assistant" else "user"
-                messages.append({"role": role, "content": item["content"]})
-            messages.append({"role": "user", "content": user_message})
-
-            payload = {
-                "model": GROQ_MODEL,
-                "messages": messages,
-                "temperature": temperature,
-                "top_p": 0.95,
-                "max_tokens": 8192,
-            }
-
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.groq_api_key}",
-            }
-
-            url = f"{GROQ_API_BASE}/chat/completions"
-            groq_timeout = aiohttp.ClientTimeout(total=10, connect=5)
-
-            async with self.session.post(url, headers=headers, json=payload, timeout=groq_timeout) as resp:
-                status = resp.status
-                try:
-                    data = await resp.json()
-                except Exception:
-                    data = {}
-
-                if status == 429:
-                    err_msg = data.get("error", {}).get("message", "Rate limit")
-                    print(f"[AI CHAT] ⛔ Groq Rate Limit (429): {err_msg[:100]}")
-                    return "RATE_LIMIT", False
-
-                if status in (401, 403):
-                    print(f"[AI CHAT] ❌ Groq Auth Error ({status})")
-                    return f"AUTH_{status}", False
-
-                if status != 200:
-                    print(f"[AI CHAT] ❌ Groq HTTP {status}")
-                    return f"HTTP_{status}", False
-
-                choices = data.get("choices", [])
-                if not choices:
-                    return "EMPTY_CHOICES", False
-
-                return choices[0].get("message", {}).get("content", "").strip(), True
-
-        except asyncio.TimeoutError:
-            print("[AI CHAT] ⏱️ Groq Timeout (10s)")
-            return "TIMEOUT", False
-        except Exception as e:
-            print(f"[AI CHAT] ❌ Groq Exception: {type(e).__name__}")
-            return "EXCEPTION", False
-
-    # ═══════════════════════════════════════════════════════════════════════
-    # TIER 3: Mistral (OpenAI-compatible)
-    # ═══════════════════════════════════════════════════════════════════════
-
-    @tenacity.retry(
-        wait=tenacity.wait_exponential(min=1, max=2), 
-        stop=tenacity.stop_after_attempt(2),
-        retry=tenacity.retry_if_result(lambda res: res[1] is False),
-        retry_error_callback=return_failure_tuple
-    )
-
-    async def _call_mistral(
-        self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
-    ) -> tuple[str, bool]:
-        """Call Mistral (open-mistral-nemo). Return (response_text, success)."""
-        if not self.mistral_api_key or not self.session:
-            return "API_KEY_MISSING", False
-
-        try:
-            messages = [{"role": "system", "content": system_prompt}]
-            for item in history:
-                role = "assistant" if item["role"] == "assistant" else "user"
-                messages.append({"role": role, "content": item["content"]})
-            messages.append({"role": "user", "content": user_message})
-
-            payload = {
-                "model": MISTRAL_MODEL,
-                "messages": messages,
-                "temperature": temperature,
-                "top_p": 0.95,
-                "max_tokens": 8192,
-            }
-
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.mistral_api_key}",
-            }
-
-            url = f"{MISTRAL_API_BASE}/chat/completions"
-
-            async with self.session.post(url, headers=headers, json=payload) as resp:
-                status = resp.status
-                try:
-                    data = await resp.json()
-                except Exception:
-                    data = {}
-
-                if status == 429:
-                    print("[AI CHAT] ⛔ Mistral Rate Limit (429)")
-                    return "RATE_LIMIT", False
-
-                if status != 200:
-                    print(f"[AI CHAT] ❌ Mistral HTTP {status}")
-                    return f"HTTP_{status}", False
-
-                choices = data.get("choices", [])
-                if not choices:
-                    return "EMPTY_CHOICES", False
-
-                return choices[0].get("message", {}).get("content", "").strip(), True
-
-        except Exception as e:
-            print(f"[AI CHAT] ❌ Mistral Exception: {type(e).__name__}")
-            return "EXCEPTION", False
-
-    # ═══════════════════════════════════════════════════════════════════════
-    # TIER 4: Cohere (v2 OpenAI-compatible)
-    # ═══════════════════════════════════════════════════════════════════════
-
-    @tenacity.retry(
-        wait=tenacity.wait_exponential(min=1, max=2), 
-        stop=tenacity.stop_after_attempt(2),
-        retry=tenacity.retry_if_result(lambda res: res[1] is False),
-        retry_error_callback=return_failure_tuple
-    )
-
-    async def _call_cohere(
-        self, user_message: str, history: List[Dict], system_prompt: str, temperature: float = 0.75
-    ) -> tuple[str, bool]:
-        """Call Cohere (command-a-03-2025). Return (response_text, success)."""
-        if not self.cohere_api_key or not self.session:
-            return "API_KEY_MISSING", False
-
-        try:
-            messages = [{"role": "system", "content": system_prompt}]
-            for item in history:
-                role = "assistant" if item["role"] == "assistant" else "user"
-                messages.append({"role": role, "content": item["content"]})
-            messages.append({"role": "user", "content": user_message})
-
-            payload = {
-                "model": COHERE_MODEL,
-                "messages": messages,
-                "temperature": temperature,
-                "top_p": 0.95,
-                "max_tokens": 8192,
-            }
-
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.cohere_api_key}",
-            }
-
-            url = f"{COHERE_API_BASE}/chat"
-
-            async with self.session.post(url, headers=headers, json=payload) as resp:
-                status = resp.status
-                try:
-                    data = await resp.json()
-                except Exception:
-                    data = {}
-
-                if status == 429:
-                    print("[AI CHAT] ⛔ Cohere Rate Limit (429)")
-                    return "RATE_LIMIT", False
-
-                if status != 200:
-                    print(f"[AI CHAT] ❌ Cohere HTTP {status}")
-                    return f"HTTP_{status}", False
-
-                msg = data.get("message", {})
-                content_blocks = msg.get("content", [])
-                if content_blocks:
-                    return content_blocks[0].get("text", "").strip(), True
-                return "EMPTY_RESPONSE", False
-
-        except Exception as e:
-            print(f"[AI CHAT] ❌ Cohere Exception: {type(e).__name__}")
-            return "EXCEPTION", False
-        
-    # ═══════════════════════════════════════════════════════════════════════
-    # MASTER FALLBACK ENGINE (Quad Tier + Quota Reserve)
-    # ═══════════════════════════════════════════════════════════════════════
-
-    def _check_daily_quota(self) -> bool:
-        today = datetime.now(timezone.utc).date()
-        if today != self._daily_quota_date:
-            self._daily_count = 0
-            self._daily_quota_date = today
-        return self._daily_count < DAILY_QUOTA_LIMIT
-
-    def _quota_reserve_available(self) -> bool:
-        """Cek apakah quota Gemini masih di atas reserve threshold (buat Vision)."""
-        self._check_daily_quota()
-        return self._daily_count < (DAILY_QUOTA_LIMIT - QUOTA_RESERVE_THRESHOLD)
-
-    def _get_cached_response(self, user_message: str, system_prompt: str, temperature: float) -> str | None:
-        cache_key = hashlib.md5(f"{user_message}|{system_prompt}|{temperature}".encode()).hexdigest()[:32]
-        cached = self._response_cache.get(cache_key)
-        if cached:
-            text, ts = cached
-            if time_module.time() - ts < RESPONSE_CACHE_TTL:
-                return text
-            del self._response_cache[cache_key]
-        return None
-
-    def _set_cached_response(self, user_message: str, system_prompt: str, temperature: float, response: str):
-        cache_key = hashlib.md5(f"{user_message}|{system_prompt}|{temperature}".encode()).hexdigest()[:32]
-        self._response_cache[cache_key] = (response, time_module.time())
-        if len(self._response_cache) > 200:
-            cutoff = time_module.time() - RESPONSE_CACHE_TTL
-            self._response_cache = {k: v for k, v in self._response_cache.items() if v[1] > cutoff}
 
     async def _call_ai(
         self, user_message: str, history: List[Dict], system_prompt: str,
-        temperature: float = 0.75, images: list[dict] | None = None
+        temperature: float = 0.75, images: list[dict] | None = None,
+        ai_model: str | None = None,
     ) -> str:
-        """Quad API Fallback Engine — Gemini primary, with quota reserve for Vision.
-
-        • Vision (has_images=True): always tries Gemini first. Jika quota habis → error.
-        • Text (has_images=False): pake Gemini cuma kalo masih di atas quota reserve (200).
-          Setelah reserve threshold, langsung skip ke Groq biar hemat Gemini buat Vision.
-        """
-
         now = datetime.now(timezone.utc).timestamp()
 
-        # ── Response Cache Check (skip when images present) ──
         if not history and not images:
             cached = self._get_cached_response(user_message, system_prompt, temperature)
             if cached:
-                print("[AI CHAT] 💾 Response cache HIT")
+                print("[AI CHAT] Response cache HIT")
                 return cached
 
         has_images = bool(images)
 
-        # ── Daily Quota Check ──
-        quota_exhausted = not self._check_daily_quota()
-        reserve_ok = self._quota_reserve_available()
+        # ── Tier 1: Gemini ──
+        can_use_gemini = False
+        if self.gemini and self.gemini.is_available:
+            if has_images:
+                can_use_gemini = self.gemini.can_use_for_vision()
+                if not can_use_gemini:
+                    return "Maaf, fitur gambar lagi tidak tersedia karena kuota Gemini habis. Coba tanpa gambar ya!"
+            else:
+                can_use_gemini = self.gemini.can_use_for_text()
+                if not can_use_gemini:
+                    remaining = DAILY_QUOTA_LIMIT - self.gemini._daily_count
+                    print(f"[AI CHAT] Gemini reserve ({remaining} left). Skipping Gemini for text, fallback only.")
 
-        # ── Deciding phase: should we try Gemini for this request? ──
-        can_use_gemini = (
-            self.google_api_key
-            and not quota_exhausted
-            and (has_images or reserve_ok)
-        )
-
-        if not can_use_gemini and self.google_api_key:
-            if quota_exhausted:
-                print(f"[AI CHAT] ⚠️ Daily quota ({DAILY_QUOTA_LIMIT}) exhausted.")
-                if has_images:
-                    return "❌ Maaf, fitur gambar lagi tidak tersedia karena kuota Gemini habis. Coba tanpa gambar ya!"
-            elif not reserve_ok and not has_images:
-                remaining = DAILY_QUOTA_LIMIT - self._daily_count
-                print(f"[AI CHAT] ⚠️ Gemini reserve ({remaining} left). Skipping Gemini for text, fallback only.")
-            # Fall through to Groq/Mistral/Cohere
-
-        # ── Tier 1: Google AI Studio (Primary, privileged for Vision) ──
         if can_use_gemini:
-            if self._gemini_circuit_open:
-                if now >= self._gemini_circuit_until:
-                    self._gemini_circuit_open = False
-                    self._gemini_fail_streak = 0
-                    print("[AI CHAT] 🟢 Tier 1 Circuit CLOSED — retrying Gemini")
+            if self.gemini.circuit_open:
+                if now >= self.gemini._gemini_circuit_until:
+                    self.gemini.reset_circuit()
+                    print("[AI CHAT] Tier 1 Circuit CLOSED — retrying Gemini")
                 else:
-                    remaining = int(self._gemini_circuit_until - now)
-                    print(f"[AI CHAT] ⚠️ Tier 1 Circuit OPEN ({remaining}s left). Skip to Tier 2 (Groq)...")
+                    remaining = int(self.gemini._gemini_circuit_until - now)
+                    print(f"[AI CHAT] Tier 1 Circuit OPEN ({remaining}s left). Skip to Tier 2 (Groq)...")
                     can_use_gemini = False
 
-            if can_use_gemini:
-                response, success = await self._call_google_gemini(
+        if can_use_gemini:
+            response, success = await self.gemini.call(user_message, history, system_prompt, temperature, images, model=ai_model)
+            if success:
+                self.gemini.record_success()
+                count = self.gemini._daily_count
+                print(f"[AI CHAT] Tier 1 Success (Gemini) [{count}/{DAILY_QUOTA_LIMIT}]")
+                if not history and not has_images:
+                    self._set_cached_response(user_message, system_prompt, temperature, response)
+                return response
+            self.gemini.record_failure()
+            if self.gemini.circuit_open:
+                print(f"[AI CHAT] Tier 1 Circuit OPEN ({CIRCUIT_BREAKER_COOLDOWN // 3600}h) — {self.gemini._gemini_fail_streak}x fail")
+            else:
+                print(f"[AI CHAT] Tier 1 Fail ({response}). Switching to Tier 2 (Groq)...")
+
+        if has_images:
+            if self.openrouter and self.openrouter.is_available:
+                print("[AI CHAT] [TIER 5] Trying OpenRouter vision...")
+                response, success = await self.openrouter.call(
                     user_message, history, system_prompt, temperature, images
                 )
-                if success and response:
-                    self._gemini_fail_streak = 0
-                    self._daily_count += 1
-                    if not history and not has_images:
+                if success:
+                    if not history:
                         self._set_cached_response(user_message, system_prompt, temperature, response)
-                    print(f"[AI CHAT] ✅ Tier 1 Success (Gemini) [{self._daily_count}/{DAILY_QUOTA_LIMIT}]")
+                    print("[AI CHAT] Tier 5 Success (OpenRouter vision)")
                     return response
+                print(f"[AI CHAT] Tier 5 Fail (OpenRouter vision: {response})")
+            return "Maaf, fitur gambar lagi tidak tersedia. Coba tanpa gambar ya!"
 
-                self._gemini_fail_streak += 1
-                if self._gemini_fail_streak >= CIRCUIT_BREAKER_THRESHOLD:
-                    self._gemini_circuit_open = True
-                    self._gemini_circuit_until = now + CIRCUIT_BREAKER_COOLDOWN
-                    print(f"[AI CHAT] 🔴 Tier 1 Circuit OPEN ({CIRCUIT_BREAKER_COOLDOWN // 3600}h) — {self._gemini_fail_streak}x fail")
-                else:
-                    print(f"[AI CHAT] ⚠️ Tier 1 Fail ({response}). Switching to Tier 2 (Groq)...")
-
-            # If images present and Gemini failed, don't fallback — other tiers don't support vision
-            if has_images:
-                return "❌ Maaf, fitur gambar cuma didukung oleh Gemini. Coba lagi nanti ya!"
-
-        # ── Tier 2: Groq (Backup) ──
-        if self.groq_api_key:
-            print("[AI CHAT] 🚀 [TIER 2] Trying Groq (Llama 3.3 70B)...")
-            response, success = await self._call_groq(
-                user_message, history, system_prompt, temperature
-            )
-            if success and response:
+        # ── Tier 2: Groq ──
+        if self.groq and self.groq.is_available:
+            print("[AI CHAT] [TIER 2] Trying Groq (Llama 3.3 70B)...")
+            response, success = await self.groq.call(user_message, history, system_prompt, temperature)
+            if success:
                 if not history:
                     self._set_cached_response(user_message, system_prompt, temperature, response)
-                print("[AI CHAT] ✅ Tier 2 Success (Groq)")
+                print("[AI CHAT] Tier 2 Success (Groq)")
                 return response
-            print(f"[AI CHAT] ⚠️ Tier 2 Fail ({response}). Switching to Tier 3 (Mistral)...")
+            print(f"[AI CHAT] Tier 2 Fail ({response}). Switching to Tier 3 (Mistral)...")
 
         # ── Tier 3: Mistral ──
-        if self.mistral_api_key:
-            print("[AI CHAT] 🚀 [TIER 3] Trying Mistral (open-mistral-nemo)...")
-            response, success = await self._call_mistral(
-                user_message, history, system_prompt, temperature
-            )
-            if success and response:
+        if self.mistral and self.mistral.is_available:
+            print("[AI CHAT] [TIER 3] Trying Mistral (open-mistral-nemo)...")
+            response, success = await self.mistral.call(user_message, history, system_prompt, temperature)
+            if success:
                 if not history:
                     self._set_cached_response(user_message, system_prompt, temperature, response)
-                print("[AI CHAT] ✅ Tier 3 Success (Mistral)")
+                print("[AI CHAT] Tier 3 Success (Mistral)")
                 return response
-            print(f"[AI CHAT] ⚠️ Tier 3 Fail ({response}). Switching to Tier 4 (Cohere)...")
+            print(f"[AI CHAT] Tier 3 Fail ({response}). Switching to Tier 4 (Cohere)...")
 
         # ── Tier 4: Cohere ──
-        if self.cohere_api_key:
-            print("[AI CHAT] 🚀 [TIER 4] Trying Cohere (command-r-plus)...")
-            response, success = await self._call_cohere(
-                user_message, history, system_prompt, temperature
-            )
-            if success and response:
+        if self.cohere and self.cohere.is_available:
+            print("[AI CHAT] [TIER 4] Trying Cohere (command-r-plus)...")
+            response, success = await self.cohere.call(user_message, history, system_prompt, temperature)
+            if success:
                 if not history:
                     self._set_cached_response(user_message, system_prompt, temperature, response)
-                print("[AI CHAT] ✅ Tier 4 Success (Cohere)")
+                print("[AI CHAT] Tier 4 Success (Cohere)")
                 return response
-            print(f"[AI CHAT] ❌ Tier 4 Fail ({response})")
+            print(f"[AI CHAT] Tier 4 Fail ({response}). Switching to Tier 5 (OpenRouter)...")
+
+        # ── Tier 5: OpenRouter ──
+        if self.openrouter and self.openrouter.is_available:
+            print("[AI CHAT] [TIER 5] Trying OpenRouter...")
+            response, success = await self.openrouter.call(user_message, history, system_prompt, temperature)
+            if success:
+                if not history:
+                    self._set_cached_response(user_message, system_prompt, temperature, response)
+                print("[AI CHAT] Tier 5 Success (OpenRouter)")
+                return response
+            print(f"[AI CHAT] Tier 5 Fail ({response})")
 
         # ── All Tiers Failed ──
-        if not self.google_api_key and not self.groq_api_key and not self.mistral_api_key and not self.cohere_api_key:
-            return "❌ Tidak ada API key yang tersedia di environment (.env). Hubungi admin bot."
+        if not any(p.is_available for p in self._providers):
+            return "Tidak ada API key yang tersedia di environment (.env). Hubungi admin bot."
 
-        if self._gemini_circuit_open and not self.groq_api_key and not self.mistral_api_key and not self.cohere_api_key:
+        if self.gemini and self.gemini.circuit_open and not any(p.is_available for p in self._providers[1:]):
             return (
-                "⚠️ Kuota harian Google AI Studio lu udah habis dan tidak ada backup API tersedia.\n"
+                "Kuota harian Google AI Studio udah habis dan tidak ada backup API tersedia.\n"
                 "Tunggu beberapa jam lagi ya bro!"
             )
 
         return (
-            "Waduh, semua mesin AI-nya lagi pusing nih, bro! 🧠💥\n"
+            "Waduh, semua mesin AI-nya lagi pusing nih, bro!\n"
             "Gemini quota limit/reserve, Groq down, Mistral dan Cohere error.\n"
             "Coba tunggu beberapa menit lagi baru chat gua ya!"
         )
 
+    async def _call_ai_stream(
+        self, user_message: str, history: List[Dict], system_prompt: str,
+        temperature: float = 0.75, images: list[dict] | None = None,
+        ai_model: str | None = None,
+    ):
+        now = datetime.now(timezone.utc).timestamp()
+        has_images = bool(images)
+
+        # ── Tier 1: Gemini ──
+        can_use_gemini = False
+        if self.gemini and self.gemini.is_available:
+            if has_images:
+                can_use_gemini = self.gemini.can_use_for_vision()
+            else:
+                can_use_gemini = self.gemini.can_use_for_text()
+        if can_use_gemini and self.gemini.circuit_open:
+            if now >= self.gemini._gemini_circuit_until:
+                self.gemini.reset_circuit()
+                print("[AI STREAM] Tier 1 Circuit CLOSED — retrying Gemini")
+            else:
+                can_use_gemini = False
+        if can_use_gemini:
+            try:
+                saw_chunk = False
+                async for chunk in self.gemini.stream(user_message, history, system_prompt, temperature, images, model=ai_model):
+                    if chunk:
+                        saw_chunk = True
+                        yield chunk
+                if saw_chunk:
+                    self.gemini.record_success()
+                    print(f"[AI STREAM] Tier 1 Success (Gemini)")
+                    return
+                print("[AI STREAM] Tier 1 Fail (empty stream). Switching...")
+                self.gemini.record_failure()
+            except Exception as e:
+                print(f"[AI STREAM] Tier 1 Exception ({e}). Switching...")
+                self.gemini.record_failure()
+
+        # ── Vision fallback ──
+        if has_images:
+            if self.openrouter and self.openrouter.is_available:
+                try:
+                    saw_chunk = False
+                    async for chunk in self.openrouter.stream(user_message, history, system_prompt, temperature, images):
+                        if chunk:
+                            saw_chunk = True
+                            yield chunk
+                    if saw_chunk:
+                        print("[AI STREAM] Tier 5 Success (OpenRouter vision)")
+                        return
+                except Exception as e:
+                    print(f"[AI STREAM] Tier 5 vision Exception ({e})")
+            yield ""
+            return
+
+        # ── Tier 2: Groq ──
+        if self.groq and self.groq.is_available:
+            try:
+                saw_chunk = False
+                async for chunk in self.groq.stream(user_message, history, system_prompt, temperature):
+                    if chunk:
+                        saw_chunk = True
+                        yield chunk
+                if saw_chunk:
+                    print("[AI STREAM] Tier 2 Success (Groq)")
+                    return
+                print("[AI STREAM] Tier 2 Fail (empty). Switching to Tier 3 (Mistral)...")
+            except Exception as e:
+                print(f"[AI STREAM] Tier 2 Exception ({e}). Switching to Tier 3 (Mistral)...")
+
+        # ── Tier 3: Mistral ──
+        if self.mistral and self.mistral.is_available:
+            try:
+                saw_chunk = False
+                async for chunk in self.mistral.stream(user_message, history, system_prompt, temperature):
+                    if chunk:
+                        saw_chunk = True
+                        yield chunk
+                if saw_chunk:
+                    print("[AI STREAM] Tier 3 Success (Mistral)")
+                    return
+                print("[AI STREAM] Tier 3 Fail (empty). Switching to Tier 4 (Cohere)...")
+            except Exception as e:
+                print(f"[AI STREAM] Tier 3 Exception ({e}). Switching to Tier 4 (Cohere)...")
+
+        # ── Tier 4: Cohere ──
+        if self.cohere and self.cohere.is_available:
+            try:
+                saw_chunk = False
+                async for chunk in self.cohere.stream(user_message, history, system_prompt, temperature):
+                    if chunk:
+                        saw_chunk = True
+                        yield chunk
+                if saw_chunk:
+                    print("[AI STREAM] Tier 4 Success (Cohere)")
+                    return
+                print("[AI STREAM] Tier 4 Fail (empty). Switching to Tier 5 (OpenRouter)...")
+            except Exception as e:
+                print(f"[AI STREAM] Tier 4 Exception ({e}). Switching to Tier 5 (OpenRouter)...")
+
+        # ── Tier 5: OpenRouter ──
+        if self.openrouter and self.openrouter.is_available:
+            try:
+                saw_chunk = False
+                async for chunk in self.openrouter.stream(user_message, history, system_prompt, temperature):
+                    if chunk:
+                        saw_chunk = True
+                        yield chunk
+                if saw_chunk:
+                    print("[AI STREAM] Tier 5 Success (OpenRouter)")
+                    return
+            except Exception as e:
+                print(f"[AI STREAM] Tier 5 Exception ({e})")
+
+        yield ""
+
     # ═══════════════════════════════════════════════════════════════════════
     # RESPONSE HELPER
     # ═══════════════════════════════════════════════════════════════════════
-    async def _send_response(self, ctx, user_id: str, text: str):
-        """
-        Mengirim balasan ke user. Setiap respons WAJIB diawali mention user
-        (<@user_id>) supaya percakapan terasa personal.
 
-        Mention disisipkan SEKALI di depan teks SEBELUM proses chunking,
-        sehingga ia hanya muncul pada chunk pertama dan tidak ikut terpotong
-        atau terduplikasi di chunk-chunk berikutnya saat pesan terlalu panjang.
-        """
+    async def _send_response(self, ctx, user_id: str, text: str):
         full_text = f"<@{user_id}> {text}"
 
         if isinstance(ctx, discord.Interaction):
@@ -929,7 +655,7 @@ class AIChat(commands.Cog):
                 await ctx.reply(full_text, mention_author=False)
 
     # ═══════════════════════════════════════════════════════════════════════
-    # IMAGE EXTRACTION HELPER
+    # IMAGE EXTRACTION
     # ═══════════════════════════════════════════════════════════════════════
 
     _ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
@@ -954,9 +680,10 @@ class AIChat(commands.Cog):
         return images
 
     # ═══════════════════════════════════════════════════════════════════════
-    # RATE LIMIT PER-USER
+    # RATE LIMIT
     # ═══════════════════════════════════════════════════════════════════════
-    async def _check_rate_limit(self, user: discord.User, ctx) -> bool:
+
+    async def _check_rate_limit(self, user: discord.User, ctx, settings: dict | None = None) -> bool:
         if self._owner_id is None:
             try:
                 app = await self.bot.application_info()
@@ -966,17 +693,22 @@ class AIChat(commands.Cog):
         if user.id == self._owner_id:
             return False
 
+        limit_max = (settings or {}).get("rate_limit_max", RATE_LIMIT_MAX)
+        window = (settings or {}).get("rate_limit_window", RATE_LIMIT_WINDOW)
+        cooldown = (settings or {}).get("rate_limit_cooldown", RATE_LIMIT_COOLDOWN)
+
         now = time_module.time()
         timestamps = _USER_RATE_LIMITS.get(user.id, [])
-        timestamps = [t for t in timestamps if now - t < RATE_LIMIT_WINDOW]
+        timestamps = [t for t in timestamps if now - t < window]
 
-        if len(timestamps) >= RATE_LIMIT_MAX:
-            if now - timestamps[-1] < RATE_LIMIT_COOLDOWN:
+        if len(timestamps) >= limit_max:
+            if now - timestamps[-1] < cooldown:
                 try:
-                    await user.send("⏡ Cooldown — kamu terlalu cepat. Tunggu 60 detik ya.")
+                    msg = f"Cooldown — kamu terlalu cepat. Tunggu {cooldown} detik ya."
+                    await user.send(msg)
                 except Exception:
                     try:
-                        await ctx.reply("⏡ Cooldown — kamu terlalu cepat. Tunggu 60 detik ya.", delete_after=5)
+                        await ctx.reply(msg, delete_after=5)
                     except Exception:
                         pass
                 return True
@@ -986,19 +718,72 @@ class AIChat(commands.Cog):
         _USER_RATE_LIMITS.setdefault(user.id, []).append(now)
         return False
 
+    async def _check_guild_daily_limit(self, guild_id: str, user: discord.User) -> bool:
+        if self._owner_id is None:
+            try:
+                app = await self.bot.application_info()
+                self._owner_id = app.owner.id
+            except Exception:
+                self._owner_id = 0
+        if user.id == self._owner_id:
+            return False
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        entry = _GUILD_DAILY_LIMITS.get(guild_id)
+
+        if entry is None or entry["date"] != today:
+            _GUILD_DAILY_LIMITS[guild_id] = {"count": 1, "date": today}
+            return False
+
+        if entry["count"] >= GUILD_DAILY_MAX:
+            print(f"[AI CHAT] Guild {guild_id} daily limit reached ({GUILD_DAILY_MAX})")
+            return True
+
+        entry["count"] += 1
+        remaining = GUILD_DAILY_MAX - entry["count"]
+        if remaining <= 10:
+            print(f"[AI CHAT] Guild {guild_id} warning: {remaining} requests left today")
+        return False
+
     # ═══════════════════════════════════════════════════════════════════════
     # CORE PROCESSOR
     # ═══════════════════════════════════════════════════════════════════════
+
+    async def _get_rag_chunks(self, guild_id: str, force: bool = False) -> list[str]:
+        if not force:
+            entry = _GUILD_RAG_CACHE.get(guild_id)
+            if entry is not None:
+                chunks, ts = entry
+                if time_module.time() - ts < RAG_CACHE_TTL:
+                    return chunks
+        from ...utils.rag_engine import load_all_chunks
+        loaded = await load_all_chunks(guild_id)
+        if len(loaded) > RAG_CACHE_MAX_CHUNKS:
+            loaded = loaded[:RAG_CACHE_MAX_CHUNKS]
+            print(f"[RAG] Guild {guild_id}: truncated to {RAG_CACHE_MAX_CHUNKS} chunks")
+        _GUILD_RAG_CACHE[guild_id] = (loaded, time_module.time())
+        return loaded
+
+    async def _get_rag_relevant(self, guild_id: str, query: str) -> list[str]:
+        rag_chunks = await self._get_rag_chunks(guild_id)
+        if not rag_chunks:
+            return []
+        from ...utils.rag_engine import search_chunks
+        return search_chunks(rag_chunks, query)
+
     async def _process_ai_chat(self, ctx, user_message: str, guild: discord.Guild, user: discord.User, images: list[dict] | None = None):
         guild_id = str(guild.id)
         user_id = str(user.id)
 
-        # ── Rate limit per-user ──
-        if await self._check_rate_limit(user, ctx):
+        settings = await self._get_guild_ai_settings(guild_id)
+
+        if await self._check_rate_limit(user, ctx, settings):
             return
 
-        # ── [NEW] REVISI: Gatekeeper (Local Check) ──
-        # Kita buat objek tiruan (Mock) agar SpamEngine bisa membaca data pesan
+        if await self._check_guild_daily_limit(guild_id, user):
+            await self._send_response(ctx, user_id, "Server ini sudah mencapai batas pemakaian AI harian. Tunggu besok ya!")
+            return
+
         class MockMsg:
             def __init__(self, content, author, guild):
                 self.content = content
@@ -1007,42 +792,22 @@ class AIChat(commands.Cog):
                 self.mention_everyone = False
                 self.embeds = []
                 self.attachments = []
-        
+
         mock_msg = MockMsg(user_message, user, guild)
 
-        # 1. Cek Heuristic (Keyword & Link) - LAPIS 1
         if self.engine.is_spam_heuristic(mock_msg):
-            print(f"[AI MOD] 🚫 Spam terdeteksi via Heuristic dari user {user_id}")
-            await self._send_response(ctx, user_id, "🚫 Pesan diblokir karena terdeteksi spam/link mencurigakan.")
+            print(f"[AI MOD] Spam terdeteksi via Heuristic dari user {user_id}")
+            await self._send_response(ctx, user_id, "Pesan diblokir karena terdeteksi spam/link mencurigakan.")
             return
 
-        # 2. Cek Akun Baru (Anti-Spammer Baru) - LAPIS 2
         if self.engine.is_new_account(mock_msg):
-            print(f"[AI MOD] 🚫 User baru ({user_id}) diblokir.")
-            await self._send_response(ctx, user_id, "🚫 Akun kamu terlalu baru untuk menggunakan fitur AI Chat.")
+            print(f"[AI MOD] User baru ({user_id}) diblokir.")
+            await self._send_response(ctx, user_id, "Akun kamu terlalu baru untuk menggunakan fitur AI Chat.")
             return
-
-        # ======================================================================
-        # 🚨 [UPDATE OPTIMASI] DI-COMMENT BIAR GAK DOUBLE API CALL
-        # Karena filter spam AI sudah di-handle terpusat di moderation.py
-        # ======================================================================
-        # # 3. Guard AI Detection - LAPIS 3 (Hanya jika lolos Lapis 1 & 2)
-        # is_spam = await self.analyze_spam(user_message)
-        # if is_spam:
-        #     print(f"[AI MOD] 🚫 Pesan spam terdeteksi dari user {user_id} (guild {guild_id})")
-        #     warning_text = (
-        #         "🚫 Pesan kamu terdeteksi sebagai **spam/scam/iklan ilegal** dan "
-        #         "tidak diproses oleh AI. Mohon gunakan fitur AI Chat dengan semestinya, ya!"
-        #     )
-        #     await self._send_response(ctx, user_id, warning_text)
-        #     return
-        # ======================================================================
-
-        settings = await self._get_guild_ai_settings(guild_id)
 
         if not settings.get("enabled", False):
             await self._send_response(
-                ctx, user_id, "⚠️ AI Chat sedang dimatikan oleh admin server. Hubungi admin untuk mengaktifkannya."
+                ctx, user_id, "AI Chat sedang dimatikan oleh admin server. Hubungi admin untuk mengaktifkannya."
             )
             return
 
@@ -1057,15 +822,11 @@ class AIChat(commands.Cog):
 
         if not self._is_channel_allowed(settings, channel_id):
             await self._send_response(
-                ctx, user_id, "⚠️ AI Chat hanya bisa digunakan di channel yang sudah diatur oleh admin."
+                ctx, user_id, "AI Chat hanya bisa digunakan di channel yang sudah diatur oleh admin."
             )
             return
 
-        personality = settings.get(
-            "personality",
-            DEFAULT_PERSONALITY
-        )
-
+        personality = settings.get("personality", DEFAULT_PERSONALITY)
         intent = detect_intent(user_message)
 
         print(
@@ -1075,26 +836,25 @@ class AIChat(commands.Cog):
             f"intent={intent.value}"
         )
 
-        # ── [ENHANCE] Intent-specific instructions ──
         intent_instructions = get_intent_instructions(intent)
-
-        temperature = settings.get(
-            "temperature",
-            0.75
-        )
+        temperature = settings.get("temperature", 0.75)
+        ai_model = settings.get("ai_model", "gemini-3.6-flash")
         history = await self._get_chat_history(guild_id, user_id)
         server_ctx = self._build_server_context(guild)
         user_prefs = await get_user_prefs(guild_id, user_id)
         server_ctx = enhance_server_context(server_ctx, intent_instructions, user_prefs)
         system_prompt = SYSTEM_PROMPT_TEMPLATE.replace("{personality}", personality).replace("{server_context}", server_ctx)
 
-        # ── [ENHANCE] Local tools ──
+        relevant = await self._get_rag_relevant(guild_id, user_message)
+        if relevant:
+            rag_ctx = "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
+            system_prompt += rag_ctx
+
         raw_user_message = user_message
         tool_result = run_tools(raw_user_message)
         if tool_result:
             user_message = f"{tool_result}\nPertanyaan user: {raw_user_message}"
 
-        # ── [ENHANCE] Web search untuk info real-time ──
         if needs_web_search(raw_user_message, intent):
             search_results = await search_web(raw_user_message, self.session)
             if search_results:
@@ -1103,30 +863,107 @@ class AIChat(commands.Cog):
                     f"[/WEB SEARCH RESULTS]\n\n"
                     f"Pertanyaan user: {raw_user_message}"
                 )
-                print(f"[AI SEARCH] +{search_results.count(chr(10)) + 1} hasil pencarian")
+                print(f"[AI SEARCH] {search_results.count(chr(10)) + 1} hasil pencarian")
 
-        # ── Typing indicator langsung membungkus pemanggilan API ──
-        # Sengaja TIDAK dibungkus try-except tambahan: _call_ai sudah aman
-        # (semua exception per-tier ditangkap di dalamnya dan tidak pernah
-        # bubble up), jadi try-except ekstra di sini hanya akan menambah
-        # risiko _call_ai terpanggil dua kali (boros kuota API) tanpa
-        # benar-benar menyelamatkan typing indicator. Kalau typing_ctx.typing()
-        # sendiri gagal (misal izin channel), error akan ditangani oleh
-        # try-except di level pemanggil (/ask atau on_message).
         async with typing_ctx.typing():
             response_text = await self._call_ai(
-                user_message,
-                history,
-                system_prompt,
-                temperature,
-                images
+                user_message, history, system_prompt, temperature, images, ai_model=ai_model
             )
 
-        # ── [ENHANCE] Background update user preferences -- fire & forget ──
         asyncio.ensure_future(update_user_style_prefs(guild_id, user_id, user_message, response_text))
-
         await self._save_chat_history(guild_id, user_id, user_message, response_text, personality)
         await self._send_response(ctx, user_id, response_text)
+
+    async def _process_ai_chat_stream(self, ctx, user_message: str, guild: discord.Guild, user: discord.User, images: list[dict] | None = None):
+        guild_id = str(guild.id)
+        user_id = str(user.id)
+
+        settings = await self._get_guild_ai_settings(guild_id)
+
+        if await self._check_rate_limit(user, ctx, settings):
+            return
+
+        if await self._check_guild_daily_limit(guild_id, user):
+            await self._send_response(ctx, user_id, "Server ini sudah mencapai batas pemakaian AI harian. Tunggu besok ya!")
+            return
+
+        mock_msg = type('MockMsg', (), {'content': user_message, 'author': user, 'guild': guild, 'mention_everyone': False, 'embeds': [], 'attachments': []})()
+        if self.engine.is_spam_heuristic(mock_msg):
+            await self._send_response(ctx, user_id, "Pesan diblokir karena terdeteksi spam/link mencurigakan.")
+            return
+        if self.engine.is_new_account(mock_msg):
+            await self._send_response(ctx, user_id, "Akun kamu terlalu baru untuk menggunakan fitur AI Chat.")
+            return
+
+        if not settings.get("enabled", False):
+            await self._send_response(ctx, user_id, "AI Chat sedang dimatikan oleh admin server.")
+            return
+
+        channel_id = str(ctx.channel_id if isinstance(ctx, discord.Interaction) else ctx.channel.id)
+        if not self._is_channel_allowed(settings, channel_id):
+            await self._send_response(ctx, user_id, "AI Chat hanya bisa digunakan di channel yang sudah diatur oleh admin.")
+            return
+
+        personality = settings.get("personality", DEFAULT_PERSONALITY)
+        intent = detect_intent(user_message)
+        intent_instructions = get_intent_instructions(intent)
+        temperature = settings.get("temperature", 0.75)
+        ai_model = settings.get("ai_model", "gemini-3.6-flash")
+        history = await self._get_chat_history(guild_id, user_id)
+        server_ctx = self._build_server_context(guild)
+        user_prefs = await get_user_prefs(guild_id, user_id)
+        server_ctx = enhance_server_context(server_ctx, intent_instructions, user_prefs)
+        system_prompt = SYSTEM_PROMPT_TEMPLATE.replace("{personality}", personality).replace("{server_context}", server_ctx)
+        relevant = await self._get_rag_relevant(guild_id, user_message)
+        if relevant:
+            system_prompt += "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
+
+        raw_user_message = user_message
+        tool_result = run_tools(raw_user_message)
+        if tool_result:
+            user_message = f"{tool_result}\nPertanyaan user: {raw_user_message}"
+
+        if needs_web_search(raw_user_message, intent):
+            search_results = await search_web(raw_user_message, self.session)
+            if search_results:
+                user_message = f"[WEB SEARCH RESULTS]\n{search_results}\n[/WEB SEARCH RESULTS]\n\nPertanyaan user: {raw_user_message}"
+
+        full_text = ""
+        last_edit = 0
+        is_interaction = isinstance(ctx, discord.Interaction)
+        msg_obj = None
+
+        async for chunk in self._call_ai_stream(user_message, history, system_prompt, temperature, images, ai_model=ai_model):
+            if not chunk:
+                if not full_text:
+                    full_text = "Maaf, tidak ada response dari AI. Coba lagi nanti ya!"
+                break
+            full_text += chunk
+            now = time_module.time()
+            if is_interaction and msg_obj is None:
+                try:
+                    msg_obj = await ctx.followup.send(full_text)
+                    last_edit = now
+                except Exception:
+                    msg_obj = None
+            elif is_interaction and msg_obj and now - last_edit >= 1.0:
+                try:
+                    await msg_obj.edit(content=full_text[:2000])
+                    last_edit = now
+                except Exception:
+                    pass
+
+        if is_interaction and msg_obj:
+            try:
+                display = f"<@{user_id}> {full_text}"
+                await msg_obj.edit(content=display[:2000] if len(display) > 2000 else display)
+            except Exception:
+                pass
+        elif not is_interaction:
+            await self._send_response(ctx, user_id, full_text)
+
+        asyncio.ensure_future(update_user_style_prefs(guild_id, user_id, user_message, full_text))
+        await self._save_chat_history(guild_id, user_id, user_message, full_text, personality)
 
     # ═══════════════════════════════════════════════════════════════════════
     # BACKGROUND: History Pruning (setiap 6 jam)
@@ -1134,7 +971,6 @@ class AIChat(commands.Cog):
 
     @tasks.loop(hours=6)
     async def history_prune_loop(self):
-        """Hapus history chat yg udah >30 hari gak ada interaksi."""
         if db is None:
             return
 
@@ -1156,66 +992,61 @@ class AIChat(commands.Cog):
                     if isinstance(updated, datetime):
                         if updated.timestamp() < cutoff:
                             chat_doc.reference.delete()
-                            print(f"[AI PRUNE] 🗑️ Hapus history user {chat_doc.id} (guild {guild_id})")
+                            print(f"[AI PRUNE] Hapus history user {chat_doc.id} (guild {guild_id})")
 
-            print("[AI PRUNE] ✅ Selesai prune history")
+            print("[AI PRUNE] Selesai prune history")
         except Exception as e:
-            print(f"[AI PRUNE] ⚠️ Error: {e}")
+            print(f"[AI PRUNE] Error: {e}")
 
     @history_prune_loop.before_loop
     async def before_history_prune(self):
         await self.bot.wait_until_ready()
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # COMMAND: /ask
+    # ═══════════════════════════════════════════════════════════════════════
+
     @commands.hybrid_command(name="ask", description="Tanya apa saja ke AI Synapse")
     async def ask(self, ctx: commands.Context, pertanyaan: str, gambar: discord.Attachment | None = None):
-        
-        # 0. Cleanup stale cooldowns
         self._cleanup_cooldowns()
 
-        # 1. Setup Data
         guild_id = str(ctx.guild.id)
         user_id = str(ctx.author.id)
         now = datetime.now(timezone.utc).timestamp()
 
-        # 2. Cooldown Check
         key = (guild_id, user_id)
         last_used = self._cooldowns.get(key, 0)
         if now - last_used < COOLDOWN_SECONDS:
             retry_after = COOLDOWN_SECONDS - (now - last_used)
             await ctx.send(
-                f"⏳ Sabar bro! Tunggu **{retry_after:.1f} detik** lagi.", 
+                f"Tunggu **{retry_after:.1f} detik** lagi.",
                 ephemeral=True
             )
             return
 
-        # 3. Defer
         await ctx.defer()
-
-        # 4. Set Cooldown Setelah Lolos Defer
         self._cooldowns[key] = now
 
-        # 5. Extract image if provided
         images = []
         if gambar:
             if gambar.content_type not in self._ALLOWED_IMAGE_TYPES:
-                await ctx.send("❌ Tipe file gambar tidak didukung. Gunakan PNG, JPG, GIF, atau WEBP.")
+                await ctx.send("Tipe file gambar tidak didukung. Gunakan PNG, JPG, GIF, atau WEBP.")
                 return
             if gambar.size > self._MAX_IMAGE_SIZE:
-                await ctx.send("❌ Ukuran gambar terlalu besar (maks 4MB).")
+                await ctx.send("Ukuran gambar terlalu besar (maks 4MB).")
                 return
             try:
                 data = await gambar.read()
                 b64 = base64.b64encode(data).decode()
                 images.append({"mime_type": gambar.content_type, "data": b64})
-                print(f"[AI VISION] 📸 /ask with image ({gambar.content_type})")
+                print(f"[AI VISION] /ask with image ({gambar.content_type})")
             except Exception as e:
-                print(f"[AI VISION] ⚠️ Gagal baca gambar: {e}")
-                await ctx.send("❌ Gagal membaca gambar. Coba lagi ya!")
+                print(f"[AI VISION] Gagal baca gambar: {e}")
+                await ctx.send("Gagal membaca gambar. Coba lagi ya!")
                 return
 
-        # 6. Proses AI Chat
         try:
-            await self._process_ai_chat(
+            await self._process_ai_chat_stream(
                 ctx=ctx,
                 user_message=pertanyaan,
                 guild=ctx.guild,
@@ -1224,48 +1055,30 @@ class AIChat(commands.Cog):
             )
         except Exception as e:
             traceback.print_exc()
-            print(f"[AI CHAT] ❌ Fatal error di /ask: {e}")
-            try:    
-                await ctx.send("❌ Terjadi error internal. Coba lagi nanti ya!")
-            except Exception as e_followup:
-                print(f"[AI CHAT] ❌ Gagal kirim error message: {e_followup}")
+            print(f"[AI CHAT] Fatal error di /ask: {e}")
+            try:
+                await ctx.send("Terjadi error internal. Coba lagi nanti ya!")
+            except Exception:
+                pass
 
     # ═══════════════════════════════════════════════════════════════════════
     # EVENT LISTENER: Mention @Synapse
     # ═══════════════════════════════════════════════════════════════════════
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild:
             return
 
-        # 1. Cleanup memory (WAJIB)
         self._cleanup_cooldowns()
 
-        # 2. Check Mention
-        # Cara paling aman cek mention adalah dengan memeriksa list 'mentions'
-        settings = await self._get_guild_ai_settings(
-            str(message.guild.id)
-        )
+        settings = await self._get_guild_ai_settings(str(message.guild.id))
 
-        # Hitung ulang untuk debug
         is_mentioned = self.bot.user in message.mentions
-
         is_dedicated_channel = self._is_dedicated_ai_channel(
             settings,
             str(message.channel.id)
         )
-
-        # print("========== AI DEBUG ==========")
-        # print(settings)
-        # print(f"channel_id={message.channel.id}")
-        # print(f"mentioned={is_mentioned}")
-        # print(f"dedicated={is_dedicated_channel}")
-        # print("==============================")
-
-        # print("========== AI DEBUG ==========")
-        # print(settings)
-        # print(f"channel={message.channel.id}")
-        # print("==============================")
 
         if not is_mentioned and not is_dedicated_channel:
             return
@@ -1276,38 +1089,28 @@ class AIChat(commands.Cog):
         if not self._is_channel_allowed(settings, str(message.channel.id)):
             return
 
-        # 3. Clean content
-        # Pakai regex yang match persis format mention Discord (<@id> atau <@!id>)
-        # alih-alih clean_content.replace(display_name) yang rapuh — gagal kalau
-        # display_name user diubah (nickname), mengandung karakter khusus, atau
-        # bot punya nama tampilan yang juga muncul sebagai substring di teks user.
         if self._mention_pattern is None:
             self._mention_pattern = re.compile(rf"<@!?{self.bot.user.id}>")
         if is_mentioned:
-            content = self._mention_pattern.sub(
-                "",
-                message.content
-            ).strip()
+            content = self._mention_pattern.sub("", message.content).strip()
         else:
             content = message.content.strip()
 
         if not content:
-            await message.reply("Halo! Ada yang bisa kubantu? 🤖", mention_author=False)
+            await message.reply("Halo! Ada yang bisa kubantu?", mention_author=False)
             return
 
-        # 4. Cooldown Check
         key = (str(message.guild.id), str(message.author.id))
         now = datetime.now(timezone.utc).timestamp()
-        
+
         if now - self._cooldowns.get(key, 0) < COOLDOWN_SECONDS:
             return
 
         self._cooldowns[key] = now
 
-        # 5. Extract images from attachments
         images = await self._extract_images_from_attachments(message.attachments)
         if images:
-            print(f"[AI VISION] 📸 {len(images)} image(s) attached")
+            print(f"[AI VISION] {len(images)} image(s) attached")
 
         try:
             await self._process_ai_chat(
@@ -1318,9 +1121,9 @@ class AIChat(commands.Cog):
                 images=images,
             )
         except Exception as e:
-            print(f"[AI CHAT] ❌ Fatal error di on_message: {e}")
+            print(f"[AI CHAT] Fatal error di on_message: {e}")
             try:
-                await message.reply("❌ Terjadi error internal. Coba lagi nanti ya!", mention_author=False)
+                await message.reply("Terjadi error internal. Coba lagi nanti ya!", mention_author=False)
             except Exception:
                 pass
 

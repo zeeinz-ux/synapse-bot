@@ -92,6 +92,18 @@ HEALTH_INSTRUCTIONS = """
 • Gunakan istilah medis yang tepat dengan penjelasan sederhana.
 """
 
+# ═══════════════════════════════════════════════════════
+# SPAM ANALYSIS PROMPT
+# ═══════════════════════════════════════════════════════
+
+SPAM_ANALYSIS_SYSTEM_PROMPT = (
+    "Anda adalah moderator spam yang tegas dan konsisten. "
+    "Analisis pesan berdasarkan konten dan konteks. "
+    "Anggap mencurigakan jika: promosi judi/slot, scam giveaway, "
+    "link phishing, akun baru kirim link mencurigakan. "
+    "Jawab HANYA 'YA' atau 'TIDAK'."
+)
+
 INTENT_PROMPT_MAP: Dict[IntentType, str] = {
     IntentType.CHAT: GLOBAL_KNOWLEDGE,
     IntentType.CODING: CODING_INSTRUCTIONS,

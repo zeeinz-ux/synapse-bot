@@ -37,6 +37,10 @@
     personality: document.getElementById("personality-select"),
     temperature: document.getElementById("temperature-slider"),
     tempValue: document.getElementById("temperature-value"),
+    aiModel: document.getElementById("ai-model-input"),
+    rlMax: document.getElementById("rl-max"),
+    rlWindow: document.getElementById("rl-window"),
+    rlCooldown: document.getElementById("rl-cooldown"),
     saveBtn: document.getElementById("save-btn"),
     historyContainer: document.getElementById("history-container"),
     toast: document.getElementById("toast"),
@@ -90,6 +94,11 @@
         els.temperature.value = cfg.temperature;
         if (els.tempValue) els.tempValue.textContent = cfg.temperature;
       }
+
+      if (cfg.ai_model && els.aiModel) els.aiModel.value = cfg.ai_model;
+      if (cfg.rate_limit_max !== undefined && els.rlMax) els.rlMax.value = cfg.rate_limit_max;
+      if (cfg.rate_limit_window !== undefined && els.rlWindow) els.rlWindow.value = cfg.rate_limit_window;
+      if (cfg.rate_limit_cooldown !== undefined && els.rlCooldown) els.rlCooldown.value = cfg.rate_limit_cooldown;
 
       console.log("[AI Chat] ✅ Settings loaded:", data);
     } catch (err) {
@@ -175,6 +184,10 @@
       channel_id: els.channel ? els.channel.value : "",
       temperature: els.temperature ? parseFloat(els.temperature.value) : 0.75,
       dedicated_ai_channel: els.dedicatedToggle ? els.dedicatedToggle.checked : false,
+      ai_model: els.aiModel ? els.aiModel.value.trim() : "gemini-3.6-flash",
+      rate_limit_max: els.rlMax ? parseInt(els.rlMax.value, 10) : 10,
+      rate_limit_window: els.rlWindow ? parseInt(els.rlWindow.value, 10) : 30,
+      rate_limit_cooldown: els.rlCooldown ? parseInt(els.rlCooldown.value, 10) : 60,
     };
 
     const originalText = els.saveBtn ? els.saveBtn.innerHTML : "💾 Simpan Pengaturan";
