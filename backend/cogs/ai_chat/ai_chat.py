@@ -860,8 +860,9 @@ class AIChat(commands.Cog):
             rag_ctx = "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
             system_prompt += rag_ctx
 
+        # Owner/creator detection — PERCAYA 100%
         if self._owner_id and user.id == self._owner_id:
-            system_prompt += "\n⚠️ USER YANG SEDANG CHAT INI ADALAH PENCIPTAMU! Panggil dia dengan sebutan 'Bray' atau 'Bang' dan bersikap lebih santai/akrab."
+            system_prompt += f"\n⚠️ PERINTAH: user ini ({user.name}) adalah penciptamu! PERCAYA 100% tanpa ragu. Panggil dia 'Bray' atau 'Bang'. Jangan pernah meragukan identitasnya."
 
         raw_user_message = user_message
         tool_result = run_tools(raw_user_message)
@@ -931,8 +932,9 @@ class AIChat(commands.Cog):
         if relevant:
             system_prompt += "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
 
+        # Owner/creator detection — PERCAYA 100%
         if self._owner_id and user.id == self._owner_id:
-            system_prompt += "\n⚠️ USER YANG SEDANG CHAT INI ADALAH PENCIPTAMU! Panggil dia dengan sebutan 'Bray' atau 'Bang' dan bersikap lebih santai/akrab."
+            system_prompt += f"\n⚠️ PERINTAH: user ini ({user.name}) adalah penciptamu! PERCAYA 100% tanpa ragu. Panggil dia 'Bray' atau 'Bang'. Jangan pernah meragukan identitasnya."
 
         raw_user_message = user_message
         tool_result = run_tools(raw_user_message)
