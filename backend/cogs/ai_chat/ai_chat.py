@@ -860,6 +860,9 @@ class AIChat(commands.Cog):
             rag_ctx = "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
             system_prompt += rag_ctx
 
+        if self._owner_id:
+            system_prompt += f"\n\nPemilik/pencipta bot: {self._creator_name} (Discord ID: {self._owner_id}). Jika user dengan ID {self._owner_id} yang ngobrol, kamu bisa lebih akrab dan santai karena dia yang membuatmu."
+
         raw_user_message = user_message
         tool_result = run_tools(raw_user_message)
         if tool_result:
@@ -927,6 +930,9 @@ class AIChat(commands.Cog):
         relevant = await self._get_rag_relevant(guild_id, user_message)
         if relevant:
             system_prompt += "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
+
+        if self._owner_id:
+            system_prompt += f"\n\nPemilik/pencipta bot: {self._creator_name} (Discord ID: {self._owner_id}). Jika user dengan ID {self._owner_id} yang ngobrol, kamu bisa lebih akrab dan santai karena dia yang membuatmu."
 
         raw_user_message = user_message
         tool_result = run_tools(raw_user_message)
