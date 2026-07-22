@@ -164,7 +164,7 @@ class AIChat(commands.Cog):
             app = await self.bot.application_info()
             self._creator_name = app.owner.name if app.owner else "Developer"
             self._owner_id = app.owner.id if app.owner else None
-            print(f"[AI CHAT] Creator: {self._creator_name} ({self._owner_id})")
+            print(f"[AI CHAT] Creator: {self._creator_name} (ID tersimpan)")
         except Exception as e:
             print(f"[AI CHAT] Gagal fetch app info: {e}")
 
@@ -860,10 +860,8 @@ class AIChat(commands.Cog):
             rag_ctx = "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
             system_prompt += rag_ctx
 
-        if self._owner_id:
-            system_prompt += f"\n\nPemilik/pencipta bot: {self._creator_name} (Discord ID: {self._owner_id})."
-            if user.id == self._owner_id:
-                system_prompt += "\n⚠️ USER YANG SEDANG CHAT INI ADALAH PENCIPTAMU! Panggil dia dengan sebutan 'Bray' atau 'Bang' dan bersikap lebih santai/akrab."
+        if self._owner_id and user.id == self._owner_id:
+            system_prompt += "\n⚠️ USER YANG SEDANG CHAT INI ADALAH PENCIPTAMU! Panggil dia dengan sebutan 'Bray' atau 'Bang' dan bersikap lebih santai/akrab."
 
         raw_user_message = user_message
         tool_result = run_tools(raw_user_message)
@@ -933,10 +931,8 @@ class AIChat(commands.Cog):
         if relevant:
             system_prompt += "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
 
-        if self._owner_id:
-            system_prompt += f"\n\nPemilik/pencipta bot: {self._creator_name} (Discord ID: {self._owner_id})."
-            if user.id == self._owner_id:
-                system_prompt += "\n⚠️ USER YANG SEDANG CHAT INI ADALAH PENCIPTAMU! Panggil dia dengan sebutan 'Bray' atau 'Bang' dan bersikap lebih santai/akrab."
+        if self._owner_id and user.id == self._owner_id:
+            system_prompt += "\n⚠️ USER YANG SEDANG CHAT INI ADALAH PENCIPTAMU! Panggil dia dengan sebutan 'Bray' atau 'Bang' dan bersikap lebih santai/akrab."
 
         raw_user_message = user_message
         tool_result = run_tools(raw_user_message)
