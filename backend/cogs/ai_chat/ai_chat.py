@@ -861,7 +861,9 @@ class AIChat(commands.Cog):
             system_prompt += rag_ctx
 
         if self._owner_id:
-            system_prompt += f"\n\nPemilik/pencipta bot: {self._creator_name} (Discord ID: {self._owner_id}). Jika user dengan ID {self._owner_id} yang ngobrol, kamu bisa lebih akrab dan santai karena dia yang membuatmu."
+            system_prompt += f"\n\nPemilik/pencipta bot: {self._creator_name} (Discord ID: {self._owner_id})."
+            if user.id == self._owner_id:
+                system_prompt += "\n⚠️ USER YANG SEDANG CHAT INI ADALAH PENCIPTAMU! Panggil dia dengan sebutan 'Bray' atau 'Bang' dan bersikap lebih santai/akrab."
 
         raw_user_message = user_message
         tool_result = run_tools(raw_user_message)
@@ -932,7 +934,9 @@ class AIChat(commands.Cog):
             system_prompt += "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
 
         if self._owner_id:
-            system_prompt += f"\n\nPemilik/pencipta bot: {self._creator_name} (Discord ID: {self._owner_id}). Jika user dengan ID {self._owner_id} yang ngobrol, kamu bisa lebih akrab dan santai karena dia yang membuatmu."
+            system_prompt += f"\n\nPemilik/pencipta bot: {self._creator_name} (Discord ID: {self._owner_id})."
+            if user.id == self._owner_id:
+                system_prompt += "\n⚠️ USER YANG SEDANG CHAT INI ADALAH PENCIPTAMU! Panggil dia dengan sebutan 'Bray' atau 'Bang' dan bersikap lebih santai/akrab."
 
         raw_user_message = user_message
         tool_result = run_tools(raw_user_message)
