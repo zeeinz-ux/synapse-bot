@@ -29,9 +29,9 @@ CHANNEL_PLAN = {
     "💬 Create Voice": [
         {"name": "✨・interface", "type": "text"},
         {"name": "💬・talk", "type": "text"},
+        {"name": "➕ Create Caffee'", "type": "voice"},
         {"name": "⌛ Lobby", "type": "voice"},
         {"name": "😴 AFK 💤", "type": "voice", "afk": True},
-        {"name": "➕ Create Caffee'", "type": "voice"},
     ],
     "🎮 Game": [
         {"name": "🗣️ Caffee", "type": "voice"},
