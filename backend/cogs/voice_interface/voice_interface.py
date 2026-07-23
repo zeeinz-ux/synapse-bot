@@ -212,7 +212,7 @@ class VoiceControlView(ui.View):
         r = guild_rooms.get(room.channel_id)
         chat_open = r.chat_channel_id is not None if r else False
         view = TempView(PrivacySelect(self._cog, room.channel_id, room.locked, room.visible, chat_open))
-        await interaction.response.send_message("Pilih pengaturan privacy:", ephemeral=True, delete_after=15, view=view)
+        await interaction.response.send_message("Pilih pengaturan privacy:", ephemeral=True, view=view)
 
     @ui.button(label="\U0001f465 Limit", style=discord.ButtonStyle.secondary, row=0)
     async def limit_btn(self, interaction: discord.Interaction, button: ui.Button):
