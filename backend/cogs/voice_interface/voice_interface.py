@@ -31,7 +31,7 @@ class VoiceRoom:
         'owner_id', 'channel_id', 'guild_id',
         'locked', 'visible', 'limit', 'waiting_room',
         'blocked_users', 'trusted_users', 'waiting_users',
-        'chat_channel_id', 'region',
+        'chat_channel_id', 'region', 'password',
         'created_at', 'owner_left_at',
     )
 
@@ -48,6 +48,7 @@ class VoiceRoom:
         self.waiting_users: set[int] = set()
         self.chat_channel_id = None
         self.region = None
+        self.password = None
         self.created_at = time.time()
         self.owner_left_at = None
 
@@ -646,7 +647,7 @@ class VoiceInterfaceCog(commands.Cog):
             cfg = await self._load_guild_config(ctx.guild.id)
             embed = discord.Embed(title="🎛️ Voice Config Saat Ini", color=discord.Color.blue())
             embed.add_field(name="Template Nama Room", value=f"`{cfg.get('room_name_template', ROOM_NAME_TEMPLATE)}`", inline=False)
-            embed.add_field(name="Kategori", value=cfg.get("category_name", GAME_CATEGORY), inline=False)
+            embed.add_field(name="Kategori", value=cfg.get("category_name") or "Sama dengan trigger channel", inline=False)
             await ctx.send(embed=embed, ephemeral=True)
             return
         cfg = await self._load_guild_config(ctx.guild.id)
@@ -656,6 +657,141 @@ class VoiceInterfaceCog(commands.Cog):
             cfg["category_name"] = kategori.name
         await self._save_guild_config(ctx.guild.id, cfg)
         await ctx.send(f"✅ Setting voice diupdate!", ephemeral=True)
+
+    @commands.hybrid_command(name="dashboard", description="Buka dashboard web")
+    async def dashboard(self, ctx: commands.Context):
+        base = os.getenv("DASHBOARD_URL", "https://synapse-bot-dk9u.onrender.com")
+        await ctx.send(f"🌐 **Dashboard:** {base}/dashboard/{ctx.guild.id}/voice", ephemeral=True)
+
+    @commands.hybrid_command(name="voice-info", description="Lihat status voice room kamu")
+    async def voice_info(self, ctx: commands.Context):
+        room = _get_room(ctx.guild.id, ctx.author.id)
+        if not room:
+            await ctx.send("Kamu gak punya voice room.", ephemeral=True)
+            return
+        guild = ctx.guild
+        vc = guild.get_channel(room.channel_id)
+        if not isinstance(vc, discord.VoiceChannel):
+            await ctx.send("Room tidak ditemukan.", ephemeral=True)
+            return
+        embed = discord.Embed(title=f"🎛️ {vc.name}", color=discord.Color.blurple())
+        embed.add_field(name="Owner", value=f"<@{room.owner_id}>", inline=True)
+        embed.add_field(name="Member", value=f"{len(vc.members)}/{vc.user_limit or '∞'}", inline=True)
+        privacy = []
+        if room.locked:
+            privacy.append("🔒 Locked")
+        if not room.visible:
+            privacy.append("👁️ Hidden")
+        if room.waiting_room:
+            privacy.append("🚪 Waiting")
+        if room.password:
+            privacy.append("🔑 Password")
+        embed.add_field(name="Privacy", value=", ".join(privacy) if privacy else "✅ Public", inline=True)
+        embed.add_field(name="Bitrate", value=f"{vc.bitrate // 1000} kbps", inline=True)
+        embed.add_field(name="Region", value=str(vc.rtc_region or "Auto").title(), inline=True)
+        embed.add_field(name="Dibuat", value=f"<t:{int(room.created_at)}:R>", inline=True)
+        if room.chat_channel_id:
+            chat = guild.get_channel(room.chat_channel_id)
+            if chat:
+                embed.add_field(name="Chat", value=chat.mention, inline=True)
+        await ctx.send(embed=embed, ephemeral=True)
+
+    @commands.hybrid_command(name="voice-bitrate", description="Ubah bitrate voice room")
+    async def voice_bitrate(self, ctx: commands.Context, kbps: int):
+        room = _get_room(ctx.guild.id, ctx.author.id)
+        if not room:
+            await ctx.send("Kamu gak punya voice room.", ephemeral=True)
+            return
+        vc = ctx.guild.get_channel(room.channel_id)
+        if not isinstance(vc, discord.VoiceChannel):
+            await ctx.send("Room tidak ditemukan.", ephemeral=True)
+            return
+        bitrate = max(8, min(kbps, 384)) * 1000
+        try:
+            await vc.edit(bitrate=bitrate)
+            await ctx.send(f"✅ Bitrate diubah ke {bitrate // 1000} kbps", ephemeral=True)
+        except Exception as e:
+            await ctx.send(f"❌ Gagal: {e}", ephemeral=True)
+
+    @commands.hybrid_command(name="voice-password", description="Set password untuk voice room")
+    async def voice_password(self, ctx: commands.Context, password: str | None = None):
+        room = _get_room(ctx.guild.id, ctx.author.id)
+        if not room:
+            await ctx.send("Kamu gak punya voice room.", ephemeral=True)
+            return
+        vc = ctx.guild.get_channel(room.channel_id)
+        if not isinstance(vc, discord.VoiceChannel):
+            await ctx.send("Room tidak ditemukan.", ephemeral=True)
+            return
+        if not password or password.lower() in ("none", "hapus", "remove"):
+            room.password = None
+            await ctx.send("🔓 Password dihapus.", ephemeral=True)
+            return
+        room.password = password
+        if not room.locked:
+            room.locked = True
+            try:
+                await vc.set_permissions(ctx.guild.default_role, connect=False)
+            except Exception:
+                pass
+        await ctx.send(f"🔑 Password diset: `{password}`", ephemeral=True)
+
+    @commands.hybrid_command(name="join", description="Join voice room pake password")
+    async def join(self, ctx: commands.Context, channel: discord.VoiceChannel, password: str):
+        guild_rooms = _rooms.get(ctx.guild.id, {})
+        room = guild_rooms.get(channel.id)
+        if not room:
+            await ctx.send("Itu bukan temporary voice room.", ephemeral=True)
+            return
+        if not room.password:
+            await ctx.send("Room itu gak pake password.", ephemeral=True)
+            return
+        if room.password != password:
+            await ctx.send("❌ Password salah.", ephemeral=True)
+            return
+        if ctx.author.id in room.blocked_users:
+            await ctx.send("Kamu di-block dari room itu.", ephemeral=True)
+            return
+        try:
+            await channel.set_permissions(ctx.author, connect=True)
+            await ctx.author.move_to(channel)
+            room.trusted_users.add(ctx.author.id)
+        except Exception as e:
+            await ctx.send(f"❌ Gagal join: {e}", ephemeral=True)
+
+    @commands.hybrid_command(name="find", description="Cari user di voice channel mana")
+    @commands.has_permissions(administrator=True)
+    async def find(self, ctx: commands.Context, user: discord.Member):
+        for ch in ctx.guild.voice_channels:
+            if user in ch.members:
+                await ctx.send(f"{user.mention} ada di {ch.mention}", ephemeral=True)
+                return
+        await ctx.send(f"{user.mention} gak ada di voice channel mana pun.", ephemeral=True)
+
+    @commands.hybrid_command(name="voice-reset", description="Reset setting voice room ke default")
+    async def voice_reset(self, ctx: commands.Context):
+        room = _get_room(ctx.guild.id, ctx.author.id)
+        if not room:
+            await ctx.send("Kamu gak punya voice room.", ephemeral=True)
+            return
+        vc = ctx.guild.get_channel(room.channel_id)
+        if not isinstance(vc, discord.VoiceChannel):
+            await ctx.send("Room tidak ditemukan.", ephemeral=True)
+            return
+        room.locked = False
+        room.visible = True
+        room.limit = None
+        room.waiting_room = False
+        room.password = None
+        room.region = None
+        room.waiting_users.clear()
+        try:
+            await vc.edit(user_limit=0, rtc_region=None)
+            await vc.set_permissions(ctx.guild.default_role, connect=True, view_channel=True)
+        except Exception:
+            pass
+        await ctx.send("✅ Room direset ke default.", ephemeral=True)
+        await self._update_interface(ctx.guild)
 
     async def _update_interface(self, guild: discord.Guild):
         ch = discord.utils.get(guild.text_channels, name=INTERFACE_CHANNEL)
@@ -684,9 +820,10 @@ class VoiceInterfaceCog(commands.Cog):
             log.info(f"Voice state: {member.display_name} joined #{after.channel.name} (trigger={TRIGGER_CHANNEL})")
         if after.channel and after.channel.name == TRIGGER_CHANNEL:
             cfg = await self._load_guild_config(guild.id)
-            cat_name = cfg.get("category_name", GAME_CATEGORY)
-            cat = discord.utils.get(guild.categories, name=cat_name)
-            if not cat:
+            cat_name = cfg.get("category_name")
+            if cat_name:
+                cat = discord.utils.get(guild.categories, name=cat_name) or after.channel.category
+            else:
                 cat = after.channel.category
             await self._create_room(member, cat)
             return
@@ -716,6 +853,16 @@ class VoiceInterfaceCog(commands.Cog):
                             await after.channel.set_permissions(member, connect=False)
                         except Exception:
                             pass
+                    return
+                if room.password and member.id != room.owner_id and member.id not in room.trusted_users:
+                    try:
+                        await member.move_to(None)
+                        try:
+                            await after.channel.set_permissions(member, connect=False)
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
                     return
                 if room.waiting_room and member.id != room.owner_id and member.id not in room.trusted_users:
                     room.waiting_users.add(member.id)

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Voice Config — Synapse{% endblock %}
+
+{% block content %}
+<input type="hidden" id="guild-id" value="{{ guild_id }}">
+
+<div class="page-wrap">
+  <nav class="breadcrumb">
+    <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
+    <span>›</span>
+    <span>Voice Config</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="header-content">
+      <h1>🎛️ Voice Config</h1>
+      <p>Atur nama voice room dan kategori tempat room dibuat.</p>
+    </div>
+  </div>
+
+  <div class="content-grid">
+    <div class="card">
+      <h2>🏷️ Template Nama Room</h2>
+      <p class="card-desc">Gunakan <code>{name}</code> untuk username member. Contoh: <code>『🔊』{name}'s Room</code></p>
+      <div class="form-group">
+        <input type="text" id="room-name-template" class="form-input" placeholder='🗣️ {name}&#39;s Caffee'>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📁 Kategori Room</h2>
+      <p class="card-desc">Pilih kategori tempat voice room akan dibuat.</p>
+      <div class="form-group">
+        <select id="category-name" class="form-select">
+          <option value="">🎮 Game (Default)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="save-bar">
+    <button id="save-btn" class="btn btn-primary btn-lg">💾 Simpan Pengaturan</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/voice.js') }}"></script>
+{% endblock %}

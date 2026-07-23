@@ -29,6 +29,7 @@ from backend.utils.firestore_stats import (
     get_stats_snapshot,
     set_guild_channels,
     get_guild_channels,
+    get_guild_categories,
     set_bot_instance,
     get_bot_instance,
     get_firestore_diagnostics,
@@ -2124,6 +2125,56 @@ def api_anti_nuke_save(guild_id: str):
         print(f"[ANTI-NUKE] ⚠️ save error: {e}")
         return jsonify({"success": False, "message": f"Gagal menyimpan: {e}"}), 500
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Voice Config
+# ============================================================================
+
+_VOICE_DEFAULTS = {
+    "room_name_template": "",
+    "category_name": "",
+}
+
+
+@app.route("/dashboard/<guild_id>/voice")
+@login_required
+def voice_page(guild_id: str):
+    return _render_page("dashboard/voice.html", active_page="voice", guild_id=guild_id)
+
+
+@app.route("/api/voice/<guild_id>/config", methods=["GET"])
+@login_required
+def api_voice_config(guild_id: str):
+    if db is None:
+        return jsonify({"success": False, "config": _VOICE_DEFAULTS, "message": "Firestore tidak tersedia"}), 503
+    try:
+        doc = db.collection("guild_settings").document(guild_id).get()
+        if not doc.exists:
+            return jsonify({"success": True, "config": _VOICE_DEFAULTS}), 200
+        data = doc.to_dict()
+        cfg = data.get("voice_config", {}) or {}
+        result = dict(_VOICE_DEFAULTS)
+        result.update(cfg)
+        return jsonify({"success": True, "config": result}), 200
+    except Exception as e:
+        print(f"[VOICE] ⚠️ load config error: {e}")
+        return jsonify({"success": False, "config": _VOICE_DEFAULTS, "message": str(e)}), 500
+
+
+@app.route("/api/voice/<guild_id>/save", methods=["POST"])
+@login_required
+def api_voice_save(guild_id: str):
+    try:
+        payload = request.get_json(silent=True) or {}
+        cfg = {k: payload.get(k, v) for k, v in _VOICE_DEFAULTS.items()}
+        doc_ref = db.collection("guild_settings").document(guild_id)
+        doc_ref.set({"voice_config": cfg}, merge=True)
+        return jsonify({"success": True, "message": "✅ Pengaturan voice berhasil disimpan!"}), 200
+    except Exception as e:
+        print(f"[VOICE] ⚠️ save error: {e}")
+        return jsonify({"success": False, "message": f"Gagal menyimpan: {e}"}), 500
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # RAG — Knowledge Base
 # ============================================================================
@@ -2230,6 +2281,12 @@ def api_guild_channels(guild_id: str):
     # whatever we have; frontend shows friendly empty-state message.
     channels = get_guild_channels(str(guild_id))
     return jsonify({"success": True, "channels": channels or [], "count": len(channels or [])}), 200
+
+
+@app.route("/api/guilds/<guild_id>/categories", methods=["GET"])
+def api_guild_categories(guild_id: str):
+    categories = get_guild_categories(str(guild_id))
+    return jsonify({"success": True, "categories": categories or [], "count": len(categories or [])}), 200
 
 
 @app.route("/api/guilds/<guild_id>/images", methods=["GET"])

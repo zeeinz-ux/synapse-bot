@@ -42,7 +42,7 @@ if _cookies_raw:
 
 from backend.cogs.database import firebase_setup
 
-from backend.utils.firestore_stats import set_stats, set_guild_channels, set_guild_roles, set_bot_instance, flush_now, delete_guild_from_map, delete_guild_settings, create_guild_settings_minimal, integrity_sweep, invalidate_stats_cache
+from backend.utils.firestore_stats import set_stats, set_guild_channels, set_guild_categories, set_guild_roles, set_bot_instance, flush_now, delete_guild_from_map, delete_guild_settings, create_guild_settings_minimal, integrity_sweep, invalidate_stats_cache
 
 intents = discord.Intents.default()
 intents.members = True
@@ -298,6 +298,11 @@ async def update_stats():
                 if ch.permissions_for(guild.me).send_messages
             ]
             set_guild_channels(str(guild.id), text_channels)
+            categories = [
+                {"id": str(ch.id), "name": ch.name}
+                for ch in guild.categories
+            ]
+            set_guild_categories(str(guild.id), categories)
             set_guild_roles(str(guild.id), [
                 {"id": str(r.id), "name": r.name, "color": r.color.value, "position": r.position}
                 for r in guild.roles if r.name != "@everyone"

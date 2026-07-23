@@ -36,7 +36,7 @@
 | 📊 **Web Dashboard** | Real-time server stats · Full per-guild config · RAG document upload · Message builder · i18n (ID/EN) · Discord OAuth2 |
 | 🎮 **Community** | Leveling & XP with rank cards · Dual-style welcome (embed/banner) · Leave/ban/boost announcements · Boost tracker · Auto-responder · Photobox · Donation tracking |
 | 🚨 **Anti-Nuke** | Sliding window detection (mass ban/kick/channel/role) · Auto-lockdown (@everyone deny send_messages) · Auto-restore · Whitelist (admin/user/role) · AI post-analysis via OpenRouter · Dashboard settings |
-| 🎛️ **Voice Interface** | Join `➕ Create Caffee'` → auto-create `🗣️ {user}'s Caffee` · Button control panel via `✨・interface` · Rename, Privacy menu (Lock/Unlock/Hide/Show/Chat), Limit, Waiting, Trust, Block, Kick, Invite, Region, Delete · Auto-delete when empty · User preference persistence · ⭐ Premium: Claim & Transfer |
+| 🎛️ **Voice Interface** | Join `➕ Create Caffee'` → auto-create `🗣️ {user}'s Caffee` · Button control panel via `✨・interface` · Rename, Privacy menu (Lock/Unlock/Hide/Show/Chat), Limit, Waiting, Trust, Block, Kick, Invite, Region, Delete · 🔐 Password protection (`/voice-password`, `/join`) · Auto-delete when empty · User preference persistence · Guild config (`/voice-config`, dashboard) · Commands: `/voice-info`, `/voice-bitrate`, `/find`, `/voice-reset`, `/dashboard` · ⭐ Premium: Claim & Transfer |
 | ⚙️ **Server Setup** | `/setup` command · 7 categories, 21 channels · Permission presets · Live member stats · AFK channel · Auto-enable features |
 | ⭐ **Premium** | Monthly ($3 / Rp 50k) & Yearly ($25 / Rp 400k) · Saweria/Sociabuzz webhook auto-activation · DM notification · Auto-expiry cleanup · Claim & Transfer in voice rooms |
 
@@ -190,10 +190,15 @@ discord-bot/
 | Update | Detail |
 |--------|--------|
 | **Privacy Menu** | 🔒 Lock · 🔓 Unlock · 🙈 Hide · 👁️ Show · 💬 Open Chat · 🔕 Close Chat — all in 1 select menu |
+| **Password Protection** | 🔐 `/voice-password <set/clear>` to protect room · `/join <password>` to join · Auto-kick on join without password · Trusted users bypass |
 | **User Preference Persistence** | Room settings (lock, hide, waiting, limit, region) saved per user — restored on next room creation |
+| **Guild Config** | `/voice-config`, name template & target category stored in Firestore — editable via dashboard |
+| **Commands** | `/voice-info` (room status) · `/voice-bitrate` (change bitrate) · `/find` (search rooms) · `/voice-reset` (reset to default) · `/dashboard` (dashboard link) |
 | **Per-Guild Interface** | Interface only appears in guilds with `➕ Create Caffee'` trigger channel |
 | **Auto-Delete Room** | Owner leave + empty → immediate delete · Empty for 10s → auto delete |
 | **Read-Only Interface** | User messages in `✨・interface` auto-deleted · Ephemeral responses auto-dismiss after 8s |
+| **Duplicate Cleanup** | On restart, `_ensure_interface` searches channel history, deletes duplicate embeds, keeps only the latest |
+| **Category Fallback** | New rooms created in trigger channel's category by default; override via `/voice-config` or dashboard |
 | **Debug Logging** | Added logging to `on_voice_state_update`, `_create_room`, `_ensure_interface` |
 
 ### 🧾 Announcement Text Enhancement
@@ -357,6 +362,7 @@ Text Detection                    Image Detection
 | 📚 | `/dashboard/<guild>/rag` | RAG document management |
 | 🛡️ | `/dashboard/<guild>/anti-spam` | Spam threshold & config |
 | 🚨 | `/dashboard/<guild>/anti-nuke` | Anti-nuke settings, whitelist, lockdown config |
+| 🎛️ | `/dashboard/<guild>/voice` | Voice room config (name template, category) |
 | 💬 | `/dashboard/<guild>/auto-responders` | Auto-responder CRUD |
 | ⚡ | `/dashboard/<guild>/actions` | Level rewards & actions |
 | 📝 | `/dashboard/<guild>/templates` | Message templates |
