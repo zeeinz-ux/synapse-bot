@@ -742,6 +742,7 @@ class VoiceInterfaceCog(commands.Cog):
             return
         vc = guild.get_channel(channel_id)
         if not isinstance(vc, discord.VoiceChannel):
+            await interaction.response.send_message("Room tidak ditemukan.", ephemeral=True, delete_after=8)
             return
         try:
             if action == "lock":
@@ -782,7 +783,14 @@ class VoiceInterfaceCog(commands.Cog):
                     await interaction.response.send_message("\U0001f515 Chat ditutup", ephemeral=True, delete_after=8)
             await self._update_interface(guild)
         except Exception as e:
-            await interaction.response.send_message(f"Gagal: {e}", ephemeral=True, delete_after=8)
+            log.error(f"Privacy action error: {e}")
+            try:
+                await interaction.response.send_message(f"Gagal: {e}", ephemeral=True, delete_after=8)
+            except Exception:
+                try:
+                    await interaction.followup.send(f"Gagal: {e}", ephemeral=True, delete_after=8)
+                except Exception:
+                    pass
 
     async def _handle_waiting_toggle(self, interaction: discord.Interaction, room: VoiceRoom):
         guild = interaction.guild
