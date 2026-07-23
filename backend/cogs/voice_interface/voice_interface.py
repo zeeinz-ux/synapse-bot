@@ -22,6 +22,7 @@ _interface_msgs: dict[int, int] = {}
 _empty_timers: dict[int, asyncio.Task] = {}
 _owner_leave_timers: dict[int, asyncio.Task] = {}
 _delete_tasks: dict[int, asyncio.Task] = {}
+_user_prefs: dict[int, dict] = {}  # {user_id: {locked, visible, waiting_room, limit, region}}
 
 class VoiceRoom:
     __slots__ = (
@@ -617,6 +618,23 @@ class VoiceInterfaceCog(commands.Cog):
             return
         room = VoiceRoom(member.id, vc.id, guild.id)
         _rooms.setdefault(guild.id, {})[vc.id] = room
+        prefs = _user_prefs.get(member.id)
+        if prefs:
+            room.locked = prefs.get("locked", False)
+            room.visible = prefs.get("visible", True)
+            room.waiting_room = prefs.get("waiting_room", False)
+            room.limit = prefs.get("limit", None)
+            room.region = prefs.get("region", None)
+            if room.locked:
+                try:
+                    await vc.set_permissions(guild.default_role, connect=False)
+                except Exception:
+                    pass
+            if not room.visible:
+                try:
+                    await vc.set_permissions(guild.default_role, view_channel=False)
+                except Exception:
+                    pass
         try:
             await member.move_to(vc)
         except Exception as e:
@@ -734,7 +752,7 @@ class VoiceInterfaceCog(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
 
-    async def _handle_privacy_action(self, interaction: discord.Interaction, channel_id: int, action: str):
+async def _handle_privacy_action(self, interaction: discord.Interaction, channel_id: int, action: str):
         guild = interaction.guild
         room = _get_room_by_channel(interaction.guild_id, channel_id)
         if not room or room.owner_id != interaction.user.id:
@@ -781,6 +799,13 @@ class VoiceInterfaceCog(commands.Cog):
                         await chat.delete(reason="Voice chat closed")
                     room.chat_channel_id = None
                     await interaction.response.send_message("\U0001f515 Chat ditutup", ephemeral=True, delete_after=8)
+            _user_prefs[interaction.user.id] = {
+                "locked": room.locked,
+                "visible": room.visible,
+                "waiting_room": room.waiting_room,
+                "limit": room.limit,
+                "region": room.region,
+            }
             await self._update_interface(guild)
         except Exception as e:
             log.error(f"Privacy action error: {e}")
