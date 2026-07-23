@@ -570,11 +570,8 @@ class VoiceInterfaceCog(commands.Cog):
             if room:
                 remaining = [m for m in before.channel.members if not m.bot]
                 if member.id == room.owner_id:
-                    room.owner_left_at = time.time()
-                    if not remaining:
-                        await self._delete_room(before.channel.id, guild.id)
-                        return
-                    await self._schedule_claim_check(room)
+                    await self._delete_room(before.channel.id, guild.id)
+                    return
                 if not remaining:
                     await self._schedule_empty_delete(room)
 

@@ -1,81 +1,74 @@
 # AGENTS.md — Synapse Discord Bot
 
-**File is gitignored** — `git add -f AGENTS.md` to commit changes.
+**Gitignored** — commit with `git add -f AGENTS.md`.
 
-## Two processes run simultaneously
+## Run
 
-| Process | Command | File |
-|---------|---------|------|
-| Both | `honcho start -f Procfile` (prod) or `Procfile.dev` (local) | Procfile |
-| Bot | `python backend/main.py` | `backend/main.py` |
-| Web (dev) | `python -m backend.web.web_app` | `backend/web/web_app.py` |
-| Web (prod) | `gunicorn backend.web.web_app:app --workers 2 --timeout 120` | Procfile |
+| Mode | Command |
+|------|---------|
+| Both (dev) | `honcho start -f Procfile.dev` |
+| Both (prod) | `honcho start -f Procfile` |
+| Bot only | `python backend/main.py` |
+| Web only | `python -m backend.web.web_app` |
 
-Bot loads `.env` via `load_dotenv()` at `backend/main.py:29` — `.env` lives in `backend/.env`.
+`.env` lives in `backend/.env`. Required: `TOKEN_BOT`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `FLASK_SECRET_KEY`, `FIREBASE_KEY`. AI needs at least one of `GEMINI_API_KEY`/`GROQ_API_KEY`/`MISTRAL_API_KEY`/`COHERE_API_KEY`/`OPENROUTER_API_KEY`.
 
 ## Bot quirks
 
-- **Prefix `!`** + slash commands (hybrid, discord.py 2.7.1). Slash sync on `on_ready`.
-- **Cog auto-load**: `os.walk` on `backend/cogs/`. Skips `__init__.py` and `firebase_setup.py`. Loads any `.py` with a `setup()` function.
-- **Memory monitor**: Reads `/proc/self/status` VmRSS every 5 min, triggers `gc.collect()` if RSS > 300MB (Railway 512MB limit). (`backend/main.py:199-219`)
-- **Control queue**: Dashboard → bot IPC via JSON files in `control_queue/`, consumed every 5s. Actions: `send_message`, `refresh_rag_cache`, `refresh_settings_cache`. (`backend/main.py:95-197`)
-- **Console language**: Mixed Indonesian + English throughout.
+- **Hybrid commands**: prefix `!` + slash. Slash sync on `on_ready`.
+- **Cog auto-load**: `os.walk` on `backend/cogs/`. Skips `__init__.py` and `firebase_setup.py`. Loads any `.py` with `setup()`.
+- **Intents**: `message_content`, `members`, `moderation`, `voice_states` all enabled in `main.py:47-51`.
+- **Memory monitor**: reads `/proc/self/status` VmRSS every 5 min, triggers `gc.collect()` if >300MB (`main.py:218-238`).
+- **Stats updater**: `tasks.loop(seconds=30)` updates Firestore stats + guild channels/roles (`main.py:291-324`).
+- **Control queue**: dashboard → bot IPC via JSON files in `control_queue/`, consumed every 5s. Actions: `send_message`, `refresh_rag_cache`, `refresh_settings_cache` (`main.py:96-216`).
+- **Cookies**: `COOKIES_CONTENT` env var auto-written to `cookies/cookies.txt` at startup (`main.py:31-41`).
+- **Console language**: mixed Indonesian + English.
 
-## Firestore quirks
+## Firestore (Firebase Admin SDK)
 
-- **Never call Firestore directly in async context** — the `firebase_admin` client is synchronous. All writes go through `asyncio.to_thread()`.
-- **Writes debounced** (default 30s, env `FIRESTORE_DEBOUNCE`) and **circuit-broken** on 429 (default 15min cooldown, env `FIRESTORE_CIRCUIT_SEC`).
+- **Never call Firestore directly in async context** — SDK is synchronous. All writes through `asyncio.to_thread()`.
+- **Debounced** (default 30s, env `FIRESTORE_DEBOUNCE`). **Circuit breaker** on 429 (default 15min, env `FIRESTORE_CIRCUIT_SEC`).
 - Firebase key modes: base64 string, raw JSON string, or file path (searched in multiple dirs).
 - Web endpoints create fresh event loops (`asyncio.new_event_loop()`) from Flask sync context.
-- Shared circuit breaker: cogs call `firestore_circuit_open()` / `trip_firestore_circuit()` from `backend/utils/firestore_stats.py`.
+- Shared circuit breaker: `firestore_circuit_open()` / `trip_firestore_circuit()` from `backend/utils/firestore_stats.py`.
 
 ## AI Chat fallback chain
 
-`Gemini → Groq → Mistral → Cohere → OpenRouter` (5 tiers). Providers in `backend/cogs/ai_chat/providers/{gemini,groq,mistral,cohere,openrouter}.py`.
+`Gemini → Groq → Mistral → Cohere → OpenRouter` (5 tiers in `backend/cogs/ai_chat/providers/`).
 
-- Gemini: circuit breaker (3 consecutive fails → skip 2h) + daily quota reserve (200 requests reserved for Vision).
-- Image analysis: Gemini-only — if Gemini is down, image features unavailable.
+- Gemini default model: `gemini-3.6-flash`. Circuit breaker (3 consecutive fails → skip 2h) + daily quota reserve (200 requests for Vision).
+- Image analysis: Gemini-only (`gemini-3.6-flash` used for both text and vision). If Gemini down, image features unavailable.
 - OpenRouter: auto-prioritizes free models (fetched from API on startup, hardcoded fallback).
 - Streaming: `/ask` command uses progressive message edits (~1s interval). Mention-based chat uses batch mode.
+- Intent router (`backend/utils/intent_router.py`) + web search (`web_search.py`) integrated in `ai_chat.py`.
 
 ## RAG / Vector Search
 
-Uses **ChromaDB** (persistent, file-based at `data/chroma_db/`) for vector similarity search.
-- Embedding: Gemini API (`models/gemini-embedding-001`, 3072-dim, free tier)
-- Fallback: hash-based embedding (same dimensions) if Gemini API unavailable
-- Query expansion + multi-turn history awareness in `ai_chat.py`
-- Auto-sync: document upload/delete updates ChromaDB + Firestore simultaneously
-- Existing docs auto-synced to ChromaDB on first RAG query per guild (`sync_existing_to_vector`)
-
-## Prompt enhancements
-
-- **Few-shot examples** per intent (coding, akademik, sains) injected dynamically in `prompt.py`
-- **Chain-of-Thought instruction** added to all technical/math/logic prompts
+- ChromaDB (persistent, file-based at `data/chroma_db/`). Path overridable via `CHROMA_DB_PATH` env.
+- Embedding: Gemini API (`models/gemini-embedding-001`, 3072-dim). Fallback: hash-based embedding.
+- If `chromadb` import fails at startup, vector features are gracefully disabled (`rag_vector.py:11-15`).
 
 ## Dashboard (Flask)
 
-- Discord OAuth2: `identify` + `guilds` scopes. Guild access filtered to `ADMINISTRATOR` or `MANAGE_GUILD`.
-- Sessions: Flask-Session (filesystem).
-- `MAX_CONTENT_LENGTH = 50MB`. Images >400KB are auto-compressed before storing as base64 data URLs in Firestore.
+- Discord OAuth2: `identify` + `guilds`. Guild access filtered to `ADMINISTRATOR` or `MANAGE_GUILD`.
+- Sessions: Flask-Session (filesystem). Session storage in `backend/flask_session/` (gitignored).
+- `MAX_CONTENT_LENGTH = 50MB`. Images >400KB auto-compressed to base64 data URLs for Firestore.
 - `PYTHONPATH=/app` set via Dockerfile (required for `backend.` imports in production).
-- i18n: session-based (`session["lang"]`), defaults to `id`. Jinja2 filter `{{ "key" | t }}`. Fallback: requested lang → `id.json` → raw key. Translation files in `backend/web/translations/`.
+- i18n: session-based (`session["lang"]`), defaults to `id`. Jinja2 filter `{{ "key" | t }}`. Fallback: requested lang → `id.json` → raw key. Translations in `backend/web/translations/`.
 
-## Environment
+## Moderation (spam)
 
-`.env` in `backend/.env`. Required: `TOKEN_BOT`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `FLASK_SECRET_KEY`, `FIREBASE_KEY`. AI requires at least one of `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `COHERE_API_KEY`, `OPENROUTER_API_KEY`.
+- 3-layer image spam: rate limit (4/10s) → pHash + Hamming → Gemini Vision + Google Cloud Vision OCR.
+- 3-strike system: timeout (24h) → kick → ban. Resets after 24h clean.
+- Spam engine, image spam, intent router all in `backend/utils/`.
 
 ## Anti-Nuke (`backend/cogs/anti_nuke/anti_nuke.py`)
 
-Auto-lockdown when destructive actions exceed thresholds within a time window.
-
-- **Monitored events**: mass ban, mass kick, channel create/delete, role create/delete, admin perm grants, role admin perms, webhook spam
-- **Detection**: per-user sliding window (default 10s), reads audit logs to identify the actor
-- **Whitelist**: admins auto-exempt; configurable user/role whitelist via `!antinuke-whitelist`
-- **Lockdown**: denies `send_messages`, `add_reactions`, `create_instant_invite` on @everyone for all channels; auto-restores after `lockdown_duration` (default 30 min)
-- **AI post-analysis**: fire-and-forget call after lockdown — collects recent audit log entries, sends to OpenRouter's free model pool (openrouter/free → gemma-4 → nemotron → llama-3.3). Posts to report channel. Graceful failure if API unavailable.
-- **Commands**: `!antinuke` (toggle), `!antinuke-whitelist user/role <id>`, `!antinuke-restore`, `!antinuke-status`
-- **Config**: stored in Firestore under `guild_settings/{guild_id}/anti_nuke`
-- **Requires `intents.moderation = True`** (set in `main.py:50`)
+- Sliding window (default 10s) on destructive actions: mass ban/kick, channel/role create/delete, admin perm grants, webhook spam.
+- Admins auto-exempt. Configurable user/role whitelist via `!antinuke-whitelist`.
+- Lockdown: denies `send_messages`, `add_reactions`, `create_instant_invite` on @everyone for all channels. Auto-restores after `lockdown_duration` (default 30 min).
+- AI post-analysis: fire-and-forget to OpenRouter free model pool after lockdown.
+- Config in Firestore: `guild_settings/{guild_id}/anti_nuke`.
 
 ## Firestore Backup
 
@@ -88,8 +81,8 @@ python backend/scripts/backup_firestore.py info <file>
 
 ## Build / test / lint / CI
 
-None. Zero tests, no pytest, no lint, no typecheck, no formatter, no CI workflows. Manual verification only.
+None. Zero tests, no pytest, no lint, no typecheck, no formatter, no CI. Manual verification only.
 
 ## Deployment
 
-Railway via `railway.json`. Runs `honcho start -f Procfile` inside `python:3.11-slim` (Dockerfile). Health pinged by UptimeRobot every 5 min.
+Railway via `railway.json`. Dockerfile: `python:3.11-slim`, `CMD honcho start -f Procfile`. UptimeRobot health ping every 5 min.
