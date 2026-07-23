@@ -27,8 +27,8 @@ CHANNEL_PLAN = {
         {"name": "🎶・req-music", "type": "text"},
     ],
     "💬 Create Voice": [
-        {"name": "✨・interface", "type": "text"},
         {"name": "💬・talk", "type": "text"},
+        {"name": "✨・interface", "type": "text"},
         {"name": "➕ Create Caffee'", "type": "voice"},
         {"name": "⌛ Lobby", "type": "voice"},
         {"name": "😴 AFK 💤", "type": "voice", "afk": True},

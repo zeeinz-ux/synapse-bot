@@ -32,8 +32,8 @@
 
 | Channel              | Type  | Note                                           |
 | -------------------- | ----- | ---------------------------------------------- |
-| `#✨・interface`     | Text  | Panel kontrol voice room (button only)         |
 | `#💬・talk`          | Text  | Chat buat voice                                |
+| `#✨・interface`     | Text  | Panel kontrol voice room (button only)         |
 | `➕ Create Caffee'`  | Voice | Join → auto-create temp room di 🎮 Game        |
 | `⌛ Lobby`           | Voice | Pure lobby biasa                               |
 | `😴 AFK 💤`          | Voice | AFK channel (>1hr idle → dipindah sini)        |
