@@ -110,6 +110,24 @@ class MemberSelect(ui.Select['TempView']):
         await self._cog._handle_member_select(interaction, self._action, self._room_channel_id, int(self.values[0]))
         self.view.stop()
 
+class PrivacySelect(ui.Select['TempView']):
+    def __init__(self, cog, room_channel_id: int, current_lock: bool, current_visible: bool, chat_open: bool):
+        options = [
+            discord.SelectOption(label="Lock", value="lock", emoji="\U0001f512", description="Kunci room"),
+            discord.SelectOption(label="Unlock", value="unlock", emoji="\U0001f513", description="Buka kunci room"),
+            discord.SelectOption(label="Hide", value="hide", emoji="\U0001f648", description="Sembunyikan room"),
+            discord.SelectOption(label="Show", value="show", emoji="\U0001f441\ufe0f", description="Tampilkan room"),
+            discord.SelectOption(label="Open Chat", value="open_chat", emoji="\U0001f4ac", description="Buka text chat"),
+            discord.SelectOption(label="Close Chat", value="close_chat", emoji="\U0001f515", description="Tutup text chat"),
+        ]
+        super().__init__(placeholder="Pilih opsi privacy...", options=options, min_values=1, max_values=1)
+        self._cog = cog
+        self._room_channel_id = room_channel_id
+
+    async def callback(self, interaction: discord.Interaction):
+        await self._cog._handle_privacy_action(interaction, self._room_channel_id, self.values[0])
+        self.view.stop()
+
 class TempView(ui.View):
     def __init__(self, *items: ui.Item, timeout: float = 120):
         super().__init__(timeout=timeout)
@@ -185,19 +203,16 @@ class VoiceControlView(ui.View):
             return
         await interaction.response.send_modal(RoomNameModal(self._cog, room.channel_id))
 
-    @ui.button(label="\U0001f512 Lock", style=discord.ButtonStyle.secondary, row=0)
-    async def lock_btn(self, interaction: discord.Interaction, button: ui.Button):
-        room = await self._owner_only(interaction)
-        if not room:
-            return
-        await self._cog._handle_lock_toggle(interaction, room)
-
-    @ui.button(label="\U0001f441\ufe0f Privacy", style=discord.ButtonStyle.secondary, row=0)
+    @ui.button(label="\U0001f512 Privacy", style=discord.ButtonStyle.secondary, row=0)
     async def privacy_btn(self, interaction: discord.Interaction, button: ui.Button):
         room = await self._owner_only(interaction)
         if not room:
             return
-        await self._cog._handle_privacy_toggle(interaction, room)
+        guild_rooms = _rooms.get(interaction.guild_id, {})
+        r = guild_rooms.get(room.channel_id)
+        chat_open = r.chat_channel_id is not None if r else False
+        view = TempView(PrivacySelect(self._cog, room.channel_id, room.locked, room.visible, chat_open))
+        await interaction.response.send_message("Pilih pengaturan privacy:", ephemeral=True, delete_after=15, view=view)
 
     @ui.button(label="\U0001f465 Limit", style=discord.ButtonStyle.secondary, row=0)
     async def limit_btn(self, interaction: discord.Interaction, button: ui.Button):
@@ -212,13 +227,6 @@ class VoiceControlView(ui.View):
         if not room:
             return
         await self._cog._handle_waiting_toggle(interaction, room)
-
-    @ui.button(label="\U0001f4ac Chat", style=discord.ButtonStyle.secondary, row=1)
-    async def chat_btn(self, interaction: discord.Interaction, button: ui.Button):
-        room = await self._owner_only(interaction)
-        if not room:
-            return
-        await self._cog._handle_chat_toggle(interaction, room)
 
     @ui.button(label="\u2705 Trust", style=discord.ButtonStyle.success, row=1)
     async def trust_btn(self, interaction: discord.Interaction, button: ui.Button):
@@ -700,34 +708,6 @@ class VoiceInterfaceCog(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"Failed to rename: {e}", ephemeral=True, delete_after=8)
 
-    async def _handle_lock_toggle(self, interaction: discord.Interaction, room: VoiceRoom):
-        guild = interaction.guild
-        vc = guild.get_channel(room.channel_id)
-        if not isinstance(vc, discord.VoiceChannel):
-            return
-        room.locked = not room.locked
-        try:
-            await vc.set_permissions(guild.default_role, connect=not room.locked)
-            status = "\U0001f512 Locked" if room.locked else "\U0001f513 Unlocked"
-            await interaction.response.send_message(f"Room {status}", ephemeral=True, delete_after=8)
-            await self._update_interface(guild)
-        except Exception as e:
-            await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
-
-    async def _handle_privacy_toggle(self, interaction: discord.Interaction, room: VoiceRoom):
-        guild = interaction.guild
-        vc = guild.get_channel(room.channel_id)
-        if not isinstance(vc, discord.VoiceChannel):
-            return
-        room.visible = not room.visible
-        try:
-            await vc.set_permissions(guild.default_role, view_channel=room.visible)
-            status = "\U0001f441\ufe0f Visible" if room.visible else "\U0001f441\ufe0f Hidden"
-            await interaction.response.send_message(f"Room {status}", ephemeral=True, delete_after=8)
-            await self._update_interface(guild)
-        except Exception as e:
-            await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
-
     async def _handle_limit(self, interaction: discord.Interaction, channel_id: int, limit_str: str):
         room = _get_room_by_channel(interaction.guild_id, channel_id)
         if not room or room.owner_id != interaction.user.id:
@@ -754,6 +734,56 @@ class VoiceInterfaceCog(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
 
+    async def _handle_privacy_action(self, interaction: discord.Interaction, channel_id: int, action: str):
+        guild = interaction.guild
+        room = _get_room_by_channel(interaction.guild_id, channel_id)
+        if not room or room.owner_id != interaction.user.id:
+            await interaction.response.send_message("Kamu bukan owner room ini.", ephemeral=True, delete_after=8)
+            return
+        vc = guild.get_channel(channel_id)
+        if not isinstance(vc, discord.VoiceChannel):
+            return
+        try:
+            if action == "lock":
+                room.locked = True
+                await vc.set_permissions(guild.default_role, connect=False)
+                await interaction.response.send_message("\U0001f512 Room dikunci", ephemeral=True, delete_after=8)
+            elif action == "unlock":
+                room.locked = False
+                await vc.set_permissions(guild.default_role, connect=True)
+                await interaction.response.send_message("\U0001f513 Room dibuka", ephemeral=True, delete_after=8)
+            elif action == "hide":
+                room.visible = False
+                await vc.set_permissions(guild.default_role, view_channel=False)
+                await interaction.response.send_message("\U0001f648 Room disembunyikan", ephemeral=True, delete_after=8)
+            elif action == "show":
+                room.visible = True
+                await vc.set_permissions(guild.default_role, view_channel=True)
+                await interaction.response.send_message("\U0001f441\ufe0f Room ditampilkan", ephemeral=True, delete_after=8)
+            elif action == "open_chat":
+                if room.chat_channel_id:
+                    await interaction.response.send_message("Chat sudah terbuka.", ephemeral=True, delete_after=8)
+                else:
+                    chat = await guild.create_text_channel(
+                        f"\U0001f4ac-{vc.name[:20]}",
+                        category=vc.category,
+                        reason="Voice room chat",
+                    )
+                    room.chat_channel_id = chat.id
+                    await interaction.response.send_message(f"\U0001f4ac Chat dibuat: {chat.mention}", ephemeral=True, delete_after=8)
+            elif action == "close_chat":
+                if not room.chat_channel_id:
+                    await interaction.response.send_message("Belum ada chat.", ephemeral=True, delete_after=8)
+                else:
+                    chat = guild.get_channel(room.chat_channel_id)
+                    if chat:
+                        await chat.delete(reason="Voice chat closed")
+                    room.chat_channel_id = None
+                    await interaction.response.send_message("\U0001f515 Chat ditutup", ephemeral=True, delete_after=8)
+            await self._update_interface(guild)
+        except Exception as e:
+            await interaction.response.send_message(f"Gagal: {e}", ephemeral=True, delete_after=8)
+
     async def _handle_waiting_toggle(self, interaction: discord.Interaction, room: VoiceRoom):
         guild = interaction.guild
         room.waiting_room = not room.waiting_room
@@ -768,33 +798,6 @@ class VoiceInterfaceCog(commands.Cog):
             room.waiting_users.clear()
         status = "\U0001f6aa Waiting Room: On" if room.waiting_room else "\U0001f6aa Waiting Room: Off"
         await interaction.response.send_message(status, ephemeral=True, delete_after=8)
-        await self._update_interface(guild)
-
-    async def _handle_chat_toggle(self, interaction: discord.Interaction, room: VoiceRoom):
-        guild = interaction.guild
-        vc = guild.get_channel(room.channel_id)
-        if not isinstance(vc, discord.VoiceChannel):
-            return
-        if room.chat_channel_id:
-            chat = guild.get_channel(room.chat_channel_id)
-            if chat:
-                try:
-                    await chat.delete(reason="Voice chat closed")
-                except Exception:
-                    pass
-            room.chat_channel_id = None
-            await interaction.response.send_message("\U0001f4ac Chat closed", ephemeral=True, delete_after=8)
-        else:
-            try:
-                chat = await guild.create_text_channel(
-                    f"\U0001f4ac-{vc.name[:20]}",
-                    category=vc.category,
-                    reason="Voice room chat",
-                )
-                room.chat_channel_id = chat.id
-                await interaction.response.send_message(f"\U0001f4ac Chat created: {chat.mention}", ephemeral=True, delete_after=8)
-            except Exception as e:
-                await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
         await self._update_interface(guild)
 
     async def _handle_member_select(self, interaction: discord.Interaction, action: str, channel_id: int, target_id: int):
