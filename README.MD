@@ -1,8 +1,31 @@
-# 🧠 Synapse — Discord Bot
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=28&duration=3000&pause=1000&color=5865F2&center=true&vCenter=true&width=500&lines=%F0%9F%A7%A0+Synapse+Discord+Bot;AI-Powered+%E2%80%A2+Modular+%E2%80%A2+Smart" alt="Synapse Bot" />
+  <br/>
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/discord.py-2.7.1-5865F2?logo=discord&logoColor=white" />
+  <img src="https://img.shields.io/badge/Flask-3.1.3-000000?logo=flask&logoColor=white" />
+  <img src="https://img.shields.io/badge/Firebase-Firestore-FFCA28?logo=firebase&logoColor=black" />
+  <img src="https://img.shields.io/badge/ChromaDB-Vector-6C5CE7" />
+  <br/>
+  <a href="#-features-at-a-glance">Features</a> •
+  <a href="#-tech-stack">Stack</a> •
+  <a href="#-ai-chat-architecture">AI</a> •
+  <a href="#-project-structure">Structure</a> •
+  <a href="#-dashboard-routes">Dashboard</a> •
+  <a href="#%EF%B8%8F-whats-new">What's New</a>
+</p>
 
-Multifunctional AI-powered Discord bot with web dashboard, 5-tier AI chat, RAG knowledge base, moderation, leveling, and more.
+<div align="center">
+  <sub>⚡ Multifunctional AI-powered Discord bot with web dashboard, 5-tier AI fallback, RAG knowledge base, voice rooms, anti-nuke, moderation & more.</sub>
+</div>
+
+<br/>
 
 ---
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/trinib/trinib/a5f8f5a7aa7b8a2f2f0e1c1c1c1c1c1c1c1c1c1c/trinib.svg" width="100%" height="2">
+</p>
 
 ## ✨ Features at a Glance
 
@@ -13,13 +36,17 @@ Multifunctional AI-powered Discord bot with web dashboard, 5-tier AI chat, RAG k
 | 📊 **Web Dashboard** | Real-time server stats · Full per-guild config · RAG document upload · Message builder · i18n (ID/EN) · Discord OAuth2 |
 | 🎮 **Community** | Leveling & XP with rank cards · Dual-style welcome (embed/banner) · Leave/ban/boost announcements · Boost tracker · Auto-responder · Photobox · Donation tracking |
 | 🚨 **Anti-Nuke** | Sliding window detection (mass ban/kick/channel/role) · Auto-lockdown (@everyone deny send_messages) · Auto-restore · Whitelist (admin/user/role) · AI post-analysis via OpenRouter · Dashboard settings |
-| 🎛️ **Voice Interface** | Join `➕ Create Caffee'` → auto-create `🗣️ {user}'s Caffee` · 16-button control panel via `✨・interface` · Rename, Lock, Privacy, Limit, Waiting, Chat, Trust, Untrust, Block, Unblock, Kick, Invite, Region, Delete · Auto-delete when empty · ⭐ Premium: Claim & Transfer |
+| 🎛️ **Voice Interface** | Join `➕ Create Caffee'` → auto-create `🗣️ {user}'s Caffee` · Button control panel via `✨・interface` · Rename, Privacy menu (Lock/Unlock/Hide/Show/Chat), Limit, Waiting, Trust, Block, Kick, Invite, Region, Delete · Auto-delete when empty · User preference persistence · ⭐ Premium: Claim & Transfer |
 | ⚙️ **Server Setup** | `/setup` command · 7 categories, 21 channels · Permission presets · Live member stats · AFK channel · Auto-enable features |
 | ⭐ **Premium** | Monthly ($3 / Rp 50k) & Yearly ($25 / Rp 400k) · Saweria/Sociabuzz webhook auto-activation · DM notification · Auto-expiry cleanup · Claim & Transfer in voice rooms |
 
 ---
 
 ## 🏗️ Tech Stack
+
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=python,flask,firebase,docker,github,linux&theme=dark" />
+</p>
 
 | Layer | Technology |
 |-------|-----------|
@@ -32,9 +59,13 @@ Multifunctional AI-powered Discord bot with web dashboard, 5-tier AI chat, RAG k
 | 🖼️ **Image Processing** | Pillow, easy-pil |
 | 🛡️ **Anti-Spam** | Heuristic scoring + pHash + Google Cloud Vision OCR |
 | 🔐 **Sessions** | Flask-Session (server-side filesystem) |
-| 🚀 **Deployment** | Docker → Railway + UptimeRobot |
+| 🚀 **Deployment** | Docker → Railway / Render + UptimeRobot |
 
 ---
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/trinib/trinib/a5f8f5a7aa7b8a2f2f0e1c1c1c1c1c1c1c1c1c1c/trinib.svg" width="100%" height="2">
+</p>
 
 ## 🧠 AI Chat Architecture
 
@@ -141,8 +172,52 @@ discord-bot/
 ├── flask_session/               # 🔐 Session storage (gitignored)
 ├── Dockerfile                   # 🐳 Production image
 ├── Procfile / Procfile.dev      # 📋 Honcho process definitions
-└── railway.json                 # 🚄 Railway deploy config
+├── railway.json                 # 🚄 Railway deploy config
+└── antigravity_agent_plan.md    # 🤖 Antigravity agent integration plan
 ```
+
+---
+
+## 🫨 What's New
+
+<details open>
+<summary><b>🔽 Click to expand latest updates</b></summary>
+
+<br/>
+
+### 🎛️ Voice Interface — Complete Overhaul
+
+| Update | Detail |
+|--------|--------|
+| **Privacy Menu** | 🔒 Lock · 🔓 Unlock · 🙈 Hide · 👁️ Show · 💬 Open Chat · 🔕 Close Chat — all in 1 select menu |
+| **User Preference Persistence** | Room settings (lock, hide, waiting, limit, region) saved per user — restored on next room creation |
+| **Per-Guild Interface** | Interface only appears in guilds with `➕ Create Caffee'` trigger channel |
+| **Auto-Delete Room** | Owner leave + empty → immediate delete · Empty for 10s → auto delete |
+| **Read-Only Interface** | User messages in `✨・interface` auto-deleted · Ephemeral responses auto-dismiss after 8s |
+| **Debug Logging** | Added logging to `on_voice_state_update`, `_create_room`, `_ensure_interface` |
+
+### 🧾 Announcement Text Enhancement
+
+| Cog | Change |
+|-----|--------|
+| 👋 Welcome | Description uses `-#` formatted text (larger, more prominent) |
+| 👋 Leave | Description uses `-#` formatted text |
+| 🚫 Ban | Description uses `-#` formatted text |
+| 🎉 Boost | Description uses `-#` formatted text |
+
+### ⚙️ /setup Enhancement
+
+- Post-setup interface initialization — voice control panel auto-sent after `/setup` completes
+- Interface message updated when `/setup` re-run
+
+### 🤖 Antigravity Agent Plan
+
+- New integration plan for **Antigravity** (Google AI agent model via Gemini API key)
+- Multi-step reasoning, tool calling, admin-only destructive actions
+- `antigravity_agent_plan.md` — full architecture, tool list, rate limit strategy
+- *Status: Planning phase — not yet implemented*
+
+</details>
 
 ---
 
@@ -171,7 +246,7 @@ python backend/main.py              # Bot only
 python -m backend.web.web_app       # Web dashboard only
 ```
 
-### Production (Railway)
+### Production (Railway / Render)
 
 ```dockerfile
 # Dockerfile builds python:3.11-slim image
@@ -180,7 +255,7 @@ python -m backend.web.web_app       # Web dashboard only
 
 - **Web**: `gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 backend.web.web_app:app`
 - **Worker**: `python backend/main.py`
-- **UptimeRobot** pings every 5 min to prevent Railway from sleeping
+- **UptimeRobot** pings every 5 min to prevent free-tier services from sleeping
 - `PYTHONPATH=/app` set via Dockerfile (required for `backend.` imports)
 
 ### Firestore Backup
@@ -304,9 +379,9 @@ Text Detection                    Image Detection
 
 ---
 
-## 📜 License
-
 <p align="center">
+  <img src="https://profile-counter.glitch.me/synapse-bot/count.svg" />
+  <br/>
   <b>Proprietary — All Rights Reserved.</b>
   <br/>
   <i>© 2026 zeeinz-ux. Unauthorized use, reproduction, modification, or distribution is prohibited.</i>
