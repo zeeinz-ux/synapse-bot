@@ -270,7 +270,12 @@ class GeneralCog(commands.Cog):
                 for ch in channels:
                     ch_name = ch["name"]
                     ch_type = ch["type"]
-                    if discord.utils.get(category.channels, name=ch_name):
+                    existing = discord.utils.get(category.channels, name=ch_name)
+                    if existing:
+                        if ch_name == "✨・interface":
+                            interface_id = existing.id
+                        elif ch_name == "➕ Create Caffee'":
+                            trigger_id = existing.id
                         results["channels"] += 1
                         continue
                     try:
@@ -388,7 +393,12 @@ class GeneralCog(commands.Cog):
                 for ch in channels:
                     ch_name = ch["name"]
                     ch_type = ch["type"]
-                    if discord.utils.get(category.channels, name=ch_name):
+                    existing = discord.utils.get(category.channels, name=ch_name)
+                    if existing:
+                        if ch_name == "✨・interface":
+                            interface_id = existing.id
+                        elif ch_name == "➕ Create Caffee'":
+                            trigger_id = existing.id
                         results["channels"] += 1
                         done += 1
                         continue
