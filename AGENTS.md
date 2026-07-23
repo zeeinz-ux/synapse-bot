@@ -64,6 +64,19 @@ Uses **ChromaDB** (persistent, file-based at `data/chroma_db/`) for vector simil
 
 `.env` in `backend/.env`. Required: `TOKEN_BOT`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `FLASK_SECRET_KEY`, `FIREBASE_KEY`. AI requires at least one of `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `COHERE_API_KEY`, `OPENROUTER_API_KEY`.
 
+## Anti-Nuke (`backend/cogs/anti_nuke/anti_nuke.py`)
+
+Auto-lockdown when destructive actions exceed thresholds within a time window.
+
+- **Monitored events**: mass ban, mass kick, channel create/delete, role create/delete, admin perm grants, role admin perms, webhook spam
+- **Detection**: per-user sliding window (default 10s), reads audit logs to identify the actor
+- **Whitelist**: admins auto-exempt; configurable user/role whitelist via `!antinuke-whitelist`
+- **Lockdown**: denies `send_messages`, `add_reactions`, `create_instant_invite` on @everyone for all channels; auto-restores after `lockdown_duration` (default 30 min)
+- **AI post-analysis**: fire-and-forget call after lockdown — collects recent audit log entries, sends to OpenRouter's free model pool (openrouter/free → gemma-4 → nemotron → llama-3.3). Posts to report channel. Graceful failure if API unavailable.
+- **Commands**: `!antinuke` (toggle), `!antinuke-whitelist user/role <id>`, `!antinuke-restore`, `!antinuke-status`
+- **Config**: stored in Firestore under `guild_settings/{guild_id}/anti_nuke`
+- **Requires `intents.moderation = True`** (set in `main.py:50`)
+
 ## Firestore Backup
 
 ```bash

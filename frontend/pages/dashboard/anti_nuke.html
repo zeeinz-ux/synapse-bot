@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Anti Nuke — Synapse{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/anti_nuke.css') }}">
+{% endblock %}
+
+{% block content %}
+<input type="hidden" id="guild-id" value="{{ guild_id }}">
+
+<div class="page-wrap">
+  <nav class="breadcrumb">
+    <a href="/dashboard/{{ guild_id }}/">Dashboard</a>
+    <span>›</span>
+    <span>Anti Nuke</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="header-content">
+      <h1>🚨 Anti Nuke</h1>
+      <p>Auto-lockdown server saat terdeteksi aksi destruktif massal (mass ban, mass kick, mass channel/role delete, dll).</p>
+    </div>
+    <div class="header-toggle">
+      <label class="toggle-label">
+        <span>Aktifkan Anti Nuke</span>
+        <input type="checkbox" id="global-toggle" class="toggle-input">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="content-grid">
+    <!-- Thresholds -->
+    <div class="card thresholds-card">
+      <h2>⚙️ Thresholds</h2>
+      <p class="card-desc">Jumlah aksi dalam window deteksi sebelum lockdown dipicu.</p>
+      <div class="threshold-grid">
+        <div class="form-group">
+          <label for="ban-threshold">Ban</label>
+          <input type="number" id="ban-threshold" class="form-input" value="3" min="1" max="20">
+        </div>
+        <div class="form-group">
+          <label for="kick-threshold">Kick</label>
+          <input type="number" id="kick-threshold" class="form-input" value="3" min="1" max="20">
+        </div>
+        <div class="form-group">
+          <label for="channel-threshold">Channel Create/Delete</label>
+          <input type="number" id="channel-threshold" class="form-input" value="3" min="1" max="20">
+        </div>
+        <div class="form-group">
+          <label for="role-threshold">Role Create/Delete</label>
+          <input type="number" id="role-threshold" class="form-input" value="3" min="1" max="20">
+        </div>
+        <div class="form-group">
+          <label for="admin-threshold">Admin Grant</label>
+          <input type="number" id="admin-threshold" class="form-input" value="2" min="1" max="20">
+        </div>
+      </div>
+    </div>
+
+    <!-- Window & Duration -->
+    <div class="card timing-card">
+      <h2>⏱️ Timing</h2>
+      <p class="card-desc">Window deteksi dan durasi lockdown.</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="window-seconds">Detection Window (detik)</label>
+          <input type="number" id="window-seconds" class="form-input" value="10" min="3" max="120">
+        </div>
+        <div class="form-group">
+          <label for="lockdown-duration">Lockdown Duration (menit)</label>
+          <input type="number" id="lockdown-duration" class="form-input" value="30" min="5" max="240">
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Channel -->
+    <div class="card channel-card">
+      <h2>📢 Report Channel</h2>
+      <p class="card-desc">Channel untuk notifikasi alert & AI analysis hasil serangan.</p>
+      <div class="form-group">
+        <select id="report-channel" class="form-select">
+          <option value="">— Tidak ada (nonaktif) —</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Whitelist Users -->
+    <div class="card whitelist-users-card">
+      <h2>👤 Whitelist Users</h2>
+      <p class="card-desc">User ID yang di-whitelist tidak akan memicu lockdown. Admin otomatis exempt.</p>
+      <div class="whitelist-input-row">
+        <input type="text" id="wl-user-input" placeholder="Masukkan Discord User ID" class="wl-input">
+        <button id="wl-user-add" class="btn btn-primary btn-sm">➕ Tambah</button>
+      </div>
+      <div id="wl-user-list" class="tag-list">
+        <div class="loading">Memuat...</div>
+      </div>
+    </div>
+
+    <!-- Whitelist Roles -->
+    <div class="card whitelist-roles-card">
+      <h2>👥 Whitelist Roles</h2>
+      <p class="card-desc">Role yang di-whitelist — member dengan role ini tidak akan memicu lockdown.</p>
+      <div class="whitelist-input-row">
+        <select id="wl-role-select" class="wl-input">
+          <option value="">— Pilih Role —</option>
+        </select>
+        <button id="wl-role-add" class="btn btn-primary btn-sm">➕ Tambah</button>
+      </div>
+      <div id="wl-role-list" class="tag-list">
+        <div class="loading">Memuat...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="save-bar">
+    <button id="save-btn" class="btn btn-primary btn-lg">💾 Simpan Pengaturan</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/anti_nuke.js') }}"></script>
+{% endblock %}

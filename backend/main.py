@@ -47,6 +47,7 @@ from backend.utils.firestore_stats import set_stats, set_guild_channels, set_gui
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
+intents.moderation = True
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 

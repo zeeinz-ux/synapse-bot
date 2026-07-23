@@ -73,13 +73,11 @@ _HISTORY_CACHE: Dict[str, tuple] = {}
 _HISTORY_TTL = 60
 _USER_RATE_LIMITS: Dict[int, list] = {}
 _GUILD_DAILY_LIMITS: Dict[str, dict] = {}
-_GUILD_RAG_CACHE: Dict[str, tuple] = {}  # guild_id -> (chunks, load_timestamp)
 _SETTINGS_CACHE: Dict[str, tuple] = {}  # guild_id -> (settings, timestamp)
 _SETTINGS_CACHE_TTL = 60
 _PREFS_CACHE: Dict[str, tuple] = {}  # guild_id_user_id -> (prefs, timestamp)
 _PREFS_CACHE_TTL = 60
-RAG_CACHE_MAX_CHUNKS = 5000
-RAG_CACHE_TTL = 300  # 5 menit
+
 
 # ── Guild daily limit (per-server) ──
 GUILD_DAILY_MAX = 100
@@ -172,12 +170,11 @@ class AIChat(commands.Cog):
         except Exception as e:
             print(f"[AI CHAT] Gagal fetch app info: {e}")
 
-        # Preload RAG cache for all guilds
+        # Preload RAG — sync existing docs to ChromaDB
         guild_ids = [str(g.id) for g in self.bot.guilds if g]
         if guild_ids:
             await asyncio.gather(*[self._get_rag_chunks(gid) for gid in guild_ids], return_exceptions=True)
-            loaded = sum(1 for gid in guild_ids if _GUILD_RAG_CACHE.get(gid))
-            print(f"[RAG] Preloaded cache for {loaded}/{len(guild_ids)} guilds")
+            print(f"[RAG] Synced {len(guild_ids)} guild(s) to ChromaDB")
 
         print("[AI CHAT] Cog loaded. 5-Tier: Gemini -> Groq -> Mistral -> Cohere -> OpenRouter")
 
@@ -802,26 +799,12 @@ class AIChat(commands.Cog):
     # ═══════════════════════════════════════════════════════════════════════
 
     async def _get_rag_chunks(self, guild_id: str, force: bool = False) -> list[str]:
-        if not force:
-            entry = _GUILD_RAG_CACHE.get(guild_id)
-            if entry is not None:
-                chunks, ts = entry
-                if time_module.time() - ts < RAG_CACHE_TTL:
-                    return chunks
-        from ...utils.rag_engine import load_all_chunks
-        loaded = await load_all_chunks(guild_id)
-        if len(loaded) > RAG_CACHE_MAX_CHUNKS:
-            loaded = loaded[:RAG_CACHE_MAX_CHUNKS]
-            print(f"[RAG] Guild {guild_id}: truncated to {RAG_CACHE_MAX_CHUNKS} chunks")
-        _GUILD_RAG_CACHE[guild_id] = (loaded, time_module.time())
-
         from ...utils.rag_engine import sync_existing_to_vector
         try:
             await sync_existing_to_vector(guild_id, self.session)
         except Exception:
             pass
-
-        return loaded
+        return []
 
     async def _get_rag_relevant(self, guild_id: str, query: str, history: list | None = None) -> list[str]:
         from ...utils.rag_engine import vector_search, keyword_search

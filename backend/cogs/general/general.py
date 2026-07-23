@@ -1,48 +1,316 @@
 import discord
 from discord.ext import commands
+from discord import ui
 import platform
 import time
+import asyncio
+import os
+
+CHANNEL_PLAN = {
+    "📁 General": [
+        {"name": "‼️・welcome", "type": "text", "everyone_read": True, "everyone_send": False},
+        {"name": "👋・leave", "type": "text", "admin_only": True},
+        {"name": "⚡・support-server", "type": "text"},
+        {"name": "🚨・report-spam", "type": "text", "everyone_send": True},
+    ],
+    "📊 SERVER STATS": [
+        {"name": "📊 ALL MEMBER", "type": "voice", "gembok": True},
+        {"name": "📊 MEMBER", "type": "voice", "gembok": True},
+        {"name": "📊 BOTS", "type": "voice", "gembok": True},
+    ],
+    "🎮 Music/Hiburan": [
+        {"name": "📸・gallery", "type": "text"},
+        {"name": "🎥・share-streaming", "type": "text"},
+        {"name": "🔁・share-content", "type": "text"},
+        {"name": "🤡・funny", "type": "text"},
+        {"name": "📌・ping-test", "type": "text"},
+        {"name": "🎶・req-music", "type": "text"},
+    ],
+    "💬 Create Voice": [
+        {"name": "💬・talk", "type": "text"},
+        {"name": "⌛ Lobby", "type": "voice"},
+        {"name": "😴 AFK 💤", "type": "voice", "afk": True},
+    ],
+    "🎮 Game": [
+        {"name": "🗣 Caffee", "type": "voice"},
+    ],
+    "🎵 Music": [
+        {"name": "🔊 Music", "type": "voice"},
+    ],
+    "🎬 Streaming": [
+        {"name": "🎬 Stream", "type": "voice"},
+    ],
+}
+
+FEATURE_TOGGLES = {
+    "anti_spam": {"label": "🛡️ Anti Spam", "default": True},
+    "anti_nuke": {"label": "🚨 Anti Nuke", "default": True},
+    "welcome": {"label": "👋 Welcome Message", "default": True},
+    "ai_chat": {"label": "🤖 AI Chat", "default": False},
+}
+
+
+class SetupConfirmView(ui.View):
+    def __init__(self, cog, ctx):
+        super().__init__(timeout=120)
+        self.cog = cog
+        self.ctx = ctx
+        self.features = {k: v["default"] for k, v in FEATURE_TOGGLES.items()}
+
+    @ui.button(label="▶️ Mulai", style=discord.ButtonStyle.success, row=0)
+    async def start(self, interaction: discord.Interaction, button: ui.Button):
+        if interaction.user.id != self.ctx.author.id:
+            return await interaction.response.send_message("Bukan session kamu.", ephemeral=True)
+        self.clear_items()
+        await interaction.response.edit_message(view=self)
+        await self.cog._run_setup(self.ctx, self.features)
+
+    @ui.button(label="❌ Batal", style=discord.ButtonStyle.danger, row=0)
+    async def cancel(self, interaction: discord.Interaction, button: ui.Button):
+        if interaction.user.id != self.ctx.author.id:
+            return
+        self.clear_items()
+        await interaction.response.edit_message(content="❌ Setup dibatalkan.", embed=None, view=self)
+
+
+class FeatureSelectView(ui.View):
+    def __init__(self, cog, ctx, parent_view):
+        super().__init__(timeout=120)
+        self.cog = cog
+        self.ctx = ctx
+        self.features = dict(parent_view.features)
+
+    @ui.select(
+        placeholder="Pilih fitur yang mau diaktifkan...",
+        min_values=0, max_values=len(FEATURE_TOGGLES),
+        options=[
+            discord.SelectOption(
+                label=v["label"],
+                value=k,
+                default=v["default"],
+            ) for k, v in FEATURE_TOGGLES.items()
+        ],
+        row=0,
+    )
+    async def select_features(self, interaction: discord.Interaction, select: ui.Select):
+        if interaction.user.id != self.ctx.author.id:
+            return
+        for opt in select.values:
+            self.features[opt] = True
+        for k in self.features:
+            if k not in select.values:
+                self.features[k] = False
+        await interaction.response.defer()
+
+    @ui.button(label="✅ Konfirmasi & Jalankan", style=discord.ButtonStyle.success, row=1)
+    async def confirm(self, interaction: discord.Interaction, button: ui.Button):
+        if interaction.user.id != self.ctx.author.id:
+            return
+        self.clear_items()
+        await interaction.response.edit_message(view=self)
+        await self.cog._run_setup(self.ctx, self.features)
+
+    @ui.button(label="🔙 Kembali", style=discord.ButtonStyle.secondary, row=1)
+    async def back(self, interaction: discord.Interaction, button: ui.Button):
+        if interaction.user.id != self.ctx.author.id:
+            return
+        await interaction.response.edit_message(
+            embed=self.cog._setup_preview_embed(self.ctx.guild),
+            view=SetupConfirmView(self.cog, self.ctx),
+        )
+
 
 class GeneralCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.start_time = time.time()
+        self._active_setups: set[int] = set()
 
-    @commands.hybrid_command(name="ping", description="Cek latency bot")
-    async def ping(self, ctx: commands.Context):
-        ws_latency = round(self.bot.latency * 1000)
-
-        start = time.time()
-        msg = await ctx.send("🏓 Pong!", ephemeral=True)
-        end = time.time()
-        rt_latency = round((end - start) * 1000)
-
+    def _setup_preview_embed(self, guild: discord.Guild) -> discord.Embed:
         embed = discord.Embed(
-            title="🏓 Pong!",
-            color=discord.Color.green()
+            title="🚀 Server Setup Wizard",
+            description="Bot akan membuat struktur channel dan mengaktifkan fitur untuk server ini.",
+            color=discord.Color.blue(),
         )
-        embed.add_field(name="🌐 WebSocket Latency", value=f"`{ws_latency}ms`", inline=True)
-        embed.add_field(name="📨 Round-Trip Latency", value=f"`{rt_latency}ms`", inline=True)
-        embed.add_field(name="⏱️ Uptime", value=self.get_uptime(), inline=False)
-        embed.set_footer(text=f"Requested by {ctx.author.name}")
+        total = 0
+        for cat_name, channels in CHANNEL_PLAN.items():
+            names = "\n".join(f"  {'🔊' if ch['type']=='voice' else '📄'} {ch['name']}" for ch in channels)
+            embed.add_field(name=f"📁 {cat_name}", value=names, inline=True)
+            total += len(channels)
+        embed.add_field(name="", value="", inline=False)
+        embed.add_field(name="Total Channel", value=f"{total} channel", inline=True)
+        embed.add_field(name="Permission Needed", value="Manage Channels\nManage Roles", inline=True)
+        return embed
 
-        await msg.edit(content=None, embed=embed)
+    async def _build_channel_preview(self, guild: discord.Guild) -> str:
+        lines = []
+        total = 0
+        for cat_name, channels in CHANNEL_PLAN.items():
+            lines.append(f"**📁 {cat_name}**")
+            for ch in channels:
+                icon = "🔊" if ch["type"] == "voice" else "📄"
+                ch_info = [f"  {icon} #{ch['name']}"]
+                if ch.get("gembok"):
+                    ch_info.append("🔒")
+                if ch.get("admin_only"):
+                    ch_info.append("(admin only)")
+                lines.append(" ".join(ch_info))
+                total += 1
+            lines.append("")
+        lines.append(f"**Total**: {total} channel")
+        return "\n".join(lines)
 
-    @commands.hybrid_command(name="stats", description="Lihat statistik bot")
-    async def stats(self, ctx: commands.Context):
-        embed = discord.Embed(
-            title="📊 Bot Statistics",
-            color=discord.Color.blue()
-        )
-        embed.add_field(name="🤖 Bot Name", value=self.bot.user.name, inline=True)
-        embed.add_field(name="📦 Discord.py", value=discord.__version__, inline=True)
-        embed.add_field(name="🐍 Python", value=platform.python_version(), inline=True)
-        embed.add_field(name="🌐 Servers", value=str(len(self.bot.guilds)), inline=True)
-        embed.add_field(name="👥 Users", value=str(sum(g.member_count for g in self.bot.guilds)), inline=True)
-        embed.add_field(name="⏱️ Uptime", value=self.get_uptime(), inline=True)
-        embed.set_footer(text=f"Requested by {ctx.author.name}")
+    @commands.hybrid_command(name="setup", description="Auto-setup channel & fitur untuk server baru")
+    @commands.has_permissions(administrator=True)
+    @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
+    async def setup(self, ctx: commands.Context):
+        guild_id = ctx.guild.id
+        if guild_id in self._active_setups:
+            await ctx.send("⏳ Setup sedang berjalan di server ini. Tunggu selesai!", ephemeral=True)
+            return
 
-        await ctx.send(embed=embed, ephemeral=True)
+        embed = self._setup_preview_embed(ctx.guild)
+        view = SetupConfirmView(self, ctx)
+        await ctx.send(embed=embed, view=view)
+
+    async def _run_setup(self, ctx: commands.Context, features: dict[str, bool]):
+        guild = ctx.guild
+        guild_id = guild.id
+        self._active_setups.add(guild_id)
+
+        progress = await ctx.send("🔧 **Memulai setup...**")
+
+        results = {"categories": 0, "channels": 0, "features": 0, "errors": []}
+
+        try:
+            # ── 0. Clean up default Discord channels ──
+            default_names = {"general", "text-channels", "voice-channels", "general-1"}
+            default_categories = {"text channels", "voice channels"}
+            deleted_defaults = 0
+            for channel in list(guild.channels):
+                if channel.name.lower() in default_names and not channel.category:
+                    try:
+                        await channel.delete(reason="Server setup: removing default channels")
+                        deleted_defaults += 1
+                    except Exception:
+                        pass
+                elif isinstance(channel, discord.CategoryChannel) and channel.name.lower() in default_categories:
+                    try:
+                        for ch in channel.channels:
+                            await ch.delete(reason="Server setup: removing default channels")
+                            deleted_defaults += 1
+                        await channel.delete(reason="Server setup: removing default channels")
+                        deleted_defaults += 1
+                    except Exception:
+                        pass
+
+            if deleted_defaults:
+                await progress.edit(content=f"🔧 **Membersihkan {deleted_defaults} default channel...**")
+                await asyncio.sleep(1)
+
+            # ── 1. Create categories & channels ──
+            for cat_name, channels in CHANNEL_PLAN.items():
+                try:
+                    overwrites = {
+                        guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
+                        guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_channels=True),
+                    }
+                    category = await guild.create_category(cat_name, overwrites=overwrites, reason="Server setup")
+                    results["categories"] += 1
+                except Exception as e:
+                    results["errors"].append(f"Gagal bikin kategori {cat_name}: {e}")
+                    continue
+
+                for ch in channels:
+                    ch_name = ch["name"]
+                    ch_type = ch["type"]
+                    try:
+                        perms = {}
+                        if ch.get("admin_only"):
+                            perms = {
+                                guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                                guild.me: discord.PermissionOverwrite(read_messages=True),
+                            }
+                        elif ch.get("gembok"):
+                            perms = {
+                                guild.default_role: discord.PermissionOverwrite(connect=False),
+                                guild.me: discord.PermissionOverwrite(connect=True, manage_channels=True),
+                            }
+                        elif ch.get("everyone_send"):
+                            perms = {
+                                guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+                                guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_channels=True),
+                            }
+
+                        if ch_type == "text":
+                            await guild.create_text_channel(ch_name, category=category, overwrites=perms or None, reason="Server setup")
+                        else:
+                            vc = await guild.create_voice_channel(ch_name, category=category, overwrites=perms or None, reason="Server setup")
+                            if ch.get("afk"):
+                                try:
+                                    await guild.edit(afk_channel=vc, afk_timeout=3600)
+                                except Exception:
+                                    pass
+
+                        results["channels"] += 1
+                    except Exception as e:
+                        results["errors"].append(f"Gagal bikin {ch_name}: {e}")
+
+            # ── 2. Enable features ──
+            await self._enable_features(guild_id, features, results)
+
+            # ── 3. Done ──
+            summary = (
+                f"✅ **Setup selesai!**\n\n"
+                f"🗑️ **{deleted_defaults}** default channel dibersihkan\n"
+                f"📁 **{results['categories']}** kategori\n"
+                f"📄 **{results['channels']}** channel\n"
+                f"⚙️ **{results['features']}** fitur diaktifkan\n"
+            )
+            if results["errors"]:
+                summary += f"\n⚠️ **{len(results['errors'])} error:**\n" + "\n".join(f"- {e}" for e in results["errors"][:3])
+
+            embed = discord.Embed(title="✅ Setup Selesai! 🎉", description=summary, color=discord.Color.green())
+            embed.add_field(name="🖥️ Dashboard", value=f"Atur lanjutan di [Dashboard]({self._dashboard_url(guild_id)})", inline=False)
+            await progress.edit(content=None, embed=embed)
+
+        except Exception as e:
+            await progress.edit(content=f"❌ Setup gagal: {e}")
+        finally:
+            self._active_setups.discard(guild_id)
+
+    async def _enable_features(self, guild_id: int, features: dict[str, bool], results: dict):
+        from ..database.firebase_setup import db
+        if db is None:
+            return
+
+        try:
+            import asyncio
+            ref = db.collection("guild_settings").document(str(guild_id))
+
+            if features.get("anti_spam"):
+                await asyncio.to_thread(ref.set, {"moderation_config": {"enabled": True}}, merge=True)
+                results["features"] += 1
+
+            if features.get("anti_nuke"):
+                await asyncio.to_thread(ref.set, {"anti_nuke": {"enabled": True}}, merge=True)
+                results["features"] += 1
+
+            if features.get("welcome"):
+                await asyncio.to_thread(ref.set, {"welcome": {"enabled": True}}, merge=True)
+                results["features"] += 1
+
+            if features.get("ai_chat"):
+                await asyncio.to_thread(ref.set, {"ai_chat": {"enabled": True}}, merge= True)
+                results["features"] += 1
+        except Exception as e:
+            results["errors"].append(f"Gagal simpan fitur: {e}")
+
+    def _dashboard_url(self, guild_id: int) -> str:
+        base = os.getenv("DASHBOARD_URL", "")
+        if not base:
+            base = "http://localhost:5000"
+        return f"{base}/dashboard/{guild_id}/settings"
 
     def get_uptime(self):
         uptime = int(time.time() - self.start_time)

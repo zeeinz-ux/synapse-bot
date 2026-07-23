@@ -7,10 +7,17 @@ import hashlib
 from typing import Optional
 
 import aiohttp
-import chromadb
-from chromadb.config import Settings
 
-CHROMA_PATH = os.path.join(
+_CHROMA_AVAILABLE = False
+try:
+    import chromadb
+    from chromadb.config import Settings
+    _CHROMA_AVAILABLE = True
+except ImportError:
+    chromadb = None
+    Settings = None
+
+CHROMA_PATH = os.getenv("CHROMA_DB_PATH") or os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "data",
     "chroma_db",
@@ -25,6 +32,8 @@ _EMBED_CACHE_TTL = 3600
 
 
 def _get_client():
+    if not _CHROMA_AVAILABLE:
+        return None
     global _chroma_client
     if _chroma_client is None:
         os.makedirs(CHROMA_PATH, exist_ok=True)
@@ -41,6 +50,8 @@ def _collection_name(guild_id: str) -> str:
 
 def _get_or_create_collection(guild_id: str):
     client = _get_client()
+    if client is None:
+        return None
     name = _collection_name(guild_id)
     try:
         return client.get_collection(name)
@@ -115,7 +126,7 @@ async def embed_text(text: str, session: Optional[aiohttp.ClientSession] = None)
 
 
 async def add_chunks(guild_id: str, chunks: list[str], filename: str, session: Optional[aiohttp.ClientSession] = None):
-    if not chunks:
+    if not chunks or not _CHROMA_AVAILABLE:
         return
 
     collection = _get_or_create_collection(guild_id)
@@ -146,6 +157,8 @@ async def add_chunks(guild_id: str, chunks: list[str], filename: str, session: O
 
 
 async def remove_document(guild_id: str, filename: str):
+    if not _CHROMA_AVAILABLE:
+        return
     try:
         collection = _get_or_create_collection(guild_id)
         existing = collection.get(include=["metadatas"])
@@ -162,6 +175,8 @@ async def remove_document(guild_id: str, filename: str):
 
 
 async def remove_all(guild_id: str):
+    if not _CHROMA_AVAILABLE:
+        return
     try:
         client = _get_client()
         name = _collection_name(guild_id)
@@ -171,6 +186,8 @@ async def remove_all(guild_id: str):
 
 
 async def search(guild_id: str, query: str, n_results: int = MAX_RESULTS, session: Optional[aiohttp.ClientSession] = None) -> list[dict]:
+    if not _CHROMA_AVAILABLE:
+        return []
     try:
         collection = _get_or_create_collection(guild_id)
         count = collection.count()
@@ -212,6 +229,8 @@ async def search(guild_id: str, query: str, n_results: int = MAX_RESULTS, sessio
 
 
 async def collection_stats(guild_id: str) -> dict:
+    if not _CHROMA_AVAILABLE:
+        return {"chunk_count": 0}
     try:
         collection = _get_or_create_collection(guild_id)
         count = collection.count()

@@ -92,7 +92,7 @@
   "about.tech.title": "🛠️ Tech Stack",
   "about.support": "Join Support Server",
 
-  "footer.copyright": "© 2025 Synapse. All rights reserved.",
+  "footer.copyright": "© {year} Synapse. All rights reserved.",
 
   "base.loading": "Loading...",
   "base.online": "Online",

@@ -81,11 +81,12 @@ for _f in os.listdir(_trans_dir):
 @app.template_filter("t")
 def _translate(key):
     lang = session.get("lang", "id")
-    return _translations.get(lang, {}).get(key, _translations.get("id", {}).get(key, key))
+    val = _translations.get(lang, {}).get(key, _translations.get("id", {}).get(key, key))
+    return val.replace("{year}", str(datetime.now().year))
 
 @app.context_processor
-def _inject_lang():
-    return dict(lang=session.get("lang", "id"))
+def _inject_globals():
+    return dict(lang=session.get("lang", "id"), current_year=datetime.now().year)
 
 
 # ==========================================================
@@ -733,6 +734,7 @@ def api_settings_features(guild_id: str):
             "ai_chat": bool(data.get("ai_chat", {}).get("enabled", False)),
             "level_rewards": bool(data.get("level_rewards", {}).get("enabled", False)),
             "moderation": bool(data.get("moderation_config", {}).get("enabled", True)),
+            "anti_nuke": bool(data.get("anti_nuke", {}).get("enabled", False)),
         }
         return jsonify({"success": True, "features": features}), 200
     except Exception as e:
@@ -788,7 +790,7 @@ def api_settings_reset(guild_id: str):
     try:
         payload = request.get_json() or {}
         feature = payload.get("feature", "")
-        valid = ["welcome", "leave", "ban", "boost_announce", "auto_responders", "ai_chat", "level_rewards", "moderation_config"]
+        valid = ["welcome", "leave", "ban", "boost_announce", "auto_responders", "ai_chat", "level_rewards", "moderation_config", "anti_nuke"]
         if not feature:
             return jsonify({"success": False, "message": "Feature name required"}), 400
         field = feature
@@ -1947,6 +1949,58 @@ def api_anti_spam_save(guild_id: str):
         return jsonify({"success": True, "message": "✅ Pengaturan anti spam berhasil disimpan!"}), 200
     except Exception as e:
         print(f"[ANTI-SPAM] ❌ save error: {e}")
+        return jsonify({"success": False, "message": f"Gagal menyimpan: {e}"}), 500
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Anti-Nuke
+# ============================================================================
+
+_ANTI_NUKE_DEFAULTS = {
+    "enabled": False,
+    "ban_threshold": 3,
+    "kick_threshold": 3,
+    "channel_threshold": 3,
+    "role_threshold": 3,
+    "admin_threshold": 2,
+    "window_seconds": 10,
+    "lockdown_duration": 1800,
+    "whitelist_users": [],
+    "whitelist_roles": [],
+    "report_channel_id": "",
+}
+
+
+@app.route("/dashboard/<guild_id>/anti-nuke")
+@login_required
+def anti_nuke_page(guild_id: str):
+    return _render_page("dashboard/anti_nuke.html", active_page="anti_nuke", guild_id=guild_id)
+
+
+@app.route("/api/anti-nuke/<guild_id>/config")
+@login_required
+def api_anti_nuke_config(guild_id: str):
+    try:
+        doc = db.collection("guild_settings").document(guild_id).get()
+        cfg = doc.to_dict().get("anti_nuke", {}) if doc.exists else {}
+        merged = {**_ANTI_NUKE_DEFAULTS, **cfg}
+        return jsonify({"success": True, "config": merged}), 200
+    except Exception as e:
+        print(f"[ANTI-NUKE] ⚠️ config error: {e}")
+        return jsonify({"success": False, "config": _ANTI_NUKE_DEFAULTS}), 200
+
+
+@app.route("/api/anti-nuke/<guild_id>/save", methods=["POST"])
+@login_required
+def api_anti_nuke_save(guild_id: str):
+    try:
+        payload = request.get_json(silent=True) or {}
+        cfg = {k: payload.get(k, v) for k, v in _ANTI_NUKE_DEFAULTS.items()}
+        doc_ref = db.collection("guild_settings").document(guild_id)
+        doc_ref.set({"anti_nuke": cfg}, merge=True)
+        return jsonify({"success": True, "message": "✅ Pengaturan Anti-Nuke berhasil disimpan!"}), 200
+    except Exception as e:
+        print(f"[ANTI-NUKE] ⚠️ save error: {e}")
         return jsonify({"success": False, "message": f"Gagal menyimpan: {e}"}), 500
 
 # ═══════════════════════════════════════════════════════════════════════════════
