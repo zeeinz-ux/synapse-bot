@@ -253,6 +253,8 @@ class GeneralCog(commands.Cog):
         results = {"categories": 0, "channels": 0, "errors": []}
 
         try:
+            trigger_id = None
+            interface_id = None
             for cat_name, channels in VOICE_CHANNEL_PLAN.items():
                 existing_cat = discord.utils.get(guild.categories, name=cat_name)
                 if existing_cat:
@@ -279,9 +281,13 @@ class GeneralCog(commands.Cog):
                             perms[guild.default_role] = discord.PermissionOverwrite(read_messages=True, send_messages=False)
 
                         if ch_type == "text":
-                            await guild.create_text_channel(ch_name, category=category, overwrites=perms, reason="Voice setup")
+                            tc = await guild.create_text_channel(ch_name, category=category, overwrites=perms, reason="Voice setup")
+                            if ch_name == "✨・interface":
+                                interface_id = tc.id
                         else:
                             vc = await guild.create_voice_channel(ch_name, category=category, overwrites=perms, reason="Voice setup")
+                            if ch_name == "➕ Create Caffee'":
+                                trigger_id = vc.id
                             if ch.get("afk"):
                                 try:
                                     await guild.edit(afk_channel=vc, afk_timeout=3600)
@@ -294,6 +300,8 @@ class GeneralCog(commands.Cog):
             voice_cog = self.bot.get_cog("VoiceInterfaceCog")
             if voice_cog:
                 await voice_cog._ensure_interface(guild)
+                if trigger_id and interface_id:
+                    await voice_cog._save_channel_ids(guild.id, trigger_id, interface_id)
 
             summary = f"✅ **Setup voice selesai!**\n📁 **{results['categories']}** kategori\n📄 **{results['channels']}** channel"
             if results["errors"]:
@@ -363,6 +371,8 @@ class GeneralCog(commands.Cog):
             # ── 1. Create categories & channels ──
             total_plan = sum(len(v) for v in CHANNEL_PLAN.values())
             done = 0
+            trigger_id = None
+            interface_id = None
             for cat_name, channels in CHANNEL_PLAN.items():
                 existing_cat = discord.utils.get(guild.categories, name=cat_name)
                 if existing_cat:
@@ -394,9 +404,13 @@ class GeneralCog(commands.Cog):
                             perms[guild.default_role] = discord.PermissionOverwrite(read_messages=True, send_messages=False)
 
                         if ch_type == "text":
-                            await guild.create_text_channel(ch_name, category=category, overwrites=perms or None, reason="Server setup")
+                            tc = await guild.create_text_channel(ch_name, category=category, overwrites=perms or None, reason="Server setup")
+                            if ch_name == "✨・interface":
+                                interface_id = tc.id
                         else:
                             vc = await guild.create_voice_channel(ch_name, category=category, overwrites=perms or None, reason="Server setup")
+                            if ch_name == "➕ Create Caffee'":
+                                trigger_id = vc.id
                             if ch.get("afk"):
                                 try:
                                     await guild.edit(afk_channel=vc, afk_timeout=3600)
@@ -419,6 +433,8 @@ class GeneralCog(commands.Cog):
             voice_cog = self.bot.get_cog("VoiceInterfaceCog")
             if voice_cog:
                 await voice_cog._ensure_interface(guild)
+                if trigger_id and interface_id:
+                    await voice_cog._save_channel_ids(guild.id, trigger_id, interface_id)
 
             # ── 4. Enable features ──
             await self._enable_features(guild_id, features, results)

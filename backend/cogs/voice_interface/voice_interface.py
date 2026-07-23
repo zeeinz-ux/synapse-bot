@@ -528,11 +528,18 @@ class VoiceInterfaceCog(commands.Cog):
                 _rooms.setdefault(guild.id, {})[ch.id] = room
 
     async def _ensure_interface(self, guild: discord.Guild):
-        trigger = discord.utils.get(guild.voice_channels, name=TRIGGER_CHANNEL)
+        cfg = _guild_voice_config.get(guild.id, {})
+        trigger_id = cfg.get("trigger_channel_id")
+        trigger = guild.get_channel(int(trigger_id)) if trigger_id else None
+        if not trigger or not isinstance(trigger, discord.VoiceChannel):
+            trigger = discord.utils.get(guild.voice_channels, name=TRIGGER_CHANNEL)
         if not trigger:
             log.info(f"_ensure_interface: guild {guild.id} has no trigger channel, skipping")
             return
-        ch = discord.utils.get(guild.text_channels, name=INTERFACE_CHANNEL)
+        interface_id = cfg.get("interface_channel_id")
+        ch = guild.get_channel(int(interface_id)) if interface_id else None
+        if not ch or not isinstance(ch, discord.TextChannel):
+            ch = discord.utils.get(guild.text_channels, name=INTERFACE_CHANNEL)
         if not ch:
             log.warning(f"_ensure_interface: channel '{INTERFACE_CHANNEL}' not found in guild {guild.id}")
             return
@@ -636,6 +643,12 @@ class VoiceInterfaceCog(commands.Cog):
             )
         except Exception:
             pass
+
+    async def _save_channel_ids(self, guild_id: int, trigger_id: int, interface_id: int):
+        cfg = dict(_guild_voice_config.get(guild_id, {}))
+        cfg["trigger_channel_id"] = str(trigger_id)
+        cfg["interface_channel_id"] = str(interface_id)
+        await self._save_guild_config(guild_id, cfg)
 
     @commands.hybrid_command(name="voice-config", description="Atur setting voice room (nama, kategori)")
     @commands.has_permissions(administrator=True)
@@ -794,7 +807,11 @@ class VoiceInterfaceCog(commands.Cog):
         await self._update_interface(ctx.guild)
 
     async def _update_interface(self, guild: discord.Guild):
-        ch = discord.utils.get(guild.text_channels, name=INTERFACE_CHANNEL)
+        cfg = _guild_voice_config.get(guild.id, {})
+        interface_id = cfg.get("interface_channel_id")
+        ch = guild.get_channel(int(interface_id)) if interface_id else None
+        if not ch or not isinstance(ch, discord.TextChannel):
+            ch = discord.utils.get(guild.text_channels, name=INTERFACE_CHANNEL)
         if not ch:
             return
         msg_id = _interface_msgs.get(guild.id)
@@ -818,15 +835,22 @@ class VoiceInterfaceCog(commands.Cog):
         # Joined trigger channel → create room
         if after.channel:
             log.info(f"Voice state: {member.display_name} joined #{after.channel.name} (trigger={TRIGGER_CHANNEL})")
-        if after.channel and after.channel.name == TRIGGER_CHANNEL:
-            cfg = await self._load_guild_config(guild.id)
-            cat_name = cfg.get("category_name")
-            if cat_name:
-                cat = discord.utils.get(guild.categories, name=cat_name) or after.channel.category
-            else:
-                cat = after.channel.category
-            await self._create_room(member, cat)
-            return
+            cfg = _guild_voice_config.get(guild.id, {})
+            trigger_id = cfg.get("trigger_channel_id")
+            is_trigger = False
+            if trigger_id and after.channel.id == int(trigger_id):
+                is_trigger = True
+            elif after.channel.name == TRIGGER_CHANNEL:
+                is_trigger = True
+            if is_trigger:
+                cfg = await self._load_guild_config(guild.id)
+                cat_name = cfg.get("category_name")
+                if cat_name:
+                    cat = discord.utils.get(guild.categories, name=cat_name) or after.channel.category
+                else:
+                    cat = after.channel.category
+                await self._create_room(member, cat)
+                return
 
         # Left a room → update state
         if before.channel:
