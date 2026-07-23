@@ -30,17 +30,18 @@
 
 ## 💬 Create Voice
 
-| Channel     | Type  | Note                                    |
-| ----------- | ----- | --------------------------------------- |
-| `#💬・talk` | Text  | Chat buat voice                         |
-| `⌛ Lobby`  | Voice | Pure lobby biasa                        |
-| `😴 AFK 💤` | Voice | AFK channel (>1hr idle → dipindah sini) |
+| Channel          | Type  | Note                                    |
+| ---------------- | ----- | --------------------------------------- |
+| `#✨・interface` | Text  | Panel kontrol voice room (button only)  |
+| `#💬・talk`      | Text  | Chat buat voice                         |
+| `⌛ Lobby`       | Voice | Pure lobby biasa                        |
+| `😴 AFK 💤`      | Voice | AFK channel (>1hr idle → dipindah sini) |
 
 ## 🎮 Game
 
-| Channel     | Type  |
-| ----------- | ----- |
-| `🗣 Caffee` | Voice |
+| Channel              | Type  |
+| -------------------- | ----- |
+| `➕ Create Caffee'`  | Voice |
 
 ## 🎵 Music
 
@@ -56,5 +57,5 @@
 
 ---
 
-**Total**: ~19 channel
+**Total**: ~20 channel (19 + 1 interface)
 **Requirements**: Manage Channels + Move Members permission
