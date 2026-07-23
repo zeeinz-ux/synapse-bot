@@ -23,7 +23,7 @@ _empty_timers: dict[int, asyncio.Task] = {}
 _owner_leave_timers: dict[int, asyncio.Task] = {}
 _delete_tasks: dict[int, asyncio.Task] = {}
 _user_prefs: dict[int, dict] = {}  # {user_id: {locked, visible, waiting_room, limit, region}}
-_privacy_msgs: dict[int, discord.Message] = {}  # {user_id: ephemeral msg}
+_ephemeral_msgs: dict[int, list[discord.Message]] = {}  # {user_id: [ephemeral msgs]}
 
 class VoiceRoom:
     __slots__ = (
@@ -167,19 +167,34 @@ class LimitModal(ui.Modal):
         await self._cog._handle_limit(interaction, self._room_channel_id, self.children[0].value)
 
 class ConfirmDeleteView(ui.View):
-    def __init__(self, cog, room_channel_id: int):
+    def __init__(self, cog, room_channel_id: int, owner_id: int):
         super().__init__(timeout=30)
         self._cog = cog
         self._room_channel_id = room_channel_id
+        self._owner_id = owner_id
+
+    async def _cleanup(self, interaction: discord.Interaction):
+        try:
+            msg = await interaction.original_response()
+            await msg.delete()
+        except Exception:
+            pass
+        msgs = _ephemeral_msgs.pop(self._owner_id, [])
+        for msg in msgs:
+            try:
+                await msg.delete()
+            except Exception:
+                pass
 
     @ui.button(label="\u2714\ufe0f Confirm Delete", style=discord.ButtonStyle.danger)
     async def confirm(self, interaction: discord.Interaction, button: ui.Button):
+        await self._cleanup(interaction)
         await self._cog._handle_delete_room(interaction, self._room_channel_id)
         self.stop()
 
     @ui.button(label="\u274c Cancel", style=discord.ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_message("Cancelled.", ephemeral=True, delete_after=8)
+        await self._cleanup(interaction)
         self.stop()
 
 class VoiceControlView(ui.View):
@@ -215,7 +230,7 @@ class VoiceControlView(ui.View):
         view = TempView(PrivacySelect(self._cog, room.channel_id, room.locked, room.visible, chat_open))
         await interaction.response.send_message("Pilih pengaturan privacy:", ephemeral=True, view=view)
         try:
-            _privacy_msgs[interaction.user.id] = await interaction.original_response()
+            _ephemeral_msgs.setdefault(interaction.user.id, []).append(await interaction.original_response())
         except Exception:
             pass
 
@@ -246,6 +261,10 @@ class VoiceControlView(ui.View):
         await interaction.response.send_message("Select a user to trust:", ephemeral=True, view=TempView(
             MemberSelect("Select user...", members[:25], self._cog, "trust", room.channel_id)
         ))
+        try:
+            _ephemeral_msgs.setdefault(interaction.user.id, []).append(await interaction.original_response())
+        except Exception:
+            pass
 
     @ui.button(label="\u274c Untrust", style=discord.ButtonStyle.danger, row=1)
     async def untrust_btn(self, interaction: discord.Interaction, button: ui.Button):
@@ -263,6 +282,10 @@ class VoiceControlView(ui.View):
         await interaction.response.send_message("Select a user to untrust:", ephemeral=True, view=TempView(
             MemberSelect("Select user...", members[:25], self._cog, "untrust", room.channel_id)
         ))
+        try:
+            _ephemeral_msgs.setdefault(interaction.user.id, []).append(await interaction.original_response())
+        except Exception:
+            pass
 
     @ui.button(label="\U0001f6ab Block", style=discord.ButtonStyle.danger, row=1)
     async def block_btn(self, interaction: discord.Interaction, button: ui.Button):
@@ -287,6 +310,10 @@ class VoiceControlView(ui.View):
         await interaction.response.send_message("Select a user to unblock:", ephemeral=True, view=TempView(
             MemberSelect("Select user...", members[:25], self._cog, "unblock", room.channel_id)
         ))
+        try:
+            _ephemeral_msgs.setdefault(interaction.user.id, []).append(await interaction.original_response())
+        except Exception:
+            pass
 
     @ui.button(label="\U0001f50a Kick", style=discord.ButtonStyle.danger, row=2)
     async def kick_btn(self, interaction: discord.Interaction, button: ui.Button):
@@ -301,6 +328,10 @@ class VoiceControlView(ui.View):
         await interaction.response.send_message("Select a user to kick:", ephemeral=True, view=TempView(
             MemberSelect("Select user...", others[:25], self._cog, "kick", room.channel_id)
         ))
+        try:
+            _ephemeral_msgs.setdefault(interaction.user.id, []).append(await interaction.original_response())
+        except Exception:
+            pass
 
     @ui.button(label="\U0001f4e8 Invite", style=discord.ButtonStyle.secondary, row=2)
     async def invite_btn(self, interaction: discord.Interaction, button: ui.Button):
@@ -337,13 +368,21 @@ class VoiceControlView(ui.View):
         select.callback = region_cb
         view = TempView(select)
         await interaction.response.send_message("Select voice region:", ephemeral=True, view=view)
+        try:
+            _ephemeral_msgs.setdefault(interaction.user.id, []).append(await interaction.original_response())
+        except Exception:
+            pass
 
     @ui.button(label="\U0001f5d1\ufe0f Delete", style=discord.ButtonStyle.danger, row=2)
     async def delete_btn(self, interaction: discord.Interaction, button: ui.Button):
         room = await self._owner_only(interaction)
         if not room:
             return
-        await interaction.response.send_message("Are you sure you want to delete your voice room?", ephemeral=True, view=ConfirmDeleteView(self._cog, room.channel_id))
+        await interaction.response.send_message("Are you sure you want to delete your voice room?", ephemeral=True, view=ConfirmDeleteView(self._cog, room.channel_id, interaction.user.id))
+        try:
+            _ephemeral_msgs.setdefault(interaction.user.id, []).append(await interaction.original_response())
+        except Exception:
+            pass
 
     @ui.button(label="\u2b50 Claim", style=discord.ButtonStyle.primary, row=3)
     async def claim_btn(self, interaction: discord.Interaction, button: ui.Button):
@@ -373,6 +412,10 @@ class VoiceControlView(ui.View):
                     await self._cog._handle_claim(sel_interaction, room)
             select.callback = claim_cb
             await interaction.response.send_message("Select a room to claim:", ephemeral=True, view=TempView(select))
+            try:
+                _ephemeral_msgs.setdefault(interaction.user.id, []).append(await interaction.original_response())
+            except Exception:
+                pass
 
     @ui.button(label="\U0001f4e4 Transfer", style=discord.ButtonStyle.primary, row=3)
     async def transfer_btn(self, interaction: discord.Interaction, button: ui.Button):
@@ -392,6 +435,10 @@ class VoiceControlView(ui.View):
         await interaction.response.send_message("Select new owner:", ephemeral=True, view=TempView(
             MemberSelect("Select member...", others[:25], self._cog, "transfer", room.channel_id)
         ))
+        try:
+            _ephemeral_msgs.setdefault(interaction.user.id, []).append(await interaction.original_response())
+        except Exception:
+            pass
 
 
 class VoiceInterfaceCog(commands.Cog):
@@ -479,7 +526,6 @@ class VoiceInterfaceCog(commands.Cog):
                 _rooms.setdefault(guild.id, {})[ch.id] = room
 
     async def _ensure_interface(self, guild: discord.Guild):
-        # Only send interface if guild has the trigger channel (voice setup was done)
         trigger = discord.utils.get(guild.voice_channels, name=TRIGGER_CHANNEL)
         if not trigger:
             log.info(f"_ensure_interface: guild {guild.id} has no trigger channel, skipping")
@@ -488,17 +534,20 @@ class VoiceInterfaceCog(commands.Cog):
         if not ch:
             log.warning(f"_ensure_interface: channel '{INTERFACE_CHANNEL}' not found in guild {guild.id}")
             return
-        log.info(f"_ensure_interface: found channel #{ch.name} in guild {guild.id}")
+        embed = self._build_embed(guild)
+        view = VoiceControlView(self)
         old_msg_id = _interface_msgs.get(guild.id)
         if old_msg_id:
             try:
                 old_msg = await ch.fetch_message(old_msg_id)
-                await old_msg.delete()
+                await old_msg.edit(embed=embed, view=view)
+                _interface_msgs[guild.id] = old_msg.id
+                log.info(f"_ensure_interface: edited msg {old_msg.id} in #{ch.name} guild {guild.id}")
+                return
             except Exception:
                 pass
-        embed = self._build_embed(guild)
         try:
-            msg = await ch.send(embed=embed, view=VoiceControlView(self))
+            msg = await ch.send(embed=embed, view=view)
             _interface_msgs[guild.id] = msg.id
             log.info(f"_ensure_interface: sent msg {msg.id} in #{ch.name} guild {guild.id}")
         except Exception as e:
@@ -700,8 +749,8 @@ class VoiceInterfaceCog(commands.Cog):
                         await chat.delete(reason="Temp voice chat deleted")
                     except Exception:
                         pass
-        msg = _privacy_msgs.pop(room.owner_id, None)
-        if msg:
+        msgs = _ephemeral_msgs.pop(room.owner_id, [])
+        for msg in msgs:
             try:
                 await msg.delete()
             except Exception:

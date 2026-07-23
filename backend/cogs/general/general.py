@@ -46,6 +46,13 @@ CHANNEL_PLAN = {
 
 STATS_CATEGORY = "📊 SERVER STATS"
 
+VOICE_CHANNEL_PLAN = {
+    "💬 Create Voice": [
+        {"name": "✨・interface", "type": "text"},
+        {"name": "➕ Create Caffee'", "type": "voice"},
+    ],
+}
+
 FEATURE_TOGGLES = {
     "anti_spam": {"label": "🛡️ Anti Spam", "default": True},
     "anti_nuke": {"label": "🚨 Anti Nuke", "default": True},
@@ -75,6 +82,28 @@ class SetupConfirmView(ui.View):
             return
         self.clear_items()
         await interaction.response.edit_message(content="❌ Setup dibatalkan.", embed=None, view=self)
+
+
+class VoiceConfirmView(ui.View):
+    def __init__(self, cog, ctx):
+        super().__init__(timeout=120)
+        self.cog = cog
+        self.ctx = ctx
+
+    @ui.button(label="✅ Setuju", style=discord.ButtonStyle.success, row=0)
+    async def start(self, interaction: discord.Interaction, button: ui.Button):
+        if interaction.user.id != self.ctx.author.id:
+            return await interaction.response.send_message("Bukan session kamu.", ephemeral=True)
+        self.clear_items()
+        await interaction.response.edit_message(view=self)
+        await self.cog._run_voice_setup(self.ctx)
+
+    @ui.button(label="❌ Tidak", style=discord.ButtonStyle.danger, row=0)
+    async def cancel(self, interaction: discord.Interaction, button: ui.Button):
+        if interaction.user.id != self.ctx.author.id:
+            return
+        self.clear_items()
+        await interaction.response.edit_message(content="❌ Setup voice dibatalkan.", embed=None, view=self)
 
 
 class FeatureSelectView(ui.View):
@@ -196,6 +225,85 @@ class GeneralCog(commands.Cog):
             lines.append("")
         lines.append(f"**Total**: {total} channel")
         return "\n".join(lines)
+
+    def _voice_preview_embed(self, guild: discord.Guild) -> discord.Embed:
+        embed = discord.Embed(
+            title="🎛️ Setup Voice",
+            description="Bot akan membuat channel voice dan interface untuk server ini.",
+            color=discord.Color.blue(),
+        )
+        for cat_name, channels in VOICE_CHANNEL_PLAN.items():
+            names = "\n".join(f"  {'🔊' if ch['type']=='voice' else '📄'} {ch['name']}" for ch in channels)
+            embed.add_field(name=f"📁 {cat_name}", value=names, inline=True)
+        return embed
+
+    @commands.hybrid_command(name="voice", description="Setup channel voice & interface")
+    @commands.has_permissions(administrator=True)
+    @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
+    async def voice(self, ctx: commands.Context):
+        embed = self._voice_preview_embed(ctx.guild)
+        view = VoiceConfirmView(self, ctx)
+        await ctx.send(embed=embed, view=view)
+
+    async def _run_voice_setup(self, ctx: commands.Context):
+        guild = ctx.guild
+        guild_id = guild.id
+        self._active_setups.add(guild_id)
+        progress = await ctx.send("🔧 **Memulai setup voice...**")
+        results = {"categories": 0, "channels": 0, "errors": []}
+
+        try:
+            for cat_name, channels in VOICE_CHANNEL_PLAN.items():
+                existing_cat = discord.utils.get(guild.categories, name=cat_name)
+                if existing_cat:
+                    category = existing_cat
+                else:
+                    try:
+                        category = await guild.create_category(cat_name, reason="Voice setup")
+                        results["categories"] += 1
+                    except Exception as e:
+                        results["errors"].append(f"Kategori {cat_name}: {e}")
+                        continue
+
+                for ch in channels:
+                    ch_name = ch["name"]
+                    ch_type = ch["type"]
+                    if discord.utils.get(category.channels, name=ch_name):
+                        results["channels"] += 1
+                        continue
+                    try:
+                        perms = {}
+                        if ch.get("gembok"):
+                            perms[guild.default_role] = discord.PermissionOverwrite(connect=False, view_channel=True)
+                        else:
+                            perms[guild.default_role] = discord.PermissionOverwrite(read_messages=True, send_messages=False)
+
+                        if ch_type == "text":
+                            await guild.create_text_channel(ch_name, category=category, overwrites=perms, reason="Voice setup")
+                        else:
+                            vc = await guild.create_voice_channel(ch_name, category=category, overwrites=perms, reason="Voice setup")
+                            if ch.get("afk"):
+                                try:
+                                    await guild.edit(afk_channel=vc, afk_timeout=3600)
+                                except Exception:
+                                    pass
+                        results["channels"] += 1
+                    except Exception as e:
+                        results["errors"].append(f"Channel {ch_name}: {e}")
+
+            voice_cog = self.bot.get_cog("VoiceInterfaceCog")
+            if voice_cog:
+                await voice_cog._ensure_interface(guild)
+
+            summary = f"✅ **Setup voice selesai!**\n📁 **{results['categories']}** kategori\n📄 **{results['channels']}** channel"
+            if results["errors"]:
+                summary += f"\n⚠️ **{len(results['errors'])} error:**\n" + "\n".join(f"- {e}" for e in results["errors"][:3])
+            embed = discord.Embed(title="✅ Setup Voice Selesai! 🎉", description=summary, color=discord.Color.green())
+            await progress.edit(content=None, embed=embed)
+        except Exception as e:
+            await progress.edit(content=f"❌ Setup voice gagal: {e}")
+        finally:
+            self._active_setups.discard(guild_id)
 
     @commands.hybrid_command(name="setup", description="Auto-setup channel & fitur untuk server baru")
     @commands.has_permissions(administrator=True)
