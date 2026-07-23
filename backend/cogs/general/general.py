@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import ui
 import platform
 import time
@@ -41,6 +41,8 @@ CHANNEL_PLAN = {
         {"name": "🎬 Stream", "type": "voice"},
     ],
 }
+
+STATS_CATEGORY = "📊 SERVER STATS"
 
 FEATURE_TOGGLES = {
     "anti_spam": {"label": "🛡️ Anti Spam", "default": True},
@@ -125,6 +127,39 @@ class GeneralCog(commands.Cog):
         self.bot = bot
         self.start_time = time.time()
         self._active_setups: set[int] = set()
+        self.stats_updater.start()
+
+    async def cog_unload(self):
+        self.stats_updater.cancel()
+
+    @tasks.loop(minutes=5)
+    async def stats_updater(self):
+        for guild in self.bot.guilds:
+            await self._update_server_stats(guild)
+
+    @stats_updater.before_loop
+    async def before_stats_updater(self):
+        await self.bot.wait_until_ready()
+
+    async def _update_server_stats(self, guild: discord.Guild):
+        cat = discord.utils.get(guild.categories, name=STATS_CATEGORY)
+        if not cat:
+            return
+        total = guild.member_count
+        bots = sum(1 for m in guild.members if m.bot)
+        humans = total - bots
+        name_map = {
+            "📊 ALL MEMBER": f"📊 ALL MEMBER: {total}",
+            "📊 MEMBER": f"📊 MEMBER: {humans}",
+            "📊 BOTS": f"📊 BOTS: {bots}",
+        }
+        for ch in cat.voice_channels:
+            new_name = name_map.get(ch.name.split(":")[0].strip())
+            if new_name and ch.name != new_name:
+                try:
+                    await ch.edit(name=new_name, reason="Server stats update")
+                except Exception:
+                    pass
 
     def _setup_preview_embed(self, guild: discord.Guild) -> discord.Embed:
         embed = discord.Embed(
@@ -183,42 +218,46 @@ class GeneralCog(commands.Cog):
         results = {"categories": 0, "channels": 0, "features": 0, "errors": []}
 
         try:
-            # ── 0. Clean up default Discord channels ──
-            default_names = {"general", "text-channels", "voice-channels", "general-1"}
-            default_categories = {"text channels", "voice channels"}
-            deleted_defaults = 0
+            # ── 0. Clean up default + existing plan channels ──
+            deleted_count = 0
+            plan_cat_names = set(CHANNEL_PLAN.keys())
+            # Also clean old-style names from previous failed runs
+            old_plan_cat_names = {"📁 General", "💬 Create Voice"}
+            all_cat_names = plan_cat_names | old_plan_cat_names | {"Text Channels", "Voice Channels"}
             for channel in list(guild.channels):
-                if channel.name.lower() in default_names and not channel.category:
+                # Default Discord channels
+                if channel.name.lower() in {"general", "text-channels", "voice-channels", "general-1"} and not channel.category:
                     try:
-                        await channel.delete(reason="Server setup: removing default channels")
-                        deleted_defaults += 1
+                        await channel.delete(reason="Server setup")
+                        deleted_count += 1
                     except Exception:
                         pass
-                elif isinstance(channel, discord.CategoryChannel) and channel.name.lower() in default_categories:
+                    continue
+
+                # Existing plan categories (new + old naming)
+                if isinstance(channel, discord.CategoryChannel) and channel.name in all_cat_names:
                     try:
-                        for ch in channel.channels:
-                            await ch.delete(reason="Server setup: removing default channels")
-                            deleted_defaults += 1
-                        await channel.delete(reason="Server setup: removing default channels")
-                        deleted_defaults += 1
+                        for ch in list(channel.channels):
+                            await ch.delete(reason="Server setup")
+                            deleted_count += 1
+                        await channel.delete(reason="Server setup")
+                        deleted_count += 1
                     except Exception:
                         pass
 
-            if deleted_defaults:
-                await progress.edit(content=f"🔧 **Membersihkan {deleted_defaults} default channel...**")
+            if deleted_count:
+                await progress.edit(content=f"🔧 **Membersihkan {deleted_count} channel lama...**")
                 await asyncio.sleep(1)
 
             # ── 1. Create categories & channels ──
+            total_plan = sum(len(v) for v in CHANNEL_PLAN.values())
+            done = 0
             for cat_name, channels in CHANNEL_PLAN.items():
                 try:
-                    overwrites = {
-                        guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=False),
-                        guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_channels=True),
-                    }
-                    category = await guild.create_category(cat_name, overwrites=overwrites, reason="Server setup")
+                    category = await guild.create_category(cat_name, reason="Server setup")
                     results["categories"] += 1
                 except Exception as e:
-                    results["errors"].append(f"Gagal bikin kategori {cat_name}: {e}")
+                    results["errors"].append(f"Kategori {cat_name}: {e}")
                     continue
 
                 for ch in channels:
@@ -227,20 +266,13 @@ class GeneralCog(commands.Cog):
                     try:
                         perms = {}
                         if ch.get("admin_only"):
-                            perms = {
-                                guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                                guild.me: discord.PermissionOverwrite(read_messages=True),
-                            }
+                            perms[guild.default_role] = discord.PermissionOverwrite(read_messages=False)
                         elif ch.get("gembok"):
-                            perms = {
-                                guild.default_role: discord.PermissionOverwrite(connect=False),
-                                guild.me: discord.PermissionOverwrite(connect=True, manage_channels=True),
-                            }
+                            perms[guild.default_role] = discord.PermissionOverwrite(connect=False, view_channel=True)
                         elif ch.get("everyone_send"):
-                            perms = {
-                                guild.default_role: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-                                guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_channels=True),
-                            }
+                            perms[guild.default_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+                        else:
+                            perms[guild.default_role] = discord.PermissionOverwrite(read_messages=True, send_messages=False)
 
                         if ch_type == "text":
                             await guild.create_text_channel(ch_name, category=category, overwrites=perms or None, reason="Server setup")
@@ -253,8 +285,13 @@ class GeneralCog(commands.Cog):
                                     pass
 
                         results["channels"] += 1
+                        done += 1
+                        if done % 5 == 0:
+                            await progress.edit(content=f"🔧 **Membuat channel... ({done}/{total_plan})**")
+
                     except Exception as e:
-                        results["errors"].append(f"Gagal bikin {ch_name}: {e}")
+                        results["errors"].append(f"Channel {ch_name}: {e}")
+                        done += 1
 
             # ── 2. Enable features ──
             await self._enable_features(guild_id, features, results)
@@ -301,7 +338,7 @@ class GeneralCog(commands.Cog):
                 results["features"] += 1
 
             if features.get("ai_chat"):
-                await asyncio.to_thread(ref.set, {"ai_chat": {"enabled": True}}, merge= True)
+                await asyncio.to_thread(ref.set, {"ai_chat": {"enabled": True}}, merge=True)
                 results["features"] += 1
         except Exception as e:
             results["errors"].append(f"Gagal simpan fitur: {e}")

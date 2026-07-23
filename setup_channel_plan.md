@@ -2,12 +2,12 @@
 
 ## 📁 General
 
-| Channel               | Type | Permission                                                                                                                                          |
-| --------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `#‼️・welcome`        | Text | @everyone read                                                                                                                                      |
-| `#👋・leave`          | Text | @adminonly read                                                                                                                                     |
-| `#⚡・support-server` | Text | @everyone read + send (link donasi/boost) (ini tinggal setting aja arahin kesini bagi yang boost atau donasi itu cuma munculin embed nya doang kok) |
-| `#🚨・report-spam`    | Text | @everyone send (lapor spam)                                                                                                                         |
+| Channel               | Type | Permission                                                                                                                                               |
+| --------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `#‼️・welcome`        | Text | @everyone read only gak bisa kirim chat                                                                                                                  |
+| `#👋・leave`          | Text | @adminonly read                                                                                                                                          |
+| `#⚡・support-server` | Text | @everyone read only (ini tinggal setting aja arahin kesini bagi yang boost atau donasi itu cuma munculin embed nya doang kok) |
+| `#🚨・report-spam`    | Text | @everyone send (lapor spam udah bekerja di anti spam ai itu) (read only)                                                                                 |
 
 ## 📊 SERVER STATS (Voice — gembok, cuma admin bisa join)
 
@@ -30,11 +30,11 @@
 
 ## 💬 Create Voice
 
-| Channel       | Type  | Note                                   |
-| ------------- | ----- | -------------------------------------- |
-| `#💬・talk`   | Text  | Chat buat voice                        |
-| `⌛ Lobby`    | Voice | Pure lobby biasa                       |
-| `😴 AFK 💤`   | Voice | AFK channel (>1hr idle → dipindah sini) |
+| Channel     | Type  | Note                                    |
+| ----------- | ----- | --------------------------------------- |
+| `#💬・talk` | Text  | Chat buat voice                         |
+| `⌛ Lobby`  | Voice | Pure lobby biasa                        |
+| `😴 AFK 💤` | Voice | AFK channel (>1hr idle → dipindah sini) |
 
 ## 🎮 Game
 
