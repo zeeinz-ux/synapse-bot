@@ -423,13 +423,25 @@ class VoiceInterfaceCog(commands.Cog):
         await self.bot.wait_until_ready()
 
     async def cog_load(self):
-        self.bot.add_view(VoiceControlView(self))
+        log.info("VoiceInterfaceCog loaded, registering persistent view")
+        try:
+            self.bot.add_view(VoiceControlView(self))
+            log.info("VoiceControlView registered successfully")
+        except Exception as e:
+            log.error(f"Failed to register VoiceControlView: {e}")
 
     @commands.Cog.listener()
     async def on_ready(self):
+        log.info(f"on_ready fired, {len(self.bot.guilds)} guild(s)")
         for guild in self.bot.guilds:
-            await self._restore_guild(guild)
-            await self._ensure_interface(guild)
+            try:
+                await self._restore_guild(guild)
+            except Exception as e:
+                log.error(f"_restore_guild failed for {guild.id}: {e}")
+            try:
+                await self._ensure_interface(guild)
+            except Exception as e:
+                log.error(f"_ensure_interface failed for {guild.id}: {e}")
 
     async def _restore_guild(self, guild: discord.Guild):
         cat = discord.utils.get(guild.categories, name=GAME_CATEGORY)
@@ -446,7 +458,9 @@ class VoiceInterfaceCog(commands.Cog):
     async def _ensure_interface(self, guild: discord.Guild):
         ch = discord.utils.get(guild.text_channels, name=INTERFACE_CHANNEL)
         if not ch:
+            log.warning(f"_ensure_interface: channel '{INTERFACE_CHANNEL}' not found in guild {guild.id}")
             return
+        log.info(f"_ensure_interface: found channel #{ch.name} in guild {guild.id}")
         old_msg_id = _interface_msgs.get(guild.id)
         if old_msg_id:
             try:
@@ -455,8 +469,12 @@ class VoiceInterfaceCog(commands.Cog):
             except Exception:
                 pass
         embed = self._build_embed(guild)
-        msg = await ch.send(embed=embed, view=VoiceControlView(self))
-        _interface_msgs[guild.id] = msg.id
+        try:
+            msg = await ch.send(embed=embed, view=VoiceControlView(self))
+            _interface_msgs[guild.id] = msg.id
+            log.info(f"_ensure_interface: sent msg {msg.id} in #{ch.name} guild {guild.id}")
+        except Exception as e:
+            log.error(f"_ensure_interface: failed to send message in #{ch.name}: {e}")
 
     def _build_embed(self, guild: discord.Guild) -> discord.Embed:
         guild_rooms = _rooms.get(guild.id, {})
