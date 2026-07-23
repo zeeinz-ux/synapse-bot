@@ -787,7 +787,7 @@ class VoiceInterfaceCog(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
 
-async def _handle_privacy_action(self, interaction: discord.Interaction, channel_id: int, action: str):
+    async def _handle_privacy_action(self, interaction: discord.Interaction, channel_id: int, action: str):
         guild = interaction.guild
         room = _get_room_by_channel(interaction.guild_id, channel_id)
         if not room or room.owner_id != interaction.user.id:
