@@ -24,6 +24,7 @@ _owner_leave_timers: dict[int, asyncio.Task] = {}
 _delete_tasks: dict[int, asyncio.Task] = {}
 _user_prefs: dict[int, dict] = {}  # {user_id: {locked, visible, waiting_room, limit, region}}
 _ephemeral_msgs: dict[int, list[discord.Message]] = {}  # {user_id: [ephemeral msgs]}
+_guild_voice_config: dict[int, dict] = {}  # {guild_id: {room_name_template, category_name}}
 
 class VoiceRoom:
     __slots__ = (
@@ -605,6 +606,57 @@ class VoiceInterfaceCog(commands.Cog):
         embed.set_footer(text=f"{len(guild_rooms)} active room(s) \u2022 Butir premium: \u2b50 Claim & Transfer")
         return embed
 
+    # ── Voice Config (Firestore) ──
+
+    async def _load_guild_config(self, guild_id: int) -> dict:
+        cached = _guild_voice_config.get(guild_id)
+        if cached:
+            return cached
+        if db is None:
+            cfg = {}
+        else:
+            try:
+                doc = await asyncio.to_thread(
+                    lambda: db.collection("guild_settings").document(str(guild_id)).get()
+                )
+                cfg = doc.to_dict().get("voice_config", {}) if doc.exists else {}
+            except Exception:
+                cfg = {}
+        _guild_voice_config[guild_id] = cfg
+        return cfg
+
+    async def _save_guild_config(self, guild_id: int, cfg: dict):
+        _guild_voice_config[guild_id] = cfg
+        if db is None:
+            return
+        try:
+            await asyncio.to_thread(
+                lambda: db.collection("guild_settings").document(str(guild_id)).set({"voice_config": cfg}, merge=True)
+            )
+        except Exception:
+            pass
+
+    @commands.hybrid_command(name="voice-config", description="Atur setting voice room (nama, kategori)")
+    @commands.has_permissions(administrator=True)
+    @commands.bot_has_permissions(manage_channels=True)
+    async def voice_config(self, ctx: commands.Context,
+                           nama_room: str | None = None,
+                           kategori: discord.CategoryChannel | None = None):
+        if nama_room is None and kategori is None:
+            cfg = await self._load_guild_config(ctx.guild.id)
+            embed = discord.Embed(title="🎛️ Voice Config Saat Ini", color=discord.Color.blue())
+            embed.add_field(name="Template Nama Room", value=f"`{cfg.get('room_name_template', ROOM_NAME_TEMPLATE)}`", inline=False)
+            embed.add_field(name="Kategori", value=cfg.get("category_name", GAME_CATEGORY), inline=False)
+            await ctx.send(embed=embed, ephemeral=True)
+            return
+        cfg = await self._load_guild_config(ctx.guild.id)
+        if nama_room:
+            cfg["room_name_template"] = nama_room
+        if kategori:
+            cfg["category_name"] = kategori.name
+        await self._save_guild_config(ctx.guild.id, cfg)
+        await ctx.send(f"✅ Setting voice diupdate!", ephemeral=True)
+
     async def _update_interface(self, guild: discord.Guild):
         ch = discord.utils.get(guild.text_channels, name=INTERFACE_CHANNEL)
         if not ch:
@@ -631,7 +683,9 @@ class VoiceInterfaceCog(commands.Cog):
         if after.channel:
             log.info(f"Voice state: {member.display_name} joined #{after.channel.name} (trigger={TRIGGER_CHANNEL})")
         if after.channel and after.channel.name == TRIGGER_CHANNEL:
-            cat = discord.utils.get(guild.categories, name=GAME_CATEGORY)
+            cfg = await self._load_guild_config(guild.id)
+            cat_name = cfg.get("category_name", GAME_CATEGORY)
+            cat = discord.utils.get(guild.categories, name=cat_name)
             if not cat:
                 cat = after.channel.category
             await self._create_room(member, cat)
@@ -705,7 +759,9 @@ class VoiceInterfaceCog(commands.Cog):
         if _get_room(guild.id, member.id):
             log.warning(f"{member.display_name} already has a room in guild {guild.id}")
             return
-        name = ROOM_NAME_TEMPLATE.format(name=member.display_name)
+        cfg = await self._load_guild_config(guild.id)
+        template = cfg.get("room_name_template", ROOM_NAME_TEMPLATE)
+        name = template.format(name=member.display_name)
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(connect=True, view_channel=True),
             guild.me: discord.PermissionOverwrite(manage_channels=True, connect=True),
