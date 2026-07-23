@@ -298,7 +298,12 @@ class GeneralCog(commands.Cog):
             # ── 2. Stats count langsung ──
             await self._update_server_stats(guild)
 
-            # ── 3. Enable features ──
+            # ── 3. Init voice interface ──
+            voice_cog = self.bot.get_cog("VoiceInterfaceCog")
+            if voice_cog:
+                await voice_cog._ensure_interface(guild)
+
+            # ── 4. Enable features ──
             await self._enable_features(guild_id, features, results)
 
             # ── 4. Done ──
