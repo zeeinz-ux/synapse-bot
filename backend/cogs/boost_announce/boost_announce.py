@@ -281,7 +281,7 @@ class BoostAnnounceCog(commands.Cog, name="BoostAnnounce"):
 
         embed = discord.Embed(
             title=embed_title,
-            description=parsed_text,
+            description=f"-# {parsed_text}",
             color=embed_color
         )
 

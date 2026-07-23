@@ -290,7 +290,7 @@ class BanSettingsCog(commands.Cog, name="BanSettings"):
 
         embed = discord.Embed(
             title=embed_title,
-            description=parsed_text,
+            description=f"-# {parsed_text}",
             color=embed_color
         )
 

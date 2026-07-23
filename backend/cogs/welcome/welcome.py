@@ -340,7 +340,7 @@ class WelcomeCog(commands.Cog, name="Welcome"):
 
         embed = discord.Embed(
             title=embed_title,
-            description=parsed_text,
+            description=f"-# {parsed_text}",
             color=embed_color
         )
 

@@ -282,7 +282,7 @@ class LeaveSettingsCog(commands.Cog, name="LeaveSettings"):
 
         embed = discord.Embed(
             title=embed_title,
-            description=parsed_text,
+            description=f"-# {parsed_text}",
             color=embed_color
         )
 
