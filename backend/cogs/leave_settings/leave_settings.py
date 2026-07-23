@@ -199,18 +199,23 @@ class LeaveSettingsCog(commands.Cog, name="LeaveSettings"):
 
             draw = ImageDraw.Draw(bg_img)
             try:
-                font_welcome = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
-                font_name = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 56)
-                font_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 28)
+                font_welcome = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 100)
+                font_name = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 76)
+                font_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
             except:
                 try:
-                    font_welcome = ImageFont.truetype("arial.ttf", 72)
-                    font_name = ImageFont.truetype("arial.ttf", 56)
-                    font_sub = ImageFont.truetype("arial.ttf", 28)
+                    font_welcome = ImageFont.truetype("arialbd.ttf", 100)
+                    font_name = ImageFont.truetype("arialbd.ttf", 76)
+                    font_sub = ImageFont.truetype("arialbd.ttf", 32)
                 except:
-                    font_welcome = ImageFont.load_default()
-                    font_name = font_welcome
-                    font_sub = font_welcome
+                    try:
+                        font_welcome = ImageFont.truetype("arial.ttf", 100)
+                        font_name = ImageFont.truetype("arial.ttf", 76)
+                        font_sub = ImageFont.truetype("arial.ttf", 32)
+                    except:
+                        font_welcome = ImageFont.load_default()
+                        font_name = font_welcome
+                        font_sub = font_welcome
 
             font_color_hex = cfg.get("banner_font_color", "#FFFFFF").lstrip("#")
             try:
@@ -228,23 +233,23 @@ class LeaveSettingsCog(commands.Cog, name="LeaveSettings"):
             w_w, h_w = get_text_size(draw, welcome_text, font_welcome)
             x_w = (1200 - w_w) // 2
             y_w = avatar_y + ring_size + 30
-            draw.text((x_w + 3, y_w + 3), welcome_text, font=font_welcome, fill=shadow_color)
-            draw.text((x_w, y_w), welcome_text, font=font_welcome, fill=font_color)
+            draw.text((x_w + 3, y_w + 3), welcome_text, font=font_welcome, fill=shadow_color, stroke_width=3, stroke_fill=(0,0,0,180))
+            draw.text((x_w, y_w), welcome_text, font=font_welcome, fill=font_color, stroke_width=2, stroke_fill=font_color)
 
             username = member.name.upper()
             w_n, h_n = get_text_size(draw, username, font_name)
             x_n = (1200 - w_n) // 2
             y_n = y_w + h_w + 10
-            draw.text((x_n + 2, y_n + 2), username, font=font_name, fill=shadow_color)
-            draw.text((x_n, y_n), username, font=font_name, fill=font_color)
+            draw.text((x_n + 2, y_n + 2), username, font=font_name, fill=shadow_color, stroke_width=2, stroke_fill=(0,0,0,180))
+            draw.text((x_n, y_n), username, font=font_name, fill=font_color, stroke_width=1, stroke_fill=font_color)
 
             subtext = cfg.get("banner_subtext", f"Member ke-{member.guild.member_count} • {member.guild.name}")
             subtext = subtext.replace("{count}", str(member.guild.member_count)).replace("{server}", member.guild.name)
             w_s, h_s = get_text_size(draw, subtext, font_sub)
             x_s = (1200 - w_s) // 2
             y_s = y_n + h_n + 20
-            draw.text((x_s + 1, y_s + 1), subtext, font=font_sub, fill=shadow_color)
-            draw.text((x_s, y_s), subtext, font=font_sub, fill=(255, 255, 255, 200))
+            draw.text((x_s + 1, y_s + 1), subtext, font=font_sub, fill=shadow_color, stroke_width=2, stroke_fill=(0,0,0,180))
+            draw.text((x_s, y_s), subtext, font=font_sub, fill=(255, 255, 255, 230), stroke_width=1, stroke_fill=(255,255,255,230))
 
             output = io.BytesIO()
             bg_img.convert("RGB").save(output, format="PNG", optimize=True)
