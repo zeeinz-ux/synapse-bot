@@ -12,7 +12,7 @@ GAME_CATEGORY = "🎮 Game"
 VOICE_CATEGORY = "💬 Create Voice"
 GRACE_PERIOD = 300
 EMPTY_DELETE_DELAY = 300
-ROOM_NAME_TEMPLATE = "\u300c\U0001f50a\u300d{name}'s Room"
+ROOM_NAME_TEMPLATE = "\U0001f5e3\ufe0f {name}'s Caffee"
 
 _rooms: dict[int, dict[int, 'VoiceRoom']] = {}
 _interface_msgs: dict[int, int] = {}
@@ -433,7 +433,7 @@ class VoiceInterfaceCog(commands.Cog):
         if not cat:
             return
         for ch in cat.voice_channels:
-            if ch.name.startswith("\u300c\U0001f50a\u300d"):
+            if ch.name.startswith("\U0001f5e3\ufe0f") or ch.name.endswith("'s Caffee"):
                 room = VoiceRoom(0, ch.id, guild.id)
                 member_ids = [m.id for m in ch.members]
                 if member_ids:
