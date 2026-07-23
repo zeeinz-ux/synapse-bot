@@ -160,7 +160,7 @@ class ConfirmDeleteView(ui.View):
 
     @ui.button(label="\u274c Cancel", style=discord.ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, button: ui.Button):
-        await interaction.response.send_message("Cancelled.", ephemeral=True)
+        await interaction.response.send_message("Cancelled.", ephemeral=True, delete_after=8)
         self.stop()
 
 class VoiceControlView(ui.View):
@@ -174,7 +174,7 @@ class VoiceControlView(ui.View):
     async def _owner_only(self, interaction: discord.Interaction) -> VoiceRoom | None:
         room = await self._get_room(interaction)
         if not room:
-            await interaction.response.send_message("Kamu gak punya voice room. Join **\u2795 Create Caffee'** untuk buat room!", ephemeral=True)
+            await interaction.response.send_message("Kamu gak punya voice room. Join **\u2795 Create Caffee'** untuk buat room!", ephemeral=True, delete_after=8)
             return None
         return room
 
@@ -228,7 +228,7 @@ class VoiceControlView(ui.View):
         guild = interaction.guild
         members = [m for m in guild.members if not m.bot and m.id != room.owner_id and m.id not in room.trusted_users and m.id not in room.blocked_users]
         if not members:
-            await interaction.response.send_message("No users to trust.", ephemeral=True)
+            await interaction.response.send_message("No users to trust.", ephemeral=True, delete_after=8)
             return
         await interaction.response.send_message("Select a user to trust:", ephemeral=True, view=TempView(
             MemberSelect("Select user...", members[:25], self._cog, "trust", room.channel_id)
@@ -240,12 +240,12 @@ class VoiceControlView(ui.View):
         if not room:
             return
         if not room.trusted_users:
-            await interaction.response.send_message("No trusted users.", ephemeral=True)
+            await interaction.response.send_message("No trusted users.", ephemeral=True, delete_after=8)
             return
         guild = interaction.guild
         members = [m for m in guild.members if m.id in room.trusted_users]
         if not members:
-            await interaction.response.send_message("No trusted users found in server.", ephemeral=True)
+            await interaction.response.send_message("No trusted users found in server.", ephemeral=True, delete_after=8)
             return
         await interaction.response.send_message("Select a user to untrust:", ephemeral=True, view=TempView(
             MemberSelect("Select user...", members[:25], self._cog, "untrust", room.channel_id)
@@ -264,12 +264,12 @@ class VoiceControlView(ui.View):
         if not room:
             return
         if not room.blocked_users:
-            await interaction.response.send_message("No blocked users.", ephemeral=True)
+            await interaction.response.send_message("No blocked users.", ephemeral=True, delete_after=8)
             return
         guild = interaction.guild
         members = [m for m in guild.members if m.id in room.blocked_users]
         if not members:
-            await interaction.response.send_message("No blocked users found in server.", ephemeral=True)
+            await interaction.response.send_message("No blocked users found in server.", ephemeral=True, delete_after=8)
             return
         await interaction.response.send_message("Select a user to unblock:", ephemeral=True, view=TempView(
             MemberSelect("Select user...", members[:25], self._cog, "unblock", room.channel_id)
@@ -283,7 +283,7 @@ class VoiceControlView(ui.View):
         members = room.members
         others = [m for m in (interaction.guild.get_member(uid) for uid in members) if m and m.id != room.owner_id]
         if not others:
-            await interaction.response.send_message("No other members in your room.", ephemeral=True)
+            await interaction.response.send_message("No other members in your room.", ephemeral=True, delete_after=8)
             return
         await interaction.response.send_message("Select a user to kick:", ephemeral=True, view=TempView(
             MemberSelect("Select user...", others[:25], self._cog, "kick", room.channel_id)
@@ -342,7 +342,7 @@ class VoiceControlView(ui.View):
                 if ch and any(m.id == interaction.user.id for m in ch.members):
                     claimable.append(room)
         if not claimable:
-            await interaction.response.send_message("No claimable rooms. Owner must be offline >5 menit dan kamu masih di room.", ephemeral=True)
+            await interaction.response.send_message("No claimable rooms. Owner must be offline >5 menit dan kamu masih di room.", ephemeral=True, delete_after=8)
             return
         if len(claimable) == 1:
             await self._cog._handle_claim(interaction, claimable[0])
@@ -365,16 +365,16 @@ class VoiceControlView(ui.View):
     async def transfer_btn(self, interaction: discord.Interaction, button: ui.Button):
         room = await self._get_room(interaction)
         if not room:
-            await interaction.response.send_message("Kamu gak punya voice room.", ephemeral=True)
+            await interaction.response.send_message("Kamu gak punya voice room.", ephemeral=True, delete_after=8)
             return
         is_premium = await _check_premium(interaction.guild_id, interaction.user.id)
         if not is_premium:
-            await interaction.response.send_message("\u2b50 Fitur Transfer adalah premium. Upgrade untuk menggunakan fitur ini.", ephemeral=True)
+            await interaction.response.send_message("\u2b50 Fitur Transfer adalah premium. Upgrade untuk menggunakan fitur ini.", ephemeral=True, delete_after=8)
             return
         members = room.members
         others = [m for m in (interaction.guild.get_member(uid) for uid in members) if m and m.id != room.owner_id]
         if not others:
-            await interaction.response.send_message("No other members to transfer to.", ephemeral=True)
+            await interaction.response.send_message("No other members to transfer to.", ephemeral=True, delete_after=8)
             return
         await interaction.response.send_message("Select new owner:", ephemeral=True, view=TempView(
             MemberSelect("Select member...", others[:25], self._cog, "transfer", room.channel_id)
@@ -429,6 +429,16 @@ class VoiceInterfaceCog(commands.Cog):
             log.info("VoiceControlView registered successfully")
         except Exception as e:
             log.error(f"Failed to register VoiceControlView: {e}")
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+        if message.channel.name == INTERFACE_CHANNEL:
+            try:
+                await message.delete()
+            except Exception:
+                pass
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -683,19 +693,19 @@ class VoiceInterfaceCog(commands.Cog):
     async def _handle_rename(self, interaction: discord.Interaction, channel_id: int, new_name: str):
         room = _get_room_by_channel(interaction.guild_id, channel_id)
         if not room or room.owner_id != interaction.user.id:
-            await interaction.response.send_message("Kamu bukan owner room ini.", ephemeral=True)
+            await interaction.response.send_message("Kamu bukan owner room ini.", ephemeral=True, delete_after=8)
             return
         guild = interaction.guild
         vc = guild.get_channel(channel_id)
         if not isinstance(vc, discord.VoiceChannel):
-            await interaction.response.send_message("Room not found.", ephemeral=True)
+            await interaction.response.send_message("Room not found.", ephemeral=True, delete_after=8)
             return
         try:
             await vc.edit(name=new_name[:100], reason="Room renamed")
-            await interaction.response.send_message(f"Room renamed to **{new_name}**", ephemeral=True)
+            await interaction.response.send_message(f"Room renamed to **{new_name}**", ephemeral=True, delete_after=8)
             await self._update_interface(guild)
         except Exception as e:
-            await interaction.response.send_message(f"Failed to rename: {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed to rename: {e}", ephemeral=True, delete_after=8)
 
     async def _handle_lock_toggle(self, interaction: discord.Interaction, room: VoiceRoom):
         guild = interaction.guild
@@ -706,10 +716,10 @@ class VoiceInterfaceCog(commands.Cog):
         try:
             await vc.set_permissions(guild.default_role, connect=not room.locked)
             status = "\U0001f512 Locked" if room.locked else "\U0001f513 Unlocked"
-            await interaction.response.send_message(f"Room {status}", ephemeral=True)
+            await interaction.response.send_message(f"Room {status}", ephemeral=True, delete_after=8)
             await self._update_interface(guild)
         except Exception as e:
-            await interaction.response.send_message(f"Failed: {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
 
     async def _handle_privacy_toggle(self, interaction: discord.Interaction, room: VoiceRoom):
         guild = interaction.guild
@@ -720,15 +730,15 @@ class VoiceInterfaceCog(commands.Cog):
         try:
             await vc.set_permissions(guild.default_role, view_channel=room.visible)
             status = "\U0001f441\ufe0f Visible" if room.visible else "\U0001f441\ufe0f Hidden"
-            await interaction.response.send_message(f"Room {status}", ephemeral=True)
+            await interaction.response.send_message(f"Room {status}", ephemeral=True, delete_after=8)
             await self._update_interface(guild)
         except Exception as e:
-            await interaction.response.send_message(f"Failed: {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
 
     async def _handle_limit(self, interaction: discord.Interaction, channel_id: int, limit_str: str):
         room = _get_room_by_channel(interaction.guild_id, channel_id)
         if not room or room.owner_id != interaction.user.id:
-            await interaction.response.send_message("Kamu bukan owner room ini.", ephemeral=True)
+            await interaction.response.send_message("Kamu bukan owner room ini.", ephemeral=True, delete_after=8)
             return
         guild = interaction.guild
         vc = guild.get_channel(channel_id)
@@ -741,15 +751,15 @@ class VoiceInterfaceCog(commands.Cog):
             if limit > 99:
                 limit = 99
         except ValueError:
-            await interaction.response.send_message("Invalid number. Use 0-99.", ephemeral=True)
+            await interaction.response.send_message("Invalid number. Use 0-99.", ephemeral=True, delete_after=8)
             return
         room.limit = limit if limit > 0 else None
         try:
             await vc.edit(user_limit=limit)
             msg = f"User limit set to {limit}" if limit > 0 else "User limit removed (unlimited)"
-            await interaction.response.send_message(msg, ephemeral=True)
+            await interaction.response.send_message(msg, ephemeral=True, delete_after=8)
         except Exception as e:
-            await interaction.response.send_message(f"Failed: {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
 
     async def _handle_waiting_toggle(self, interaction: discord.Interaction, room: VoiceRoom):
         guild = interaction.guild
@@ -764,7 +774,7 @@ class VoiceInterfaceCog(commands.Cog):
                         pass
             room.waiting_users.clear()
         status = "\U0001f6aa Waiting Room: On" if room.waiting_room else "\U0001f6aa Waiting Room: Off"
-        await interaction.response.send_message(status, ephemeral=True)
+        await interaction.response.send_message(status, ephemeral=True, delete_after=8)
         await self._update_interface(guild)
 
     async def _handle_chat_toggle(self, interaction: discord.Interaction, room: VoiceRoom):
@@ -780,7 +790,7 @@ class VoiceInterfaceCog(commands.Cog):
                 except Exception:
                     pass
             room.chat_channel_id = None
-            await interaction.response.send_message("\U0001f4ac Chat closed", ephemeral=True)
+            await interaction.response.send_message("\U0001f4ac Chat closed", ephemeral=True, delete_after=8)
         else:
             try:
                 chat = await guild.create_text_channel(
@@ -789,58 +799,58 @@ class VoiceInterfaceCog(commands.Cog):
                     reason="Voice room chat",
                 )
                 room.chat_channel_id = chat.id
-                await interaction.response.send_message(f"\U0001f4ac Chat created: {chat.mention}", ephemeral=True)
+                await interaction.response.send_message(f"\U0001f4ac Chat created: {chat.mention}", ephemeral=True, delete_after=8)
             except Exception as e:
-                await interaction.response.send_message(f"Failed: {e}", ephemeral=True)
+                await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
         await self._update_interface(guild)
 
     async def _handle_member_select(self, interaction: discord.Interaction, action: str, channel_id: int, target_id: int):
         guild = interaction.guild
         room = _get_room_by_channel(interaction.guild_id, channel_id)
         if not room or room.owner_id != interaction.user.id:
-            await interaction.response.send_message("Kamu bukan owner room ini.", ephemeral=True)
+            await interaction.response.send_message("Kamu bukan owner room ini.", ephemeral=True, delete_after=8)
             return
         vc = guild.get_channel(channel_id)
         if not isinstance(vc, discord.VoiceChannel):
             return
         target = guild.get_member(target_id)
         if not target:
-            await interaction.response.send_message("User not found.", ephemeral=True)
+            await interaction.response.send_message("User not found.", ephemeral=True, delete_after=8)
             return
 
         try:
             if action == "trust":
                 room.trusted_users.add(target_id)
                 await vc.set_permissions(target, connect=True, speak=True)
-                await interaction.response.send_message(f"\u2705 {target.display_name} ditambahkan sebagai trusted", ephemeral=True)
+                await interaction.response.send_message(f"\u2705 {target.display_name} ditambahkan sebagai trusted", ephemeral=True, delete_after=8)
             elif action == "untrust":
                 room.trusted_users.discard(target_id)
                 await vc.set_permissions(target, overwrite=None)
-                await interaction.response.send_message(f"\u274c {target.display_name} di-untrust", ephemeral=True)
+                await interaction.response.send_message(f"\u274c {target.display_name} di-untrust", ephemeral=True, delete_after=8)
             elif action == "kick":
                 await target.move_to(None)
-                await interaction.response.send_message(f"\U0001f50a {target.display_name} di-kick dari room", ephemeral=True)
+                await interaction.response.send_message(f"\U0001f50a {target.display_name} di-kick dari room", ephemeral=True, delete_after=8)
                 room.trusted_users.discard(target_id)
             elif action == "unblock":
                 room.blocked_users.discard(target_id)
                 await vc.set_permissions(target, overwrite=None)
-                await interaction.response.send_message(f"\U0001f513 {target.display_name} di-unblock", ephemeral=True)
+                await interaction.response.send_message(f"\U0001f513 {target.display_name} di-unblock", ephemeral=True, delete_after=8)
             elif action == "transfer":
                 is_premium = await _check_premium(interaction.guild_id, interaction.user.id)
                 if not is_premium:
-                    await interaction.response.send_message("\u2b50 Premium feature.", ephemeral=True)
+                    await interaction.response.send_message("\u2b50 Premium feature.", ephemeral=True, delete_after=8)
                     return
                 room.owner_id = target_id
                 room.owner_left_at = None
-                await interaction.response.send_message(f"\U0001f4e4 Ownership transferred to {target.display_name}", ephemeral=True)
+                await interaction.response.send_message(f"\U0001f4e4 Ownership transferred to {target.display_name}", ephemeral=True, delete_after=8)
             await self._update_interface(guild)
         except Exception as e:
-            await interaction.response.send_message(f"Failed: {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
 
     async def _handle_user_id_modal(self, interaction: discord.Interaction, channel_id: int, action: str, user_id_str: str):
         room = _get_room_by_channel(interaction.guild_id, channel_id)
         if not room or room.owner_id != interaction.user.id:
-            await interaction.response.send_message("Kamu bukan owner room ini.", ephemeral=True)
+            await interaction.response.send_message("Kamu bukan owner room ini.", ephemeral=True, delete_after=8)
             return
         guild = interaction.guild
         vc = guild.get_channel(channel_id)
@@ -849,28 +859,28 @@ class VoiceInterfaceCog(commands.Cog):
         try:
             target_id = int(user_id_str.strip())
         except ValueError:
-            await interaction.response.send_message("Invalid user ID.", ephemeral=True)
+            await interaction.response.send_message("Invalid user ID.", ephemeral=True, delete_after=8)
             return
         target = guild.get_member(target_id)
         if not target:
-            await interaction.response.send_message("User not found in server.", ephemeral=True)
+            await interaction.response.send_message("User not found in server.", ephemeral=True, delete_after=8)
             return
 
         try:
             if action == "Invite":
                 await vc.set_permissions(target, connect=True)
                 room.trusted_users.add(target_id)
-                await interaction.response.send_message(f"\U0001f4e8 {target.display_name} di-invite ke room", ephemeral=True)
+                await interaction.response.send_message(f"\U0001f4e8 {target.display_name} di-invite ke room", ephemeral=True, delete_after=8)
             elif action == "Block":
                 room.blocked_users.add(target_id)
                 room.trusted_users.discard(target_id)
                 await vc.set_permissions(target, connect=False)
                 if target.id in room.members:
                     await target.move_to(None)
-                await interaction.response.send_message(f"\U0001f6ab {target.display_name} di-block dari room", ephemeral=True)
+                await interaction.response.send_message(f"\U0001f6ab {target.display_name} di-block dari room", ephemeral=True, delete_after=8)
             await self._update_interface(guild)
         except Exception as e:
-            await interaction.response.send_message(f"Failed: {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
 
     async def _handle_region(self, interaction: discord.Interaction, room: VoiceRoom, region_str: str):
         guild = interaction.guild
@@ -881,33 +891,33 @@ class VoiceInterfaceCog(commands.Cog):
             rtc_region = None if region_str == "auto" else discord.VoiceRegion(region_str)
             await vc.edit(rtc_region=rtc_region)
             room.region = region_str
-            await interaction.response.send_message(f"\U0001f310 Region set to {region_str}", ephemeral=True)
+            await interaction.response.send_message(f"\U0001f310 Region set to {region_str}", ephemeral=True, delete_after=8)
         except Exception as e:
-            await interaction.response.send_message(f"Failed: {e}", ephemeral=True)
+            await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
 
     async def _handle_delete_room(self, interaction: discord.Interaction, channel_id: int):
         room = _get_room_by_channel(interaction.guild_id, channel_id)
         if not room or room.owner_id != interaction.user.id:
-            await interaction.response.send_message("Kamu bukan owner room ini.", ephemeral=True)
+            await interaction.response.send_message("Kamu bukan owner room ini.", ephemeral=True, delete_after=8)
             return
         await self._delete_room(channel_id, interaction.guild_id)
-        await interaction.response.send_message("\U0001f5d1\ufe0f Room deleted.", ephemeral=True)
+        await interaction.response.send_message("\U0001f5d1\ufe0f Room deleted.", ephemeral=True, delete_after=8)
 
     async def _handle_claim(self, interaction: discord.Interaction, room: VoiceRoom):
         if not room.owner_left_at:
-            await interaction.response.send_message("Owner masih aktif di room.", ephemeral=True)
+            await interaction.response.send_message("Owner masih aktif di room.", ephemeral=True, delete_after=8)
             return
         if (time.time() - room.owner_left_at) < GRACE_PERIOD:
             remaining = int(GRACE_PERIOD - (time.time() - room.owner_left_at))
-            await interaction.response.send_message(f"Owner baru offline {remaining} detik. Tunggu {remaining} detik lagi.", ephemeral=True)
+            await interaction.response.send_message(f"Owner baru offline {remaining} detik. Tunggu {remaining} detik lagi.", ephemeral=True, delete_after=8)
             return
         is_premium = await _check_premium(interaction.guild_id, interaction.user.id)
         if not is_premium:
-            await interaction.response.send_message("\u2b50 Claim adalah fitur premium.", ephemeral=True)
+            await interaction.response.send_message("\u2b50 Claim adalah fitur premium.", ephemeral=True, delete_after=8)
             return
         room.owner_id = interaction.user.id
         room.owner_left_at = None
-        await interaction.response.send_message(f"\U0001f3e6 Kamu sekarang owner dari room ini!", ephemeral=True)
+        await interaction.response.send_message(f"\U0001f3e6 Kamu sekarang owner dari room ini!", ephemeral=True, delete_after=8)
         await self._update_interface(interaction.guild)
 
 
