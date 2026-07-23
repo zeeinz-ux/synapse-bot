@@ -226,6 +226,7 @@ class GeneralCog(commands.Cog):
             # Also clean old-style names from previous failed runs
             old_plan_cat_names = {"📁 General", "💬 Create Voice"}
             all_cat_names = plan_cat_names | old_plan_cat_names | {"Text Channels", "Voice Channels"}
+            keep_categories = {"🎮 Game"}
             for channel in list(guild.channels):
                 # Default Discord channels
                 if channel.name.lower() in {"general", "text-channels", "voice-channels", "general-1"} and not channel.category:
@@ -237,7 +238,7 @@ class GeneralCog(commands.Cog):
                     continue
 
                 # Existing plan categories (new + old naming)
-                if isinstance(channel, discord.CategoryChannel) and channel.name in all_cat_names:
+                if isinstance(channel, discord.CategoryChannel) and channel.name in all_cat_names and channel.name not in keep_categories:
                     try:
                         for ch in list(channel.channels):
                             await ch.delete(reason="Server setup")
@@ -255,16 +256,24 @@ class GeneralCog(commands.Cog):
             total_plan = sum(len(v) for v in CHANNEL_PLAN.values())
             done = 0
             for cat_name, channels in CHANNEL_PLAN.items():
-                try:
-                    category = await guild.create_category(cat_name, reason="Server setup")
-                    results["categories"] += 1
-                except Exception as e:
-                    results["errors"].append(f"Kategori {cat_name}: {e}")
-                    continue
+                existing_cat = discord.utils.get(guild.categories, name=cat_name)
+                if existing_cat:
+                    category = existing_cat
+                else:
+                    try:
+                        category = await guild.create_category(cat_name, reason="Server setup")
+                        results["categories"] += 1
+                    except Exception as e:
+                        results["errors"].append(f"Kategori {cat_name}: {e}")
+                        continue
 
                 for ch in channels:
                     ch_name = ch["name"]
                     ch_type = ch["type"]
+                    if discord.utils.get(category.channels, name=ch_name):
+                        results["channels"] += 1
+                        done += 1
+                        continue
                     try:
                         perms = {}
                         if ch.get("admin_only"):
