@@ -1,12 +1,12 @@
 # Antigravity Agent — Integration Plan
 
-> **Model**: Antigravity (via OpenRouter) — kategori "Agents"
+> **Model**: Antigravity — model agents dari Google AI (via Gemini API key)
 > **Rate limit**: 0 RPM / 100 RPD (sangat rendah — dedicated untuk task, bukan chat)
 > **Harga**: Gratis (0 token cost)
 
 ## 1. Apa itu Antigravity?
 
-Antigravity adalah model reasoning/planning dari OpenRouter yang dikategorikan sebagai **Agents** — khusus untuk **orchestration multi-step**. Berbeda dengan chat model biasa:
+Antigravity adalah model agents dari Google AI (via Gemini API key) yang dikategorikan sebagai **Agents** — khusus untuk **orchestration multi-step**. Berbeda dengan chat model biasa:
 
 | Sisi | Chat model (Gemini, GPT) | Antigravity |
 |---|---|---|
@@ -95,7 +95,7 @@ User: "Kick user yang spam sejak kemarin"
 
 | File | Isi |
 |---|---|
-| `backend/cogs/ai_chat/providers/antigravity.py` | Provider — panggil OpenRouter API + parse tool calls |
+| `backend/cogs/ai_chat/providers/antigravity.py` | Provider — panggil Gemini API (sama seperti gemini.py) + parse tool calls |
 | `backend/cogs/ai_chat/agent_tools.py` | Definisi tools (schema JSON + fungsi Python) |
 | `backend/cogs/ai_chat/agent_runner.py` | Loop eksekusi agent |
 | `backend/cogs/ai_chat/agent_commands.py` | Command `/agent` & handler |
