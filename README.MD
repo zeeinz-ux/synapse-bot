@@ -1,368 +1,96 @@
-<div align="center">
-  <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" />
-  <img src="https://img.shields.io/badge/discord.py-2.7.1-5865F2?style=for-the-badge&logo=discord&logoColor=white" />
-  <img src="https://img.shields.io/badge/Flask-3.1.3-000000?style=for-the-badge&logo=flask&logoColor=white" />
-  <img src="https://img.shields.io/badge/Firestore-Free-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" />
-  <img src="https://img.shields.io/badge/ChromaDB-1.5.9-FF6B6B?style=for-the-badge&logo=chromadb&logoColor=white" />
-  <img src="https://img.shields.io/badge/Railway-Deployed-0B0D0E?style=for-the-badge&logo=railway&logoColor=white" />
-  <br/>
-  <img src="https://img.shields.io/badge/License-Proprietary-red?style=flat-square" />
-  <img src="https://img.shields.io/badge/Status-Active-00C853?style=flat-square" />
-  <img src="https://img.shields.io/badge/Quality-Manual_Only-FF6D00?style=flat-square" />
-</div>
+# Synapse Discord Bot
 
-<h1 align="center">🧠 Synapse — Discord Bot</h1>
-<p align="center">
-  <i>Multifunctional AI-powered Discord bot with web dashboard, 5-tier AI chat, RAG knowledge base, moderation, leveling, and more.</i>
-</p>
+Multi-purpose Discord bot with AI chat, anti-nuke protection, voice interface, and auto server setup.
 
----
+## Features
 
-## ✨ Features at a Glance
+### ⚙️ Server Setup (`/setup`)
+Auto-creates server structure: 7 categories, 21 channels (12 text + 9 voice), enables features (anti-spam, anti-nuke, AI chat), cleans default Discord channels. Channel order and permissions are preset per type.
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>🤖 AI Chat</h3>
-      <ul>
-        <li>5-tier fallback: Gemini → Groq → Mistral → Cohere → OpenRouter</li>
-        <li>⚡ Streaming responses via <code>/ask</code></li>
-        <li>📚 RAG knowledge base with <b>ChromaDB vector search</b></li>
-        <li>🌐 Web search integration</li>
-        <li>🎯 Intent routing + few-shot prompting</li>
-        <li>🧠 Chain-of-Thought for technical queries</li>
-        <li>🔄 Multi-turn conversation awareness</li>
-      </ul>
-    </td>
-    <td width="50%" valign="top">
-      <h3>🛡️ Moderation</h3>
-      <ul>
-        <li>🔍 Heuristic spam scoring (URLs, keywords, homoglyphs)</li>
-        <li>🖼️ 3-layer image spam detection</li>
-        <li>👁️ Gemini Vision + Google Cloud OCR</li>
-        <li>⚡ 3-strike system (timeout → kick → ban)</li>
-        <li>🆕 New account auto-detection</li>
-        <li>🚨 Raid protection</li>
-        <li>🎯 AI-powered borderline case analysis</li>
-      </ul>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>📊 Web Dashboard</h3>
-      <ul>
-        <li>📈 Real-time server stats</li>
-        <li>⚙️ Full per-guild configuration</li>
-        <li>📄 RAG document upload (TXT/PDF)</li>
-        <li>💬 Message builder with embeds</li>
-        <li>🌐 i18n (Indonesian & English)</li>
-        <li>🔐 Discord OAuth2 login</li>
-      </ul>
-    </td>
-    <td width="50%" valign="top">
-      <h3>🎮 Community Features</h3>
-      <ul>
-        <li>⭐ Leveling & XP with rank cards</li>
-        <li>👋 Dual-style welcome (embed/banner)</li>
-        <li>💔 Leave/ban/boost announcements</li>
-        <li>📈 Boost tracker with stats</li>
-        <li>📝 Auto-responder (regex + cooldown)</li>
-        <li>📸 Photobox — browser-to-Discord photos</li>
-        <li>💰 Donation tracking</li>
-      </ul>
-    </td>
-  </tr>
-</table>
+### 🚨 Anti-Nuke
+Rule-based sliding window detection for mass ban/kick/channel/role destruction. Auto-lockdown by denying @everyone send_messages on all channels, auto-restore after configurable duration (default 30 min). Whitelist system (admin, user, role). AI post-analysis via OpenRouter free models after lockdown. Dashboard settings page.
 
----
+### 🎛️ Voice Interface
+Join `➕ Create Caffee'` → auto-create temp voice room named `🗣️ {user}'s Caffee` in Game category. Control panel via `✨・interface` text channel with 16 buttons:
+- **Row 0:** Rename, Lock, Privacy, Limit, Waiting Room
+- **Row 1:** Chat, Trust, Untrust, Block, Unblock
+- **Row 2:** Kick, Invite, Region, Delete
+- **Row 3:** ⭐ Claim, ⭐ Transfer (premium)
 
-## 🏗️ Tech Stack
+Auto-delete when empty (5 min delay). Owner leave >5 min → claimable by others.
 
-| Layer | Technology |
-|-------|-----------|
-| ⚙️ **Runtime** | Python 3.11 |
-| 🎮 **Bot Library** | discord.py 2.7.1 |
-| 🌐 **Web Server** | Flask 3.1.3 + Gunicorn |
-| 🗄️ **Primary DB** | Firebase Firestore (free tier) |
-| 🔍 **Vector DB** | ChromaDB (persistent, file-based) |
-| 🤖 **AI Providers** | Gemini • Groq • Mistral • Cohere • OpenRouter |
-| 🖼️ **Image Processing** | Pillow, easy-pil |
-| 🛡️ **Anti-Spam** | Heuristic scoring + pHash + Google Cloud Vision OCR |
-| 🔐 **Sessions** | Flask-Session (server-side filesystem) |
-| 🚀 **Deployment** | Docker → Railway + UptimeRobot |
+### 🤖 AI Chat
+Multi-tier fallback: Gemini → Groq → Mistral → Cohere → OpenRouter. Streaming via `/ask`, mention-based batch mode. RAG/vector search with ChromaDB + Gemini embedding (3072-dim). Image analysis (Gemini-only). Query expansion + multi-turn history.
 
----
+### 📊 Server Stats
+Background task (5 min interval) updates voice channel names in SERVER STATS category with live member/bot counts.
 
-## 🧠 AI Chat Architecture
+### ⭐ Premium
+Subscription-based (monthly/yearly) via Sawiera/Sociabuzz webhook. Auto-activation, DM notification, auto-expiry cleanup.
 
-```
-                    ┌──────────────┐
-                    │  User Query  │
-                    └──────┬───────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │  Intent  │ │  RAG    │ │  Web    │
-        │  Router  │ │ Vector  │ │ Search  │
-        └──────────┘ │  Search │ └──────────┘
-                     └──────────┘
-                           │
-                    ┌──────▼──────┐
-                    │   System    │
-                    │   Prompt    │
-                    │ (Few-shot + │
-                    │  CoT + RAG) │
-                    └──────┬──────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │  Gemini  │ │  Groq   │ │ Mistral  │
-        │  (Tier1) │ │ (Tier2) │ │ (Tier3)  │
-        └──────────┘ └──────────┘ └──────────┘
-              │            │            │
-        ┌──────────┐ ┌──────────┐ ┌────────────┐
-        │  Cohere  │ │OpenRouter│ │  Fallback  │
-        │ (Tier4)  │ │ (Tier5)  │ │  Handler   │
-        └──────────┘ └──────────┘ └────────────┘
-                           │
-                    ┌──────▼──────┐
-                    │   Response  │
-                    │  (Streaming │
-                    │  or Batch)  │
-                    └─────────────┘
-```
+### 🔧 AI Analysis Chain
+Single OpenRouter fallback chain (6 models: openrouter/free → gemma-4 → nemotron → llama-3.3 → qwen → phi).
 
-### 🔁 Fallback Chain
+## Commands
 
-| Tier | Provider | Model | Condition |
-|------|----------|-------|-----------|
-| 1️⃣ | **Gemini** | `gemini-3.6-flash` | Primary — circuit breaker after 3 consecutive fails (2h cooldown), 200 requests reserved for vision |
-| 2️⃣ | **Groq** | Llama 3.3 70B | Backup — used when Gemini is down or over quota |
-| 3️⃣ | **Mistral** | open-mistral-nemo | Third tier |
-| 4️⃣ | **Cohere** | command-a-03-2025 | Fourth tier |
-| 5️⃣ | **OpenRouter** | Auto-prioritize free models | Last resort — also used for image analysis when Gemini is unavailable |
+| Command | Description |
+|---------|-------------|
+| `/setup` | Auto-create server channels & enable features |
+| `/ask` | AI chat with streaming |
+| `/antinuke` | Toggle anti-nuke protection |
+| `/antinuke-whitelist` | Manage anti-nuke whitelist |
+| `/antinuke-restore` | Restore lockdown manually |
+| `/antinuke-status` | Show anti-nuke status |
+| `!` prefix | Legacy prefix commands |
 
----
+## Dashboard
 
-## 📁 Project Structure
+Flask-based web dashboard with Discord OAuth2. Features management, anti-nuke settings, donation tracking, welcome/leave/ban/boost editors.
 
-```
-discord-bot/
-├── backend/
-│   ├── cogs/                    # Discord bot modules (auto-loaded via os.walk)
-│   │   ├── ai_chat/             # 🤖 AI Chat (5-tier + RAG + web search)
-│   │   │   ├── providers/       #   └─ Modular providers per API
-│   │   │   ├── ai_chat.py       #   └─ Main cog: orchestrator, rate limits, history
-│   │   │   ├── prompt.py        #   └─ System prompts + few-shot + CoT
-│   │   │   ├── chat_enhancer.py #   └─ User prefs, server context
-│   │   │   └── web_search.py    #   └─ Web search integration
-│   │   ├── auto_response/       # 💬 Keyword auto-responder
-│   │   ├── ban_settings/        # 🚫 Ban announcements
-│   │   ├── boost/               # 📈 Boost tracker
-│   │   ├── boost_announce/      # 🎉 Boost announcements
-│   │   ├── database/            # 🔥 Firebase Firestore init
-│   │   ├── general/             # ℹ️ Ping, stats, userinfo
-│   │   ├── help/                # ❓ Paginated help menu
-│   │   ├── leave_settings/      # 👋 Leave announcements
-│   │   ├── leveling/            # ⭐ XP/Leveling with rank cards
-│   │   ├── moderation/          # 🛡️ Spam + image spam + raid protection
-│   │   ├── photobox/            # 📸 Browser-capture photos
-│   │   └── welcome/             # 🎊 Welcome embed/banner
-│   ├── utils/                   # 🔧 Shared helpers
-│   │   ├── rag_engine.py        #   └─ RAG chunking + vector & keyword search
-│   │   ├── rag_vector.py        #   └─ ChromaDB wrapper + Gemini embedding
-│   │   ├── spam_engine.py       #   └─ Heuristic spam scoring
-│   │   ├── image_spam.py        #   └─ Perceptual hash + OCR detection
-│   │   ├── intent_router.py     #   └─ AI chat intent classification
-│   │   ├── firestore_stats.py   #   └─ Debounced, circuit-broken Firestore writes
-│   │   ├── formatters.py        #   └─ Uptime formatter
-│   │   ├── constants.py         #   └─ Bot constants
-│   │   ├── auto_responder_store.py # └─ Auto-responder Firestore CRUD
-│   │   └── logger.py            #   └─ Rotating file + stdout logger
-│   ├── web/                     # 🌐 Flask dashboard
-│   │   ├── web_app.py           #   └─ 70+ routes, OAuth2, settings pages
-│   │   └── translations/        #   └─ i18n JSON files
-│   ├── scripts/                 # 🛠️ Utility scripts
-│   │   └── backup_firestore.py  #   └─ Firestore backup & restore CLI
-│   └── main.py                  # 🚀 Bot entrypoint
-├── frontend/
-│   ├── pages/                   # 📄 Jinja2 HTML pages
-│   └── static/                  # 🎨 CSS, JS, fonts
-├── data/
-│   └── chroma_db/               # 📊 ChromaDB vector store (gitignored)
-├── control_queue/               # 📨 Dashboard → bot IPC
-├── cookies/                     # 🍪 YouTube cookies (optional)
-├── flask_session/               # 🔐 Session storage (gitignored)
-├── Dockerfile                   # 🐳 Production image
-├── Procfile / Procfile.dev      # 📋 Honcho process definitions
-└── railway.json                 # 🚄 Railway deploy config
-```
+## Tech Stack
 
----
+- **Bot:** discord.py 2.7.1 (hybrid commands)
+- **AI:** Gemini, Groq, Mistral, Cohere, OpenRouter API
+- **Vector DB:** ChromaDB (persistent file-based)
+- **Web:** Flask, Flask-Session
+- **Database:** Firestore (debounced writes, circuit breaker)
+- **IPC:** File-based control queue (Flask → Bot)
 
-## 🚀 Getting Started
+## Environment
 
-### Prerequisites
-- Python 3.11+
-- Firebase service account (Firestore free tier)
-- At least one AI API key (recommended: Gemini + Groq)
+`.env` in `backend/`. Required: `TOKEN_BOT`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `FLASK_SECRET_KEY`, `FIREBASE_KEY`. AI requires at least one API key (Gemini/Groq/Mistral/Cohere/OpenRouter).
 
-### Local Development
+## Running
 
 ```bash
-# 1️⃣ Install dependencies
-pip install -r requirements.txt
-
-# 2️⃣ Set up environment
-cp backend/.env.example backend/.env
-# Edit backend/.env with your tokens and keys
-
-# 3️⃣ Run everything (bot + web dashboard)
+# Development
 honcho start -f Procfile.dev
 
-# Or run individually:
-python backend/main.py              # Bot only
-python -m backend.web.web_app       # Web dashboard only
+# Production
+honcho start -f Procfile
 ```
 
-### Production (Railway)
+## Deployment
 
-```dockerfile
-# Dockerfile builds python:3.11-slim image
-# Start command: honcho start -f Procfile
+Deployed on Railway via Docker (python:3.11-slim). Health-check by UptimeRobot (5 min interval).
+
+## Premium Payment Flow
+
+1. User clicks Buy Premium on dashboard
+2. Pays via Sawiera/Sociabuzz (Rp 50k monthly / Rp 400k yearly)
+3. Writes Discord user ID in message
+4. Webhook auto-activates premium in Firestore
+5. Bot sends DM confirmation with expiry date
+6. Auto-cleanup of expired premiums every hour
+
+## Firestore Data Model
+
 ```
-
-- **Web**: `gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 backend.web.web_app:app`
-- **Worker**: `python backend/main.py`
-- **UptimeRobot** pings every 5 min to prevent Railway from sleeping
-- `PYTHONPATH=/app` set via Dockerfile (required for `backend.` imports)
-
-### Firestore Backup
-
-```bash
-python backend/scripts/backup_firestore.py backup              # 📦 Backup all collections
-python backend/scripts/backup_firestore.py restore <file>      # ♻️ Restore from backup
-python backend/scripts/backup_firestore.py restore <file> --dry-run  # 👁️ Preview restore
-python backend/scripts/backup_firestore.py list                # 📋 List backups
-python backend/scripts/backup_firestore.py info <file>         # ℹ️ Backup details
+guild_settings/{guild_id}/
+  ├── premium_users/
+  │   └── {user_id}: {expiry, tier, activated_at}
+  ├── anti_nuke/  {enabled, thresholds, lockdown_duration, whitelist}
+  ├── ai_chat/  {enabled}
+  ├── welcome/  {enabled, message, embed config, banner config}
+  └── ...
 ```
-
----
-
-## 🔐 Required Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `TOKEN_BOT` | ✅ | Discord bot token |
-| `DISCORD_CLIENT_ID` | ✅ | Discord OAuth2 client ID |
-| `DISCORD_CLIENT_SECRET` | ✅ | Discord OAuth2 client secret |
-| `DISCORD_REDIRECT_URI` | ✅ | OAuth2 callback URL |
-| `FLASK_SECRET_KEY` | ✅ | Flask session encryption key |
-| `FIREBASE_KEY` | ✅ | Path/JSON/base64 of Firebase service account |
-| `GEMINI_API_KEY` | ⚠️ | Primary AI provider (recommended) |
-| `GROQ_API_KEY` | ⚠️ | Backup AI provider (recommended) |
-| `GOOGLE_VISION_API_KEY` | ❔ | OCR spam detection |
-| `PUBLIC_URL` | ❔ | Photobox public URL |
-
-For full list, see `backend/.env.example`.
-
----
-
-## 🏗️ Architecture Notes
-
-### 🔥 Firestore
-- **All writes go through `asyncio.to_thread()`** — the Firebase Admin SDK is synchronous
-- Debounced writes (default 30s, env `FIRESTORE_DEBOUNCE`)
-- Circuit breaker on 429 errors (default 15min cooldown, env `FIRESTORE_CIRCUIT_SEC`)
-- Shared across cogs via `firestore_circuit_open()` and `trip_firestore_circuit()`
-
-### 🔍 RAG Knowledge Base
-- Documents (TXT/PDF) are chunked (500 chars, 50 overlap) on upload
-- Chunks stored in **Firestore** (backup + listing) + **ChromaDB** (vector search)
-- Embeddings: Gemini API (`models/gemini-embedding-001`, 3072-dim, free tier)
-- Fallback: hash-based embedding if Gemini is down
-- Auto-sync existing docs to ChromaDB on first RAG query per guild
-
-### 🤖 AI Chat Enhancements
-- **Few-shot examples** injected per intent (coding, akademik, sains)
-- **Chain-of-Thought** instruction for technical/math/logic queries
-- **Token-aware history** — storage capped at 5K tokens, context capped at 8K tokens
-- **Query expansion** — multiple search variants for better RAG coverage
-- **Multi-turn awareness** — follow-ups reference previous conversation context
-
-### 🛡️ Anti-Spam Architecture
-```
-Text Detection                    Image Detection
-┌──────────────┐                  ┌──────────────┐
-│ Heuristic    │                  │ L1: Rate     │
-│ Scoring      │  score≥5         │ Limit (4/10s)│
-│ (keywords,   │ ───────────────► │              │
-│  URLs, age,  │                  │ L2: pHash   │
-│  duplicates) │  score 1-4      │ + Hamming    │
-│              │ ───→ AI analyze ──► Distance   │
-│ L1: skip AI  │                  │              │
-│ if score≥10  │                  │ L3: Gemini  │
-│ or account   │                  │ Vision +    │
-│ < 60d        │                  │ Google OCR  │
-└──────────────┘                  └──────────────┘
-        │                               │
-        └─────────── Strike System ─────┘
-                    ┌──────────┐
-                    │ Strike 1 │ → 24h timeout
-                    ├──────────┤
-                    │ Strike 2 │ → Kick
-                    ├──────────┤
-                    │ Strike 3 │ → Ban
-                    └──────────┘
-              (resets after 24h clean)
-```
-
----
-
-## 🌐 Dashboard Routes
-
-| Page | Route | Description |
-|------|-------|-------------|
-| 🏠 | `/` | Landing page — bot stats, sakura petals animation |
-| 📊 | `/dashboard/<guild>/` | Server overview — real-time stats |
-| 👋 | `/dashboard/<guild>/welcome` | Welcome settings with live preview |
-| 👋 | `/dashboard/<guild>/welcome/leave` | Leave announcement config |
-| 🚫 | `/dashboard/<guild>/welcome/ban` | Ban announcement config |
-| 🎉 | `/dashboard/<guild>/welcome/boost` | Boost announce config |
-| 📈 | `/dashboard/<guild>/boost` | Boost history & stats |
-| 💰 | `/dashboard/<guild>/donation` | Donation history & stats |
-| ⚙️ | `/dashboard/<guild>/donation/settings` | Donation webhook, messages |
-| 🤖 | `/dashboard/<guild>/ai-chat` | AI Chat settings |
-| 📚 | `/dashboard/<guild>/rag` | RAG document management |
-| 🛡️ | `/dashboard/<guild>/anti-spam` | Spam threshold & config |
-| 💬 | `/dashboard/<guild>/auto-responders` | Auto-responder CRUD |
-| ⚡ | `/dashboard/<guild>/actions` | Level rewards & actions |
-| 📝 | `/dashboard/<guild>/templates` | Message templates |
-| ✏️ | `/dashboard/<guild>/message-builder` | Compose & send messages |
-| 🔧 | `/dashboard/<guild>/settings` | Guild feature toggles |
-
----
-
-## 🌐 i18n / Multilingual Dashboard
-
-| Feature | Detail |
-|---------|--------|
-| 🗄️ **Storage** | Flask session (`session["lang"]`) — persists across login |
-| 🌏 **Default** | `id` (Indonesian) |
-| ✅ **Available** | `id`, `en` |
-| 🔄 **Switcher** | Dropdown in landing page navbar |
-| 📁 **Files** | `backend/web/translations/{lang}.json` |
-| 🎨 **Template** | `{{ "key" \| t }}` Jinja2 filter |
-| 🔁 **Fallback** | Missing keys → `id.json` → raw key |
-
----
-
-## 📜 License
-
-<p align="center">
-  <b>Proprietary — All Rights Reserved.</b>
-  <br/>
-  <i>© 2026 zeeinz-ux. Unauthorized use, reproduction, modification, or distribution is prohibited.</i>
-</p>
