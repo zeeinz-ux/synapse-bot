@@ -466,18 +466,11 @@ class VoiceInterfaceCog(commands.Cog):
                 _rooms.setdefault(guild.id, {})[ch.id] = room
 
     async def _ensure_interface(self, guild: discord.Guild):
-        # Only send interface if guild has run /setup (has Firestore config)
-        if db is not None:
-            try:
-                doc = await asyncio.to_thread(
-                    lambda: db.collection("guild_settings").document(str(guild.id)).get()
-                )
-                if not doc.exists or not doc.to_dict():
-                    log.info(f"_ensure_interface: guild {guild.id} has no config, skipping")
-                    return
-            except Exception as e:
-                log.error(f"_ensure_interface: Firestore check failed for {guild.id}: {e}")
-                return
+        # Only send interface if guild has the trigger channel (voice setup was done)
+        trigger = discord.utils.get(guild.voice_channels, name=TRIGGER_CHANNEL)
+        if not trigger:
+            log.info(f"_ensure_interface: guild {guild.id} has no trigger channel, skipping")
+            return
         ch = discord.utils.get(guild.text_channels, name=INTERFACE_CHANNEL)
         if not ch:
             log.warning(f"_ensure_interface: channel '{INTERFACE_CHANNEL}' not found in guild {guild.id}")
