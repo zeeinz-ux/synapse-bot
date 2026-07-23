@@ -14,7 +14,7 @@ INTERFACE_CHANNEL = "✨・interface"
 GAME_CATEGORY = "🎮 Game"
 VOICE_CATEGORY = "💬 Create Voice"
 GRACE_PERIOD = 300
-EMPTY_DELETE_DELAY = 300
+EMPTY_DELETE_DELAY = 10
 ROOM_NAME_TEMPLATE = "\U0001f5e3\ufe0f {name}'s Caffee"
 
 _rooms: dict[int, dict[int, 'VoiceRoom']] = {}
@@ -456,6 +456,18 @@ class VoiceInterfaceCog(commands.Cog):
                 _rooms.setdefault(guild.id, {})[ch.id] = room
 
     async def _ensure_interface(self, guild: discord.Guild):
+        # Only send interface if guild has run /setup (has Firestore config)
+        if db is not None:
+            try:
+                doc = await asyncio.to_thread(
+                    lambda: db.collection("guild_settings").document(str(guild.id)).get()
+                )
+                if not doc.exists or not doc.to_dict():
+                    log.info(f"_ensure_interface: guild {guild.id} has no config, skipping")
+                    return
+            except Exception as e:
+                log.error(f"_ensure_interface: Firestore check failed for {guild.id}: {e}")
+                return
         ch = discord.utils.get(guild.text_channels, name=INTERFACE_CHANNEL)
         if not ch:
             log.warning(f"_ensure_interface: channel '{INTERFACE_CHANNEL}' not found in guild {guild.id}")
@@ -544,10 +556,13 @@ class VoiceInterfaceCog(commands.Cog):
             guild_rooms = _rooms.get(guild.id, {})
             room = guild_rooms.get(before.channel.id)
             if room:
+                remaining = [m for m in before.channel.members if not m.bot]
                 if member.id == room.owner_id:
                     room.owner_left_at = time.time()
+                    if not remaining:
+                        await self._delete_room(before.channel.id, guild.id)
+                        return
                     await self._schedule_claim_check(room)
-                remaining = [m for m in before.channel.members if not m.bot]
                 if not remaining:
                     await self._schedule_empty_delete(room)
 
