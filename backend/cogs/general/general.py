@@ -347,9 +347,7 @@ class GeneralCog(commands.Cog):
             results["errors"].append(f"Gagal simpan fitur: {e}")
 
     def _dashboard_url(self, guild_id: int) -> str:
-        base = os.getenv("DASHBOARD_URL", "")
-        if not base:
-            base = "http://localhost:5000"
+        base = os.getenv("DASHBOARD_URL", "https://synapse-bot-dk9u.onrender.com")
         return f"{base}/dashboard/{guild_id}/settings"
 
     def get_uptime(self):
