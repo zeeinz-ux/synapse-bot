@@ -15,11 +15,10 @@ let config = {
   report_channel_id: "",
 };
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
   if (!guildId) return;
-  loadRoles();
-  loadChannels();
-  loadConfig();
+  await Promise.all([loadRoles(), loadChannels()]);
+  await loadConfig();
   setupEventListeners();
 });
 
@@ -86,7 +85,11 @@ function applyConfig() {
   document.getElementById("lockdown-duration").value = (config.lockdown_duration || 1800) / 60;
 
   const chSel = document.getElementById("report-channel");
-  if (chSel && config.report_channel_id) chSel.value = config.report_channel_id;
+  if (chSel && config.report_channel_id) {
+    if ([...chSel.options].some(o => o.value === config.report_channel_id)) {
+      chSel.value = config.report_channel_id;
+    }
+  }
 
   renderUserTags(config.whitelist_users || []);
   renderRoleTags(config.whitelist_roles || []);

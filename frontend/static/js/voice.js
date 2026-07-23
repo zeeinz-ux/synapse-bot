@@ -6,10 +6,10 @@ let config = {
   category_name: "",
 };
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
   if (!guildId) return;
-  loadCategories();
-  loadConfig();
+  await loadCategories();
+  await loadConfig();
   setupEventListeners();
 });
 
@@ -51,7 +51,9 @@ function applyConfig() {
   }
   if (config.category_name) {
     const sel = document.getElementById("category-name");
-    if (sel) sel.value = config.category_name;
+    if (sel && [...sel.options].some(o => o.value === config.category_name)) {
+      sel.value = config.category_name;
+    }
   }
 }
 
