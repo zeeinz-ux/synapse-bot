@@ -596,6 +596,34 @@ class VoiceInterfaceCog(commands.Cog):
                     except Exception:
                         pass
 
+    # ── User Prefs (Firestore) ──
+
+    async def _load_user_prefs(self, user_id: int) -> dict | None:
+        if db is None:
+            return None
+        try:
+            doc = await asyncio.to_thread(
+                lambda: db.collection("user_voice_prefs").document(str(user_id)).get()
+            )
+            if doc.exists:
+                data = doc.to_dict()
+                _user_prefs[user_id] = data
+                return data
+        except Exception:
+            pass
+        return None
+
+    async def _save_user_prefs(self, user_id: int):
+        prefs = _user_prefs.get(user_id)
+        if prefs is None or db is None:
+            return
+        try:
+            await asyncio.to_thread(
+                lambda: db.collection("user_voice_prefs").document(str(user_id)).set(prefs)
+            )
+        except Exception:
+            pass
+
     # ── Room Lifecycle ──
 
     async def _create_room(self, member: discord.Member, category: discord.CategoryChannel):
@@ -616,6 +644,8 @@ class VoiceInterfaceCog(commands.Cog):
         room = VoiceRoom(member.id, vc.id, guild.id)
         _rooms.setdefault(guild.id, {})[vc.id] = room
         prefs = _user_prefs.get(member.id)
+        if prefs is None:
+            prefs = await self._load_user_prefs(member.id)
         if prefs:
             room.locked = prefs.get("locked", False)
             room.visible = prefs.get("visible", True)
@@ -742,6 +772,14 @@ class VoiceInterfaceCog(commands.Cog):
             await interaction.response.send_message("Invalid number. Use 0-99.", ephemeral=True, delete_after=8)
             return
         room.limit = limit if limit > 0 else None
+        _user_prefs[interaction.user.id] = {
+            "locked": room.locked,
+            "visible": room.visible,
+            "waiting_room": room.waiting_room,
+            "limit": room.limit,
+            "region": room.region,
+        }
+        await self._save_user_prefs(interaction.user.id)
         try:
             await vc.edit(user_limit=limit)
             msg = f"User limit set to {limit}" if limit > 0 else "User limit removed (unlimited)"
@@ -803,6 +841,7 @@ async def _handle_privacy_action(self, interaction: discord.Interaction, channel
                 "limit": room.limit,
                 "region": room.region,
             }
+            await self._save_user_prefs(interaction.user.id)
             await self._update_interface(guild)
         except Exception as e:
             log.error(f"Privacy action error: {e}")
@@ -826,6 +865,14 @@ async def _handle_privacy_action(self, interaction: discord.Interaction, channel
                     except Exception:
                         pass
             room.waiting_users.clear()
+        _user_prefs[interaction.user.id] = {
+            "locked": room.locked,
+            "visible": room.visible,
+            "waiting_room": room.waiting_room,
+            "limit": room.limit,
+            "region": room.region,
+        }
+        await self._save_user_prefs(interaction.user.id)
         status = "\U0001f6aa Waiting Room: On" if room.waiting_room else "\U0001f6aa Waiting Room: Off"
         await interaction.response.send_message(status, ephemeral=True, delete_after=8)
         await self._update_interface(guild)
@@ -917,6 +964,14 @@ async def _handle_privacy_action(self, interaction: discord.Interaction, channel
             rtc_region = None if region_str == "auto" else discord.VoiceRegion(region_str)
             await vc.edit(rtc_region=rtc_region)
             room.region = region_str
+            _user_prefs[interaction.user.id] = {
+                "locked": room.locked,
+                "visible": room.visible,
+                "waiting_room": room.waiting_room,
+                "limit": room.limit,
+                "region": room.region,
+            }
+            await self._save_user_prefs(interaction.user.id)
             await interaction.response.send_message(f"\U0001f310 Region set to {region_str}", ephemeral=True, delete_after=8)
         except Exception as e:
             await interaction.response.send_message(f"Failed: {e}", ephemeral=True, delete_after=8)
