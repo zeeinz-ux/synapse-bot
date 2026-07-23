@@ -293,10 +293,13 @@ class GeneralCog(commands.Cog):
                         results["errors"].append(f"Channel {ch_name}: {e}")
                         done += 1
 
-            # ── 2. Enable features ──
+            # ── 2. Stats count langsung ──
+            await self._update_server_stats(guild)
+
+            # ── 3. Enable features ──
             await self._enable_features(guild_id, features, results)
 
-            # ── 3. Done ──
+            # ── 4. Done ──
             summary = (
                 f"✅ **Setup selesai!**\n\n"
                 f"🗑️ **{deleted_count}** default channel dibersihkan\n"
