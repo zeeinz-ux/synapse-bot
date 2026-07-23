@@ -39,7 +39,7 @@ from ...utils.firestore_stats import (
     firestore_retry_after,
     _is_quota_error,
 )
-from .prompt import SYSTEM_PROMPT_TEMPLATE, get_intent_instructions, SPAM_ANALYSIS_SYSTEM_PROMPT
+from .prompt import SYSTEM_PROMPT_TEMPLATE, get_intent_instructions, SPAM_ANALYSIS_SYSTEM_PROMPT, get_few_shot_examples, CHAIN_OF_THOUGHT_INSTRUCTION
 from .chat_enhancer import (
     run_tools,
     get_user_prefs,
@@ -328,7 +328,7 @@ class AIChat(commands.Cog):
         now = time_module.time()
         cached = _HISTORY_CACHE.get(key)
         if cached and cached[1] > now:
-            return cached[0]
+            return self._trim_history_for_context(cached[0])
         try:
             doc_ref = (
                 db.collection("guild_settings")
@@ -343,10 +343,21 @@ class AIChat(commands.Cog):
             history = data.get("history", [])
             result = [h for h in history if isinstance(h, dict) and "role" in h and "content" in h]
             _HISTORY_CACHE[key] = (result, now + _HISTORY_TTL)
-            return result
+            return self._trim_history_for_context(result)
         except Exception as e:
             print(f"[AI CHAT] Error ambil history: {e}")
             return []
+
+    def _trim_history_for_context(self, history: list) -> list:
+        total = 0
+        trimmed = []
+        for msg in reversed(history):
+            tokens = self._count_tokens(msg.get("content", ""))
+            if total + tokens > self.CONTEXT_MAX_TOKENS:
+                break
+            trimmed.insert(0, msg)
+            total += tokens
+        return trimmed
 
     async def _save_chat_history(
         self, guild_id: str, user_id: str, user_msg: str, assistant_msg: str, personality: str = DEFAULT_PERSONALITY
@@ -361,8 +372,7 @@ class AIChat(commands.Cog):
                 {"role": "user", "content": user_msg, "timestamp": now},
                 {"role": "assistant", "content": assistant_msg, "timestamp": now},
             ]
-            if len(new_history) > 10:
-                new_history = new_history[-10:]
+            new_history = self._trim_history_for_storage(new_history)
 
             doc_ref = (
                 db.collection("guild_settings")
@@ -400,6 +410,28 @@ class AIChat(commands.Cog):
 """
         except Exception:
             return ""
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # TOKEN-AWARE HISTORY MANAGEMENT
+    # ═══════════════════════════════════════════════════════════════════════
+
+    STORAGE_MAX_TOKENS = 5000
+    CONTEXT_MAX_TOKENS = 8000
+
+    @staticmethod
+    def _count_tokens(text: str) -> int:
+        return max(1, len(text) // 4)
+
+    def _trim_history_for_storage(self, history: list) -> list:
+        total = 0
+        trimmed = []
+        for msg in reversed(history):
+            tokens = self._count_tokens(msg.get("content", ""))
+            if total + tokens > self.STORAGE_MAX_TOKENS:
+                break
+            trimmed.insert(0, msg)
+            total += tokens
+        return trimmed
 
     # ═══════════════════════════════════════════════════════════════════════
     # MASTER FALLBACK ENGINE (5-Tier)
@@ -782,14 +814,81 @@ class AIChat(commands.Cog):
             loaded = loaded[:RAG_CACHE_MAX_CHUNKS]
             print(f"[RAG] Guild {guild_id}: truncated to {RAG_CACHE_MAX_CHUNKS} chunks")
         _GUILD_RAG_CACHE[guild_id] = (loaded, time_module.time())
+
+        from ...utils.rag_engine import sync_existing_to_vector
+        try:
+            await sync_existing_to_vector(guild_id, self.session)
+        except Exception:
+            pass
+
         return loaded
 
-    async def _get_rag_relevant(self, guild_id: str, query: str) -> list[str]:
-        rag_chunks = await self._get_rag_chunks(guild_id)
-        if not rag_chunks:
-            return []
-        from ...utils.rag_engine import search_chunks
-        return search_chunks(rag_chunks, query)
+    async def _get_rag_relevant(self, guild_id: str, query: str, history: list | None = None) -> list[str]:
+        from ...utils.rag_engine import vector_search, keyword_search
+
+        search_query = query
+        if history and len(history) >= 2:
+            last_user_msg = None
+            for msg in reversed(history):
+                if msg["role"] == "user":
+                    last_user_msg = msg["content"]
+                    break
+            if last_user_msg and self._is_followup(query):
+                search_query = f"{last_user_msg} {query}"
+
+        expanded = self._expand_query(search_query)
+        seen = set()
+        results = []
+        for q in expanded:
+            try:
+                hits = await vector_search(guild_id, q, session=self.session)
+                for h in hits:
+                    if h not in seen:
+                        results.append(h)
+                        seen.add(h)
+                        if len(results) >= 5:
+                            break
+            except Exception:
+                pass
+            if len(results) >= 5:
+                break
+
+        if len(results) < 3:
+            try:
+                keyword_hits = await keyword_search(guild_id, query)
+                for h in keyword_hits:
+                    if h not in seen:
+                        results.append(h)
+                        seen.add(h)
+            except Exception:
+                pass
+
+        return results[:5]
+
+    def _is_followup(self, msg: str) -> bool:
+        followup_keywords = {"jelasin", "detail", "lanjut", "terus", "gimana",
+                             "maksudnya", "ini", "dia", "mereka",
+                             "lebih", "lagi", "contoh", "lengkap", "jelas",
+                             "kayak", "contohnya", "misalnya"}
+        referential = {"ini", "itu", "dia", "mereka", "nya"}
+        words = msg.lower().split()
+        word_set = set(words)
+        if word_set & followup_keywords:
+            return True
+        if len(words) < 3 and word_set & referential:
+            return True
+        if len(words) < 2:
+            return True
+        return False
+
+    def _expand_query(self, query: str) -> list[str]:
+        queries = [query]
+        words = [w for w in query.split() if len(w) > 2]
+        if len(words) > 4:
+            short = " ".join(words[:3])
+            if short != query:
+                queries.append(short)
+        return queries
 
     async def _process_ai_chat(self, ctx, user_message: str, guild: discord.Guild, user: discord.User, images: list[dict] | None = None):
         guild_id = str(guild.id)
@@ -865,7 +964,12 @@ class AIChat(commands.Cog):
         server_ctx = enhance_server_context(server_ctx, intent_instructions, user_prefs)
         system_prompt = SYSTEM_PROMPT_TEMPLATE.replace("{personality}", personality).replace("{server_context}", server_ctx).replace("{creator}", self._creator_name)
 
-        relevant = await self._get_rag_relevant(guild_id, user_message)
+        few_shot = get_few_shot_examples(intent)
+        if few_shot:
+            system_prompt += few_shot
+        system_prompt += CHAIN_OF_THOUGHT_INSTRUCTION
+
+        relevant = await self._get_rag_relevant(guild_id, user_message, history)
         if relevant:
             rag_ctx = "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
             system_prompt += rag_ctx
@@ -938,7 +1042,13 @@ class AIChat(commands.Cog):
         user_prefs = await get_user_prefs(guild_id, user_id)
         server_ctx = enhance_server_context(server_ctx, intent_instructions, user_prefs)
         system_prompt = SYSTEM_PROMPT_TEMPLATE.replace("{personality}", personality).replace("{server_context}", server_ctx).replace("{creator}", self._creator_name)
-        relevant = await self._get_rag_relevant(guild_id, user_message)
+
+        few_shot = get_few_shot_examples(intent)
+        if few_shot:
+            system_prompt += few_shot
+        system_prompt += CHAIN_OF_THOUGHT_INSTRUCTION
+
+        relevant = await self._get_rag_relevant(guild_id, user_message, history)
         if relevant:
             system_prompt += "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
 

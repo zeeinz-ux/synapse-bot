@@ -11,3 +11,4 @@ tenacity==8.3.0
 Flask-Session==0.8.0
 easy-pil==0.6.1
 beautifulsoup4==4.13.3
+chromadb==1.5.9

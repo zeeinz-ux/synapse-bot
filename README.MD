@@ -1,221 +1,368 @@
-# Synapse — Discord Bot
+<div align="center">
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/discord.py-2.7.1-5865F2?style=for-the-badge&logo=discord&logoColor=white" />
+  <img src="https://img.shields.io/badge/Flask-3.1.3-000000?style=for-the-badge&logo=flask&logoColor=white" />
+  <img src="https://img.shields.io/badge/Firestore-Free-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" />
+  <img src="https://img.shields.io/badge/ChromaDB-1.5.9-FF6B6B?style=for-the-badge&logo=chromadb&logoColor=white" />
+  <img src="https://img.shields.io/badge/Railway-Deployed-0B0D0E?style=for-the-badge&logo=railway&logoColor=white" />
+  <br/>
+  <img src="https://img.shields.io/badge/License-Proprietary-red?style=flat-square" />
+  <img src="https://img.shields.io/badge/Status-Active-00C853?style=flat-square" />
+  <img src="https://img.shields.io/badge/Quality-Manual_Only-FF6D00?style=flat-square" />
+</div>
 
-A multifunctional Discord bot with a web dashboard, AI chat (5-tier streaming + RAG), moderation with image spam detection, leveling, donation tracking, and server management tools.
+<h1 align="center">🧠 Synapse — Discord Bot</h1>
+<p align="center">
+  <i>Multifunctional AI-powered Discord bot with web dashboard, 5-tier AI chat, RAG knowledge base, moderation, leveling, and more.</i>
+</p>
 
-## Tech Stack
+---
+
+## ✨ Features at a Glance
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🤖 AI Chat</h3>
+      <ul>
+        <li>5-tier fallback: Gemini → Groq → Mistral → Cohere → OpenRouter</li>
+        <li>⚡ Streaming responses via <code>/ask</code></li>
+        <li>📚 RAG knowledge base with <b>ChromaDB vector search</b></li>
+        <li>🌐 Web search integration</li>
+        <li>🎯 Intent routing + few-shot prompting</li>
+        <li>🧠 Chain-of-Thought for technical queries</li>
+        <li>🔄 Multi-turn conversation awareness</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3>🛡️ Moderation</h3>
+      <ul>
+        <li>🔍 Heuristic spam scoring (URLs, keywords, homoglyphs)</li>
+        <li>🖼️ 3-layer image spam detection</li>
+        <li>👁️ Gemini Vision + Google Cloud OCR</li>
+        <li>⚡ 3-strike system (timeout → kick → ban)</li>
+        <li>🆕 New account auto-detection</li>
+        <li>🚨 Raid protection</li>
+        <li>🎯 AI-powered borderline case analysis</li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>📊 Web Dashboard</h3>
+      <ul>
+        <li>📈 Real-time server stats</li>
+        <li>⚙️ Full per-guild configuration</li>
+        <li>📄 RAG document upload (TXT/PDF)</li>
+        <li>💬 Message builder with embeds</li>
+        <li>🌐 i18n (Indonesian & English)</li>
+        <li>🔐 Discord OAuth2 login</li>
+      </ul>
+    </td>
+    <td width="50%" valign="top">
+      <h3>🎮 Community Features</h3>
+      <ul>
+        <li>⭐ Leveling & XP with rank cards</li>
+        <li>👋 Dual-style welcome (embed/banner)</li>
+        <li>💔 Leave/ban/boost announcements</li>
+        <li>📈 Boost tracker with stats</li>
+        <li>📝 Auto-responder (regex + cooldown)</li>
+        <li>📸 Photobox — browser-to-Discord photos</li>
+        <li>💰 Donation tracking</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 🏗️ Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Runtime | Python 3.11 |
-| Bot Library | discord.py 2.7.1 |
-| Web Server | Flask 3.1.3 + Gunicorn |
-| Database | Firebase Firestore (free tier) |
-| AI Chat | Gemini → Groq → Mistral → Cohere → OpenRouter (5-tier fallback, streaming, RAG) |
-| Image Processing | Pillow, easy-pil (leveling cards) |
-| Anti-Spam | Heuristic scoring + average perceptual hash + Google Cloud Vision OCR |
-| Sessions | Flask-Session (server-side filesystem) |
-| Deployment | Docker → Railway + UptimeRobot |
+| ⚙️ **Runtime** | Python 3.11 |
+| 🎮 **Bot Library** | discord.py 2.7.1 |
+| 🌐 **Web Server** | Flask 3.1.3 + Gunicorn |
+| 🗄️ **Primary DB** | Firebase Firestore (free tier) |
+| 🔍 **Vector DB** | ChromaDB (persistent, file-based) |
+| 🤖 **AI Providers** | Gemini • Groq • Mistral • Cohere • OpenRouter |
+| 🖼️ **Image Processing** | Pillow, easy-pil |
+| 🛡️ **Anti-Spam** | Heuristic scoring + pHash + Google Cloud Vision OCR |
+| 🔐 **Sessions** | Flask-Session (server-side filesystem) |
+| 🚀 **Deployment** | Docker → Railway + UptimeRobot |
 
-## Features
+---
 
-### Discord Cogs
+## 🧠 AI Chat Architecture
 
-| Cog | Description |
-|-----|-------------|
-| **AI Chat** | 5-provider fallback with **streaming** (Gemini → Groq → Mistral → Cohere → OpenRouter), **RAG Knowledge Base** (TXT/PDF upload via dashboard, keyword search, auto-inject into context), web search, intent routing, personality, temperature, per-guild Gemini model selection, per-guild rate limits, channel restriction, circuit breaker, chat history (Firestore). |
-| **Welcome** | Dual-style embed/banner auto-welcome with drag-drop image upload (Firestore base64). |
-| **Leave** | Auto-leave announcement (embed/banner). |
-| **Ban** | Auto-ban announcement (embed/banner). |
-| **Boost Announce** | Auto-boost announcement (embed/banner). |
-| **Boost Tracker** | Track boost/unboost history with stats. |
-| **Moderation** | Spam detection with heuristic scoring + image spam (perceptual hash, OCR). 3-strike escalation (timeout 24h → kick → ban). New account detection with configurable action (ban/kick/timeout) and max age. |
-| **Leveling** | XP system with rank card (easy-pil) & leaderboard. |
-| **Auto-Responder** | Keyword-triggered replies with regex, cooldown, channel filters. |
-| **Photobox** | `/photobox` command — creates a webhook + sends a link to take photos from browser directly into the channel. |
-| **General** | Ping, stats, user info commands. |
-| **Help** | Paginated help menu with per-command detail. |
+```
+                    ┌──────────────┐
+                    │  User Query  │
+                    └──────┬───────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+        ┌──────────┐ ┌──────────┐ ┌──────────┐
+        │  Intent  │ │  RAG    │ │  Web    │
+        │  Router  │ │ Vector  │ │ Search  │
+        └──────────┘ │  Search │ └──────────┘
+                     └──────────┘
+                           │
+                    ┌──────▼──────┐
+                    │   System    │
+                    │   Prompt    │
+                    │ (Few-shot + │
+                    │  CoT + RAG) │
+                    └──────┬──────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+        ┌──────────┐ ┌──────────┐ ┌──────────┐
+        │  Gemini  │ │  Groq   │ │ Mistral  │
+        │  (Tier1) │ │ (Tier2) │ │ (Tier3)  │
+        └──────────┘ └──────────┘ └──────────┘
+              │            │            │
+        ┌──────────┐ ┌──────────┐ ┌────────────┐
+        │  Cohere  │ │OpenRouter│ │  Fallback  │
+        │ (Tier4)  │ │ (Tier5)  │ │  Handler   │
+        └──────────┘ └──────────┘ └────────────┘
+                           │
+                    ┌──────▼──────┐
+                    │   Response  │
+                    │  (Streaming │
+                    │  or Batch)  │
+                    └─────────────┘
+```
 
-### Image Spam Detection (3-Layer)
+### 🔁 Fallback Chain
 
-| Layer | Technique |
-|-------|-----------|
-| L1 | Image rate limit (2 images / 10s per user) |
-| L2 | Average perceptual hash + Hamming distance — duplicate & known spam image matching |
-| L3 | Google Cloud Vision OCR — text extraction + keyword matching on scam phrases |
+| Tier | Provider | Model | Condition |
+|------|----------|-------|-----------|
+| 1️⃣ | **Gemini** | `gemini-3.6-flash` | Primary — circuit breaker after 3 consecutive fails (2h cooldown), 200 requests reserved for vision |
+| 2️⃣ | **Groq** | Llama 3.3 70B | Backup — used when Gemini is down or over quota |
+| 3️⃣ | **Mistral** | open-mistral-nemo | Third tier |
+| 4️⃣ | **Cohere** | command-a-03-2025 | Fourth tier |
+| 5️⃣ | **OpenRouter** | Auto-prioritize free models | Last resort — also used for image analysis when Gemini is unavailable |
 
-### Web Dashboard
+---
 
-| Page | Route | Description |
-|------|-------|-------------|
-| Landing | `/` | Bot stats, sakura petals animation, language switcher |
-| Dashboard | `/dashboard/<guild>/` | Server overview — real-time stats |
-| Welcome | `/dashboard/<guild>/welcome` | Welcome settings with live preview |
-| Leave | `/dashboard/<guild>/welcome/leave` | Leave announcement config |
-| Ban | `/dashboard/<guild>/welcome/ban` | Ban announcement config |
-| Boost | `/dashboard/<guild>/welcome/boost` | Boost announce config |
-| Boost Tracker | `/dashboard/<guild>/boost` | Boost history & stats |
-| Donation | `/dashboard/<guild>/donation` | Donation history & stats |
-| Donation Settings | `/dashboard/<guild>/donation/settings` | Webhook URL, messages |
-| AI Chat | `/dashboard/<guild>/ai-chat` | AI Chat settings (personality, temperature, model, rate limits) |
-| RAG Knowledge | `/dashboard/<guild>/rag` | Upload/manage TXT/PDF documents for AI context |
-| Anti-Spam | `/dashboard/<guild>/anti-spam` | Spam threshold config + new account settings |
-| Auto-Responders | `/dashboard/<guild>/auto-responders` | Auto-responder CRUD |
-| Actions | `/dashboard/<guild>/actions` | Level rewards & moderation actions |
-| Templates | `/dashboard/<guild>/templates` | Message templates |
-| Message Builder | `/dashboard/<guild>/message-builder` | Compose & send Discord messages from dashboard |
-| Settings | `/dashboard/<guild>/settings` | Guild feature toggles |
-
-### i18n / Multilingual Dashboard
-
-The dashboard supports **session-based language switching** via JSON translation files.
-
-| Feature | Detail |
-|---------|--------|
-| Storage | Flask session (`session["lang"]`) — persists across login |
-| Default | `id` (Indonesian) |
-| Available | `id`, `en` |
-| Switcher | Dropdown in landing page navbar |
-| File format | `backend/web/translations/{lang}.json` — plain key-value pairs |
-| Template usage | `{% raw %}{{ "nav.home" \| t }}{% endraw %}` — Jinja2 filter |
-| Fallback | Missing keys fall back to `id.json`, then return the key as-is |
-
-Translation files live at `backend/web/translations/`. To add a new language:
-1. Create `{code}.json` in that folder (copy structure from `en.json`)
-2. Add a `<button data-lang="code">` in `frontend/pages/partials/navbar.html`
-
-### Auth & Permissions
-
-- Discord OAuth2 login (`identify` + `guilds` scopes)
-- Guild sidebar filtered to servers where user has **ADMINISTRATOR** or **MANAGE_GUILD** and the bot is present
-- Per-request guild access guard
-- Feature-level per-guild settings in Firestore
-- Guild lifecycle: auto-create settings on join, clean up on remove
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 discord-bot/
 ├── backend/
-│   ├── cogs/                  # Discord bot modules (auto-loaded via os.walk)
-│   │   ├── ai_chat/           # AI Chat (5-tier streaming + RAG, web search, intent router)
-│   │   │   └── providers/     # Modular providers: Gemini, Groq, Mistral, Cohere, OpenRouter
-│   │   ├── auto_response/     # Keyword auto-responder
-│   │   ├── ban_settings/      # Ban announcement
-│   │   ├── boost/             # Boost tracker
-│   │   ├── boost_announce/    # Boost announcement
-│   │   ├── database/          # Firebase initialization (firebase_setup)
-│   │   ├── general/           # Ping, stats, userinfo
-│   │   ├── help/              # Help command
-│   │   ├── leave_settings/    # Leave announcement
-│   │   ├── leveling/          # XP/Leveling with rank cards
-│   │   ├── moderation/        # Spam + image spam detection + new account detection
-│   │   ├── photobox/          # Browser-capture photo to Discord via webhook
-│   │   └── welcome/           # Welcome embed/banner
-│   ├── utils/                 # Shared helpers
-│   │   ├── rag_engine.py      # RAG chunking, keyword search, Firestore CRUD
-│   │   ├── spam_engine.py     # Heuristic spam scoring + new account detection
-│   │   ├── image_spam.py      # Perceptual hash + OCR detection
-│   │   ├── intent_router.py   # AI chat intent classification
-│   │   ├── auto_responder_store.py  # Auto-responder Firestore CRUD
-│   │   ├── firestore_stats.py # Debounced, circuit-broken Firestore writes
-│   │   ├── formatters.py      # Uptime formatter
-│   │   ├── constants.py       # Bot constants
-│   │   └── logger.py          # Rotating file + stdout logger
-│   ├── web/                   # Flask dashboard
-│   │   ├── web_app.py         # 70+ routes, OAuth2, settings pages
-│   │   └── translations/      # JSON translation files (id.json, en.json, ...)
-│   ├── scripts/               # Utility scripts
-│   │   └── backup_firestore.py # Firestore backup & restore CLI
-│   └── main.py                # Bot entrypoint (setup_hook auto-loads cogs)
+│   ├── cogs/                    # Discord bot modules (auto-loaded via os.walk)
+│   │   ├── ai_chat/             # 🤖 AI Chat (5-tier + RAG + web search)
+│   │   │   ├── providers/       #   └─ Modular providers per API
+│   │   │   ├── ai_chat.py       #   └─ Main cog: orchestrator, rate limits, history
+│   │   │   ├── prompt.py        #   └─ System prompts + few-shot + CoT
+│   │   │   ├── chat_enhancer.py #   └─ User prefs, server context
+│   │   │   └── web_search.py    #   └─ Web search integration
+│   │   ├── auto_response/       # 💬 Keyword auto-responder
+│   │   ├── ban_settings/        # 🚫 Ban announcements
+│   │   ├── boost/               # 📈 Boost tracker
+│   │   ├── boost_announce/      # 🎉 Boost announcements
+│   │   ├── database/            # 🔥 Firebase Firestore init
+│   │   ├── general/             # ℹ️ Ping, stats, userinfo
+│   │   ├── help/                # ❓ Paginated help menu
+│   │   ├── leave_settings/      # 👋 Leave announcements
+│   │   ├── leveling/            # ⭐ XP/Leveling with rank cards
+│   │   ├── moderation/          # 🛡️ Spam + image spam + raid protection
+│   │   ├── photobox/            # 📸 Browser-capture photos
+│   │   └── welcome/             # 🎊 Welcome embed/banner
+│   ├── utils/                   # 🔧 Shared helpers
+│   │   ├── rag_engine.py        #   └─ RAG chunking + vector & keyword search
+│   │   ├── rag_vector.py        #   └─ ChromaDB wrapper + Gemini embedding
+│   │   ├── spam_engine.py       #   └─ Heuristic spam scoring
+│   │   ├── image_spam.py        #   └─ Perceptual hash + OCR detection
+│   │   ├── intent_router.py     #   └─ AI chat intent classification
+│   │   ├── firestore_stats.py   #   └─ Debounced, circuit-broken Firestore writes
+│   │   ├── formatters.py        #   └─ Uptime formatter
+│   │   ├── constants.py         #   └─ Bot constants
+│   │   ├── auto_responder_store.py # └─ Auto-responder Firestore CRUD
+│   │   └── logger.py            #   └─ Rotating file + stdout logger
+│   ├── web/                     # 🌐 Flask dashboard
+│   │   ├── web_app.py           #   └─ 70+ routes, OAuth2, settings pages
+│   │   └── translations/        #   └─ i18n JSON files
+│   ├── scripts/                 # 🛠️ Utility scripts
+│   │   └── backup_firestore.py  #   └─ Firestore backup & restore CLI
+│   └── main.py                  # 🚀 Bot entrypoint
 ├── frontend/
-│   ├── pages/                 # Jinja2 HTML pages
-│   │   ├── dashboard/         # Dashboard pages (extends base.html)
-│   │   └── partials/          # navbar, footer, layout partials
-│   └── static/
-│       ├── css/               # Page-specific stylesheets
-│       ├── js/                # Page-specific scripts
-│       └── fonts/             # Roboto font family (variable + static)
-├── control_queue/             # Inter-process message queue (dashboard → bot)
-├── cookies/                   # YouTube cookies (Netscape format, optional — from env)
-├── flask_session/             # Flask-Session file storage (gitignored)
-├── Dockerfile                 # Production image (python:3.11-slim)
-├── Procfile                   # honco: web (gunicorn) + worker (bot)
-├── Procfile.dev               # Local dev Procfile
-└── railway.json               # Railway deploy config
+│   ├── pages/                   # 📄 Jinja2 HTML pages
+│   └── static/                  # 🎨 CSS, JS, fonts
+├── data/
+│   └── chroma_db/               # 📊 ChromaDB vector store (gitignored)
+├── control_queue/               # 📨 Dashboard → bot IPC
+├── cookies/                     # 🍪 YouTube cookies (optional)
+├── flask_session/               # 🔐 Session storage (gitignored)
+├── Dockerfile                   # 🐳 Production image
+├── Procfile / Procfile.dev      # 📋 Honcho process definitions
+└── railway.json                 # 🚄 Railway deploy config
 ```
 
-## Deployment
+---
 
-### Local development
+## 🚀 Getting Started
+
+### Prerequisites
+- Python 3.11+
+- Firebase service account (Firestore free tier)
+- At least one AI API key (recommended: Gemini + Groq)
+
+### Local Development
 
 ```bash
-# Install deps
+# 1️⃣ Install dependencies
 pip install -r requirements.txt
 
-# Run bot + web dashboard
+# 2️⃣ Set up environment
+cp backend/.env.example backend/.env
+# Edit backend/.env with your tokens and keys
+
+# 3️⃣ Run everything (bot + web dashboard)
 honcho start -f Procfile.dev
-# or just the bot:
-python backend/main.py
-# or web only:
-python -m backend.web.web_app
+
+# Or run individually:
+python backend/main.py              # Bot only
+python -m backend.web.web_app       # Web dashboard only
 ```
 
 ### Production (Railway)
 
-- **Build:** `Dockerfile` (Python 3.11-slim, installs curl + unzip)
-- **Start:** `honcho start -f Procfile`
-  - `web`: gunicorn `--bind 0.0.0.0:$PORT --workers 2 --timeout 120 backend.web.web_app:app`
-  - `worker`: `python backend/main.py`
-- **24/7:** UptimeRobot pings every 5 min to prevent sleep
-- **Module path:** `PYTHONPATH=/app` set via Dockerfile + runtime injection in `main.py`
+```dockerfile
+# Dockerfile builds python:3.11-slim image
+# Start command: honcho start -f Procfile
+```
+
+- **Web**: `gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 backend.web.web_app:app`
+- **Worker**: `python backend/main.py`
+- **UptimeRobot** pings every 5 min to prevent Railway from sleeping
+- `PYTHONPATH=/app` set via Dockerfile (required for `backend.` imports)
 
 ### Firestore Backup
 
 ```bash
-python backend/scripts/backup_firestore.py backup       # backup all collections
-python backend/scripts/backup_firestore.py restore <file> [--dry-run]
-python backend/scripts/backup_firestore.py list
-python backend/scripts/backup_firestore.py info <file>
+python backend/scripts/backup_firestore.py backup              # 📦 Backup all collections
+python backend/scripts/backup_firestore.py restore <file>      # ♻️ Restore from backup
+python backend/scripts/backup_firestore.py restore <file> --dry-run  # 👁️ Preview restore
+python backend/scripts/backup_firestore.py list                # 📋 List backups
+python backend/scripts/backup_firestore.py info <file>         # ℹ️ Backup details
 ```
 
-## Environment Variables
+---
 
-See `backend/.env.example` for the full list. Key variables:
+## 🔐 Required Environment Variables
 
-- `TOKEN_BOT`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`
-- `FLASK_SECRET_KEY`
-- `FIREBASE_KEY` — path to service account JSON, raw JSON string, or base64-encoded JSON
-- `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `COHERE_API_KEY`, `OPENROUTER_API_KEY` — at least one for AI Chat (recommended: Gemini + Groq)
-- `GOOGLE_VISION_API_KEY` — for OCR spam detection
-- `PUBLIC_URL` — public-facing URL for photobox links
-- `COOKIES_CONTENT` — optional YouTube cookies (written to `cookies/cookies.txt`)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `TOKEN_BOT` | ✅ | Discord bot token |
+| `DISCORD_CLIENT_ID` | ✅ | Discord OAuth2 client ID |
+| `DISCORD_CLIENT_SECRET` | ✅ | Discord OAuth2 client secret |
+| `DISCORD_REDIRECT_URI` | ✅ | OAuth2 callback URL |
+| `FLASK_SECRET_KEY` | ✅ | Flask session encryption key |
+| `FIREBASE_KEY` | ✅ | Path/JSON/base64 of Firebase service account |
+| `GEMINI_API_KEY` | ⚠️ | Primary AI provider (recommended) |
+| `GROQ_API_KEY` | ⚠️ | Backup AI provider (recommended) |
+| `GOOGLE_VISION_API_KEY` | ❔ | OCR spam detection |
+| `PUBLIC_URL` | ❔ | Photobox public URL |
 
-### Firestore Tuning
+For full list, see `backend/.env.example`.
 
-| Env | Default | Description |
-|-----|---------|-------------|
-| `FIRESTORE_DEBOUNCE` | 30s | Write coalescing window |
-| `FIRESTORE_CIRCUIT_SEC` | 900s (15 min) | Circuit breaker cooldown on 429 |
-| `FIRESTORE_HASH_SALT` | synapse-v1 | Salt for dirty-check hashing |
+---
 
-## Architecture Notes
+## 🏗️ Architecture Notes
 
-- **Firestore writes are debounced** (default 30s) and **circuit-broken** on 429 errors (default 15min cooldown). All writes go through `asyncio.to_thread()` — never call Firestore directly in async context.
-- **AI Chat fallback chain**: Gemini → Groq → Mistral → Cohere → OpenRouter (5 tiers). Both batch and streaming modes use the same fallback chain. Circuit breaker on Gemini (3 consecutive fails → skip 2h). Gemini daily quota reserve (200 requests reserved for vision).
-- **Streaming**: Real-time token-by-token response. `/ask` slash command uses streaming with progressive message edits (~1s interval). Mention-based chat uses batch mode.
-- **RAG Knowledge Base**: Upload TXT/PDF documents via dashboard. Text is chunked (500 chars, 50 overlap), stored in Firestore. On each AI query, top 5 matching chunks (keyword frequency scoring) are injected into the system prompt. No embedding API cost.
-- **Per-guild configuration**: Personality, temperature, Gemini model, rate limit max/window/cooldown, channel restriction — all configurable per server from the dashboard.
-- **Cog auto-load**: `os.walk` on `backend/cogs/`. Skips `__init__.py` and `firebase_setup.py`. Any `.py` with a `setup()` function is loaded.
-- **Memory monitor**: Reads `/proc/self/status` VmRSS every 5 min, triggers `gc.collect()` when RSS exceeds 300MB (Railway 512MB limit).
-- **Control queue**: Inter-process communication via JSON files in `control_queue/`. Dashboard writes → bot consumes every 5s. Used for sending Discord messages and triggering RAG cache refreshes.
-- **Prefix `!`** alongside slash commands (hybrid, discord.py). Slash commands sync on `on_ready`.
-- **Console language**: Mixed Indonesian + English throughout codebase.
-- **i18n**: Session-based multilingual dashboard via `backend/web/translations/*.json`. Uses a Jinja2 filter `{{ "key" | t }}` with automatic fallback to Indonesian. Add a new language by creating a JSON file + dropdown option.
-- **Image uploads**: Images >400KB are auto-compressed before storing as base64 data URLs in Firestore. Max upload 50MB.
-- **Anti-spam moderation**: 3-strike system (timeout 24h → kick → ban) per-guild. New accounts (< configurable max age) can be set to ban/kick/timeout directly. Configurable from dashboard anti-spam page.
+### 🔥 Firestore
+- **All writes go through `asyncio.to_thread()`** — the Firebase Admin SDK is synchronous
+- Debounced writes (default 30s, env `FIRESTORE_DEBOUNCE`)
+- Circuit breaker on 429 errors (default 15min cooldown, env `FIRESTORE_CIRCUIT_SEC`)
+- Shared across cogs via `firestore_circuit_open()` and `trip_firestore_circuit()`
 
-## License
+### 🔍 RAG Knowledge Base
+- Documents (TXT/PDF) are chunked (500 chars, 50 overlap) on upload
+- Chunks stored in **Firestore** (backup + listing) + **ChromaDB** (vector search)
+- Embeddings: Gemini API (`models/gemini-embedding-001`, 3072-dim, free tier)
+- Fallback: hash-based embedding if Gemini is down
+- Auto-sync existing docs to ChromaDB on first RAG query per guild
 
-Proprietary — All Rights Reserved. See `LICENSE` for the full license agreement.
+### 🤖 AI Chat Enhancements
+- **Few-shot examples** injected per intent (coding, akademik, sains)
+- **Chain-of-Thought** instruction for technical/math/logic queries
+- **Token-aware history** — storage capped at 5K tokens, context capped at 8K tokens
+- **Query expansion** — multiple search variants for better RAG coverage
+- **Multi-turn awareness** — follow-ups reference previous conversation context
 
-© 2026 zeeinz-ux. Unauthorized use, reproduction, modification, or distribution is prohibited.
+### 🛡️ Anti-Spam Architecture
+```
+Text Detection                    Image Detection
+┌──────────────┐                  ┌──────────────┐
+│ Heuristic    │                  │ L1: Rate     │
+│ Scoring      │  score≥5         │ Limit (4/10s)│
+│ (keywords,   │ ───────────────► │              │
+│  URLs, age,  │                  │ L2: pHash   │
+│  duplicates) │  score 1-4      │ + Hamming    │
+│              │ ───→ AI analyze ──► Distance   │
+│ L1: skip AI  │                  │              │
+│ if score≥10  │                  │ L3: Gemini  │
+│ or account   │                  │ Vision +    │
+│ < 60d        │                  │ Google OCR  │
+└──────────────┘                  └──────────────┘
+        │                               │
+        └─────────── Strike System ─────┘
+                    ┌──────────┐
+                    │ Strike 1 │ → 24h timeout
+                    ├──────────┤
+                    │ Strike 2 │ → Kick
+                    ├──────────┤
+                    │ Strike 3 │ → Ban
+                    └──────────┘
+              (resets after 24h clean)
+```
+
+---
+
+## 🌐 Dashboard Routes
+
+| Page | Route | Description |
+|------|-------|-------------|
+| 🏠 | `/` | Landing page — bot stats, sakura petals animation |
+| 📊 | `/dashboard/<guild>/` | Server overview — real-time stats |
+| 👋 | `/dashboard/<guild>/welcome` | Welcome settings with live preview |
+| 👋 | `/dashboard/<guild>/welcome/leave` | Leave announcement config |
+| 🚫 | `/dashboard/<guild>/welcome/ban` | Ban announcement config |
+| 🎉 | `/dashboard/<guild>/welcome/boost` | Boost announce config |
+| 📈 | `/dashboard/<guild>/boost` | Boost history & stats |
+| 💰 | `/dashboard/<guild>/donation` | Donation history & stats |
+| ⚙️ | `/dashboard/<guild>/donation/settings` | Donation webhook, messages |
+| 🤖 | `/dashboard/<guild>/ai-chat` | AI Chat settings |
+| 📚 | `/dashboard/<guild>/rag` | RAG document management |
+| 🛡️ | `/dashboard/<guild>/anti-spam` | Spam threshold & config |
+| 💬 | `/dashboard/<guild>/auto-responders` | Auto-responder CRUD |
+| ⚡ | `/dashboard/<guild>/actions` | Level rewards & actions |
+| 📝 | `/dashboard/<guild>/templates` | Message templates |
+| ✏️ | `/dashboard/<guild>/message-builder` | Compose & send messages |
+| 🔧 | `/dashboard/<guild>/settings` | Guild feature toggles |
+
+---
+
+## 🌐 i18n / Multilingual Dashboard
+
+| Feature | Detail |
+|---------|--------|
+| 🗄️ **Storage** | Flask session (`session["lang"]`) — persists across login |
+| 🌏 **Default** | `id` (Indonesian) |
+| ✅ **Available** | `id`, `en` |
+| 🔄 **Switcher** | Dropdown in landing page navbar |
+| 📁 **Files** | `backend/web/translations/{lang}.json` |
+| 🎨 **Template** | `{{ "key" \| t }}` Jinja2 filter |
+| 🔁 **Fallback** | Missing keys → `id.json` → raw key |
+
+---
+
+## 📜 License
+
+<p align="center">
+  <b>Proprietary — All Rights Reserved.</b>
+  <br/>
+  <i>© 2026 zeeinz-ux. Unauthorized use, reproduction, modification, or distribution is prohibited.</i>
+</p>

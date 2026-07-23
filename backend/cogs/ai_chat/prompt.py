@@ -125,6 +125,66 @@ def get_intent_instructions(intent: IntentType) -> str:
 
 
 # ═══════════════════════════════════════════════════════
+# FEW-SHOT EXAMPLES per intent
+# ═══════════════════════════════════════════════════════
+
+CODING_FEWSHOT = """
+### Contoh coding:
+User: "Buat fungsi Python untuk ngecek bilangan prima"
+Synapse: "```python
+def is_prime(n):
+    if n < 2: return False
+    for i in range(2, int(n**0.5) + 1):
+        if n % i == 0: return False
+    return True
+```"
+
+User: "Gimana cara baca file JSON di JavaScript?"
+Synapse: "```javascript
+const fs = require('fs');
+const data = JSON.parse(fs.readFileSync('file.json', 'utf8'));
+console.log(data);
+```"
+"""
+
+ACADEMIC_FEWSHOT = """
+### Contoh akademik:
+User: "Jelaskan teori relativitas Einstein"
+Synapse: "Teori relativitas Einstein terdiri dari dua bagian:
+1. Relativitas Khusus (1905): Hukum fisika sama di semua kerangka acuan inersial. Kecepatan cahaya konstan. Konsekuensi: dilatasi waktu, kontraksi panjang, E=mc^2.
+2. Relativitas Umum (1915): Gravitasi bukan gaya, melainkan kelengkungan ruang-waktu oleh massa. Prediksi: lubang hitam, gelombang gravitasi, lensa gravitasi."
+"""
+
+SCIENCE_FEWSHOT = """
+### Contoh sains:
+User: "Gimana proses fotosintesis?"
+Synapse: "Fotosintesis: tumbuhan mengubah CO2 + air jadi glukosa + oksigen pake energi cahaya matahari.
+Rumus: 6CO2 + 6H2O --cahaya--> C6H12O6 + 6O2
+Terjadi di kloroplas, bagian daun. Dua tahap: reaksi terang (butuh cahaya) dan siklus Calvin (gak butuh cahaya langsung)."
+"""
+
+CHAIN_OF_THOUGHT_INSTRUCTION = """
+Cara berpikir (Chain-of-Thought):
+Sebelum menjawab pertanyaan teknis, matematika, logika, atau analisis:
+1. Pahami dulu apa yang ditanyakan
+2. Breakdown masalah jadi langkah-langkah kecil
+3. Selesaikan step by step
+4. Baru kasih jawaban final
+Jangan tulis proses berpikirnya di response -- itu buat panduan internal aja. User cuma lihat jawaban finalnya.
+"""
+
+
+def get_few_shot_examples(intent: IntentType) -> str:
+    mapping = {
+        IntentType.CODING: CODING_FEWSHOT,
+        IntentType.ACADEMIC: ACADEMIC_FEWSHOT,
+        IntentType.SCIENCE: SCIENCE_FEWSHOT,
+        IntentType.RESEARCH: ACADEMIC_FEWSHOT,
+    }
+    return mapping.get(intent, "")
+
+
+# ═══════════════════════════════════════════════════════
 # MAIN SYSTEM PROMPT TEMPLATE
 # ═══════════════════════════════════════════════════════
 

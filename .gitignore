@@ -80,6 +80,11 @@ AGENTS.md
 # opencode
 .opencode/
 
+# ChromaDB vector store
+data/chroma_db/
+data/*.db
+data/*.sqlite
+
 # Archives
 *.zip
 *.tar.gz
