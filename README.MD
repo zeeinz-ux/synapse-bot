@@ -24,7 +24,7 @@
 ---
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/trinib/trinib/a5f8f5a7aa7b8a2f2f0e1c1c1c1c1c1c1c1c1c1c/trinib.svg" width="100%" height="2">
+  <img src="https://capsule-render.vercel.app/api?type=rect&color=gradient&height=2&section=header&animation=twinkling" width="100%">
 </p>
 
 ## ✨ Features at a Glance
@@ -64,7 +64,7 @@
 ---
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/trinib/trinib/a5f8f5a7aa7b8a2f2f0e1c1c1c1c1c1c1c1c1c1c/trinib.svg" width="100%" height="2">
+  <img src="https://capsule-render.vercel.app/api?type=rect&color=gradient&height=2&section=header&animation=twinkling" width="100%">
 </p>
 
 ## 🧠 AI Chat Architecture
