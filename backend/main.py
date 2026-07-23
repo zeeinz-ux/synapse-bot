@@ -49,6 +49,7 @@ intents.members = True
 intents.message_content = True
 intents.moderation = True
 intents.voice_states = True
+log.info(f"Intents: message_content={intents.message_content}, members={intents.members}, moderation={intents.moderation}, voice_states={intents.voice_states}")
 
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 

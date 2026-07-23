@@ -4,7 +4,10 @@ from discord import ui
 import asyncio
 import time
 import os
+import logging
 from ..database.firebase_setup import db
+
+log = logging.getLogger(__name__)
 
 TRIGGER_CHANNEL = "➕ Create Caffee'"
 INTERFACE_CHANNEL = "✨・interface"
@@ -509,6 +512,8 @@ class VoiceInterfaceCog(commands.Cog):
         guild = member.guild
 
         # Joined trigger channel → create room
+        if after.channel:
+            log.info(f"Voice state: {member.display_name} joined #{after.channel.name} (trigger={TRIGGER_CHANNEL})")
         if after.channel and after.channel.name == TRIGGER_CHANNEL:
             cat = discord.utils.get(guild.categories, name=GAME_CATEGORY)
             if not cat:
@@ -554,6 +559,7 @@ class VoiceInterfaceCog(commands.Cog):
     async def _create_room(self, member: discord.Member, category: discord.CategoryChannel):
         guild = member.guild
         if _get_room(guild.id, member.id):
+            log.warning(f"{member.display_name} already has a room in guild {guild.id}")
             return
         name = ROOM_NAME_TEMPLATE.format(name=member.display_name)
         overwrites = {
@@ -563,13 +569,14 @@ class VoiceInterfaceCog(commands.Cog):
         try:
             vc = await guild.create_voice_channel(name, category=category, overwrites=overwrites, reason="Temp voice room")
         except Exception as e:
+            log.error(f"Failed to create voice room for {member.display_name}: {e}")
             return
         room = VoiceRoom(member.id, vc.id, guild.id)
         _rooms.setdefault(guild.id, {})[vc.id] = room
         try:
             await member.move_to(vc)
-        except Exception:
-            pass
+        except Exception as e:
+            log.error(f"Failed to move {member.display_name} to new room: {e}")
         await self._update_interface(guild)
 
     async def _delete_room(self, channel_id: int, guild_id: int):
