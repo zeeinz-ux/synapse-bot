@@ -299,7 +299,7 @@ class GeneralCog(commands.Cog):
             # ── 3. Done ──
             summary = (
                 f"✅ **Setup selesai!**\n\n"
-                f"🗑️ **{deleted_defaults}** default channel dibersihkan\n"
+                f"🗑️ **{deleted_count}** default channel dibersihkan\n"
                 f"📁 **{results['categories']}** kategori\n"
                 f"📄 **{results['channels']}** channel\n"
                 f"⚙️ **{results['features']}** fitur diaktifkan\n"
