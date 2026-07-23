@@ -23,6 +23,7 @@ _empty_timers: dict[int, asyncio.Task] = {}
 _owner_leave_timers: dict[int, asyncio.Task] = {}
 _delete_tasks: dict[int, asyncio.Task] = {}
 _user_prefs: dict[int, dict] = {}  # {user_id: {locked, visible, waiting_room, limit, region}}
+_privacy_msgs: dict[int, discord.Message] = {}  # {user_id: ephemeral msg}
 
 class VoiceRoom:
     __slots__ = (
@@ -213,6 +214,10 @@ class VoiceControlView(ui.View):
         chat_open = r.chat_channel_id is not None if r else False
         view = TempView(PrivacySelect(self._cog, room.channel_id, room.locked, room.visible, chat_open))
         await interaction.response.send_message("Pilih pengaturan privacy:", ephemeral=True, view=view)
+        try:
+            _privacy_msgs[interaction.user.id] = await interaction.original_response()
+        except Exception:
+            pass
 
     @ui.button(label="\U0001f465 Limit", style=discord.ButtonStyle.secondary, row=0)
     async def limit_btn(self, interaction: discord.Interaction, button: ui.Button):
@@ -695,6 +700,12 @@ class VoiceInterfaceCog(commands.Cog):
                         await chat.delete(reason="Temp voice chat deleted")
                     except Exception:
                         pass
+        msg = _privacy_msgs.pop(room.owner_id, None)
+        if msg:
+            try:
+                await msg.delete()
+            except Exception:
+                pass
         await self._update_interface(guild) if guild else None
 
     async def _schedule_empty_delete(self, room: VoiceRoom):
