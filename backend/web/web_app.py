@@ -1038,6 +1038,78 @@ def _render_thank_you(template: str, donor: str, amount: int, platform: str) -> 
     return result
 
 
+# ── Premium Activation Helper ──
+
+PREMIUM_MONTHLY_IDR = int(os.getenv("PREMIUM_MONTHLY_IDR", "50000"))
+PREMIUM_YEARLY_IDR = int(os.getenv("PREMIUM_YEARLY_IDR", "400000"))
+
+def _activate_premium(guild_id: str, amount: int, message: str, source: str):
+    """
+    Check if payment is a premium purchase and activate if so.
+    Returns (is_premium: bool, tier: str|None, user_id: int|None, control_data: dict|None)
+    """
+    message = (message or "").strip()
+
+    if amount == PREMIUM_MONTHLY_IDR:
+        tier = "monthly"
+        duration_days = 30
+    elif amount == PREMIUM_YEARLY_IDR:
+        tier = "yearly"
+        duration_days = 365
+    else:
+        return False, None, None, None
+
+    # Message must be a numeric Discord user ID
+    if not message.isdigit():
+        return True, tier, None, None
+
+    user_id = int(message)
+    expiry = time.time() + (duration_days * 86400)
+
+    try:
+        guild_ref = db.collection("guild_settings").document(guild_id)
+        # Read current premium_users
+        doc = guild_ref.get()
+        premium_users = {}
+        if doc.exists:
+            premium_users = doc.to_dict().get("premium_users", {}) or {}
+
+        # If already premium, extend expiry
+        existing = premium_users.get(str(user_id))
+        if existing and isinstance(existing, dict) and existing.get("expiry", 0) > time.time():
+            # Extend from current expiry
+            new_expiry = existing["expiry"] + (duration_days * 86400)
+        else:
+            new_expiry = expiry
+
+        premium_users[str(user_id)] = {
+            "expiry": new_expiry,
+            "tier": tier,
+            "activated_at": time.time(),
+        }
+        guild_ref.set({"premium_users": premium_users}, merge=True)
+    except Exception as e:
+        print(f"[PREMIUM] ❌ Firestore error: {e}")
+        return True, tier, user_id, None
+
+    # Build control queue data to send DM
+    control_data = {
+        "guild_id": guild_id,
+        "action": "send_message",
+        "data": {
+            "user_id": user_id,
+            "content": (
+                f"\u2b50 **Premium {tier.title()} activated!**\n"
+                f"Expiry: <t:{int(new_expiry)}:F>\n"
+                f"Sekarang kamu bisa pakai **Claim** & **Transfer** di voice room."
+            )
+        }
+    }
+
+    print(f"[PREMIUM] ✅ {tier.title()} activated for user {user_id} in guild {guild_id}, expires {new_expiry}")
+    return True, tier, user_id, control_data
+
+
 # ==========================================================
 # Webhook — Saweria
 # ==========================================================
@@ -1071,6 +1143,20 @@ def webhook_saweria(guild_id: str):
             "external_id": tx_id_ext,
             "created_at": firestore.SERVER_TIMESTAMP,
         }
+
+        # Check if this is a premium purchase
+        is_premium, tier, premium_user_id, control_data = _activate_premium(
+            str(guild_id), amount, message, "saweria"
+        )
+        if is_premium:
+            if tier:
+                doc_data["type"] = "premium"
+                doc_data["premium_tier"] = tier
+                doc_data["premium_user_id"] = premium_user_id
+            else:
+                # Amount matched premium but no user ID in message
+                doc_data["type"] = "premium_pending"
+
         if is_test:
             doc_data["test"] = True
 
@@ -1081,6 +1167,17 @@ def webhook_saweria(guild_id: str):
             threading.Timer(60, lambda: _delete_donation_doc(tid)).start()
             print(f"[WEBHOOK-SAWERIA] 🧪 Test donasi Rp {amount:,} dari {donatur} — ID {tid} (auto-delete 60s)")
             return jsonify({"success": True, "message": "TEST_OK", "test": True, "id": tid}), 200
+
+        # Send DM for premium purchase
+        if control_data:
+            _ensure_queue_dir()
+            fname = f"premium_dm_{tid}_{int(time.time())}.json"
+            fpath = os.path.join(CONTROL_QUEUE_DIR, fname)
+            try:
+                with open(fpath, "w") as f:
+                    json.dump(control_data, f)
+            except Exception as e:
+                print(f"[PREMIUM] ❌ Failed to queue DM: {e}")
 
         # Send Discord webhook if configured
         cfg = _get_feature_config(str(guild_id), "donation_settings")
@@ -1143,6 +1240,19 @@ def webhook_sociabuzz(guild_id: str):
             "external_id": tx_id_ext,
             "created_at": firestore.SERVER_TIMESTAMP,
         }
+
+        # Check if this is a premium purchase
+        is_premium, tier, premium_user_id, control_data = _activate_premium(
+            str(guild_id), amount, message, "sociabuzz"
+        )
+        if is_premium:
+            if tier:
+                doc_data["type"] = "premium"
+                doc_data["premium_tier"] = tier
+                doc_data["premium_user_id"] = premium_user_id
+            else:
+                doc_data["type"] = "premium_pending"
+
         if is_test:
             doc_data["test"] = True
 
@@ -1153,6 +1263,17 @@ def webhook_sociabuzz(guild_id: str):
             threading.Timer(60, lambda: _delete_donation_doc(tid)).start()
             print(f"[WEBHOOK-SOCIABUZZ] 🧪 Test donasi Rp {amount:,} dari {donor} — ID {tid} (auto-delete 60s)")
             return jsonify({"success": True, "message": "TEST_OK", "test": True, "id": tid}), 200
+
+        # Send DM for premium purchase
+        if control_data:
+            _ensure_queue_dir()
+            fname = f"premium_dm_{tid}_{int(time.time())}.json"
+            fpath = os.path.join(CONTROL_QUEUE_DIR, fname)
+            try:
+                with open(fpath, "w") as f:
+                    json.dump(control_data, f)
+            except Exception as e:
+                print(f"[PREMIUM] ❌ Failed to queue DM: {e}")
 
         # Send Discord webhook if configured
         cfg = _get_feature_config(str(guild_id), "donation_settings")

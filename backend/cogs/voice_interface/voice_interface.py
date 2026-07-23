@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import ui
 import asyncio
 import time
@@ -78,13 +78,14 @@ async def _check_premium(guild_id: int, user_id: int) -> bool:
     if db is None:
         return False
     try:
-        from google.cloud import firestore
         doc = await asyncio.to_thread(
             lambda: db.collection("guild_settings").document(str(guild_id)).get()
         )
         if doc.exists:
-            premium_users = doc.to_dict().get("premium_users", [])
-            return user_id in premium_users
+            premium_users = doc.to_dict().get("premium_users", {})
+            user_data = premium_users.get(str(user_id))
+            if user_data and isinstance(user_data, dict):
+                return user_data.get("expiry", 0) > time.time()
     except Exception:
         pass
     return False
@@ -384,6 +385,39 @@ class VoiceInterfaceCog(commands.Cog):
         bot_ref = bot
         _rooms.clear()
         _interface_msgs.clear()
+        self.premium_cleanup.start()
+
+    def cog_unload(self):
+        self.premium_cleanup.cancel()
+
+    @tasks.loop(hours=1)
+    async def premium_cleanup(self):
+        if db is None:
+            return
+        now = time.time()
+        try:
+            guilds_snapshot = await asyncio.to_thread(
+                lambda: list(db.collection("guild_settings").stream())
+            )
+            for doc in guilds_snapshot:
+                data = doc.to_dict()
+                premium_users = data.get("premium_users", {})
+                if not premium_users:
+                    continue
+                expired = [uid for uid, udata in premium_users.items()
+                           if isinstance(udata, dict) and udata.get("expiry", 0) <= now]
+                if expired:
+                    for uid in expired:
+                        del premium_users[uid]
+                    await asyncio.to_thread(
+                        lambda: doc.reference.update({"premium_users": premium_users})
+                    )
+        except Exception:
+            pass
+
+    @premium_cleanup.before_loop
+    async def before_premium_cleanup(self):
+        await self.bot.wait_until_ready()
 
     async def cog_load(self):
         self.bot.add_view(VoiceControlView(self))

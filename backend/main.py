@@ -115,8 +115,24 @@ async def _control_queue_consumer():
 
                     if action == "send_message":
                         channel_id = data.get("channel_id")
+                        user_id = data.get("user_id")
                         embed_dict = data.get("embed", {})
                         content = data.get("content", "")
+
+                        if user_id and not channel_id:
+                            try:
+                                user = bot.get_user(int(user_id))
+                                if not user:
+                                    user = await bot.fetch_user(int(user_id))
+                                if user:
+                                    await user.send(content=content or None)
+                                    log.info("[Queue] Sent DM to user %s", user_id)
+                                    os.remove(fpath)
+                                    continue
+                            except Exception as e:
+                                log.warning("[Queue] Failed to send DM to %s: %s", user_id, e)
+                                os.remove(fpath)
+                                continue
 
                         channel = bot.get_channel(int(channel_id))
                         if not channel:
