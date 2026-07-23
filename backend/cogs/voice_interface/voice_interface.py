@@ -528,7 +528,7 @@ class VoiceInterfaceCog(commands.Cog):
                 _rooms.setdefault(guild.id, {})[ch.id] = room
 
     async def _ensure_interface(self, guild: discord.Guild):
-        cfg = _guild_voice_config.get(guild.id, {})
+        cfg = await self._load_guild_config(guild.id)
         trigger_id = cfg.get("trigger_channel_id")
         trigger = guild.get_channel(int(trigger_id)) if trigger_id else None
         if not trigger or not isinstance(trigger, discord.VoiceChannel):
@@ -803,7 +803,7 @@ class VoiceInterfaceCog(commands.Cog):
         await self._update_interface(ctx.guild)
 
     async def _update_interface(self, guild: discord.Guild):
-        cfg = _guild_voice_config.get(guild.id, {})
+        cfg = await self._load_guild_config(guild.id)
         interface_id = cfg.get("interface_channel_id")
         ch = guild.get_channel(int(interface_id)) if interface_id else None
         if not ch or not isinstance(ch, discord.TextChannel):
@@ -829,11 +829,9 @@ class VoiceInterfaceCog(commands.Cog):
         # Joined trigger channel → create room
         if after.channel:
             log.info(f"Voice state: {member.display_name} joined #{after.channel.name} (trigger={TRIGGER_CHANNEL})")
-            cfg = _guild_voice_config.get(guild.id, {})
+            cfg = await self._load_guild_config(guild.id)
             trigger_id = cfg.get("trigger_channel_id")
-            if not trigger_id:
-                return
-            if after.channel.id != int(trigger_id):
+            if not trigger_id or after.channel.id != int(trigger_id):
                 return
             cfg = await self._load_guild_config(guild.id)
             cat_name = cfg.get("category_name")
