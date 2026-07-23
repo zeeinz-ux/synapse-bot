@@ -541,8 +541,29 @@ class VoiceInterfaceCog(commands.Cog):
             try:
                 old_msg = await ch.fetch_message(old_msg_id)
                 await old_msg.edit(embed=embed, view=view)
-                _interface_msgs[guild.id] = old_msg.id
                 log.info(f"_ensure_interface: edited msg {old_msg.id} in #{ch.name} guild {guild.id}")
+                return
+            except Exception:
+                pass
+        found = None
+        async for msg in ch.history(limit=20):
+            if msg.author.id == self.bot.user.id and msg.embeds:
+                for e in msg.embeds:
+                    if e.title and "Voice Room Controls" in e.title:
+                        if found is None:
+                            found = msg
+                        else:
+                            try:
+                                await msg.delete()
+                                log.info(f"_ensure_interface: deleted duplicate msg {msg.id}")
+                            except Exception:
+                                pass
+                        break
+        if found:
+            try:
+                await found.edit(embed=embed, view=view)
+                _interface_msgs[guild.id] = found.id
+                log.info(f"_ensure_interface: found & edited msg {found.id} in #{ch.name} guild {guild.id}")
                 return
             except Exception:
                 pass
