@@ -113,19 +113,14 @@ class MemberSelect(ui.Select['TempView']):
 
 class PrivacySelect(ui.Select['TempView']):
     def __init__(self, cog, room_channel_id: int, current_lock: bool, current_visible: bool, chat_open: bool):
-        options = []
-        if current_lock:
-            options.append(discord.SelectOption(label="Unlock", value="unlock", emoji="\U0001f513", description="Buka kunci room"))
-        else:
-            options.append(discord.SelectOption(label="Lock", value="lock", emoji="\U0001f512", description="Kunci room"))
-        if current_visible:
-            options.append(discord.SelectOption(label="Hide", value="hide", emoji="\U0001f648", description="Sembunyikan room"))
-        else:
-            options.append(discord.SelectOption(label="Show", value="show", emoji="\U0001f441\ufe0f", description="Tampilkan room"))
-        if chat_open:
-            options.append(discord.SelectOption(label="Close Chat", value="close_chat", emoji="\U0001f515", description="Tutup text chat"))
-        else:
-            options.append(discord.SelectOption(label="Open Chat", value="open_chat", emoji="\U0001f4ac", description="Buka text chat"))
+        options = [
+            discord.SelectOption(label="Lock", value="lock", emoji="\U0001f512", description="Kunci room"),
+            discord.SelectOption(label="Unlock", value="unlock", emoji="\U0001f513", description="Buka kunci room"),
+            discord.SelectOption(label="Hide", value="hide", emoji="\U0001f648", description="Sembunyikan room"),
+            discord.SelectOption(label="Show", value="show", emoji="\U0001f441\ufe0f", description="Tampilkan room"),
+            discord.SelectOption(label="Open Chat", value="open_chat", emoji="\U0001f4ac", description="Buka text chat"),
+            discord.SelectOption(label="Close Chat", value="close_chat", emoji="\U0001f515", description="Tutup text chat"),
+        ]
         super().__init__(placeholder="Pilih opsi privacy...", options=options, min_values=1, max_values=1)
         self._cog = cog
         self._room_channel_id = room_channel_id
