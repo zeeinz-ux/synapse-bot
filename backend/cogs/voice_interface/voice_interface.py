@@ -826,36 +826,34 @@ class VoiceInterfaceCog(commands.Cog):
             return
         guild = member.guild
 
-        # Joined trigger channel → create room
-        if after.channel:
-            log.info(f"Voice state: {member.display_name} joined #{after.channel.name} (trigger={TRIGGER_CHANNEL})")
-            cfg = await self._load_guild_config(guild.id)
-            trigger_id = cfg.get("trigger_channel_id")
-            if not trigger_id or after.channel.id != int(trigger_id):
-                return
-            cfg = await self._load_guild_config(guild.id)
-            cat_name = cfg.get("category_name")
-            if cat_name:
-                cat = discord.utils.get(guild.categories, name=cat_name) or after.channel.category
-            else:
-                cat = after.channel.category
-            await self._create_room(member, cat)
-            return
-
-        # Left a room → update state
+        # Left a tracked room → update state
         if before.channel:
             guild_rooms = _rooms.get(guild.id, {})
             room = guild_rooms.get(before.channel.id)
             if room:
                 remaining = [m for m in before.channel.members if not m.bot]
                 if member.id == room.owner_id:
-                    await self._delete_room(before.channel.id, guild.id)
-                    return
-                if not remaining:
+                    if remaining:
+                        room.owner_left_at = time.time()
+                    else:
+                        await self._delete_room(before.channel.id, guild.id)
+                elif not remaining:
                     await self._schedule_empty_delete(room)
 
-        # Joined a tracked room
+        # Joined trigger channel → create room
         if after.channel:
+            cfg = await self._load_guild_config(guild.id)
+            trigger_id = cfg.get("trigger_channel_id")
+            if trigger_id and after.channel.id == int(trigger_id):
+                cat_name = cfg.get("category_name")
+                if cat_name:
+                    cat = discord.utils.get(guild.categories, name=cat_name) or after.channel.category
+                else:
+                    cat = after.channel.category
+                await self._create_room(member, cat)
+                return
+
+            # Joined a tracked room → check password, waiting, block
             guild_rooms = _rooms.get(guild.id, {})
             room = guild_rooms.get(after.channel.id)
             if room:
