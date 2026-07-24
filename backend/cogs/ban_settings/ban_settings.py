@@ -207,19 +207,19 @@ class BanSettingsCog(commands.Cog, name="BanSettings"):
 
             draw = ImageDraw.Draw(bg_img)
             try:
-                font_welcome = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 100)
-                font_name = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 76)
-                font_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
+                font_welcome = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 130)
+                font_name = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 100)
+                font_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 42)
             except:
                 try:
-                    font_welcome = ImageFont.truetype("arialbd.ttf", 100)
-                    font_name = ImageFont.truetype("arialbd.ttf", 76)
-                    font_sub = ImageFont.truetype("arialbd.ttf", 32)
+                    font_welcome = ImageFont.truetype("arialbd.ttf", 130)
+                    font_name = ImageFont.truetype("arialbd.ttf", 100)
+                    font_sub = ImageFont.truetype("arialbd.ttf", 42)
                 except:
                     try:
-                        font_welcome = ImageFont.truetype("arial.ttf", 100)
-                        font_name = ImageFont.truetype("arial.ttf", 76)
-                        font_sub = ImageFont.truetype("arial.ttf", 32)
+                        font_welcome = ImageFont.truetype("arial.ttf", 130)
+                        font_name = ImageFont.truetype("arial.ttf", 100)
+                        font_sub = ImageFont.truetype("arial.ttf", 42)
                     except:
                         font_welcome = ImageFont.load_default()
                         font_name = font_welcome
@@ -240,14 +240,14 @@ class BanSettingsCog(commands.Cog, name="BanSettings"):
             welcome_text = cfg.get("banner_text", "BANNED").upper()
             w_w, h_w = get_text_size(draw, welcome_text, font_welcome)
             x_w = (1200 - w_w) // 2
-            y_w = avatar_y + ring_size + 30
+            y_w = avatar_y + ring_size + 15
             draw.text((x_w + 3, y_w + 3), welcome_text, font=font_welcome, fill=shadow_color, stroke_width=3, stroke_fill=(0,0,0,180))
             draw.text((x_w, y_w), welcome_text, font=font_welcome, fill=font_color, stroke_width=2, stroke_fill=font_color)
 
             username = member.name.upper()
             w_n, h_n = get_text_size(draw, username, font_name)
             x_n = (1200 - w_n) // 2
-            y_n = y_w + h_w + 10
+            y_n = y_w + h_w + 5
             draw.text((x_n + 2, y_n + 2), username, font=font_name, fill=shadow_color, stroke_width=2, stroke_fill=(0,0,0,180))
             draw.text((x_n, y_n), username, font=font_name, fill=font_color, stroke_width=1, stroke_fill=font_color)
 
