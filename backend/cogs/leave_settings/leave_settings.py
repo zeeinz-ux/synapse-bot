@@ -198,20 +198,24 @@ class LeaveSettingsCog(commands.Cog, name="LeaveSettings"):
             bg_img.paste(ring_img, (avatar_x, avatar_y), ring_img)
 
             draw = ImageDraw.Draw(bg_img)
+            _h = 500
+            _title_sz = int(_h * 0.09)
+            _name_sz = int(_h * 0.07)
+            _sub_sz = max(int(_h * 0.045), 10)
             try:
-                font_welcome = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 130)
-                font_name = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 100)
-                font_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 42)
+                font_welcome = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", _title_sz)
+                font_name = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", _name_sz)
+                font_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", _sub_sz)
             except:
                 try:
-                    font_welcome = ImageFont.truetype("arialbd.ttf", 130)
-                    font_name = ImageFont.truetype("arialbd.ttf", 100)
-                    font_sub = ImageFont.truetype("arialbd.ttf", 42)
+                    font_welcome = ImageFont.truetype("arialbd.ttf", _title_sz)
+                    font_name = ImageFont.truetype("arialbd.ttf", _name_sz)
+                    font_sub = ImageFont.truetype("arialbd.ttf", _sub_sz)
                 except:
                     try:
-                        font_welcome = ImageFont.truetype("arial.ttf", 130)
-                        font_name = ImageFont.truetype("arial.ttf", 100)
-                        font_sub = ImageFont.truetype("arial.ttf", 42)
+                        font_welcome = ImageFont.truetype("arial.ttf", _title_sz)
+                        font_name = ImageFont.truetype("arial.ttf", _name_sz)
+                        font_sub = ImageFont.truetype("arial.ttf", _sub_sz)
                     except:
                         font_welcome = ImageFont.load_default()
                         font_name = font_welcome
