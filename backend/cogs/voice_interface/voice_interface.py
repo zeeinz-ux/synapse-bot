@@ -1114,19 +1114,23 @@ class VoiceInterfaceCog(commands.Cog):
         try:
             if action == "lock":
                 room.locked = True
-                await vc.set_permissions(guild.default_role, connect=False)
+                current = vc.overwrites_for(guild.default_role)
+                await vc.set_permissions(guild.default_role, connect=False, view_channel=current.view_channel)
                 await self._eph_edit(interaction, "\U0001f512 Room dikunci")
             elif action == "unlock":
                 room.locked = False
-                await vc.set_permissions(guild.default_role, connect=True)
+                current = vc.overwrites_for(guild.default_role)
+                await vc.set_permissions(guild.default_role, connect=True, view_channel=current.view_channel)
                 await self._eph_edit(interaction, "\U0001f513 Room dibuka")
             elif action == "hide":
                 room.visible = False
-                await vc.set_permissions(guild.default_role, view_channel=False)
+                current = vc.overwrites_for(guild.default_role)
+                await vc.set_permissions(guild.default_role, view_channel=False, connect=current.connect)
                 await self._eph_edit(interaction, "\U0001f648 Room disembunyikan")
             elif action == "show":
                 room.visible = True
-                await vc.set_permissions(guild.default_role, view_channel=True)
+                current = vc.overwrites_for(guild.default_role)
+                await vc.set_permissions(guild.default_role, view_channel=True, connect=current.connect)
                 await self._eph_edit(interaction, "\U0001f441\ufe0f Room ditampilkan")
             elif action == "open_chat":
                 if room.chat_channel_id:
