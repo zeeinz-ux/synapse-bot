@@ -596,29 +596,34 @@ class VoiceInterfaceCog(commands.Cog):
             title="\U0001f39b\ufe0f Voice Room Controls",
             color=discord.Color.blurple(),
         )
+        total = len(guild_rooms)
         if guild_rooms:
+            visible = [(ch_id, r) for ch_id, r in guild_rooms.items()
+                       if r.visible and guild.get_channel(ch_id)]
+            hidden_count = total - len(visible)
             lines = []
-            for ch_id, room in guild_rooms.items():
+            for ch_id, room in visible[:10]:
                 vc = guild.get_channel(ch_id)
                 if not vc:
                     continue
-                name = vc.name
-                members = len(vc.members)
                 status = []
                 if room.locked:
-                    status.append("\U0001f512 Locked")
-                if not room.visible:
-                    status.append("\U0001f441\ufe0f Hidden")
+                    status.append("\U0001f512")
                 if room.waiting_room:
-                    status.append("\U0001f6aa Waiting")
-                status_str = " | ".join(status) if status else "\u2705 Active"
+                    status.append("\U0001f6aa")
+                status_str = " ".join(status) if status else "\u2705"
                 owner = guild.get_member(room.owner_id)
-                owner_name = owner.display_name if owner else "Unknown"
-                lines.append(f"\u2022 **{name}** — {members} member ({status_str}) — Owner: {owner_name}")
-            embed.description = "\n".join(lines) if lines else "No active voice rooms."
+                owner_name = owner.display_name[:18] if owner else "Unknown"
+                lines.append(f"\u2022 **{vc.name}** — {len(vc.members)}m {status_str} — {owner_name}")
+            remaining = len(visible) - 10
+            if remaining > 0:
+                lines.append(f"  *\u2026 and {remaining} more*")
+            if hidden_count:
+                lines.append(f"  *\U0001f441\ufe0f {hidden_count} hidden*")
+            embed.description = "\n".join(lines)
         else:
             embed.description = "Belum ada voice room aktif.\n\nJoin **\u2795 Create Caffee'** untuk buat room!"
-        embed.set_footer(text=f"{len(guild_rooms)} active room(s) \u2022 Butir premium: \u2b50 Claim & Transfer")
+        embed.set_footer(text=f"{total} active room(s) \u2022 Butir premium: \u2b50 Claim & Transfer")
         return embed
 
     # ── Voice Config (Firestore) ──
