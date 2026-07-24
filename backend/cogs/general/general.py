@@ -352,9 +352,8 @@ class GeneralCog(commands.Cog):
             # Also clean old-style names from previous failed runs
             old_plan_cat_names = {"📁 General", "💬 Create Voice"}
             all_cat_names = plan_cat_names | old_plan_cat_names | {"Text Channels", "Voice Channels"}
-            keep_categories = {"🎮 Game"}
             for channel in list(guild.channels):
-                # Default Discord channels (no category)
+                # Default Discord channels
                 if channel.name.lower() in {"general", "text-channels", "voice-channels", "general-1"} and not channel.category:
                     try:
                         await channel.delete(reason="Server setup")
@@ -363,19 +362,12 @@ class GeneralCog(commands.Cog):
                         pass
                     continue
 
-                # Delete children inside all plan categories (including keep_categories)
-                # so they get recreated with fresh permissions
-                if isinstance(channel, (discord.TextChannel, discord.VoiceChannel, discord.ForumChannel, discord.StageChannel)) and channel.category and channel.category.name in plan_cat_names:
+                # Existing plan categories
+                if isinstance(channel, discord.CategoryChannel) and channel.name in all_cat_names:
                     try:
-                        await channel.delete(reason="Server setup")
-                        deleted_count += 1
-                    except Exception:
-                        pass
-                    continue
-
-                # Delete plan categories (except kept ones)
-                if isinstance(channel, discord.CategoryChannel) and channel.name in all_cat_names and channel.name not in keep_categories:
-                    try:
+                        for ch in list(channel.channels):
+                            await ch.delete(reason="Server setup")
+                            deleted_count += 1
                         await channel.delete(reason="Server setup")
                         deleted_count += 1
                     except Exception:
