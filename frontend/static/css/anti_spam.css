@@ -141,6 +141,18 @@ select.wl-input { cursor: pointer; }
 }
 .channel-card .form-select:focus { border-color: var(--accent-primary); }
 
+/* ── New Account card ── */
+.new-account-card { grid-column: 1 / -1; }
+.new-account-card .form-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+.new-account-card .form-group { flex: 1; min-width: 120px; }
+.new-account-card .form-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-tertiary); margin-bottom: 0.3rem; }
+.new-account-card .form-input, .new-account-card .form-select {
+  width: 100%; padding: 0.5rem 0.75rem;
+  background: var(--bg-surface2); border: 1px solid var(--border2);
+  border-radius: 6px; color: var(--text-secondary); font-size: 0.875rem;
+  box-sizing: border-box;
+}
+
 /* ── Raid card ── */
 .raid-card { grid-column: 1 / -1; }
 .raid-config { margin-top: 1rem; }
