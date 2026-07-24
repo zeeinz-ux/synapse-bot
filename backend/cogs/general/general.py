@@ -309,9 +309,9 @@ class GeneralCog(commands.Cog):
 
             voice_cog = self.bot.get_cog("VoiceInterfaceCog")
             if voice_cog:
-                await voice_cog._ensure_interface(guild)
                 if trigger_id and interface_id:
                     await voice_cog._save_channel_ids(guild.id, trigger_id, interface_id)
+                await voice_cog._ensure_interface(guild)
 
             summary = f"✅ **Setup voice selesai!**\n📁 **{results['categories']}** kategori\n📄 **{results['channels']}** channel"
             if results["errors"]:
@@ -449,9 +449,9 @@ class GeneralCog(commands.Cog):
             # ── 3. Init voice interface ──
             voice_cog = self.bot.get_cog("VoiceInterfaceCog")
             if voice_cog:
-                await voice_cog._ensure_interface(guild)
                 if trigger_id and interface_id:
                     await voice_cog._save_channel_ids(guild.id, trigger_id, interface_id)
+                await voice_cog._ensure_interface(guild)
 
             # ── 4. Enable features ──
             await self._enable_features(guild_id, features, results)
