@@ -390,11 +390,20 @@ class VoiceControlView(ui.View):
     async def claim_btn(self, interaction: discord.Interaction, button: ui.Button):
         guild_rooms = _rooms.get(interaction.guild_id, {})
         claimable = []
+        now = time.time()
         for ch_id, room in guild_rooms.items():
-            if room.owner_left_at and (time.time() - room.owner_left_at) > GRACE_PERIOD:
-                ch = interaction.guild.get_channel(ch_id)
-                if ch and any(m.id == interaction.user.id for m in ch.members):
-                    claimable.append(room)
+            ch = interaction.guild.get_channel(ch_id)
+            if not ch:
+                continue
+            if not any(m.id == interaction.user.id for m in ch.members):
+                continue
+            owner_in_room = any(m.id == room.owner_id for m in ch.members)
+            if owner_in_room:
+                continue
+            if room.owner_left_at is None:
+                room.owner_left_at = now
+            if (now - room.owner_left_at) > GRACE_PERIOD:
+                claimable.append(room)
         if not claimable:
             await interaction.response.send_message("No claimable rooms. Owner must be offline >5 menit dan kamu masih di room.", ephemeral=True, delete_after=8)
             return
@@ -1280,9 +1289,17 @@ class VoiceInterfaceCog(commands.Cog):
         await interaction.response.send_message("\U0001f5d1\ufe0f Room deleted.", ephemeral=True, delete_after=8)
 
     async def _handle_claim(self, interaction: discord.Interaction, room: VoiceRoom):
-        if not room.owner_left_at:
+        guild = interaction.guild
+        ch = guild.get_channel(room.channel_id)
+        if not ch:
+            await interaction.response.send_message("Room tidak ditemukan.", ephemeral=True, delete_after=8)
+            return
+        owner_in_room = any(m.id == room.owner_id for m in ch.members)
+        if owner_in_room:
             await interaction.response.send_message("Owner masih aktif di room.", ephemeral=True, delete_after=8)
             return
+        if room.owner_left_at is None:
+            room.owner_left_at = time.time()
         if (time.time() - room.owner_left_at) < GRACE_PERIOD:
             remaining = int(GRACE_PERIOD - (time.time() - room.owner_left_at))
             await interaction.response.send_message(f"Owner baru offline {remaining} detik. Tunggu {remaining} detik lagi.", ephemeral=True, delete_after=8)
