@@ -856,8 +856,10 @@ class VoiceInterfaceCog(commands.Cog):
             if trigger_id and after.channel.id == int(trigger_id):
                 cat_name = cfg.get("category_name")
                 if cat_name:
-                    cat = discord.utils.get(guild.categories, name=cat_name) or after.channel.category
-                else:
+                    cat = discord.utils.get(guild.categories, name=cat_name)
+                if not cat:
+                    cat = discord.utils.get(guild.categories, name="🎮 Game")
+                if not cat:
                     cat = after.channel.category
                 await self._create_room(member, cat)
                 return

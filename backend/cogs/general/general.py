@@ -54,9 +54,9 @@ VOICE_CHANNEL_PLAN = {
 }
 
 FEATURE_TOGGLES = {
-    "anti_spam": {"label": "🛡️ Anti Spam", "default": True},
-    "anti_nuke": {"label": "🚨 Anti Nuke", "default": True},
-    "welcome": {"label": "👋 Welcome Message", "default": True},
+    "anti_spam": {"label": "🛡️ Anti Spam", "default": False},
+    "anti_nuke": {"label": "🚨 Anti Nuke", "default": False},
+    "welcome": {"label": "👋 Welcome Message", "default": False},
     "ai_chat": {"label": "🤖 AI Chat", "default": False},
 }
 
