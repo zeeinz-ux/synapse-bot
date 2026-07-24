@@ -2,12 +2,12 @@
 
 ## 📁 General
 
-| Channel               | Type | Permission                                                                                                                                               |
-| --------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `#‼️・welcome`        | Text | @everyone read only gak bisa kirim chat                                                                                                                  |
-| `#👋・leave`          | Text | @adminonly read                                                                                                                                          |
+| Channel               | Type | Permission                                                                                                                    |
+| --------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `#‼️・welcome`        | Text | @everyone read only gak bisa kirim chat                                                                                       |
+| `#👋・leave`          | Text | @adminonly read                                                                                                               |
 | `#⚡・support-server` | Text | @everyone read only (ini tinggal setting aja arahin kesini bagi yang boost atau donasi itu cuma munculin embed nya doang kok) |
-| `#🚨・report-spam`    | Text | @everyone send (lapor spam udah bekerja di anti spam ai itu) (read only)                                                                                 |
+| `#🚨・report-spam`    | Text | @everyone send (lapor spam udah bekerja di anti spam ai itu) (read only)                                                      |
 
 ## 📊 SERVER STATS (Voice — gembok, cuma admin bisa join)
 
@@ -30,19 +30,17 @@
 
 ## 💬 Create Voice
 
-| Channel              | Type  | Note                                           |
-| -------------------- | ----- | ---------------------------------------------- |
-| `#💬・talk`          | Text  | Chat buat voice                                |
-| `#✨・interface`     | Text  | Panel kontrol voice room (button only)         |
-| `➕ Create Caffee'`  | Voice | Join → auto-create temp room di 🎮 Game        |
-| `⌛ Lobby`           | Voice | Pure lobby biasa                               |
-| `😴 AFK 💤`          | Voice | AFK channel (>1hr idle → dipindah sini)        |
+| Channel     | Type  | Note                                    |
+| ----------- | ----- | --------------------------------------- |
+| `#💬・talk` | Text  | Chat buat voice                         |
+| `⌛ Lobby`  | Voice | Pure lobby biasa                        |
+| `😴 AFK 💤` | Voice | AFK channel (>1hr idle → dipindah sini) |
 
 ## 🎮 Game
 
-| Channel        | Type  | Note                          |
-| -------------- | ----- | ----------------------------- |
-| `🗣️ Caffee`   | Voice | Permanent voice chat (paten)  |
+| Channel     | Type  |
+| ----------- | ----- |
+| `🗣 Caffee` | Voice |
 
 ## 🎵 Music
 
@@ -58,5 +56,5 @@
 
 ---
 
-**Total**: ~21 channel (12 text + 9 voice)
+**Total**: ~19 channel
 **Requirements**: Manage Channels + Move Members permission

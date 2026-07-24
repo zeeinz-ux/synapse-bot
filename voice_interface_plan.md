@@ -81,10 +81,10 @@ Tiap fitur pake button/select. Pesan di-embed dengan tombol:
 ## Room Lifecycle
 
 1. Join `➕ Create Caffee'` → room dibuat
-2. Owner keluar → room tetep ada 5 menit (grace period buat claim)
-3. Owner keluar >5 menit + masih ada member → siapapun bisa Claim
-4. Semua orang leave → room auto-delete
-5. Owner pencet Delete → room langsung dihapus
+2. Owner keluar → room tetep ada 5 menit (grace period buat claim) (tapi ini khsusu claim premium)
+3. Owner keluar >5 menit + masih ada member → siapapun bisa Claim (owner keluar mau brp menit pun kalo yang bukan premium gabisa claim)
+4. Semua orang leave → room auto-delete ( tapi penyimpanan settingan voice yang udah di setting sama owner/user itu ga akan hilang walaupun room voice auto-delete)
+5. Owner pencet Delete → room langsung dihapus (begitupun dengan settingannya, jadi ketika owner buat voice ulang dia akan setting baru lagi)
 
 ## Implementation Notes
 

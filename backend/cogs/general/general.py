@@ -19,28 +19,28 @@ CHANNEL_PLAN = {
         {"name": "📊 BOTS", "type": "voice", "gembok": True},
     ],
     "🎮 Music/Hiburan": [
-        {"name": "📸・gallery", "type": "text"},
-        {"name": "🎥・share-streaming", "type": "text"},
-        {"name": "🔁・share-content", "type": "text"},
-        {"name": "🤡・funny", "type": "text"},
-        {"name": "📌・ping-test", "type": "text"},
-        {"name": "🎶・req-music", "type": "text"},
+        {"name": "📸・gallery", "type": "text", "everyone_send": True},
+        {"name": "🎥・share-streaming", "type": "text", "everyone_send": True},
+        {"name": "🔁・share-content", "type": "text", "everyone_send": True},
+        {"name": "🤡・funny", "type": "text", "everyone_send": True},
+        {"name": "📌・ping-test", "type": "text", "everyone_send": True},
+        {"name": "🎶・req-music", "type": "text", "everyone_send": True},
     ],
     "💬 Create Voice": [
-        {"name": "💬・talk", "type": "text"},
+        {"name": "💬・talk", "type": "text", "everyone_send": True},
         {"name": "✨・interface", "type": "text"},
         {"name": "➕ Create Caffee'", "type": "voice"},
-        {"name": "⌛ Lobby", "type": "voice"},
-        {"name": "😴 AFK 💤", "type": "voice", "afk": True},
+        {"name": "⌛ Lobby", "type": "voice", "everyone_send": True},
+        {"name": "😴 AFK 💤", "type": "voice", "afk": True, "everyone_send": True, "user_limit": 15},
     ],
     "🎮 Game": [
-        {"name": "🗣️ Caffee", "type": "voice"},
+        {"name": "🗣️ Caffee", "type": "voice", "everyone_send": True},
     ],
     "🎵 Music": [
-        {"name": "🔊 Music", "type": "voice"},
+        {"name": "🔊 Music", "type": "voice", "everyone_send": True},
     ],
     "🎬 Streaming": [
-        {"name": "🎬 Stream", "type": "voice"},
+        {"name": "🎬 Stream", "type": "voice", "everyone_send": True},
     ],
 }
 
@@ -282,6 +282,8 @@ class GeneralCog(commands.Cog):
                         perms = {}
                         if ch.get("gembok"):
                             perms[guild.default_role] = discord.PermissionOverwrite(connect=False, view_channel=True)
+                        elif ch.get("everyone_send"):
+                            perms[guild.default_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
                         else:
                             perms[guild.default_role] = discord.PermissionOverwrite(read_messages=True, send_messages=False)
 
@@ -290,7 +292,10 @@ class GeneralCog(commands.Cog):
                             if ch_name == "✨・interface":
                                 interface_id = tc.id
                         else:
-                            vc = await guild.create_voice_channel(ch_name, category=category, overwrites=perms, reason="Voice setup")
+                            vc_kwargs = {"category": category, "overwrites": perms, "reason": "Voice setup"}
+                            if ch.get("user_limit"):
+                                vc_kwargs["user_limit"] = ch["user_limit"]
+                            vc = await guild.create_voice_channel(ch_name, **vc_kwargs)
                             if ch_name == "➕ Create Caffee'":
                                 trigger_id = vc.id
                             if ch.get("afk"):
@@ -418,7 +423,10 @@ class GeneralCog(commands.Cog):
                             if ch_name == "✨・interface":
                                 interface_id = tc.id
                         else:
-                            vc = await guild.create_voice_channel(ch_name, category=category, overwrites=perms or None, reason="Server setup")
+                            vc_kwargs = {"category": category, "overwrites": perms or None, "reason": "Server setup"}
+                            if ch.get("user_limit"):
+                                vc_kwargs["user_limit"] = ch["user_limit"]
+                            vc = await guild.create_voice_channel(ch_name, **vc_kwargs)
                             if ch_name == "➕ Create Caffee'":
                                 trigger_id = vc.id
                             if ch.get("afk"):
