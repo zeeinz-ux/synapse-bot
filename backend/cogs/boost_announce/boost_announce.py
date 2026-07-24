@@ -242,7 +242,7 @@ class BoostAnnounceCog(commands.Cog, name="BoostAnnounce"):
                 bbox = draw.textbbox((0, 0), text, font=font)
                 return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
-            welcome_text = cfg.get("banner_text", "BOOSTER").upper()
+            welcome_text = " ".join(cfg.get("banner_text", "BOOSTER").upper())
             w_w, h_w = get_text_size(draw, welcome_text, font_welcome)
             x_w = (1200 - w_w) // 2
             y_w = avatar_y + ring_size + 20
@@ -252,7 +252,7 @@ class BoostAnnounceCog(commands.Cog, name="BoostAnnounce"):
             username = member.name.upper()
             w_n, h_n = get_text_size(draw, username, font_name)
             x_n = (1200 - w_n) // 2
-            y_n = y_w + h_w + 5
+            y_n = y_w + h_w + 3
             draw.text((x_n + 2, y_n + 2), username, font=font_name, fill=shadow_color, stroke_width=2, stroke_fill=(0,0,0,180))
             draw.text((x_n, y_n), username, font=font_name, fill=font_color, stroke_width=1, stroke_fill=font_color)
 
