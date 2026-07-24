@@ -168,16 +168,16 @@ class BanSettingsCog(commands.Cog, name="BanSettings"):
             if bg_bytes:
                 bg_img = Image.open(io.BytesIO(bg_bytes)).convert("RGBA")
             else:
-                bg_img = Image.new("RGBA", (1200, 500), (15, 15, 35, 255))
+                bg_img = Image.new("RGBA", (1200, 720), (15, 15, 35, 255))
                 draw = ImageDraw.Draw(bg_img)
-                for y in range(500):
-                    r = int(15 + (y / 500) * 30)
-                    g = int(15 + (y / 500) * 20)
-                    b = int(35 + (y / 500) * 40)
+                for y in range(720):
+                    r = int(15 + (y / 720) * 30)
+                    g = int(15 + (y / 720) * 20)
+                    b = int(35 + (y / 720) * 40)
                     draw.line([(0, y), (1200, y)], fill=(r, g, b, 255))
 
-            bg_img = bg_img.resize((1200, 500), Image.LANCZOS)
-            overlay = Image.new("RGBA", (1200, 500), (0, 0, 0, 120))
+            bg_img = bg_img.resize((1200, 720), Image.LANCZOS)
+            overlay = Image.new("RGBA", (1200, 720), (0, 0, 0, 120))
             bg_img = Image.alpha_composite(bg_img, overlay)
 
             avatar_url = str(member.display_avatar.url)
@@ -187,7 +187,7 @@ class BanSettingsCog(commands.Cog, name="BanSettings"):
             else:
                 avatar_img = Image.new("RGBA", (256, 256), (88, 101, 242, 255))
 
-            avatar_size = 200
+            avatar_size = 180
             avatar_img = avatar_img.resize((avatar_size, avatar_size), Image.LANCZOS)
             mask = Image.new("L", (avatar_size, avatar_size), 0)
             ImageDraw.Draw(mask).ellipse([0, 0, avatar_size, avatar_size], fill=255)
@@ -202,28 +202,42 @@ class BanSettingsCog(commands.Cog, name="BanSettings"):
             ring_img.paste(avatar_img, (10, 10), mask)
 
             avatar_x = (1200 - ring_size) // 2
-            avatar_y = 120
+            avatar_y = 90
             bg_img.paste(ring_img, (avatar_x, avatar_y), ring_img)
 
             draw = ImageDraw.Draw(bg_img)
             try:
-                font_welcome = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 130)
-                font_name = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 100)
-                font_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 42)
+                font_welcome = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 180)
+                font_name = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 130)
+                font_sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
             except:
                 try:
-                    font_welcome = ImageFont.truetype("arialbd.ttf", 130)
-                    font_name = ImageFont.truetype("arialbd.ttf", 100)
-                    font_sub = ImageFont.truetype("arialbd.ttf", 42)
+                    font_welcome = ImageFont.truetype("arialbd.ttf", 180)
+                    font_name = ImageFont.truetype("arialbd.ttf", 130)
+                    font_sub = ImageFont.truetype("arialbd.ttf", 60)
                 except:
                     try:
-                        font_welcome = ImageFont.truetype("arial.ttf", 130)
-                        font_name = ImageFont.truetype("arial.ttf", 100)
-                        font_sub = ImageFont.truetype("arial.ttf", 42)
+                        font_welcome = ImageFont.truetype("arial.ttf", 180)
+                        font_name = ImageFont.truetype("arial.ttf", 130)
+                        font_sub = ImageFont.truetype("arial.ttf", 60)
                     except:
-                        font_welcome = ImageFont.load_default()
-                        font_name = font_welcome
-                        font_sub = font_welcome
+                        try:
+                            import urllib.request, os
+                            font_dir = "/tmp/fonts"
+                            os.makedirs(font_dir, exist_ok=True)
+                            font_path = os.path.join(font_dir, "DejaVuSans-Bold.ttf")
+                            if not os.path.exists(font_path):
+                                urllib.request.urlretrieve(
+                                    "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf",
+                                    font_path
+                                )
+                            font_welcome = ImageFont.truetype(font_path, 180)
+                            font_name = ImageFont.truetype(font_path, 130)
+                            font_sub = ImageFont.truetype(font_path, 60)
+                        except:
+                            font_welcome = ImageFont.load_default()
+                            font_name = font_welcome
+                            font_sub = font_welcome
 
             font_color_hex = cfg.get("banner_font_color", "#FFFFFF").lstrip("#")
             try:
