@@ -854,6 +854,7 @@ class VoiceInterfaceCog(commands.Cog):
             cfg = await self._load_guild_config(guild.id)
             trigger_id = cfg.get("trigger_channel_id")
             if trigger_id and after.channel.id == int(trigger_id):
+                cat = None
                 cat_name = cfg.get("category_name")
                 if cat_name:
                     cat = discord.utils.get(guild.categories, name=cat_name)
