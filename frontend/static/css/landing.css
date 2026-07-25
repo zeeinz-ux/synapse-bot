@@ -130,79 +130,6 @@ img {
   align-items: center;
   padding-top: var(--navbar-height);
   padding-bottom: 4rem;
-  position: relative;
-  overflow: hidden;
-}
-
-.hero-aurora {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.hero-aurora .aurora-layer {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  will-change: transform, opacity;
-}
-
-.hero-aurora .aurora-layer--1 {
-  background:
-    linear-gradient(90deg,
-      transparent 0%, transparent 5%,
-      rgba(0, 212, 255, 0.35) 5%, rgba(0, 212, 255, 0.35) 14%,
-      transparent 14%, transparent 22%,
-      rgba(124, 58, 237, 0.25) 22%, rgba(124, 58, 237, 0.25) 31%,
-      transparent 31%, transparent 40%,
-      rgba(0, 212, 255, 0.3) 40%, rgba(0, 212, 255, 0.3) 49%,
-      transparent 49%, transparent 58%,
-      rgba(124, 58, 237, 0.2) 58%, rgba(124, 58, 237, 0.2) 67%,
-      transparent 67%, transparent 76%,
-      rgba(0, 212, 255, 0.25) 76%, rgba(0, 212, 255, 0.25) 85%,
-      transparent 85%, transparent 92%,
-      rgba(245, 158, 11, 0.15) 92%, rgba(245, 158, 11, 0.15) 100%
-    );
-  filter: blur(20px);
-  mask-image: linear-gradient(to bottom, transparent 5%, black 20%, black 70%, transparent 90%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 5%, black 20%, black 70%, transparent 90%);
-  animation: aurora-wave-1 18s ease-in-out infinite alternate;
-}
-
-.hero-aurora .aurora-layer--2 {
-  background:
-    linear-gradient(90deg,
-      transparent 0%, transparent 10%,
-      rgba(124, 58, 237, 0.3) 10%, rgba(124, 58, 237, 0.3) 20%,
-      transparent 20%, transparent 30%,
-      rgba(0, 212, 255, 0.25) 30%, rgba(0, 212, 255, 0.25) 40%,
-      transparent 40%, transparent 50%,
-      rgba(124, 58, 237, 0.2) 50%, rgba(124, 58, 237, 0.2) 60%,
-      transparent 60%, transparent 70%,
-      rgba(0, 212, 255, 0.3) 70%, rgba(0, 212, 255, 0.3) 80%,
-      transparent 80%, transparent 90%,
-      rgba(124, 58, 237, 0.15) 90%, rgba(124, 58, 237, 0.15) 100%
-    );
-  filter: blur(16px);
-  mask-image: linear-gradient(to bottom, transparent 10%, black 30%, black 65%, transparent 85%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 10%, black 30%, black 65%, transparent 85%);
-  animation: aurora-wave-2 24s ease-in-out infinite alternate;
-  opacity: 0.8;
-}
-
-@keyframes aurora-wave-1 {
-  0% { transform: translateX(-5%) scaleY(0.95) skewX(0.5deg); }
-  50% { transform: translateX(2%) scaleY(1.05) skewX(-0.5deg); }
-  100% { transform: translateX(-3%) scaleY(1) skewX(0deg); }
-}
-
-@keyframes aurora-wave-2 {
-  0% { transform: translateX(3%) scaleY(1.03) skewX(-0.3deg); }
-  50% { transform: translateX(-2%) scaleY(0.97) skewX(0.3deg); }
-  100% { transform: translateX(-4%) scaleY(1) skewX(0deg); }
 }
 
 .hero-content {
@@ -211,8 +138,6 @@ img {
   margin: 0 auto;
   text-align: center;
   padding: 0 1.5rem;
-  position: relative;
-  z-index: 1;
 }
 
 
