@@ -25,6 +25,33 @@ Setiap phase mencakup **HTML + CSS** untuk halaman tertentu. Urutan: dari yang p
 
 ---
 
+## Phase 0 — Translation Cleanup
+
+**Goal:** Hapus emoji dari translation strings — emoji akan diganti dengan Lucide icon di HTML.
+
+**Masalah:** 9 keys di `en.json` dan `id.json` punya emoji embedded di value string-nya. Sidebar render section header pake `{{ "base.section.general" | t }}` yang nilainya `"📊 General"`. Jadi meskipun HTML icon diganti Lucide, teksnya masih bawa emoji.
+
+### Files & Perubahan
+
+| File | Key | Before | After |
+|------|-----|--------|-------|
+| `backend/web/language/en.json` | `base.select_server` | `"🌐 Select Server"` | `"Select Server"` |
+| `backend/web/language/id.json` | `base.select_server` | `"🌐 Pilih Server"` | `"Pilih Server"` |
+| Both | `base.section.general` | `"📊 General"` | `"General"` |
+| Both | `base.section.announcements` | `"📢 Announcements"` | `"Announcements"` |
+| Both | `base.section.boost` | `"💎 Boost Tracker"` | `"Boost Tracker"` |
+| Both | `base.section.donation` | `"💰 Donation Tracker"` | `"Donation Tracker"` |
+| Both | `base.section.ai` | `"🤖 AI & Automation"` | `"AI & Automation"` |
+| Both | `base.section.moderation` | `"🛡️ Moderation"` | `"Moderation"` |
+| Both | `base.section.content` | `"📝 Content"` | `"Content"` |
+| Both | `base.section.settings` | `"⚙️ Settings"` | `"Settings"` |
+
+**Effort:** ✅ Rendah — 2 file, 9 key per file, ganti value aja.
+
+**Relasi ke Phase 2:** Setelah emoji dihapus dari translations, sidebar section header tinggal pake Lucide icon dari HTML, bukan dari teks.
+
+---
+
 ## Phase 1 — Foundation (CSS Variables)
 
 **Goal:** Semua CSS variable accent diseragamkan dulu sebelum touch file lainnya.
@@ -53,6 +80,19 @@ Setiap phase mencakup **HTML + CSS** untuk halaman tertentu. Urutan: dari yang p
 | `frontend/static/css/photobox.css` | Sama |
 
 **Effort:** Rendah — 17 file, tiap file cuma ganti beberapa baris CSS variable. Bisa batch pake replace-all.
+
+**Hati-hati — hardcoded blurple (bukan CSS variable) perlu diganti manual:**
+- `auto_responders.css:149` — `background: #5865f2;`
+- `auto_responders.css:277` — toast info `rgba(88,101,242,0.5)` + `#5865f2`
+- `anti_spam.css:114` — `color: #5865f2;`
+- `dashboard.css:247` — toast info `rgba(88,101,242,0.5)` + `#5865f2`
+- `welcome_settings.css:3` — `--welcome-accent: #5865f2` (rename variable)
+- `welcome_settings.css:487` — `background: #4752c4;`
+- `message_builder.html:50` — color picker default `value="#5865f2"`
+- `message_builder.js:79,102,193,194,213,214,409` — default embed color `'5865f2'` (7×)
+- `templates.js:38,54,62,83` — default template color `'5865f2'` (4×)
+
+**Variable `--accent-pink: #eb459e`** di `dashboard.css:29` — dipake di gradient hero. Ganti gradientnya langsung, variablenya bisa dihapus atau dialihkan ke `--accent-warm`.
 
 **Verifikasi:** Cari `#5865f2` dan `#4752c4` di semua file — harusnya gak ada sisa.
 
@@ -183,6 +223,7 @@ background: linear-gradient(135deg, #00d4ff, #7c3aed);
 | `frontend/pages/dashboard/actions.html` | Emoji → Lucide |
 | `frontend/pages/dashboard/settings.html` | Emoji → Lucide |
 | `frontend/pages/dashboard/voice.html` | Emoji → Lucide |
+| `frontend/pages/dashboard/rag.html` | Emoji → Lucide |
 
 **Effort:** Rendah — accent udah beres di Phase 1, tinggal icon.
 
@@ -197,7 +238,9 @@ background: linear-gradient(135deg, #00d4ff, #7c3aed);
 | File | Yang Diubah |
 |------|-------------|
 | `frontend/pages/dashboard/message_builder.html` | Emoji → Lucide |
+| `frontend/static/js/message_builder.js` | Default embed color `#5865f2` → `#00d4ff` (7×) |
 | `frontend/pages/dashboard/templates.html` | Emoji → Lucide |
+| `frontend/static/js/templates.js` | Default template color `#5865f2` → `#00d4ff` (4×) |
 | `frontend/pages/dashboard/welcome_settings.html` | Emoji → Lucide |
 | `frontend/pages/dashboard/leave_settings.html` | Emoji → Lucide |
 | `frontend/pages/dashboard/ban_settings.html` | Emoji → Lucide |
@@ -213,14 +256,15 @@ background: linear-gradient(135deg, #00d4ff, #7c3aed);
 
 | Phase | Fokus | Files | Effort |
 |-------|-------|-------|--------|
+| **0** | Translation — hapus emoji dari `en.json` & `id.json` | 2 file | ✅ Rendah |
 | **1** | CSS variables — ganti `#5865f2` ke brand color | ~17 CSS | ✅ Rendah |
 | **2** | Base layout — sidebar icons + active state | 2 file | ⚡ Sedang |
 | **3** | Dashboard home — hero + stat cards | 2 file | ✅ Rendah |
 | **4** | AI Chat settings — icons + tier colors | 2 file | ⚡ Sedang |
-| **5** | 6 settings pages — emoji → Lucide | 6 file | ✅ Rendah |
+| **5** | 7 settings pages — emoji → Lucide | 7 file | ✅ Rendah |
 | **6** | 8 content/announce pages — emoji → Lucide | 8 file | ⚡ Sedang |
 
-**Rekomendasi eksekusi:** Phase 1 → 2 → 3 dulu. 3 phase pertama udah cukup bikin dashboard keliatan beda dan nyambung sama landing. Setelah itu evaluasi apakah lanjut phase 4-6.
+**Rekomendasi eksekusi:** Phase 0 → 1 → 2 → 3 dulu. 4 phase pertama (0-3) udah cukup bikin dashboard keliatan beda dan nyambung sama landing. Setelah itu evaluasi apakah lanjut phase 4-6.
 
 ---
 
