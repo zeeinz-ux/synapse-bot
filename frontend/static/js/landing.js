@@ -76,8 +76,36 @@
     const dupLeft = reversed.map((item) => item.cloneNode(true));
     leftTrack.append(...reversed, ...dupLeft);
 
-    const speed = Math.max(180, Math.min(400, guilds.length * 20));
-    container.style.setProperty("--marquee-speed", speed + "s");
+    // RAF-driven marquee (no CSS keyframes — smoother, no reset snap)
+    const DURATION = Math.max(60000, Math.min(180000, guilds.length * 5000));
+    const DISTANCE = 50;
+
+    let paused = false;
+    let rafId = null;
+
+    function tick(now) {
+      if (!paused) {
+        const pct = ((now - start) % DURATION) / DURATION * DISTANCE;
+        rightTrack.style.transform = "translateX(-" + pct + "%)";
+        leftTrack.style.transform = "translateX(" + (pct - DISTANCE) + "%)";
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    const start = performance.now();
+    rafId = requestAnimationFrame(tick);
+
+    function onEnter() { paused = true; }
+    function onLeave() { paused = false; }
+    container.addEventListener("mouseenter", onEnter);
+    container.addEventListener("mouseleave", onLeave);
+
+    // Store cleanup on container
+    container._marqueeCleanup = function () {
+      if (rafId) cancelAnimationFrame(rafId);
+      container.removeEventListener("mouseenter", onEnter);
+      container.removeEventListener("mouseleave", onLeave);
+    };
   }
 
   // ── Fetch stats from API ──

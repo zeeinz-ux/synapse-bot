@@ -243,21 +243,11 @@ img {
   display: flex;
   gap: 0.75rem;
   width: fit-content;
-  will-change: transform;
 }
 
-.marquee-row--right .marquee-track {
-  transform: translateX(0);
-  animation: marquee-right var(--marquee-speed, 30s) linear infinite;
-}
-
+.marquee-row--right .marquee-track,
 .marquee-row--left .marquee-track {
-  transform: translateX(-50%);
-  animation: marquee-left var(--marquee-speed, 30s) linear infinite;
-}
-
-.guild-marquee:hover .marquee-track {
-  animation-play-state: paused;
+  animation: none;
 }
 
 .marquee-item {
@@ -308,16 +298,6 @@ img {
   justify-content: center;
 }
 
-/* ── Marquee Keyframes ── */
-@keyframes marquee-right {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-
-@keyframes marquee-left {
-  from { transform: translateX(-50%); }
-  to { transform: translateX(0); }
-}
 
 /* Hero stats */
 .hero-stats {
