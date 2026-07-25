@@ -76,7 +76,7 @@
     const dupLeft = reversed.map((item) => item.cloneNode(true));
     leftTrack.append(...reversed, ...dupLeft);
 
-    const speed = Math.max(60, Math.min(150, guilds.length * 8));
+    const speed = Math.max(180, Math.min(400, guilds.length * 20));
     container.style.setProperty("--marquee-speed", speed + "s");
   }
 

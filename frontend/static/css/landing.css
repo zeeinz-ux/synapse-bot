@@ -247,10 +247,12 @@ img {
 }
 
 .marquee-row--right .marquee-track {
+  transform: translateX(0);
   animation: marquee-right var(--marquee-speed, 30s) linear infinite;
 }
 
 .marquee-row--left .marquee-track {
+  transform: translateX(-50%);
   animation: marquee-left var(--marquee-speed, 30s) linear infinite;
 }
 
