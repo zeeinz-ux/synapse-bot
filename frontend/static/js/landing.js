@@ -68,31 +68,38 @@
       return;
     }
 
-    // Duplicate items for seamless loop
-    const dupRight = items.map((item) => item.cloneNode(true));
-    rightTrack.append(...items, ...dupRight);
+    // 3 copies for seamless overlap (portfolio technique)
+    const dupRight1 = items.map((item) => item.cloneNode(true));
+    const dupRight2 = items.map((item) => item.cloneNode(true));
+    rightTrack.append(...items, ...dupRight1, ...dupRight2);
 
     const reversed = guilds.map(createItem).reverse();
-    const dupLeft = reversed.map((item) => item.cloneNode(true));
-    leftTrack.append(...reversed, ...dupLeft);
+    const dupLeft1 = reversed.map((item) => item.cloneNode(true));
+    const dupLeft2 = reversed.map((item) => item.cloneNode(true));
+    leftTrack.append(...reversed, ...dupLeft1, ...dupLeft2);
 
-    // RAF-driven marquee (no CSS keyframes — smoother, no reset snap)
+    // RAF-driven marquee — no CSS keyframes, no reset snap
     const DURATION = Math.max(60000, Math.min(180000, guilds.length * 5000));
-    const DISTANCE = 50;
+    const DISTANCE = 100 / 3;
 
     let paused = false;
     let rafId = null;
+    let lastTime = 0;
+    let elapsed = 0;
 
     function tick(now) {
-      if (!paused) {
-        const pct = ((now - start) % DURATION) / DURATION * DISTANCE;
-        rightTrack.style.transform = "translateX(-" + pct + "%)";
-        leftTrack.style.transform = "translateX(" + (pct - DISTANCE) + "%)";
+      if (lastTime && !paused) {
+        elapsed += now - lastTime;
+        const pct = (elapsed % (DURATION * 3)) / (DURATION * 3) * 100;
+        const r = -(pct / 3);
+        const l = -(DISTANCE) + (pct / 3);
+        rightTrack.style.transform = "translateX(" + r + "%)";
+        leftTrack.style.transform = "translateX(" + l + "%)";
       }
+      lastTime = now;
       rafId = requestAnimationFrame(tick);
     }
 
-    const start = performance.now();
     rafId = requestAnimationFrame(tick);
 
     function onEnter() { paused = true; }
