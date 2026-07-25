@@ -22,7 +22,18 @@
 
   var count = Math.min(200, Math.floor((W * H) / 5000));
 
+  var warmCount = Math.floor(count * 0.25);
+  var violetCount = Math.floor(count * 0.1);
+
   for (var i = 0; i < count; i++) {
+    var color = '255,255,255';
+    if (i < warmCount) {
+      var warm = ['255,220,150', '255,200,100', '255,180,80'];
+      color = warm[Math.floor(Math.random() * warm.length)];
+    } else if (i < warmCount + violetCount) {
+      var violet = ['200,180,255', '180,150,255', '160,130,255'];
+      color = violet[Math.floor(Math.random() * violet.length)];
+    }
     stars.push({
       x: Math.random() * W,
       y: Math.random() * H,
@@ -30,6 +41,7 @@
       alpha: 0.2 + Math.random() * 0.8,
       speed: 0.005 + Math.random() * 0.02,
       phase: Math.random() * Math.PI * 2,
+      color: color,
     });
   }
 
@@ -59,7 +71,7 @@
       var a = s.alpha * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,' + a + ')';
+      ctx.fillStyle = 'rgba(' + s.color + ',' + a + ')';
       ctx.fill();
     }
 
