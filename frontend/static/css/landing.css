@@ -159,6 +159,7 @@ img {
   justify-content: center;
   gap: 1rem;
   flex-wrap: wrap;
+  margin-top: 1.5rem;
 }
 
 .btn-primary {
@@ -221,6 +222,7 @@ img {
   flex-direction: column;
   gap: 0.5rem;
   overflow: hidden;
+  width: 100%;
   max-width: 640px;
   margin: 2rem auto 0;
   padding: 0.75rem 0;
@@ -329,12 +331,6 @@ img {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-
-.stat-divider {
-  width: 1px;
-  height: 40px;
-  background: var(--sidebar-border);
 }
 
 /* ── Section ── */
@@ -627,10 +623,21 @@ img {
     gap: 1.5rem;
   }
 
-  .stat-divider {
-    display: none;
+  .guild-marquee {
+    max-width: 100%;
+    padding: 0.5rem 0;
   }
 
+  .marquee-item img,
+  .marquee-item .marquee-fallback {
+    width: 32px;
+    height: 32px;
+  }
+
+  .marquee-item span {
+    font-size: 0.7rem;
+    max-width: 8ch;
+  }
 }
 
 @media (max-width: 480px) {
@@ -661,6 +668,28 @@ img {
 
   .stat-number {
     font-size: 1.4rem;
+  }
+
+  .guild-marquee {
+    margin-top: 1.5rem;
+    padding: 0.4rem 0;
+    border-radius: var(--radius-sm);
+  }
+
+  .marquee-item img,
+  .marquee-item .marquee-fallback {
+    width: 28px;
+    height: 28px;
+    border-width: 1.5px;
+  }
+
+  .marquee-item span {
+    font-size: 0.65rem;
+    max-width: 6ch;
+  }
+
+  .marquee-track {
+    gap: 0.5rem;
   }
 
   .cta-card > div {

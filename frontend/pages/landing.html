@@ -83,20 +83,12 @@
 
       <!-- Stats -->
       <div class="hero-stats" aria-label="Statistik bot">
-        <div class="stat-item stat-item--servers" id="statItemServers">
-          <div class="stat-number" id="stat-guilds">
-            {{ bot_guilds if bot_guilds is defined else '-' }}
-          </div>
-          <div class="stat-label">{{ "hero.stats.servers" | t }}</div>
-        </div>
-        <div class="stat-divider" aria-hidden="true"></div>
         <div class="stat-item">
           <div class="stat-number" id="stat-members">
             {{ bot_members if bot_members is defined else '-' }}
           </div>
           <div class="stat-label">{{ "hero.stats.members" | t }}</div>
         </div>
-        <div class="stat-divider" aria-hidden="true"></div>
         <div class="stat-item">
           <div class="stat-number">99.9%</div>
           <div class="stat-label">{{ "hero.stats.uptime" | t }}</div>
