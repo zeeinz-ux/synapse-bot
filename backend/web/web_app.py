@@ -65,6 +65,7 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
 # Setelah app.secret_key
 app.config["SESSION_TYPE"] = "filesystem"
+app.config["SESSION_FILE_DIR"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "flask_session")
 Session(app)
 
 
