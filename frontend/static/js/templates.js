@@ -315,16 +315,16 @@
     var list = document.getElementById('tplApplyList');
     list.innerHTML = '';
     var targets = [
-      { id: 'welcome', icon: '👋', name: 'Welcome Message' },
-      { id: 'leave', icon: '👋', name: 'Leave Message' },
-      { id: 'ban', icon: '🔨', name: 'Ban Announcement' },
-      { id: 'boost', icon: '🚀', name: 'Boost Announcement' },
+      { id: 'welcome', icon: 'hand', name: 'Welcome Message' },
+      { id: 'leave', icon: 'door-open', name: 'Leave Message' },
+      { id: 'ban', icon: 'ban', name: 'Ban Announcement' },
+      { id: 'boost', icon: 'gem', name: 'Boost Announcement' },
     ];
     for(var i=0; i<targets.length; i++){
       var t = targets[i];
       var div = document.createElement('div');
       div.className = 'tpl-apply-item';
-      div.innerHTML = '<span class="tpl-apply-icon">' + t.icon + '</span><span class="tpl-apply-name">' + t.name + '</span>';
+      div.innerHTML = '<span class="tpl-apply-icon"><i data-lucide="' + t.icon + '" width="16" height="16"></i></span><span class="tpl-apply-name">' + t.name + '</span>';
       div.addEventListener('click', function(targetId){
         return function(){
           fetch('/api/templates/' + guildId + '/apply-announcement', {
@@ -347,6 +347,7 @@
       }(t.id));
       list.appendChild(div);
     }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     modal.classList.add('open');
     document.getElementById('tplApplyCancel').addEventListener('click', function(){ modal.classList.remove('open'); });
     modal.addEventListener('click', function(e){ if(e.target === modal) modal.classList.remove('open'); });

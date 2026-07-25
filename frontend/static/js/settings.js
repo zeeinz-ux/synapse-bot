@@ -43,14 +43,14 @@
         }
         var f = d.features || {};
         var labels = {
-          welcome: '👋 Welcome',
-          leave: '👋 Leave',
-          ban: '🔨 Ban',
-          boost_announce: '🚀 Boost',
-          auto_responders: '🤖 Auto Responder',
-          ai_chat: '🧠 AI Chat',
-          level_rewards: '🎖 Level Rewards',
-          moderation: '🛡 Moderasi',
+          welcome: 'Welcome',
+          leave: 'Leave',
+          ban: 'Ban',
+          boost_announce: 'Boost',
+          auto_responders: 'Auto Responder',
+          ai_chat: 'AI Chat',
+          level_rewards: 'Level Rewards',
+          moderation: 'Moderasi',
         };
         var html = '';
         for(var key in labels){

@@ -412,13 +412,9 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.3); }
 
 .tier-badge:hover { background: var(--bg-card); transform: translateX(3px); }
 .tier-1 { border-left-color: #00d4ff; }
-.tier-1::before { content: "⚡"; font-size: 0.9rem; }
 .tier-2 { border-left-color: #f59e0b; }
-.tier-2::before { content: "🚀"; font-size: 0.9rem; }
 .tier-3 { border-left-color: #7c3aed; }
-.tier-3::before { content: "🧠"; font-size: 0.9rem; }
 .tier-4 { border-left-color: #6366f1; }
-.tier-4::before { content: "🌀"; font-size: 0.9rem; }
 .tier-arrow { text-align: center; color: var(--text-muted); font-size: 0.8rem; line-height: 1; padding: 1px 0; }
 
 .tier-info { margin-bottom: 2px; }
