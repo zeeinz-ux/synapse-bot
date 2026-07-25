@@ -45,6 +45,7 @@
 }
 
 html {
+  overflow-x: hidden;
   scroll-behavior: smooth;
 }
 
@@ -115,6 +116,7 @@ img {
 .page-wrapper {
   position: relative;
   z-index: 1;
+  overflow-x: hidden;
 }
 
 
@@ -130,6 +132,7 @@ img {
 
 .hero-content {
   max-width: 760px;
+  width: 100%;
   margin: 0 auto;
   text-align: center;
   padding: 0 1.5rem;
