@@ -49,7 +49,7 @@
 .ar-keywords { font-weight: 600; color: var(--text-primary); font-size: 0.9rem; flex: 1; }
 .ar-type-badge { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: var(--r-xs); background: var(--accent-primary); color: #fff; flex-shrink: 0; margin-left: auto; }
 .ar-item.dragging { opacity: 0.4; }
-.ar-item.drag-over { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(88,101,242,0.3); }
+.ar-item.drag-over { border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(0,212,255,0.3); }
 .reorder-hint {
   display: flex;
   align-items: center;
@@ -146,7 +146,7 @@
 .embed-preview-color {
   width: 4px;
   flex-shrink: 0;
-  background: #5865f2;
+  background: #00d4ff;
 }
 .embed-preview-body {
   flex: 1;
@@ -221,7 +221,7 @@ select[multiple] {
 select[multiple]:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.15);
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.15);
 }
 select[multiple] option {
   padding: 0.3rem 0.5rem;
@@ -274,7 +274,7 @@ select[multiple] option:checked {
 .toast.toast-success { background: #122a1c; border: 1px solid rgba(59,165,93,0.5); color: #57f287; }
 .toast.toast-error { background: #2a1212; border: 1px solid rgba(237,66,69,0.5); color: #ff5555; }
 .toast.toast-warning { background: #2a2412; border: 1px solid rgba(250,166,26,0.5); color: #faa61a; }
-.toast.toast-info { background: #121a2a; border: 1px solid rgba(88,101,242,0.5); color: #5865f2; }
+.toast.toast-info { background: #121a2a; border: 1px solid rgba(0,212,255,0.5); color: #00d4ff; }
 .toast.toast-out { transform: translateX(calc(100% + 2rem)); opacity: 0; transition: transform 0.25s, opacity 0.25s; }
 .toast .toast-icon { font-size: 1.1rem; flex-shrink: 0; }
 .toast .toast-message { flex: 1; }

@@ -350,7 +350,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgb(88, 101, 242);
+  background: var(--welcome-accent);
   border: 2px solid rgba(255, 255, 255, 0.6);
 }
 #banPage .preview-banner-text {

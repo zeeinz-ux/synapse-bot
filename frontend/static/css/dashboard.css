@@ -20,13 +20,13 @@
   --text-placeholder: #888;
 
   /* Accent */
-  --accent-primary: #5865f2;
-  --accent-primary-hover: #4752c4;
+  --accent-primary: #00d4ff;
+  --accent-primary-hover: #7c3aed;
   --accent-green: #3ba55c;
   --accent-red: #ed4245;
   --accent-yellow: #f0b232;
   --accent-purple: #9B59B6;
-  --accent-pink: #eb459e;
+  --accent-warm: #eb459e;
   --accent-teal: #10b981;
 
   /* Borders */
@@ -83,7 +83,7 @@ a:hover { text-decoration: underline; }
 }
 .dash-hero-text h1 {
   font-size: 2rem;
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-pink));
+  background: linear-gradient(135deg, #00d4ff, #7c3aed);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 0.25rem;
@@ -115,7 +115,8 @@ a:hover { text-decoration: underline; }
   transition: transform 0.2s, box-shadow 0.2s;
 }
 .dash-card:hover { transform: translateY(-2px); }
-.dash-card-icon { font-size: 2rem; }
+.dash-card-icon { font-size: 2rem; display: flex; align-items: center; }
+.dash-card-icon svg { width: 2rem; height: 2rem; }
 .dash-card-value { font-size: 1.75rem; font-weight: 800; color: var(--text-primary); }
 .dash-card-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; }
 
@@ -158,7 +159,7 @@ a:hover { text-decoration: underline; }
 }
 .dash-progress-fill {
   height: 100%; width: var(--progress, 0%);
-  background: linear-gradient(90deg, var(--accent-primary), var(--accent-pink));
+  background: linear-gradient(90deg, #00d4ff, #7c3aed);
   border-radius: 3px; transition: width 0.5s;
 }
 .dash-progress-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
@@ -244,7 +245,7 @@ a:hover { text-decoration: underline; }
 .toast.toast-success { background: #122a1c; border: 1px solid rgba(59,165,93,0.5); color: #57f287; }
 .toast.toast-error { background: #2a1212; border: 1px solid rgba(237,66,69,0.5); color: #ff5555; }
 .toast.toast-warning { background: #2a2412; border: 1px solid rgba(250,166,26,0.5); color: #faa61a; }
-.toast.toast-info { background: #121a2a; border: 1px solid rgba(88,101,242,0.5); color: #5865f2; }
+.toast.toast-info { background: #121a2a; border: 1px solid rgba(0,212,255,0.5); color: #00d4ff; }
 .toast.toast-out { transform: translateX(calc(100% + 2rem)); opacity: 0; transition: transform 0.25s, opacity 0.25s; }
 .toast .toast-icon { font-size: 1.1rem; flex-shrink: 0; }
 .toast .toast-message { flex: 1; }

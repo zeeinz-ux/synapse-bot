@@ -21,14 +21,14 @@
   <!-- Stats Grid -->
   <div class="dash-grid">
     <div class="dash-card dash-card-accent">
-      <div class="dash-card-icon">📊</div>
+      <div class="dash-card-icon"><i data-lucide="server"></i></div>
       <div class="dash-card-body">
         <div class="dash-card-value">{{ s.guilds }}</div>
         <div class="dash-card-label">Servers</div>
       </div>
     </div>
     <div class="dash-card dash-card-accent2">
-      <div class="dash-card-icon">👥</div>
+      <div class="dash-card-icon"><i data-lucide="users"></i></div>
       <div class="dash-card-body">
         <div class="dash-card-value">{{ s.members }}</div>
         <div class="dash-card-label">Members</div>
@@ -38,7 +38,7 @@
 
   <!-- Server List -->
   <section class="dash-section">
-    <h2 class="dash-section-title">🖥 Connected Servers</h2>
+    <h2 class="dash-section-title">Connected Servers</h2>
     <div class="dash-server-grid">
       {% for g in s.guilds_list %}
       <a href="/dashboard/{{ g.id }}/" class="dash-server-card">

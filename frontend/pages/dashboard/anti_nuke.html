@@ -17,7 +17,7 @@
 
   <div class="page-header">
     <div class="header-content">
-      <h1>🚨 Anti Nuke</h1>
+      <h1><i data-lucide="shield-alert"></i> Anti Nuke</h1>
       <p>Auto-lockdown server saat terdeteksi aksi destruktif massal (mass ban, mass kick, mass channel/role delete, dll).</p>
     </div>
     <div class="header-toggle">
@@ -32,7 +32,7 @@
   <div class="content-grid">
     <!-- Thresholds -->
     <div class="card thresholds-card">
-      <h2>⚙️ Thresholds</h2>
+      <h2><i data-lucide="sliders"></i> Thresholds</h2>
       <p class="card-desc">Jumlah aksi dalam window deteksi sebelum lockdown dipicu.</p>
       <div class="threshold-grid">
         <div class="form-group">
@@ -60,7 +60,7 @@
 
     <!-- Window & Duration -->
     <div class="card timing-card">
-      <h2>⏱️ Timing</h2>
+      <h2><i data-lucide="clock"></i> Timing</h2>
       <p class="card-desc">Window deteksi dan durasi lockdown.</p>
       <div class="form-row">
         <div class="form-group">
@@ -76,7 +76,7 @@
 
     <!-- Notification Channel -->
     <div class="card channel-card">
-      <h2>📢 Report Channel</h2>
+      <h2><i data-lucide="bell"></i> Report Channel</h2>
       <p class="card-desc">Channel untuk notifikasi alert & AI analysis hasil serangan.</p>
       <div class="form-group">
         <select id="report-channel" class="form-select">
@@ -87,11 +87,11 @@
 
     <!-- Whitelist Users -->
     <div class="card whitelist-users-card">
-      <h2>👤 Whitelist Users</h2>
+      <h2><i data-lucide="user"></i> Whitelist Users</h2>
       <p class="card-desc">User ID yang di-whitelist tidak akan memicu lockdown. Admin otomatis exempt.</p>
       <div class="whitelist-input-row">
         <input type="text" id="wl-user-input" placeholder="Masukkan Discord User ID" class="wl-input">
-        <button id="wl-user-add" class="btn btn-primary btn-sm">➕ Tambah</button>
+        <button id="wl-user-add" class="btn btn-primary btn-sm"><i data-lucide="plus"></i> Tambah</button>
       </div>
       <div id="wl-user-list" class="tag-list">
         <div class="loading">Memuat...</div>
@@ -100,13 +100,13 @@
 
     <!-- Whitelist Roles -->
     <div class="card whitelist-roles-card">
-      <h2>👥 Whitelist Roles</h2>
+      <h2><i data-lucide="users"></i> Whitelist Roles</h2>
       <p class="card-desc">Role yang di-whitelist — member dengan role ini tidak akan memicu lockdown.</p>
       <div class="whitelist-input-row">
         <select id="wl-role-select" class="wl-input">
           <option value="">— Pilih Role —</option>
         </select>
-        <button id="wl-role-add" class="btn btn-primary btn-sm">➕ Tambah</button>
+        <button id="wl-role-add" class="btn btn-primary btn-sm"><i data-lucide="plus"></i> Tambah</button>
       </div>
       <div id="wl-role-list" class="tag-list">
         <div class="loading">Memuat...</div>
@@ -115,7 +115,7 @@
   </div>
 
   <div class="save-bar">
-    <button id="save-btn" class="btn btn-primary btn-lg">💾 Simpan Pengaturan</button>
+    <button id="save-btn" class="btn btn-primary btn-lg"><i data-lucide="save"></i> Simpan Pengaturan</button>
   </div>
 </div>
 {% endblock %}

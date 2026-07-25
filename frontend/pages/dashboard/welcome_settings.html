@@ -20,7 +20,7 @@
   </nav>
 
   <div class="page-header">
-    <h1>👋 Welcome Announcement</h1>
+    <h1><i data-lucide="hand"></i> Welcome Announcement</h1>
     <p>Kirim pesan sambutan otomatis saat member bergabung ke server.</p>
   </div>
 
@@ -38,7 +38,7 @@
 
     <!-- Card 1: Pengaturan Dasar -->
     <div class="card">
-      <h3 class="section-title">⚙️ Pengaturan Dasar</h3>
+      <h3 class="section-title"><i data-lucide="settings"></i> Pengaturan Dasar</h3>
       <div class="form-group">
         <div class="toggle-row">
           <div class="toggle-info">
@@ -68,7 +68,7 @@
 
     <!-- Card 2: Style Selector (NEW v3.7) -->
     <div class="card">
-      <h3 class="section-title">🎨 Pilih Style Welcome</h3>
+      <h3 class="section-title"><i data-lucide="palette"></i> Pilih Style Welcome</h3>
       <div class="style-selector" id="styleSelector">
         <label class="style-option {{ 'active' if config.style == 'embed' else '' }}" data-style="embed">
           <input type="radio" name="style" value="embed" {{ 'checked' if config.style == 'embed' else '' }} />
@@ -113,7 +113,7 @@
 
     <!-- Card 3: Isi Pesan (Common) -->
     <div class="card">
-      <h3 class="section-title">✉️ Isi Pesan</h3>
+      <h3 class="section-title"><i data-lucide="mail"></i> Isi Pesan</h3>
       <div class="form-group">
         <label class="form-label" for="message_text">Teks Pesan <span class="req">*</span></label>
         <textarea class="form-control" name="message_text" id="message_text" rows="4" placeholder="Hei {user}, selamat datang di {server}! 🎉" required>{{ config.message_text }}</textarea>
@@ -123,7 +123,7 @@
 
     <!-- Card 4: Embed Settings (shown when style=embed) -->
     <div class="card embed-settings-card" id="embedSettingsCard" data-style="embed">
-      <h3 class="section-title">🎨 Pengaturan Embed</h3>
+      <h3 class="section-title"><i data-lucide="palette"></i> Pengaturan Embed</h3>
       <div class="form-group">
         <div class="toggle-row">
           <div class="toggle-info">
@@ -145,7 +145,7 @@
                   <input type="color" name="embed_color" id="embed_color" value="{{ config.embed_color }}" />
                   <div class="color-preview" id="colorPreview"></div>
                 </div>
-                <input type="text" class="form-control color-hex" id="embed_color_text" value="{{ config.embed_color }}" placeholder="#5865F2" maxlength="7" />
+                <input type="text" class="form-control color-hex" id="embed_color_text" value="{{ config.embed_color }}" placeholder="#00d4ff" maxlength="7" />
               </div>
               <div class="form-hint">Garis warna di sisi kiri embed.</div>
             </div>
@@ -165,7 +165,7 @@
               <div class="upload-zone" id="uploadZone">
                 <input type="file" id="fileInput" accept="image/*" class="file-input" />
                 <div class="upload-content">
-                  <div class="upload-icon">📁</div>
+                  <div class="upload-icon"><i data-lucide="folder"></i></div>
                   <p class="upload-text">Drag & drop gambar di sini</p>
                   <p class="upload-subtext">atau <span class="upload-link">klik untuk browse</span></p>
                   <p class="upload-hint">PNG, JPG, GIF (max 5MB)</p>
@@ -184,7 +184,7 @@
               <input type="url" class="form-control" name="bg_image_url" id="bg_image_url" value="{{ config.bg_image_url }}" placeholder="https://i.imgur.com/example.png" />
               <div class="form-hint">URL gambar banner di bawah embed. Kosongkan untuk pakai default (Logo HH).</div>
               <div class="gallery-section">
-                <button type="button" class="gallery-toggle gallery-toggle-dynamic" data-grid="embedGallery" data-input="bg_image_url">📁 Gallery</button>
+                <button type="button" class="gallery-toggle gallery-toggle-dynamic" data-grid="embedGallery" data-input="bg_image_url"><i data-lucide="folder"></i> Gallery</button>
                 <div class="gallery-grid gallery-dynamic" id="embedGalleryDynamic"></div>
               </div>
             </div>
@@ -213,7 +213,7 @@
 
     <!-- Card 5: Banner Settings (shown when style=banner) (NEW v3.7) -->
     <div class="card banner-settings-card" id="bannerSettingsCard" data-style="banner">
-      <h3 class="section-title">🖼️ Pengaturan Banner</h3>
+      <h3 class="section-title"><i data-lucide="image"></i> Pengaturan Banner</h3>
 
       <!-- Banner Background -->
       <div class="form-group">
@@ -221,7 +221,7 @@
         <div class="upload-zone" id="bannerUploadZone">
           <input type="file" id="bannerFileInput" accept="image/*" class="file-input" />
           <div class="upload-content">
-            <div class="upload-icon">🖼️</div>
+            <div class="upload-icon"><i data-lucide="image"></i></div>
             <p class="upload-text">Drag & drop gambar banner di sini</p>
             <p class="upload-subtext">atau <span class="upload-link">klik untuk browse</span></p>
             <p class="upload-hint">Rekomendasi: 1200×500px, PNG/JPG</p>
@@ -237,7 +237,7 @@
         <input type="url" class="form-control" name="banner_bg_url" id="banner_bg_url" value="{{ config.banner_bg_url }}" placeholder="https://i.imgur.com/banner-bg.png" />
         <div class="form-hint">URL gambar background banner. Kosongkan untuk pakai default.</div>
         <div class="gallery-section">
-          <button type="button" class="gallery-toggle gallery-toggle-dynamic" data-grid="bannerGallery" data-input="banner_bg_url">📁 Gallery</button>
+          <button type="button" class="gallery-toggle gallery-toggle-dynamic" data-grid="bannerGallery" data-input="banner_bg_url"><i data-lucide="folder"></i> Gallery</button>
           <div class="gallery-grid gallery-dynamic" id="bannerGalleryDynamic"></div>
         </div>
       </div>
@@ -305,7 +305,7 @@
 
     <button type="submit" class="btn-save" id="btnSave">
       <span class="spinner"></span>
-      <span class="btn-text">💾 Simpan Perubahan</span>
+      <span class="btn-text"><i data-lucide="save"></i> Simpan Perubahan</span>
     </button>
   </form>
 </div>
@@ -348,7 +348,7 @@
     if (panel && panel.dataset.initialOpen === "true") panel.classList.add("open");
 
     // ── 5. Embed Accent Color ──
-    var initialColor = "{{ config.embed_color or '#5865F2' }}";
+    var initialColor = "{{ config.embed_color or '#00d4ff' }}";
     document.documentElement.style.setProperty("--welcome-accent", initialColor);
     var colorPreview = document.getElementById("colorPreview");
     if (colorPreview) colorPreview.style.background = initialColor;

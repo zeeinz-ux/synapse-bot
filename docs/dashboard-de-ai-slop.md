@@ -79,22 +79,33 @@ Setiap phase mencakup **HTML + CSS** untuk halaman tertentu. Urutan: dari yang p
 | `frontend/static/css/templates.css` | Sama |
 | `frontend/static/css/photobox.css` | Sama |
 
-**Effort:** Rendah — 17 file, tiap file cuma ganti beberapa baris CSS variable. Bisa batch pake replace-all.
+**Effort:** Rendah — 17 file, tiap file cuma ganti beberapa baris CSS variable. Bisa batch dengan replace-all.
 
-**Hati-hati — hardcoded blurple (bukan CSS variable) perlu diganti manual:**
-- `auto_responders.css:149` — `background: #5865f2;`
-- `auto_responders.css:277` — toast info `rgba(88,101,242,0.5)` + `#5865f2`
-- `anti_spam.css:114` — `color: #5865f2;`
-- `dashboard.css:247` — toast info `rgba(88,101,242,0.5)` + `#5865f2`
-- `welcome_settings.css:3` — `--welcome-accent: #5865f2` (rename variable)
-- `welcome_settings.css:487` — `background: #4752c4;`
-- `message_builder.html:50` — color picker default `value="#5865f2"`
-- `message_builder.js:79,102,193,194,213,214,409` — default embed color `'5865f2'` (7×)
-- `templates.js:38,54,62,83` — default template color `'5865f2'` (4×)
+**✅ Sudah selesai — semua hardcoded blurple dashboard sudah diganti:**
 
-**Variable `--accent-pink: #eb459e`** di `dashboard.css:29` — dipake di gradient hero. Ganti gradientnya langsung, variablenya bisa dihapus atau dialihkan ke `--accent-warm`.
+| # | File | Perubahan |
+|---|------|-----------|
+| 1 | `dashboard.css` | `--accent-primary: #00d4ff`, `--accent-primary-hover: #7c3aed`, `--accent-pink` → `--accent-warm`, toast info cyan |
+| 2 | `sidebar.css` | `--accent: #00d4ff`, `--accent-hover: #7c3aed`, `--active-bg` → rgba cyan 0.12, `--active-bar: #00d4ff` |
+| 3 | `ai_chat.css` | `--accent-primary: #00d4ff`, `--accent-primary-hover: #7c3aed`, 5× box-shadow → rgba cyan |
+| 4 | `anti_spam.css` | toast info → cyan |
+| 5 | `auto_responders.css` | embed preview bar cyan, drag-over/focus shadow cyan, toast info cyan |
+| 6 | `message_builder.css` | btn-add-field hover cyan, upload zone cyan |
+| 7 | `welcome_settings.css` | `--welcome-accent: #00d4ff`, `--welcome-accent-rgb: 0,212,255`, 11× rgba blurple → cyan, btn-save hover violet |
+| 8 | `ban_settings.css` | avatar preview → `var(--welcome-accent)` |
+| 9 | `leave_settings.css` | avatar preview → `var(--welcome-accent)` |
+| 10 | `auto_responders.html` | embed color default `#00d4ff` |
+| 11 | `message_builder.html` | color picker default `#00d4ff` |
+| 12 | `welcome_settings.html` | placeholder + Jinja2 fallback `#00d4ff` |
+| 13 | `auto_responders.js` | 2× default `"#00d4ff"` |
+| 14 | `message_builder.js` | 8× default `'00d4ff'` |
+| 15 | `templates.js` | 4× default `'00d4ff'` |
 
-**Verifikasi:** Cari `#5865f2` dan `#4752c4` di semua file — harusnya gak ada sisa.
+**Verifikasi final:** ✅ Dashboard files clean. Tidak ada `#5865f2`, `#4752c4`, atau `rgba(88,101,242,...)` tersisa di `frontend/static/css/` (kecuali navbar.css/footer.css — landing page).
+
+**Catatan:** `navbar.css` (7× blurple) dan `footer.css` (4× blurple) masih mengandung hardcoded blurple — ini file landing page, bukan dashboard. Akan diperbaiki terpisah.
+
+**Variable `--accent-pink: #eb459e`** sudah direname jadi `--accent-warm: #eb459e`. Referensi gradient di line 86,161 sudah auto-mengikuti. Phase 3 nanti akan ganti warna gradient ke cyan→violet.
 
 ---
 
@@ -258,13 +269,15 @@ background: linear-gradient(135deg, #00d4ff, #7c3aed);
 |-------|-------|-------|--------|
 | **0** | Translation — hapus emoji dari `en.json` & `id.json` | 2 file | ✅ Rendah |
 | **1** | CSS variables — ganti `#5865f2` ke brand color | ~17 CSS | ✅ Rendah |
-| **2** | Base layout — sidebar icons + active state | 2 file | ⚡ Sedang |
+| **2** | Base layout — sidebar icons + active state | 2 file | ✅ Sedang |
 | **3** | Dashboard home — hero + stat cards | 2 file | ✅ Rendah |
-| **4** | AI Chat settings — icons + tier colors | 2 file | ⚡ Sedang |
+| **4** | AI Chat settings — icons + tier colors | 2 file | ✅ Sedang |
 | **5** | 7 settings pages — emoji → Lucide | 7 file | ✅ Rendah |
-| **6** | 8 content/announce pages — emoji → Lucide | 8 file | ⚡ Sedang |
+| **6** | 8 content/announce pages — emoji → Lucide | 8 file | ✅ Sedang |
 
-**Rekomendasi eksekusi:** Phase 0 → 1 → 2 → 3 dulu. 4 phase pertama (0-3) udah cukup bikin dashboard keliatan beda dan nyambung sama landing. Setelah itu evaluasi apakah lanjut phase 4-6.
+**Tambahan di luar plan:** Tier badge emoji `⚡🚀🧠🌀🌐` → Lucide, `⏳ Memuat...` → Lucide, upload zone icons `📁🖼️` → Lucide di 4 halaman announcement.
+
+**Catatan:** Problem #8 (CSS variable naming) sudah konsisten secara alami — semua pake prefix `--bg-`, `--text-`, `--accent-`, `--sidebar-` — tanpa perlu refactor khusus.
 
 ---
 

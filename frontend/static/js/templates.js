@@ -35,7 +35,7 @@
       type: 'auto_response',
       keywords: ['info', 'server', 'informasi'],
       response_type: 'embed',
-      embed: { title: '📋 Info Server', description: '**{server}**\\n\\n📅 Dibuat: {created_at}\\n👑 Owner: <@!{owner_id}>\\n👥 Member: {member_count}\\n💬 Channel: {channel_count}', color: '5865f2' },
+      embed: { title: '📋 Info Server', description: '**{server}**\\n\\n📅 Dibuat: {created_at}\\n👑 Owner: <@!{owner_id}>\\n👥 Member: {member_count}\\n💬 Channel: {channel_count}', color: '00d4ff' },
       content: '',
     },
     {
@@ -51,7 +51,7 @@
       type: 'auto_response',
       keywords: ['help', 'bantuan', 'faq', 'command'],
       response_type: 'embed',
-      embed: { title: '❓ Butuh Bantuan?', description: 'Gunakan `/help` untuk melihat semua command bot.\\nKunjungi <#channel_support> untuk bertanya ke admin.\\n\\n📚 **Command Populer:**\\n• `/ping` — Cek status bot\\n• `/stats` — Statistik server\\n• `/rank` — Level kamu', color: '5865f2' },
+      embed: { title: '❓ Butuh Bantuan?', description: 'Gunakan `/help` untuk melihat semua command bot.\\nKunjungi <#channel_support> untuk bertanya ke admin.\\n\\n📚 **Command Populer:**\\n• `/ping` — Cek status bot\\n• `/stats` — Statistik server\\n• `/rank` — Level kamu', color: '00d4ff' },
       content: '',
     },
     {
@@ -59,7 +59,7 @@
       type: 'auto_response',
       keywords: ['sosial', 'social', 'media', 'instagram', 'twitter', 'youtube'],
       response_type: 'embed',
-      embed: { title: '🌐 Social Media Kami', description: '📸 Instagram: [@server_ig](https://instagram.com/)\\n🐦 Twitter: [@server_twt](https://twitter.com/)\\n▶️ YouTube: [Server YT](https://youtube.com/)\\n💬 Discord: [Join Server](https://discord.gg/)', color: '5865f2' },
+      embed: { title: '🌐 Social Media Kami', description: '📸 Instagram: [@server_ig](https://instagram.com/)\\n🐦 Twitter: [@server_twt](https://twitter.com/)\\n▶️ YouTube: [Server YT](https://youtube.com/)\\n💬 Discord: [Join Server](https://discord.gg/)', color: '00d4ff' },
       content: '',
     },
   ];
@@ -80,7 +80,7 @@
 
   function shortEmbedPreview(tpl){
     var e = tpl.embed || {};
-    var html = '<div class="tpl-card-embed-preview" style="border-left-color:#' + (e.color || '5865f2') + '">';
+    var html = '<div class="tpl-card-embed-preview" style="border-left-color:#' + (e.color || '00d4ff') + '">';
     if(e.title) html += '<div class="ep-title">' + e.title + '</div>';
     if(e.description) html += '<div class="ep-desc">' + e.description.slice(0,120) + (e.description.length > 120 ? '…' : '') + '</div>';
     if(e.fields && e.fields.length) html += '<div class="ep-fields">📋 ' + e.fields.length + ' field(s)</div>';

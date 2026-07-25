@@ -110,8 +110,8 @@ select.wl-input { cursor: pointer; }
 }
 .toast.toast-info {
   background: #121a2a;
-  border: 1px solid rgba(88, 101, 242, 0.5);
-  color: #5865f2;
+  border: 1px solid rgba(0, 212, 255, 0.5);
+  color: #00d4ff;
 }
 .toast.toast-out {
   transform: translateX(calc(100% + 2rem));

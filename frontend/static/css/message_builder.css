@@ -107,7 +107,7 @@
   background: transparent; color: var(--text-muted); cursor: pointer; font-size: 0.82rem; text-align: center;
   transition: all 0.15s; margin-top: 0.5rem;
 }
-.btn-add-field:hover { border-color: var(--accent-primary); color: var(--accent-primary); background: rgba(88, 101, 242, 0.05); }
+.btn-add-field:hover { border-color: var(--accent-primary); color: var(--accent-primary); background: rgba(0, 212, 255, 0.05); }
 
 /* ── Preview ── */
 .card-body-preview { padding: 0; min-height: 200px; display: flex; flex-direction: column; }
@@ -173,8 +173,8 @@
   text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 0.75rem;
   position: relative;
 }
-.mb-upload-zone:hover { border-color: var(--accent-primary); background: rgba(88,101,242,0.04); }
-.mb-upload-zone.dragover { border-color: var(--accent-primary); background: rgba(88,101,242,0.08); }
+.mb-upload-zone:hover { border-color: var(--accent-primary); background: rgba(0,212,255,0.04); }
+.mb-upload-zone.dragover { border-color: var(--accent-primary); background: rgba(0,212,255,0.08); }
 .mb-file-input { display: none; }
 .mb-upload-content { transition: opacity 0.2s; }
 .mb-upload-zone.has-file .mb-upload-content { opacity: 0; }

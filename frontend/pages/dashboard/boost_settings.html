@@ -19,12 +19,12 @@
 
   <div class="boost-header">
     <div class="boost-header-left">
-      <h1>{% if active_page == 'boost_stats' %}📈 Statistik Boost{% else %}💎 Riwayat Boost{% endif %}</h1>
+      <h1>{% if active_page == 'boost_stats' %}<i data-lucide="trending-up"></i> Statistik Boost{% else %}<i data-lucide="gem"></i> Riwayat Boost{% endif %}</h1>
       <p>{% if active_page == 'boost_stats' %}Statistik lengkap boost server{% else %}Semua event boost yang tercatat di server ini{% endif %}</p>
     </div>
     <div class="boost-header-right">
-      <a href="/dashboard/{{ guild_id }}/boost" class="btn-boost {% if active_page == 'boost_tracker' %}active{% endif %}">📋 Riwayat</a>
-      <a href="/dashboard/{{ guild_id }}/boost/stats" class="btn-boost {% if active_page == 'boost_stats' %}active{% endif %}">📈 Statistik</a>
+      <a href="/dashboard/{{ guild_id }}/boost" class="btn-boost {% if active_page == 'boost_tracker' %}active{% endif %}"><i data-lucide="list"></i> Riwayat</a>
+      <a href="/dashboard/{{ guild_id }}/boost/stats" class="btn-boost {% if active_page == 'boost_stats' %}active{% endif %}"><i data-lucide="trending-up"></i> Statistik</a>
     </div>
   </div>
 
@@ -53,7 +53,7 @@
   </div>
 
   <div class="card">
-    <div class="card-header"><h2>🏆 Top Boosters</h2></div>
+    <div class="card-header"><h2><i data-lucide="trophy"></i> Top Boosters</h2></div>
     <div class="card-body">
       <table class="boost-table" id="topTable">
         <thead><tr><th>#</th><th>User ID</th><th>Total Boost</th></tr></thead>
@@ -64,7 +64,7 @@
 {% else %}
   <div class="card">
     <div class="card-header">
-      <h2>📋 Semua Event Boost</h2>
+      <h2><i data-lucide="list"></i> Semua Event Boost</h2>
       <span class="badge" id="boostCount">—</span>
     </div>
     <div class="card-body">

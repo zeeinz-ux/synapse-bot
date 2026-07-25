@@ -76,7 +76,7 @@
     return {
       title: val('mbTitle'),
       description: val('mbDesc'),
-      color: (val('mbColor') || '5865f2').replace('#',''),
+      color: (val('mbColor') || '00d4ff').replace('#',''),
       author_name: val('mbAuthorName'),
       author_icon: val('mbAuthorIcon'),
       thumbnail: val('mbThumb'),
@@ -99,7 +99,7 @@
       document.getElementById('mbPreviewInner').innerHTML = '<div class="mb-empty-preview">Isi form di samping untuk melihat preview</div>';
       return;
     }
-    var color = e.color || '5865f2';
+    var color = e.color || '00d4ff';
     var wrap = '<div class="mb-embed-preview" style="border-left-color:#' + color + '"><div class="embed-content">';
     if(e.author_name){
       wrap += '<div class="embed-author">';
@@ -190,8 +190,8 @@
   function loadEmbed(e){
     document.getElementById('mbTitle').value = e.title || '';
     document.getElementById('mbDesc').value = e.description || '';
-    document.getElementById('mbColor').value = e.color || '5865f2';
-    document.getElementById('mbColorPicker').value = '#' + (e.color || '5865f2');
+    document.getElementById('mbColor').value = e.color || '00d4ff';
+    document.getElementById('mbColorPicker').value = '#' + (e.color || '00d4ff');
     document.getElementById('mbAuthorName').value = e.author_name || '';
     document.getElementById('mbAuthorIcon').value = e.author_icon || '';
     document.getElementById('mbThumb').value = e.thumbnail || '';
@@ -210,8 +210,8 @@
   function resetForm(){
     document.getElementById('mbTitle').value = '';
     document.getElementById('mbDesc').value = '';
-    document.getElementById('mbColor').value = '5865f2';
-    document.getElementById('mbColorPicker').value = '#5865f2';
+    document.getElementById('mbColor').value = '00d4ff';
+    document.getElementById('mbColorPicker').value = '#00d4ff';
     document.getElementById('mbAuthorName').value = '';
     document.getElementById('mbAuthorIcon').value = '';
     document.getElementById('mbThumb').value = '';
@@ -406,7 +406,7 @@
       renderPreview();
     });
     document.getElementById('mbColor').addEventListener('input', function(){
-      document.getElementById('mbColorPicker').value = '#' + (this.value || '5865f2');
+      document.getElementById('mbColorPicker').value = '#' + (this.value || '00d4ff');
       renderPreview();
     });
 

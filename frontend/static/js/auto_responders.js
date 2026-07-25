@@ -472,7 +472,7 @@ async function editResponder(id) {
       ar.response_content || "";
     document.getElementById("ar-embed-title").value = ar.embed_title || "";
     document.getElementById("ar-embed-color").value =
-      ar.embed_color || "#5865F2";
+      ar.embed_color || "#00d4ff";
     document.getElementById("ar-embed-thumbnail").value =
       ar.embed_thumbnail || "";
     const imgUrl = ar.response_image_url || "";
@@ -974,7 +974,7 @@ function updateEmbedPreview() {
 
   const title = document.getElementById("ar-embed-title")?.value || "Judul Embed";
   const desc = document.getElementById("ar-response-content")?.value || "Deskripsi response...";
-  const color = document.getElementById("ar-embed-color")?.value || "#5865F2";
+  const color = document.getElementById("ar-embed-color")?.value || "#00d4ff";
   const thumb = document.getElementById("ar-embed-thumbnail")?.value || "";
 
   document.getElementById("embed-preview-title").textContent = title;
@@ -1021,7 +1021,7 @@ async function testResponder(id) {
     if (type === "text") {
       pre.textContent = `${mention}${content}`;
     } else if (type === "embed") {
-      pre.textContent = `Embed:\nTitle: ${ar.embed_title || ""}\nDesc: ${content}\nColor: ${ar.embed_color || "#5865F2"}\nThumb: ${ar.embed_thumbnail || "-"}\n${mention ? "Mention: @user" : ""}`;
+      pre.textContent = `Embed:\nTitle: ${ar.embed_title || ""}\nDesc: ${content}\nColor: ${ar.embed_color || "#00d4ff"}\nThumb: ${ar.embed_thumbnail || "-"}\n${mention ? "Mention: @user" : ""}`;
     } else if (type === "image") {
       const imgUrl = ar.response_image_url || "(upload)";
       pre.textContent = `Image Response:\n${mention}${imgUrl}`;

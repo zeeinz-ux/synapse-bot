@@ -230,6 +230,7 @@
 .navbar-mobile .btn-invite {
   margin-top: 0.5rem;
   justify-content: center;
+  color: var(--text-primary);
 }
 
 /* Mobile user info */
