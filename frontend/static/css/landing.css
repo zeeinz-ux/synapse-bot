@@ -130,6 +130,20 @@ img {
   align-items: center;
   padding-top: var(--navbar-height);
   padding-bottom: 4rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-nebula {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 90% 60% at 15% 45%, rgba(0, 212, 255, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 80% at 80% 30%, rgba(124, 58, 237, 0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 50% 85%, rgba(0, 212, 255, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 60% 60%, rgba(245, 158, 11, 0.03) 0%, transparent 50%);
 }
 
 .hero-content {
@@ -138,6 +152,8 @@ img {
   margin: 0 auto;
   text-align: center;
   padding: 0 1.5rem;
+  position: relative;
+  z-index: 1;
 }
 
 
