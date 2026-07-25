@@ -23,77 +23,25 @@ Dikumpulin tiap 30 detik di `main.py`, disimpen lewat Firestore.
 | Jumlah guild | Tampilan |
 |-------------|----------|
 | < 5 | Grid biasa (no animation) |
-| ≥ 5 | Marquee horizontal, kanan → kiri |
-| Hover | Animasi pause |
-
-## Visual Mockup
+| ≥ 5 | Marquee 3 copy, 2 baris arah zigzag |
+| Hover | Animasi pause via JS — lebih akurat drpd CSS `play-state` |
 
 ### Posisi di halaman
 
-Marquee ditempatin di hero section, **di bawah title/subtitle, di atas tombol invite & stats** — atau alternatifnya **menggantikan baris stats "Server / Members / Uptime"** (angka server doang diganti, members & uptime tetap).
-
-### Gambaran hero section setelah jadi
-
-```
-┌──────────────────────────────────────────────┐
-│              ● ONLINE (badge)                 │
-│                                               │
-│         ✨ SYNAPSE (title gradient)           │
-│                                               │
-│       subtitle text (secondary color)         │
-│                                               │
-│  ┌────────────────────────────────────────┐   │
-│  │  ←──── GUILD MARQUEE ───────────────→  │   │
-│  │  ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐       │   │
-│  │  │██│ │██│ │██│ │██│ │██│ │██│  ...   │   │
-│  │  └──┘ └──┘ └──┘ └──┘ └──┘ └──┘       │   │
-│  │  Nama  Nama  Nama  Nama  Nama  Nama    │   │
-│  │  ←──── arah baris 1 (kanan→kiri) ────  │   │
-│  │                                        │   │
-│  │  ──── arah baris 2 (kiri→kani) ────→  │   │
-│  │  ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐       │   │
-│  │  │██│ │██│ │██│ │██│ │██│ │██│  ...   │   │
-│  │  └──┘ └──┘ └──┘ └──┘ └──┘ └──┘       │   │
-│  │  Nama  Nama  Nama  Nama  Nama  Nama    │   │
-│  │  ←──── GUILD MARQUEE ───────────────→  │   │
-│  └────────────────────────────────────────┘   │
-│              [fade]          [fade]            │
-│                                               │
-│         [🎯 Invite]   [🔐 Dashboard]         │
-│                                               │
-│  ───────────────────────────────────────      │
-│  50K Members             99.9% Uptime          │
-│                                               │
-└──────────────────────────────────────────────┘
-```
-
-### Keterangan
+Marquee ditempatin di hero section, **di bawah subtitle, di atas tombol invite**. Stat server (angka) diganti jadi marquee visual. Members & Uptime tetap.
 
 | Elemen | Detail |
 |--------|--------|
 | **Background marquee** | `--glass-bg` (rgba 26,26,30,0.65), border `--glass-border`, backdrop-filter blur, border-radius |
-| **Avatar** | Lingkaran 40×40px, border 2px `--sidebar-border` |
-| **Nama server** | Font 0.75rem, `--text-secondary`, truncate 1 line, gap 6px dari avatar |
-| **Fade edge** | `mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)` — ilang perlahan ke background gelap |
-| **Arah baris 1** | Kanan → kiri (`translateX(-50%)`) |
-| **Arah baris 2** | Kiri → kanan (`translateX(0)`) — zigzag biar dinamis |
-| **Duplikat** | Item di-clone 1× biar seamless loop |
-| **Hover** | `animation-play-state: paused` — biar user bisa liat detail |
-| **Speed** | CSS custom property `--marquee-speed` (misal 30s-60s) tergantung jumlah guild |
-| **Click** | Setiap item bisa diklik → redirect ke `https://discord.com/servers/...` (kalo ada discovery) atau fallback gak usah |
-
-### Marquee item zoom (per avatar)
-
-```
-     ╭──────────╮
-     │  ╭────╮  │
-     │  │  ██│  │  ← 40×40px circle avatar
-     │  │  ██│  │     border 2px
-     │  ╰────╯  │
-     │  Nama    │  ← truncated, ~12ch max
-     │  Server  │
-     ╰──────────╯
-```
+| **Avatar** | Lingkaran 40×40px, border 2px `--sidebar-border`. Fallback: initial letter kalo gak ada icon |
+| **Nama server** | Font 0.75rem, `--text-secondary`, truncate 1 line (`max-width: 10ch`), gap 6px dari avatar |
+| **Fade edge** | `mask-image` di `.marquee-row` — ilang perlahan ke background gelap |
+| **Arah baris 1** | Kanan → kiri |
+| **Arah baris 2** | Kiri → kanan (zigzag) |
+| **Copy** | **3 copy** per baris (bukan 2) — biar pas reset ada overlap 1 set item yg tetap kelihatan, no visible jump |
+| **Hover** | `mouseenter` → paused, `mouseleave` → resume (JS RAF-based, lebih responsif) |
+| **Speed** | `max(40000, min(120000, guilds.length * 3000))` ms per siklus |
+| **Click** | Skip — gada discovery link yg reliable |
 
 ## Teknis
 
@@ -101,54 +49,40 @@ Marquee ditempatin di hero section, **di bawah title/subtitle, di atas tombol in
 
 | File | Perubahan |
 |------|-----------|
-| `frontend/static/js/landing.js` | Di `loadStats()`, render `guilds_list` ke container marquee |
-| `frontend/pages/landing.html` | Tambah `<div class="guild-marquee">` di hero section |
-| `frontend/static/css/landing.css` | Tambah style marquee, keyframes, fade mask |
+| `frontend/static/js/landing.js` | `loadStats()` render `guilds_list`. `renderMarquee()` pake RAF, delta-time, 3 copy |
+| `frontend/pages/landing.html` | `<div class="guild-marquee">` di hero, `#statItemServers` sbg fallback |
+| `frontend/static/css/landing.css` | Style marquee, mask, grid fallback. **No keyframes** — semua animasi via JS RAF |
 
 ### CSS highlights
 
-- `mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)`
-- `@keyframes marquee-right { to { transform: translateX(-50%) } }`
-- `@keyframes marquee-left { to { transform: translateX(0) } }`
-- Duplicate content via JS, wrapper `width: fit-content`
-- `animation-play-state: paused` on hover
+```css
+.marquee-row {
+  mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+}
+.marquee-track { width: fit-content; }
+/* animation: none — RAF handles transform langsung */
+```
 
 ### JS highlights
 
 ```js
-const guilds = data.guilds_list || [];
-if (guilds.length >= 5) {
-  // render 2 rows, second row reversed
-  // clone children for seamless loop
-  // set css custom property --marquee-speed based on count
+// RAF-driven, no CSS keyframes
+function tick(now) {
+  if (lastTime && !paused) {
+    elapsed += now - lastTime;
+    const pct = (elapsed % (DURATION * 3)) / (DURATION * 3) * 100;
+    rightTrack.style.transform = `translateX(-${pct / 3}%)`;
+    leftTrack.style.transform  = `translateX(${pct / 3 - 33.33}%)`;
+  }
+  lastTime = now;
+  rafId = requestAnimationFrame(tick);
 }
+
+// 3 copies per row, not 2
+rightTrack.append(...items, ...dup1, ...dup2);
+leftTrack.append(...reversed, ...dupRev1, ...dupRev2);
 ```
 
 ### Fallback
 
-Kalo guilds_list kosong / error, fallback ke angka doang (kaya skrg).
-
-## Gambaran Kasar DOM
-
-```html
-<div class="guild-marquee">
-  <div class="marquee-row marquee-row--right">
-    <div class="marquee-track">
-      <div class="marquee-item">
-        <img src="icon" loading="lazy" />
-        <span>Server Name</span>
-      </div>
-      <!-- ... duplicated for loop ... -->
-    </div>
-  </div>
-  <div class="marquee-row marquee-row--left">
-    <!-- same, reversed & opposite direction -->
-  </div>
-</div>
-```
-
-## Catatan
-
-- Icon Discord CDN bersifat permanen — gak perlu khawatir broken link
-- Cache image: browser handle sendiri lewat `loading="lazy"`
-- Kalo guild gak punya icon, fallback ke default Discord icon
+Kalo `guilds_list` kosong / error → container marquee `display: none`, stat server (`#statItemServers`) tetap kelihatan (seperti sebelum marquee).
