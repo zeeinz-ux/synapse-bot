@@ -43,6 +43,16 @@
         {{ "hero.subtitle" | t }}
       </p>
 
+      <!-- Guild Marquee -->
+      <div class="guild-marquee" id="guildMarquee" aria-label="Discord servers using Synapse" style="display:none">
+        <div class="marquee-row marquee-row--right">
+          <div class="marquee-track" id="marqueeTrackRight"></div>
+        </div>
+        <div class="marquee-row marquee-row--left">
+          <div class="marquee-track" id="marqueeTrackLeft"></div>
+        </div>
+      </div>
+
       <div class="hero-actions">
         <a href="https://discord.com/oauth2/authorize?client_id=1505849571039907900&permissions=8&integration_type=0&scope=bot%20applications.commands"
            target="_blank" rel="noopener noreferrer"
@@ -73,7 +83,7 @@
 
       <!-- Stats -->
       <div class="hero-stats" aria-label="Statistik bot">
-        <div class="stat-item">
+        <div class="stat-item stat-item--servers" id="statItemServers">
           <div class="stat-number" id="stat-guilds">
             {{ bot_guilds if bot_guilds is defined else '-' }}
           </div>

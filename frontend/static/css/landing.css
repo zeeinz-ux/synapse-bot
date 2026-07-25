@@ -215,6 +215,108 @@ img {
   border-color: var(--accent);
 }
 
+/* ── Guild Marquee ── */
+.guild-marquee {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow: hidden;
+  max-width: 640px;
+  margin: 2rem auto 0;
+  padding: 0.75rem 0;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.marquee-row {
+  display: flex;
+  overflow: hidden;
+  width: 100%;
+  mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+}
+
+.marquee-track {
+  display: flex;
+  gap: 0.75rem;
+  width: fit-content;
+  will-change: transform;
+}
+
+.marquee-row--right .marquee-track {
+  animation: marquee-right var(--marquee-speed, 30s) linear infinite;
+}
+
+.marquee-row--left .marquee-track {
+  animation: marquee-left var(--marquee-speed, 30s) linear infinite;
+}
+
+.guild-marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+.marquee-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.marquee-item img,
+.marquee-item .marquee-fallback {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--sidebar-border);
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.marquee-item .marquee-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tag-bg);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.marquee-item span {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 10ch;
+}
+
+/* Grid fallback (< 5 guilds) */
+.guild-marquee.grid .marquee-row {
+  justify-content: center;
+}
+
+.guild-marquee.grid .marquee-track {
+  animation: none;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ── Marquee Keyframes ── */
+@keyframes marquee-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes marquee-left {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
 /* Hero stats */
 .hero-stats {
   display: flex;

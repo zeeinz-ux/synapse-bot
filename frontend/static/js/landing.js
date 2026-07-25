@@ -20,18 +20,77 @@
     revealEls.forEach((el) => el.classList.add("revealed"));
   }
 
-  // ── Format angka stats dari API ──
+  // ── Guild Marquee ──
+  function renderMarquee(guilds) {
+    const container = document.getElementById("guildMarquee");
+    const rightTrack = document.getElementById("marqueeTrackRight");
+    const leftTrack = document.getElementById("marqueeTrackLeft");
+    if (!container || !rightTrack || !leftTrack) return;
+
+    const statItem = document.getElementById("statItemServers");
+
+    if (!guilds || guilds.length === 0) {
+      container.style.display = "none";
+      if (statItem) statItem.style.display = "";
+      return;
+    }
+
+    function createItem(guild) {
+      const item = document.createElement("div");
+      item.className = "marquee-item";
+      if (guild.icon) {
+        const img = document.createElement("img");
+        img.src = guild.icon;
+        img.alt = guild.name;
+        img.loading = "lazy";
+        item.appendChild(img);
+      } else {
+        const fallback = document.createElement("div");
+        fallback.className = "marquee-fallback";
+        fallback.textContent = guild.name.charAt(0).toUpperCase();
+        item.appendChild(fallback);
+      }
+      const span = document.createElement("span");
+      span.textContent = guild.name;
+      item.appendChild(span);
+      return item;
+    }
+
+    const items = guilds.map(createItem);
+
+    if (statItem) statItem.style.display = "none";
+    container.style.display = "";
+
+    if (guilds.length < 5) {
+      container.classList.add("grid");
+      rightTrack.append(...items);
+      leftTrack.style.display = "none";
+      return;
+    }
+
+    // Duplicate items for seamless loop
+    const dupRight = items.map((item) => item.cloneNode(true));
+    rightTrack.append(...items, ...dupRight);
+
+    const reversed = guilds.map(createItem).reverse();
+    const dupLeft = reversed.map((item) => item.cloneNode(true));
+    leftTrack.append(...reversed, ...dupLeft);
+
+    // Adjust speed based on count
+    const speed = Math.max(20, Math.min(60, guilds.length * 2.5));
+    container.style.setProperty("--marquee-speed", speed + "s");
+  }
+
+  // ── Fetch stats from API ──
   async function loadStats() {
     try {
       const res = await fetch("/api/stats");
       if (!res.ok) return;
       const data = await res.json();
-      const guildsEl = document.getElementById("stat-guilds");
       const membersEl = document.getElementById("stat-members");
-      if (guildsEl && data.guilds !== undefined)
-        guildsEl.textContent = data.guilds.toLocaleString("id-ID");
       if (membersEl && data.members !== undefined)
         membersEl.textContent = data.members.toLocaleString("id-ID");
+      renderMarquee(data.guilds_list);
     } catch (_) {}
   }
   loadStats();
