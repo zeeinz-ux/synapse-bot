@@ -58,14 +58,14 @@
       <!-- Language switcher -->
       <div class="nav-lang">
         <button class="lang-toggle" id="langToggle" aria-label="Switch language" aria-expanded="false" aria-controls="langDropdown">
-          {% if lang == "id" %}🇮🇩{% elif lang == "en" %}EN{% endif %}
+          {% if lang == "id" %}🇮🇩{% elif lang == "en" %}🇺🇸{% endif %}
           <svg class="lang-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true">
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </button>
         <div class="lang-dropdown" id="langDropdown" aria-hidden="true">
           <button class="lang-option {% if lang == 'id' %}active{% endif %}" data-lang="id"><span class="lang-flag">🇮🇩</span> {{ "lang.id" | t }}</button>
-          <button class="lang-option {% if lang == 'en' %}active{% endif %}" data-lang="en"><span class="lang-flag">EN</span> {{ "lang.en" | t }}</button>
+          <button class="lang-option {% if lang == 'en' %}active{% endif %}" data-lang="en"><span class="lang-flag">🇺🇸</span> {{ "lang.en" | t }}</button>
         </div>
       </div>
     </div><!-- /.nav-actions -->
@@ -80,18 +80,18 @@
 
 <!-- Mobile menu -->
 <div class="navbar-mobile" id="mobileMenu" role="dialog" aria-label="{{ 'nav.home' | t }}" aria-hidden="true">
-  <a href="#home" aria-current="page">🏠 {{ "nav.home" | t }}</a>
-  <a href="#faq">❓ {{ "nav.faq" | t }}</a>
-  <a href="#commands">⌨️ {{ "nav.commands" | t }}</a>
-  <a href="#about">👤 {{ "nav.about" | t }}</a>
-  <a href="https://sociabuzz.com/zeenz" target="_blank" rel="noopener noreferrer">💬 {{ "nav.support" | t }}</a>
+  <a href="#home" aria-current="page"><i data-lucide="home" width="16" height="16"></i> {{ "nav.home" | t }}</a>
+  <a href="#faq"><i data-lucide="help-circle" width="16" height="16"></i> {{ "nav.faq" | t }}</a>
+  <a href="#commands"><i data-lucide="terminal" width="16" height="16"></i> {{ "nav.commands" | t }}</a>
+  <a href="#about"><i data-lucide="user" width="16" height="16"></i> {{ "nav.about" | t }}</a>
+  <a href="https://sociabuzz.com/zeenz" target="_blank" rel="noopener noreferrer"><i data-lucide="message-circle" width="16" height="16"></i> {{ "nav.support" | t }}</a>
 
   <!-- Language switcher (mobile) -->
   <div class="mobile-lang-section">
-    <span class="mobile-lang-label">🌐 Language</span>
+    <span class="mobile-lang-label"><i data-lucide="globe" width="16" height="16"></i> Language</span>
     <div class="mobile-lang-options">
       <button class="lang-option mobile {% if lang == 'id' %}active{% endif %}" data-lang="id"><span class="lang-flag">🇮🇩</span> {{ "lang.id" | t }}</button>
-      <button class="lang-option mobile {% if lang == 'en' %}active{% endif %}" data-lang="en"><span class="lang-flag">EN</span> {{ "lang.en" | t }}</button>
+      <button class="lang-option mobile {% if lang == 'en' %}active{% endif %}" data-lang="en"><span class="lang-flag">🇺🇸</span> {{ "lang.en" | t }}</button>
     </div>
   </div>
 
@@ -101,10 +101,10 @@
     <span class="mobile-username">{{ user.username }}</span>
   </div>
   <form method="post" action="{{ url_for('logout') }}" class="navbar-mobile-logout-form">
-    <button type="submit" class="navbar-mobile-logout-btn">🚪 {{ "nav.logout" | t }}</button>
+    <button type="submit" class="navbar-mobile-logout-btn"><i data-lucide="log-out" width="16" height="16"></i> {{ "nav.logout" | t }}</button>
   </form>
   {% else %}
-  <a href="/login">🔒 {{ "nav.login" | t }}</a>
+  <a href="/login"><i data-lucide="lock" width="16" height="16"></i> {{ "nav.login" | t }}</a>
   {% endif %}
   <a href="https://discord.com/oauth2/authorize?client_id=1505849571039907900&permissions=8&integration_type=0&scope=bot%20applications.commands"
      target="_blank" rel="noopener noreferrer"

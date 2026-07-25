@@ -72,7 +72,7 @@ Session(app)
 # Translation / i18n
 # ==========================================================
 _translations = {}
-_trans_dir = os.path.join(os.path.dirname(__file__), "translations")
+_trans_dir = os.path.join(os.path.dirname(__file__), "language")
 for _f in os.listdir(_trans_dir):
     if _f.endswith(".json"):
         _lang = _f.replace(".json", "")

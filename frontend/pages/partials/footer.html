@@ -12,9 +12,9 @@
     </ul>
     <div class="footer-actions">
       {% if user %}
-      <a href="/dashboard" class="btn-footer-dashboard">🔓 {{ "hero.dashboard" | t }}</a>
+      <a href="/dashboard" class="btn-footer-dashboard"><i data-lucide="unlock" width="14" height="14"></i> {{ "hero.dashboard" | t }}</a>
       {% else %}
-      <a href="/login" class="btn-footer-login">🔒 {{ "hero.dashboard" | t }}</a>
+      <a href="/login" class="btn-footer-login"><i data-lucide="lock" width="14" height="14"></i> {{ "hero.dashboard" | t }}</a>
       {% endif %}
       <a href="https://discord.com/oauth2/authorize?client_id=1505849571039907900&permissions=8&integration_type=0&scope=bot%20applications.commands"
          target="_blank" rel="noopener noreferrer"
