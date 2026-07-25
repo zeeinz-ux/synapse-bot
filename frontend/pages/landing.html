@@ -226,54 +226,82 @@
             <h3>{{ "commands.title.ai" | t }}</h3>
           </div>
           <div class="command-list">
-            <div class="command-row" data-cmd="ai chat">
-              <code>/ai chat</code>
-              <span>{{ "commands.desc.ai_chat" | t }}</span>
+            <div class="command-row" data-cmd="ask">
+              <code>/ask</code>
+              <span>{{ "commands.desc.ask" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="ai personality">
-              <code>/ai personality</code>
-              <span>{{ "commands.desc.ai_personality" | t }}</span>
+            <div class="command-row" data-cmd="rag upload">
+              <code>/rag-upload</code>
+              <span>{{ "commands.desc.rag_upload" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="ai reset">
-              <code>/ai reset</code>
-              <span>{{ "commands.desc.ai_reset" | t }}</span>
+            <div class="command-row" data-cmd="rag list">
+              <code>/rag-list</code>
+              <span>{{ "commands.desc.rag_list" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="ai model">
-              <code>/ai model</code>
-              <span>{{ "commands.desc.ai_model" | t }}</span>
+            <div class="command-row" data-cmd="rag delete">
+              <code>/rag-delete</code>
+              <span>{{ "commands.desc.rag_delete" | t }}</span>
             </div>
           </div>
         </div>
 
-        <div class="command-card" data-category="moderation">
+        <!-- Voice Room Category -->
+        <div class="command-card" data-category="voice">
           <div class="command-card-header">
-            <div class="command-icon" aria-hidden="true"><i data-lucide="shield"></i></div>
-            <h3>{{ "commands.title.moderation" | t }}</h3>
+            <div class="command-icon" aria-hidden="true"><i data-lucide="headphones"></i></div>
+            <h3>{{ "commands.title.voice" | t }}</h3>
           </div>
           <div class="command-list">
-            <div class="command-row" data-cmd="kick">
-              <code>/kick</code>
-              <span>{{ "commands.desc.kick" | t }}</span>
+            <div class="command-row" data-cmd="voice">
+              <code>/voice</code>
+              <span>{{ "commands.desc.voice" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="ban">
-              <code>/ban</code>
-              <span>{{ "commands.desc.ban" | t }}</span>
+            <div class="command-row" data-cmd="voice config">
+              <code>/voice-config</code>
+              <span>{{ "commands.desc.voice_config" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="mute">
-              <code>/mute</code>
-              <span>{{ "commands.desc.mute" | t }}</span>
+            <div class="command-row" data-cmd="join">
+              <code>/join</code>
+              <span>{{ "commands.desc.join" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="warn">
-              <code>/warn</code>
-              <span>{{ "commands.desc.warn" | t }}</span>
+            <div class="command-row" data-cmd="voice password">
+              <code>/voice-password</code>
+              <span>{{ "commands.desc.voice_password" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="clear">
-              <code>/clear</code>
-              <span>{{ "commands.desc.clear" | t }}</span>
+            <div class="command-row" data-cmd="voice bitrate">
+              <code>/voice-bitrate</code>
+              <span>{{ "commands.desc.voice_bitrate" | t }}</span>
             </div>
           </div>
         </div>
 
+        <!-- Auto Responder Category -->
+        <div class="command-card" data-category="autoresponder">
+          <div class="command-card-header">
+            <div class="command-icon" aria-hidden="true"><i data-lucide="message-square"></i></div>
+            <h3>{{ "commands.title.autoresponder" | t }}</h3>
+          </div>
+          <div class="command-list">
+            <div class="command-row" data-cmd="ar add">
+              <code>/ar-add</code>
+              <span>{{ "commands.desc.ar_add" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="ar list">
+              <code>/ar-list</code>
+              <span>{{ "commands.desc.ar_list" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="ar edit">
+              <code>/ar-edit</code>
+              <span>{{ "commands.desc.ar_edit" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="ar toggle">
+              <code>/ar-toggle</code>
+              <span>{{ "commands.desc.ar_toggle" | t }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Utility Category -->
         <div class="command-card" data-category="utility">
           <div class="command-card-header">
             <div class="command-icon" aria-hidden="true"><i data-lucide="settings"></i></div>
@@ -284,21 +312,21 @@
               <code>/help</code>
               <span>{{ "commands.desc.help" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="stats">
-              <code>/stats</code>
-              <span>{{ "commands.desc.stats" | t }}</span>
+            <div class="command-row" data-cmd="setup">
+              <code>/setup</code>
+              <span>{{ "commands.desc.setup" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="welcome setup">
-              <code>/welcome setup</code>
-              <span>{{ "commands.desc.welcome_setup" | t }}</span>
+            <div class="command-row" data-cmd="dashboard">
+              <code>/dashboard</code>
+              <span>{{ "commands.desc.dashboard" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="donasi">
-              <code>/donasi</code>
-              <span>{{ "commands.desc.donasi" | t }}</span>
+            <div class="command-row" data-cmd="rank">
+              <code>/rank</code>
+              <span>{{ "commands.desc.rank" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="autoresponder">
-              <code>/autoresponder</code>
-              <span>{{ "commands.desc.autoresponder" | t }}</span>
+            <div class="command-row" data-cmd="photobox">
+              <code>/photobox</code>
+              <span>{{ "commands.desc.photobox" | t }}</span>
             </div>
           </div>
         </div>
