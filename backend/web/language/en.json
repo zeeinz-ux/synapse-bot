@@ -17,13 +17,13 @@
   "hero.stats.uptime": "Uptime",
 
   "features.title": "What Can Synapse Do?",
-  "features.subtitle": "From entertainment to server management — Synapse is ready to be the backbone of your community.",
+  "features.subtitle": "From entertainment to server management. Synapse is ready to be the backbone of your community.",
   "features.ai.title": "Advanced AI Chat",
-  "features.ai.desc": "Powered by Gemini 3.5 Flash, OpenRouter, and Groq. Choose bot personality: friendly, formal, tsundere, or wise — fitting your server's character.",
+  "features.ai.desc": "Powered by Gemini 3.5 Flash, OpenRouter, and Groq. Choose bot personality: friendly, formal, tsundere, or wise, fitting your server's character.",
   "features.welcome.title": "Elegant Welcome System",
-  "features.welcome.desc": "Fully customizable welcome banners: member avatar, text, colors, background, embed — all through a visual dashboard.",
+  "features.welcome.desc": "Fully customizable welcome banners: member avatar, text, colors, background, embed, all through a visual dashboard.",
   "features.dashboard.title": "Modern Admin Dashboard",
-  "features.dashboard.desc": "Manage all server settings from your browser. Real-time stats, dark mode, mobile responsive — no coding required.",
+  "features.dashboard.desc": "Manage all server settings from your browser. Real-time stats, dark mode, mobile responsive, no coding required.",
   "features.donation.title": "Donation & Boost Tracker",
   "features.donation.desc": "Automatically track donations and server boosts. Send custom thank-you messages and view complete statistics from the dashboard.",
   "features.autoresponder.title": "Auto Responder & Actions",
@@ -40,7 +40,7 @@
 
   "cta.title": "Ready to take your server<br/>to the next level?",
   "cta.subtitle": "Free, no hassle. Ready to go.",
-  "cta.invite": "Invite Now — Free",
+  "cta.invite": "Invite Now • Free",
   "cta.support": "Join Support Server",
 
   "faq.title": "FAQ",
@@ -51,7 +51,7 @@
   "faq.q3": "Is the AI Chat feature safe and privacy-friendly?",
   "faq.a3": "Very safe. We <strong>do not store</strong> private conversation history permanently. AI Chat uses advanced models (Gemini AI, OpenRouter, Groq) with built-in security filters. You can also configure the bot's personality and limit which channels can use the AI feature.",
   "faq.q4": "How do I set up the welcome banner (welcome system)?",
-  "faq.a4": "Login to the <a href=\"/dashboard\">Dashboard</a>, select your server, then go to the <strong>Welcome System</strong> menu. There you can customize: background banner, text color, avatar position, custom message, target channel, and embed styling — all without coding. Changes go live instantly in real-time.",
+  "faq.a4": "Login to the <a href=\"/dashboard\">Dashboard</a>, select your server, then go to the <strong>Welcome System</strong> menu. There you can customize: background banner, text color, avatar position, custom message, target channel, and embed styling, all without coding. Changes go live instantly in real-time.",
 
   "commands.title.ai": "AI Chat",
   "commands.title.moderation": "Moderation",
@@ -79,9 +79,9 @@
   "about.title": "About Synapse",
   "about.subtitle": "Get to know the versatile Discord bot ready to help your community.",
   "about.vision.title": "Vision",
-  "about.vision.desc": "Synapse was built with the vision of becoming the <strong>backbone of Discord communities</strong> — providing one versatile bot that combines quality entertainment, artificial intelligence, elegant server management, and a seamless user experience. We believe every Discord server deserves a powerful bot without having to pay or compromise on quality.",
+  "about.vision.desc": "Synapse was built with the vision of becoming the <strong>backbone of Discord communities</strong>, providing one versatile bot that combines quality entertainment, artificial intelligence, elegant server management, and a seamless user experience. We believe every Discord server deserves a powerful bot without having to pay or compromise on quality.",
   "about.dev.title": "Developer",
-  "about.dev.desc": "Developed by an enthusiast passionate about automation and online communities. With experience in the Discord ecosystem and modern technology, Synapse is designed to be scalable, reliable, and easily customizable by anyone — no programming skills required.",
+  "about.dev.desc": "Developed by an enthusiast passionate about automation and online communities. With experience in the Discord ecosystem and modern technology, Synapse is designed to be scalable, reliable, and easily customizable by anyone, no programming skills required.",
   "about.tech.title": "Tech Stack",
   "about.support": "Join Support Server",
 

@@ -17,13 +17,13 @@
   "hero.stats.uptime": "Uptime",
 
   "features.title": "Apa yang Bisa Synapse Lakukan?",
-  "features.subtitle": "Dari hiburan hingga manajemen server — Synapse siap jadi tulang punggung komunitas kamu.",
+  "features.subtitle": "Dari hiburan hingga manajemen server. Synapse siap jadi tulang punggung komunitas kamu.",
   "features.ai.title": "AI Chat Canggih",
-  "features.ai.desc": "Didukung Gemini 3.5 Flash, OpenRouter, dan Groq. Pilih kepribadian bot: friendly, formal, tsundere, atau wise — sesuai karakter server.",
+  "features.ai.desc": "Didukung Gemini 3.5 Flash, OpenRouter, dan Groq. Pilih kepribadian bot: friendly, formal, tsundere, atau wise sesuai karakter server.",
   "features.welcome.title": "Welcome System Elegan",
-  "features.welcome.desc": "Banner selamat datang yang bisa dikustomisasi penuh: avatar member, teks, warna, background, embed — semuanya via dashboard visual.",
+  "features.welcome.desc": "Banner selamat datang yang bisa dikustomisasi penuh: avatar member, teks, warna, background, embed, semuanya via dashboard visual.",
   "features.dashboard.title": "Dashboard Admin Modern",
-  "features.dashboard.desc": "Kelola semua pengaturan server dari browser. Real-time stats, dark mode, responsif untuk mobile — tanpa perlu sentuh kode.",
+  "features.dashboard.desc": "Kelola semua pengaturan server dari browser. Real-time stats, dark mode, responsif untuk mobile tanpa perlu sentuh kode.",
   "features.donation.title": "Donation & Boost Tracker",
   "features.donation.desc": "Lacak donasi dan boost server secara otomatis. Kirim ucapan terima kasih custom, dan pantau statistik lengkap langsung dari dashboard.",
   "features.autoresponder.title": "Auto Responder & Actions",
@@ -40,7 +40,7 @@
 
   "cta.title": "Siap membawa server kamu<br/>ke level berikutnya?",
   "cta.subtitle": "Gratis, gak ribet. Langsung jalan.",
-  "cta.invite": "Invite Sekarang — Gratis",
+  "cta.invite": "Invite Sekarang • Gratis",
   "cta.support": "Join Support Server",
 
   "faq.title": "Tanya Jawab",
@@ -51,7 +51,7 @@
   "faq.q3": "Apakah fitur AI Chat-nya aman dan ramah privasi?",
   "faq.a3": "Sangat aman. Kami <strong>tidak menyimpan</strong> riwayat percakapan pribadi secara permanen. AI Chat menggunakan model canggih (Gemini AI, OpenRouter, Groq) dengan filter keamanan bawaan. Kamu juga bisa mengatur kepribadian bot dan membatasi channel mana saja yang boleh menggunakan fitur AI.",
   "faq.q4": "Bagaimana cara mengatur banner selamat datang (welcome system)?",
-  "faq.a4": "Login ke <a href=\"/dashboard\">Dashboard</a>, pilih server kamu, lalu masuk ke menu <strong>Welcome System</strong>. Di sana kamu bisa mengkustomisasi: background banner, warna teks, posisi avatar, pesan custom, channel tujuan, dan embed styling — semuanya tanpa perlu coding. Perubahan langsung aktif secara real-time.",
+  "faq.a4": "Login ke <a href=\"/dashboard\">Dashboard</a>, pilih server kamu, lalu masuk ke menu <strong>Welcome System</strong>. Di sana kamu bisa mengkustomisasi: background banner, warna teks, posisi avatar, pesan custom, channel tujuan, dan embed styling, semuanya tanpa perlu coding. Perubahan langsung aktif secara real-time.",
 
   "commands.title.ai": "AI Chat",
   "commands.title.moderation": "Moderasi",
@@ -79,9 +79,9 @@
   "about.title": "Tentang Synapse",
   "about.subtitle": "Kenali lebih dekat bot Discord serbaguna yang siap membantu komunitas kamu.",
   "about.vision.title": "Visi",
-  "about.vision.desc": "Synapse dibangun dengan visi menjadi <strong>tulang punggung komunitas Discord</strong> — menyediakan satu bot serbaguna yang menggabungkan hiburan berkualitas, kecerdasan buatan, manajemen server yang elegan, dan pengalaman pengguna yang seamless. Kami percaya setiap server Discord berhak memiliki bot yang powerful tanpa harus membayar atau mengorbankan kualitas.",
+  "about.vision.desc": "Synapse dibangun dengan visi menjadi <strong>tulang punggung komunitas Discord</strong>, menyediakan satu bot serbaguna yang menggabungkan hiburan berkualitas, kecerdasan buatan, manajemen server yang elegan, dan pengalaman pengguna yang seamless. Kami percaya setiap server Discord berhak memiliki bot yang powerful tanpa harus membayar atau mengorbankan kualitas.",
   "about.dev.title": "Developer",
-  "about.dev.desc": "Dikembangkan oleh seorang enthusiast yang passionate tentang automation dan komunitas online. Dengan pengalaman dalam ekosistem Discord dan teknologi modern, Synapse dirancang untuk scalable, reliable, dan mudah dikustomisasi oleh siapa saja — tanpa perlu jadi programmer.",
+  "about.dev.desc": "Dikembangkan oleh seorang enthusiast yang passionate tentang automation dan komunitas online. Dengan pengalaman dalam ekosistem Discord dan teknologi modern, Synapse dirancang untuk scalable, reliable, dan mudah dikustomisasi oleh siapa saja, tanpa perlu jadi programmer.",
   "about.tech.title": "Tech Stack",
   "about.support": "Join Support Server",
 
