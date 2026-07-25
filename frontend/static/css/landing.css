@@ -172,13 +172,10 @@ img {
   font-size: 0.975rem;
   font-weight: 700;
   transition: var(--transition);
-  box-shadow: 0 0 24px rgba(0, 212, 255, 0.25);
 }
 
 .btn-primary:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 32px rgba(0, 212, 255, 0.35);
-  filter: brightness(1.08);
+  filter: brightness(1.05);
 }
 
 .btn-secondary {
@@ -186,8 +183,8 @@ img {
   align-items: center;
   gap: 0.5rem;
   padding: 0.8rem 1.75rem;
-  background: var(--sidebar-bg);
-  color: var(--text-primary);
+  background: transparent;
+  color: var(--text-secondary);
   border: 1px solid var(--sidebar-border);
   border-radius: var(--radius-md);
   font-size: 0.975rem;
@@ -196,9 +193,9 @@ img {
 }
 
 .btn-secondary:hover {
-  background: var(--hover-bg);
-  border-color: var(--accent);
-  transform: translateY(-2px);
+  background: var(--gradient-main);
+  color: var(--text-primary);
+  border-color: transparent;
 }
 
 .btn-dashboard-unlocked {
