@@ -27,11 +27,12 @@
     const leftTrack = document.getElementById("marqueeTrackLeft");
     if (!container || !rightTrack || !leftTrack) return;
 
-    const statItem = document.getElementById("statItemServers");
+    if (guilds && guilds.length > 50) {
+      guilds = guilds.slice(0, 50);
+    }
 
     if (!guilds || guilds.length === 0) {
       container.style.display = "none";
-      if (statItem) statItem.style.display = "";
       return;
     }
 
@@ -58,7 +59,6 @@
 
     const items = guilds.map(createItem);
 
-    if (statItem) statItem.style.display = "none";
     container.style.display = "";
 
     if (guilds.length < 5) {
