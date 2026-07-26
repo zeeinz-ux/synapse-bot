@@ -3,3 +3,4 @@ from .groq import GroqProvider
 from .mistral import MistralProvider
 from .cohere import CohereProvider
 from .openrouter import OpenRouterProvider
+from .opencode_zen import OpenCodeZenProvider

@@ -53,6 +53,7 @@ from .providers import (
     MistralProvider,
     CohereProvider,
     OpenRouterProvider,
+    OpenCodeZenProvider,
 )
 
 # ── Konstanta ──
@@ -99,6 +100,7 @@ class AIChat(commands.Cog):
         self.mistral_api_key = os.getenv("MISTRAL_API_KEY", "")
         self.cohere_api_key = os.getenv("COHERE_API_KEY", "")
         self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "")
+        self.zen_api_key = os.getenv("OPENCODE_ZEN_API_KEY", "")
 
         self.session: aiohttp.ClientSession | None = None
 
@@ -108,6 +110,7 @@ class AIChat(commands.Cog):
         self.mistral: MistralProvider | None = None
         self.cohere: CohereProvider | None = None
         self.openrouter: OpenRouterProvider | None = None
+        self.zen: OpenCodeZenProvider | None = None
 
         self._providers: list = []
 
@@ -135,6 +138,8 @@ class AIChat(commands.Cog):
             print("[AI CHAT] COHERE_API_KEY tidak ditemukan!")
         if not self.openrouter_api_key:
             print("[AI CHAT] OPENROUTER_API_KEY tidak ditemukan!")
+        if not self.zen_api_key:
+            print("[AI CHAT] OPENCODE_ZEN_API_KEY tidak ditemukan!")
 
     async def cog_load(self):
         if self.session and not self.session.closed:
@@ -148,10 +153,13 @@ class AIChat(commands.Cog):
         self.mistral = MistralProvider(self.session, self.mistral_api_key)
         self.cohere = CohereProvider(self.session, self.cohere_api_key)
         self.openrouter = OpenRouterProvider(self.session, self.openrouter_api_key)
+        self.zen = OpenCodeZenProvider(self.session, self.zen_api_key)
 
         await self.openrouter.initialize()
+        await self.zen.initialize()
 
         self._providers = [
+            self.zen,
             self.gemini,
             self.groq,
             self.mistral,
@@ -488,6 +496,17 @@ class AIChat(commands.Cog):
                 print(f"[AI CHAT] Tier 1 Fail ({response}). Switching to Tier 2 (Groq)...")
 
         if has_images:
+            if self.zen and self.zen.is_available:
+                print("[AI CHAT] [ZEN VISION] Trying OpenCode Zen vision...")
+                response, success = await self.zen.call(
+                    user_message, history, system_prompt, temperature, images
+                )
+                if success:
+                    if not history:
+                        self._set_cached_response(user_message, system_prompt, temperature, response)
+                    print("[AI CHAT] Zen vision Success")
+                    return response
+                print(f"[AI CHAT] Zen vision Fail ({response})")
             if self.openrouter and self.openrouter.is_available:
                 print("[AI CHAT] [TIER 5] Trying OpenRouter vision...")
                 response, success = await self.openrouter.call(
@@ -601,6 +620,18 @@ class AIChat(commands.Cog):
 
         # ── Vision fallback ──
         if has_images:
+            if self.zen and self.zen.is_available:
+                try:
+                    saw_chunk = False
+                    async for chunk in self.zen.stream(user_message, history, system_prompt, temperature, images):
+                        if chunk:
+                            saw_chunk = True
+                            yield chunk
+                    if saw_chunk:
+                        print("[AI STREAM] Zen vision Success")
+                        return
+                except Exception as e:
+                    print(f"[AI STREAM] Zen vision Exception ({e})")
             if self.openrouter and self.openrouter.is_available:
                 try:
                     saw_chunk = False
