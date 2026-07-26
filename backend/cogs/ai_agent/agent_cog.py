@@ -14,6 +14,8 @@ from .agent_tools import (
 
 MAX_AGENT_STEPS = 15
 AGENT_TIMEOUT = 120
+MEMORY_TTL = 300  # 5 menit
+MEMORY_MAX_TURNS = 5  # maksimal 5 pasang Q&A disimpan
 
 
 class AIChatAgent(commands.Cog):
@@ -21,12 +23,35 @@ class AIChatAgent(commands.Cog):
         self.bot = bot
         self._active_sessions: set[int] = set()
         self._agent_channels: dict[int, float] = {}  # channel_id -> timestamp
+        self._conversation_memory: dict[int, list[dict]] = {}  # user_id -> history
+        self._memory_ts: dict[int, float] = {}  # user_id -> last_access
 
     def _is_recent_agent_channel(self, channel_id: int) -> bool:
         ts = self._agent_channels.get(channel_id)
         if ts and time_module.time() - ts < 120:
             return True
         return False
+
+    def _get_memory(self, user_id: int) -> list[dict]:
+        ts = self._memory_ts.get(user_id)
+        if ts and time_module.time() - ts < MEMORY_TTL:
+            self._memory_ts[user_id] = time_module.time()
+            return self._conversation_memory.get(user_id, [])
+        self._conversation_memory.pop(user_id, None)
+        self._memory_ts.pop(user_id, None)
+        return []
+
+    def _save_memory(self, user_id: int, new_user_msg: str, new_ai_msg: str):
+        mem = self._get_memory(user_id)
+        if new_user_msg:
+            mem.append({"role": "user", "content": new_user_msg})
+        if new_ai_msg:
+            mem.append({"role": "assistant", "content": new_ai_msg})
+        # Simpan maksimal MEMORY_MAX_TURNS pasang
+        if len(mem) > MEMORY_MAX_TURNS * 2:
+            mem = mem[-(MEMORY_MAX_TURNS * 2):]
+        self._conversation_memory[user_id] = mem
+        self._memory_ts[user_id] = time_module.time()
 
     # ── Settings ──
 
@@ -92,6 +117,7 @@ class AIChatAgent(commands.Cog):
         guild: discord.Guild,
         user_message: str,
         author: discord.Member,
+        memory: list[dict] | None = None,
     ) -> str:
         ai_cog, provider = self._get_provider()
         if not provider:
@@ -118,7 +144,7 @@ class AIChatAgent(commands.Cog):
         )
 
         # History untuk dikirim ke provider (tanpa system prompt)
-        history: list[dict] = []
+        history: list[dict] = list(memory) if memory else []
         # Pesan user saat ini
         current_message = user_message
         step_count = 0
@@ -213,11 +239,14 @@ class AIChatAgent(commands.Cog):
 
         self._active_sessions.add(ctx.author.id)
         try:
+            memory = self._get_memory(ctx.author.id)
             result = await asyncio.wait_for(
-                self._agent_react(ctx.guild, request, ctx.author),
+                self._agent_react(ctx.guild, request, ctx.author, memory),
                 timeout=AGENT_TIMEOUT,
             )
             self._agent_channels[ctx.channel.id] = time_module.time()
+            self._save_memory(ctx.author.id, request, result[:1000])
+
             if len(result) > 1900:
                 chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
                 for i, chunk in enumerate(chunks):
