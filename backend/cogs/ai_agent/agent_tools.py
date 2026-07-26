@@ -360,7 +360,7 @@ def parse_tool_call(text: str) -> list[dict] | None:
 
 
 def _parse_single_call(fn_name: str, args_raw: str) -> dict:
-    import json
+    import json, re
     args_raw = args_raw.strip()
     # Coba parse sebagai JSON dulu
     if args_raw.startswith("{"):
