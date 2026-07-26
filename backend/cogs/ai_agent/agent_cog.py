@@ -29,6 +29,7 @@ class AIChatAgent(commands.Cog):
         "create_role", "edit_role", "delete_role", "assign_role", "remove_role",
         "create_channel", "delete_channel", "rename_channel", "edit_channel_permissions",
         "ban_member", "unban_member", "kick_member", "timeout_member",
+        "batch_create_channels", "batch_create_roles",
     }
 
     # ── Firestore scan cache ──
@@ -66,7 +67,7 @@ class AIChatAgent(commands.Cog):
             return
 
         try:
-            if tool_fn in ("create_channel", "delete_channel", "rename_channel", "edit_channel_permissions"):
+            if tool_fn in ("create_channel", "delete_channel", "rename_channel", "edit_channel_permissions", "batch_create_channels"):
                 channels = []
                 categories = []
                 for cat in guild.categories:
@@ -97,7 +98,7 @@ class AIChatAgent(commands.Cog):
                 scan["channels"] = channels
                 scan["categories"] = categories
 
-            elif tool_fn in ("create_role", "edit_role", "delete_role"):
+            elif tool_fn in ("create_role", "edit_role", "delete_role", "batch_create_roles"):
                 scan["roles"] = []
                 for role in sorted(guild.roles, key=lambda r: r.position, reverse=True):
                     if role.is_default() or role.is_bot_managed() or role.is_integration():
@@ -562,6 +563,14 @@ Arguments: {{"name": "📜-rules", "type": "text", "category": "📢 Announcemen
 [TOOL_CALL]
 Function: create_channel
 Arguments: {{"name": "🎮-gaming", "type": "voice", "category": "🔊 Voice Channels"}}
+
+[TOOL_CALL]
+Function: batch_create_channels
+Arguments: {{"categories": ["📢 Announcements", "🤖 Bots"], "channels": [{{"name": "📜-rules", "type": "text", "category": "📢 Announcements"}}, {{"name": "📢-announcements", "type": "text", "category": "📢 Announcements"}}, {{"name": "💻-bot-commands", "type": "text", "category": "🤖 Bots"}}, {{"name": "🎮-gaming", "type": "voice", "category": "🔊 Voice"}}]}}
+
+[TOOL_CALL]
+Function: batch_create_roles
+Arguments: {{"roles": [{{"name": "Admin", "color": "#FF0000", "permissions": {{"administrator": true}}}}, {{"name": "Moderator", "color": "#00BFFF", "permissions": {{"kick_members": true, "manage_messages": true}}}}]}}
 
 JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah plan!
 """

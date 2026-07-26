@@ -224,6 +224,21 @@ TOOL_DEFINITIONS = [
         "description": "Lihat daftar member yang di-ban di server ini.",
         "parameters": {},
     },
+    {
+        "name": "batch_create_channels",
+        "description": "Bikin banyak channel + kategori sekaligus dalam SATU panggilan. Jauh lebih cepat & hemat token daripada create_channel satu-satu. Kirim array channel, tool akan buat kategori otomatis kalo belum ada.",
+        "parameters": {
+            "channels": "array of objects — WAJIB. Daftar channel yang mau dibuat. Format: [{\"name\": \"nama-channel\", \"type\": \"text\"|\"voice\", \"category\": \"Nama Kategori\" (optional, auto-create), \"topic\": \"deskripsi\" (optional)}]",
+            "categories": "array of strings — (optional) Daftar kategori yang mau dibuat duluan. Contoh: [\"📢 Announcements\", \"🤖 Bots\"]",
+        },
+    },
+    {
+        "name": "batch_create_roles",
+        "description": "Bikin banyak role sekaligus dalam SATU panggilan. Lebih cepat daripada create_role satu-satu.",
+        "parameters": {
+            "roles": "array of objects — WAJIB. Daftar role yang mau dibuat. Format: [{\"name\": \"nama-role\", \"color\": \"#HEX\" (optional), \"permissions\": {...} (optional)}]",
+        },
+    },
 ]
 
 
@@ -244,6 +259,7 @@ ATURAN PENTING:
 7. Setelah dapat hasil tool, analisis hasilnya lalu lanjutkan.
 8. Jika sudah selesai semua, berikan ringkasan apa yang sudah dilakukan.
 9. Saat membuat channel (create_channel), WAJIB tentukan parameter "category" agar channel langsung terkelompok dalam kategori. Jika kategori belum ada, tool akan membuatnya otomatis. Contoh: / create_channel name="📜-rules" category="📢 Announcements"
+10. Untuk bikin banyak channel/role sekaligus, GUNAKAN batch_create_channels / batch_create_roles, bukan create_channel/create_role satu-satu. Batch tool jauh lebih cepat dan hemat token.
 """
 
 DISCORD_UI_KNOWLEDGE = """
@@ -525,6 +541,10 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot) -> str:
             return await _edit_channel_permissions(guild, args)
         elif fn == "list_bans":
             return await _list_bans(guild)
+        elif fn == "batch_create_channels":
+            return await _batch_create_channels(guild, args)
+        elif fn == "batch_create_roles":
+            return await _batch_create_roles(guild, args)
         else:
             return f"[TOOL_RESULT]\nFunction: {fn}\nResult: {{\"success\": false, \"error\": \"Tool '{fn}' tidak dikenal\"}}"
     except discord.Forbidden:
@@ -612,6 +632,94 @@ async def _create_channel(guild: discord.Guild, args: dict) -> str:
         channel = await guild.create_text_channel(name, category=category, topic=topic, reason="AI Agent: create channel")
 
     return f'{{"success": true, "channel_id": "{channel.id}", "channel_name": "{channel.name}", "type": "{ch_type}"}}'
+
+
+async def _batch_create_channels(guild: discord.Guild, args: dict) -> str:
+    channels = args.get("channels", [])
+    if not channels or not isinstance(channels, list):
+        return '{"success": false, "error": "Parameter channels wajib diisi (array of objects)"}'
+
+    # Categories explicit
+    cat_order = args.get("categories", [])
+    for cat_name in cat_order:
+        if cat_name and not discord.utils.get(guild.categories, name=cat_name):
+            await guild.create_category(cat_name, reason="AI Agent: batch channel setup")
+
+    results = []
+    errors = []
+    for ch_def in channels:
+        name = ch_def.get("name", "").strip().lower().replace(" ", "-")
+        if not name:
+            errors.append("Channel tanpa nama dilewati")
+            continue
+        ch_type = ch_def.get("type", "text")
+        category_name = ch_def.get("category", "").strip()
+        topic = ch_def.get("topic", "")
+
+        category = None
+        if category_name:
+            category = discord.utils.get(guild.categories, name=category_name)
+            if not category:
+                try:
+                    category = await guild.create_category(category_name, reason="AI Agent: batch channel setup")
+                except Exception as e:
+                    errors.append(f"Gagal buat kategori '{category_name}': {e}")
+                    continue
+
+        try:
+            if ch_type == "voice":
+                channel = await guild.create_voice_channel(name, category=category, reason="AI Agent: batch create channel")
+            else:
+                channel = await guild.create_text_channel(name, category=category, topic=topic, reason="AI Agent: batch create channel")
+            results.append({"name": channel.name, "id": channel.id, "type": ch_type, "category": category_name or None})
+        except Exception as e:
+            errors.append(f"Gagal buat channel '{name}': {e}")
+
+    summary = {"success": True, "created": len(results), "failed": len(errors)}
+    if results:
+        summary["channels"] = results
+    if errors:
+        summary["errors"] = errors
+    return f"[TOOL_RESULT]\nFunction: batch_create_channels\nResult: {summary}"
+
+
+async def _batch_create_roles(guild: discord.Guild, args: dict) -> str:
+    roles = args.get("roles", [])
+    if not roles or not isinstance(roles, list):
+        return '{"success": false, "error": "Parameter roles wajib diisi (array of objects)"}'
+
+    results = []
+    errors = []
+    for r_def in roles:
+        name = r_def.get("name", "").strip()
+        if not name:
+            errors.append("Role tanpa nama dilewati")
+            continue
+        color_str = r_def.get("color", "").strip()
+        color = discord.Color.default()
+        if color_str:
+            try:
+                color = discord.Color.from_str(color_str)
+            except Exception:
+                pass
+        perms = r_def.get("permissions", {})
+        perm_obj = discord.Permissions()
+        for perm_name, val in perms.items():
+            if hasattr(perm_obj, perm_name):
+                setattr(perm_obj, perm_name, bool(val))
+
+        try:
+            role = await guild.create_role(name=name, color=color, permissions=perm_obj, reason="AI Agent: batch create role")
+            results.append({"name": role.name, "id": role.id})
+        except Exception as e:
+            errors.append(f"Gagal buat role '{name}': {e}")
+
+    summary = {"success": True, "created": len(results), "failed": len(errors)}
+    if results:
+        summary["roles"] = results
+    if errors:
+        summary["errors"] = errors
+    return f"[TOOL_RESULT]\nFunction: batch_create_roles\nResult: {summary}"
 
 
 async def _delete_channel(guild: discord.Guild, args: dict) -> str:
