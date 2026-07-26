@@ -137,13 +137,40 @@ class AIChatAgent(commands.Cog):
             f"Gunakan pengetahuan permission di atas untuk memberikan saran terbaik ke user.\n"
             f"Ikuti aturan dengan ketat."
         )
+        # Plan prompt — bikin rencana dulu sebelum eksekusi
+        plan_prompt = f"""{TOOL_DESCRIPTION}
+
+Tool yang tersedia:
+{tools_json}
+
+Server: {guild.name}
+Owner: {guild.owner}
+
+SEKARANG KAMU HARUS MEMBUAT RENCANA DAHULU SEBELUM EKSEKUSI!
+
+Analisis permintaan user, lalu buat rencana langkah demi langkah.
+
+Format jawaban:
+[PLAN]
+1. Langkah pertama — <tool yang dipakai>
+2. Langkah kedua — <tool yang dipakai>
+...
+[/PLAN]
+
+SETELAH itu, langsung eksekusi langkah pertama dengan format:
+[TOOL_CALL]
+Function: ...
+Arguments: {{...}}
+
+JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah plan!
+"""
         # Prompt ringkas untuk step selanjutnya (tapi tool list tetap disertakan)
         tool_names = "\n".join(f"  - {t['name']}: {t['description']}" for t in TOOL_DEFINITIONS)
         followup_prompt = (
             f"Kamu adalah AI Agent Discord.\n"
             f"Server: {guild.name}\n\n"
             f"Tool yang tersedia:\n{tool_names}\n\n"
-            f"Format: [TOOL_CALL] Function: ... Arguments: {{...}}"
+            f"Lanjutkan eksekusi rencana yang sudah dibuat. Format: [TOOL_CALL] Function: ... Arguments: {{...}}"
         )
 
         # History untuk dikirim ke provider (tanpa system prompt)
@@ -156,8 +183,8 @@ class AIChatAgent(commands.Cog):
         while step_count < MAX_AGENT_STEPS:
             step_count += 1
 
-            # Step 1: full prompt. Step 2+: prompt ringkas aja (hemat context)
-            used_prompt = system_prompt if step_count == 1 else followup_prompt
+            # Step 1: plan prompt. Step 2+: followup ringkas
+            used_prompt = plan_prompt if step_count == 1 else followup_prompt
 
             response, success = await provider.call(
                 user_message=current_message,
@@ -172,6 +199,12 @@ class AIChatAgent(commands.Cog):
                     final = "\n\n".join(t for _, t in conversation)
                     return f"{final}\n\n---\nMaaf, terjadi error di langkah {step_count}. Coba lagi."
                 return "Maaf, terjadi error saat memproses permintaan. Coba lagi nanti."
+
+            # Ambil plan kalo ada
+            plan_match = re.search(r'\[PLAN\](.*?)\[/PLAN\]', response, re.DOTALL)
+            if plan_match:
+                plan_text = plan_match.group(1).strip()
+                conversation.append(("PLAN", f"📋 **Rencana:**\n{plan_text}"))
 
             tool_calls = parse_tool_call(response)
             if not tool_calls:
@@ -199,7 +232,7 @@ class AIChatAgent(commands.Cog):
         if step_count >= MAX_AGENT_STEPS:
             conversation.append(("AI", "Saya sudah mencapai batas maksimum langkah. Berikut ringkasan apa yang sudah dilakukan."))
 
-        final_text = [t for speaker, t in conversation if speaker == "AI"]
+        final_text = [t for speaker, t in conversation if speaker in ("AI", "PLAN")]
         return "\n\n".join(final_text) if final_text else response
 
     # ── Slash Commands ──
