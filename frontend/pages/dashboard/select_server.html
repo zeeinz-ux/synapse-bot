@@ -80,17 +80,6 @@
       border-color: var(--accent-red);
       color: var(--accent-red);
     }
-    .ss-avail-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--accent-green);
-      background: rgba(59, 165, 92, 0.1);
-      padding: 0.25rem 0.6rem;
-      border-radius: 999px;
-    }
   </style>
 </head>
 <body>
@@ -120,6 +109,7 @@
     {% if guilds %}
     <div class="ss-grid">
       {% for g in guilds %}
+      {% if g.card_type == "available" %}
       <a href="{{ g.url }}" class="ss-card ss-card--available">
         <div class="ss-card-top">
           <div class="ss-icon" data-icon="{{ g.icon or '' }}" data-name="{{ g.name }}" data-id="{{ g.id }}"></div>
@@ -131,26 +121,69 @@
           </div>
         </div>
         <div class="ss-card-bottom">
-          <span class="ss-avail-label">
+          <span class="ss-badge ss-badge--available">
             <i data-lucide="shield-check" width="14" height="14"></i>
             Available
           </span>
           <span class="ss-btn ss-btn--config">Configure</span>
         </div>
       </a>
+      {% elif g.card_type == "invite" %}
+      <div class="ss-card ss-card--invite">
+        <div class="ss-card-top">
+          <div class="ss-icon" data-icon="{{ g.icon or '' }}" data-name="{{ g.name }}" data-id="{{ g.id }}"></div>
+          <div class="ss-card-info">
+            <div class="ss-card-name">{{ g.name }}</div>
+            {% if g.member_count %}
+            <div class="ss-card-members">{{ g.member_count }} members</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="ss-card-bottom">
+          <span class="ss-badge ss-badge--invite">
+            <i data-lucide="plus-circle" width="14" height="14"></i>
+            Invite
+          </span>
+          <a href="{{ g.invite_url }}" target="_blank" rel="noopener noreferrer" class="ss-btn ss-btn--invite-link">Invite Bot</a>
+        </div>
+      </div>
+      {% endif %}
       {% endfor %}
     </div>
     {% else %}
     <div class="ss-empty">
       <i data-lucide="shield-off" width="32" height="32"></i>
-      <p>Kamu tidak punya server dengan akses admin atau bot belum di-invite.</p>
+      <p>Kamu tidak punya server dengan akses admin.</p>
+    </div>
+    {% endif %}
+
+    {% if other_guilds %}
+    <div class="ss-other">
+      <button class="ss-other-toggle" id="otherToggle" aria-expanded="false">
+        <span class="ss-other-chevron" id="otherChevron"><i data-lucide="chevron-down" width="16" height="16"></i></span>
+        Other Servers
+      </button>
+      <div class="ss-other-list" id="otherList">
+        {% for g in other_guilds %}
+        <div class="ss-other-item">
+          <div class="ss-other-icon" data-icon="{{ g.icon or '' }}" data-name="{{ g.name }}" data-id="{{ g.id }}"></div>
+          <div class="ss-other-info">
+            <div class="ss-other-name">{{ g.name }}</div>
+            {% if g.member_count %}
+            <div class="ss-other-count">{{ g.member_count }} members</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
     </div>
     {% endif %}
   </div>
 
   <script>
     lucide.createIcons();
-    document.querySelectorAll('.ss-icon').forEach(function(el) {
+
+    function setIcon(el) {
       var icon = el.dataset.icon;
       var name = el.dataset.name;
       var id = el.dataset.id;
@@ -160,7 +193,24 @@
       } else {
         el.textContent = (name || '?')[0].toUpperCase();
       }
-    });
+    }
+
+    document.querySelectorAll('.ss-icon, .ss-other-icon').forEach(setIcon);
+
+    var toggle = document.getElementById('otherToggle');
+    var list = document.getElementById('otherList');
+    var chevron = document.getElementById('otherChevron');
+    if (toggle && list) {
+      toggle.addEventListener('click', function() {
+        var open = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+        list.classList.toggle('open');
+        chevron.innerHTML = open
+          ? '<i data-lucide="chevron-down" width="16" height="16"></i>'
+          : '<i data-lucide="chevron-up" width="16" height="16"></i>';
+        lucide.createIcons();
+      });
+    }
   </script>
 </body>
 </html>

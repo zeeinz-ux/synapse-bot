@@ -76,21 +76,6 @@
         <kbd>Ctrl+K</kbd>
       </div>
       <nav class="sidebar-nav">
-        <div class="nav-section" data-section="General">
-          <div class="section-header">
-            <span class="section-title">{{ "base.section.general" | t }}</span>
-            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </div>
-          <div class="section-items">
-            <a href="/dashboard" class="nav-item {% if active_page == 'main' %}active{% endif %}" data-search="main dashboard home">
-              <span class="nav-icon"><i data-lucide="layout-dashboard"></i></span>
-              <span class="nav-label">{{ "base.nav.dashboard" | t }}</span>
-            </a>
-          </div>
-        </div>
-
         <div class="nav-section" data-section="Announcements">
           <div class="section-header">
             <span class="section-title">{{ "base.section.announcements" | t }}</span>
@@ -313,9 +298,9 @@
       {% endif %}
       {% if guild_info and guild_info.id %}
       <div class="back-bar">
-        <a href="/dashboard">
-          <i data-lucide="arrow-left" width="16" height="16"></i>
-          Kembali ke daftar server
+        <a href="/dashboard" class="back-btn">
+          <i data-lucide="chevron-left" width="14" height="14"></i>
+          Daftar Server
         </a>
       </div>
       {% endif %}

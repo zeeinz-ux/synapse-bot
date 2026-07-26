@@ -854,22 +854,28 @@ body {
 .back-bar {
   display: flex;
   align-items: center;
-  padding: 0.75rem 1.5rem;
+  padding: 0.6rem 1.5rem;
   border-bottom: 1px solid var(--sidebar-border);
   background: var(--sidebar-bg);
 }
 
-.back-bar a {
+.back-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.82rem;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 500;
   color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 999px;
   text-decoration: none;
-  transition: color 0.15s ease;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
 
-.back-bar a:hover {
+.back-btn:hover {
+  border-color: var(--accent);
   color: var(--accent);
 }
 

@@ -612,6 +612,7 @@ def _get_filtered_stats():
                 "icon": ug.get("icon"),
                 "member_count": bg.get("member_count", 0) if bg else 0,
                 "owner": ug.get("owner", False),
+                "can_manage": can_manage,
             }
 
             if bg and can_manage:
@@ -703,10 +704,13 @@ def api_firestore_health():
 def dashboard():
     user = session.get("user")
     stats = _get_filtered_stats()
-    guilds = [g for g in stats.get("guilds_list", []) if g.get("card_type") == "available"]
+    all_guilds = stats.get("guilds_list", [])
+    guilds = [g for g in all_guilds if g.get("can_manage")]
+    other_guilds = [g for g in all_guilds if not g.get("can_manage")]
     return render_template(
         "dashboard/select_server.html",
         guilds=guilds,
+        other_guilds=other_guilds,
         user=user,
         avatar_url=_discord_avatar_url(user) if user else "",
         lang=session.get("lang", "id"),

@@ -140,3 +140,132 @@
   font-size: 0.9rem;
   max-width: 320px;
 }
+
+/* ── Card types ── */
+
+.ss-card--available {
+  cursor: pointer;
+}
+
+.ss-card--invite {
+  cursor: default;
+}
+
+.ss-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+}
+
+.ss-badge--available {
+  color: var(--accent-green);
+  background: rgba(59, 165, 92, 0.1);
+}
+
+.ss-badge--invite {
+  color: var(--accent);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+.ss-btn--invite-link {
+  background: rgba(0, 212, 255, 0.1);
+  color: var(--accent);
+  transition: background 0.15s ease;
+}
+
+.ss-btn--invite-link:hover {
+  background: rgba(0, 212, 255, 0.2);
+}
+
+/* ── Other Servers (collapsible) ── */
+
+.ss-other {
+  margin-top: 2rem;
+  border-top: 1px solid var(--sidebar-border);
+  padding-top: 0.75rem;
+}
+
+.ss-other-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  background: transparent;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.ss-other-toggle:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+.ss-other-chevron {
+  display: flex;
+}
+
+.ss-other-list {
+  display: none;
+  margin-top: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.5rem;
+}
+
+.ss-other-list.open {
+  display: grid;
+}
+
+.ss-other-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--sidebar-border);
+  border-radius: var(--radius-sm);
+}
+
+.ss-other-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--tag-bg);
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.ss-other-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ss-other-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ss-other-count {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
