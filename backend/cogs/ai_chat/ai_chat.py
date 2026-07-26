@@ -1201,14 +1201,15 @@ class AIChat(commands.Cog):
         try:
             agent_cog = self.bot.get_cog("AIChatAgent")
             if (agent_cog and not images and
-                ctx.author.guild_permissions.administrator and
-                is_agent_request(pertanyaan)):
+                (is_agent_request(pertanyaan) or agent_cog._is_recent_agent_channel(ctx.channel.id)) and
+                ctx.author.guild_permissions.administrator):
                 config = await agent_cog._get_agent_config(str(ctx.guild.id))
                 if config.get("agent_enabled") and agent_cog._can_use_agent(ctx.author, config):
                     result = await asyncio.wait_for(
                         agent_cog._agent_react(ctx.guild, pertanyaan, ctx.author),
                         timeout=120,
                     )
+                    agent_cog._agent_channels[ctx.channel.id] = time_module.time()
                     if len(result) > 1900:
                         chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
                         for i, chunk in enumerate(chunks):
@@ -1350,8 +1351,8 @@ class AIChat(commands.Cog):
 
         agent_cog = self.bot.get_cog("AIChatAgent")
         if (agent_cog and not images and
-            message.author.guild_permissions.administrator and
-            is_agent_request(content)):
+            (is_agent_request(content) or agent_cog._is_recent_agent_channel(message.channel.id)) and
+            message.author.guild_permissions.administrator):
             config = await agent_cog._get_agent_config(str(message.guild.id))
             if config.get("agent_enabled") and agent_cog._can_use_agent(message.author, config):
                 async with message.channel.typing():
@@ -1359,6 +1360,7 @@ class AIChat(commands.Cog):
                         agent_cog._agent_react(message.guild, content, message.author),
                         timeout=120,
                     )
+                    agent_cog._agent_channels[message.channel.id] = time_module.time()
                     if len(result) > 1900:
                         chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
                         for chunk in chunks:

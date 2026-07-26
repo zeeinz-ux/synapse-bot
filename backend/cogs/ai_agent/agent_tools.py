@@ -228,12 +228,14 @@ ATURAN PENTING:
 """
 
 
+import re as _re
+
 AGENT_TRIGGER_KEYWORDS = [
     "bikin channel", "buat channel", "tambah channel", "hapus channel",
     "bikin role", "buat role", "tambah role", "hapus role",
     "kasih role", "assign role", "cabut role", "remove role",
     "ban", "kick", "timeout", "mute",
-    "unban", "unban",
+    "unban",
     "ganti nama channel", "rename channel",
     "setting server", "atur server",
     "server info", "info server", "statistik server",
@@ -245,20 +247,33 @@ AGENT_TRIGGER_KEYWORDS = [
 
 def is_agent_request(text: str) -> bool:
     text_lower = text.lower()
+    # Exact keyword match
     for kw in AGENT_TRIGGER_KEYWORDS:
         if kw in text_lower:
             return True
-    # Check for patterns like "tolong * [channel/role/server]"
+    # Pattern-based detection
     patterns = [
-        r"tolong\s+\w+\s+(channel|role|server)",
-        r"bantu\s+\w+\s+(channel|role|server)",
-        r"(chaneel|rol|server)\s+(baru|new)",
-        r"hapus\s+(channel|role)\s+\w+",
+        r"tolong\s+\w+\s+(channel|role|server|kategori)",
+        r"bantu\s+\w+\s+(channel|role|server|kategori)",
+        r"(channel|role|kategori)\s+(baru|new)",
+        r"hapus\s+\w+\s+(channel|role|kategori)",
         r"\w+\s+(di-?ban|di-?kick|di-?mute)",
+        r"buatin?\s+(channel|role|kategori)",
+        r"tambahin?\s+(channel|role)",
     ]
-    import re
     for p in patterns:
-        if re.search(p, text_lower):
+        if _re.search(p, text_lower):
+            return True
+    # Loose detection: both "hapus" and "channel" exist anywhere in text
+    words = set(_re.findall(r'\w+', text_lower))
+    loose_pairs = [
+        ("hapus", "channel"), ("hapus", "role"), ("hapus", "kategori"),
+        ("buat", "channel"), ("buat", "role"), ("buat", "kategori"),
+        ("tambah", "role"), ("tambah", "channel"),
+        ("ban", "member"), ("kick", "member"),
+    ]
+    for a, b in loose_pairs:
+        if a in words and b in words:
             return True
     return False
 

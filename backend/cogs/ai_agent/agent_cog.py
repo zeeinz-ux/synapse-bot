@@ -20,6 +20,13 @@ class AIChatAgent(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._active_sessions: set[int] = set()
+        self._agent_channels: dict[int, float] = {}  # channel_id -> timestamp
+
+    def _is_recent_agent_channel(self, channel_id: int) -> bool:
+        ts = self._agent_channels.get(channel_id)
+        if ts and time_module.time() - ts < 120:
+            return True
+        return False
 
     # ── Settings ──
 
@@ -212,6 +219,7 @@ class AIChatAgent(commands.Cog):
                 self._agent_react(ctx.guild, request, ctx.author),
                 timeout=AGENT_TIMEOUT,
             )
+            self._agent_channels[ctx.channel.id] = time_module.time()
             if len(result) > 1900:
                 chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
                 for i, chunk in enumerate(chunks):
