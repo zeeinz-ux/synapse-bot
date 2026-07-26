@@ -136,10 +136,12 @@ class AIChatAgent(commands.Cog):
             f"Gunakan pengetahuan permission di atas untuk memberikan saran terbaik ke user.\n"
             f"Ikuti aturan dengan ketat."
         )
-        # Prompt ringkas untuk step selanjutnya (hemat context)
+        # Prompt ringkas untuk step selanjutnya (tapi tool list tetap disertakan)
+        tool_names = "\n".join(f"  - {t['name']}: {t['description']}" for t in TOOL_DEFINITIONS)
         followup_prompt = (
-            f"Kamu adalah AI Agent Discord. Tool sudah dijelaskan sebelumnya.\n"
-            f"Server: {guild.name}. Gunakan tool yang sesuai atau berikan respon ke user.\n"
+            f"Kamu adalah AI Agent Discord.\n"
+            f"Server: {guild.name}\n\n"
+            f"Tool yang tersedia:\n{tool_names}\n\n"
             f"Format: [TOOL_CALL] Function: ... Arguments: {{...}}"
         )
 
