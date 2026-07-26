@@ -1196,6 +1196,19 @@ body {
   background: var(--guild-bg);
 }
 
+.avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.avatar-deco {
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  pointer-events: none;
+}
+
 .user-name {
   white-space: nowrap;
   overflow: hidden;

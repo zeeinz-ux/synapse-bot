@@ -256,7 +256,10 @@
         </div>
         {% if user %}
         <div class="mobile-user">
-          <img class="mobile-avatar" src="{{ avatar_url }}" alt="{{ user.username }}" />
+          <div class="avatar-wrap">
+            <img class="mobile-avatar" src="{{ avatar_url }}" alt="{{ user.username }}" />
+            {% if avatar_decoration_url %}<img class="avatar-deco" src="{{ avatar_decoration_url }}" alt="" />{% endif %}
+          </div>
           <form method="post" action="{{ url_for('logout') }}" class="logout-form">
             <button type="submit" class="logout-btn logout-btn--mobile" aria-label="Logout">Logout</button>
           </form>
@@ -267,7 +270,10 @@
       <div class="topbar" id="topbar">
         <div class="topbar-right">
           <div class="user-chip" title="{{ user.username }}">
-            <img class="user-avatar" src="{{ avatar_url }}" alt="{{ user.username }}" />
+            <div class="avatar-wrap">
+              <img class="user-avatar" src="{{ avatar_url }}" alt="{{ user.username }}" />
+              {% if avatar_decoration_url %}<img class="avatar-deco" src="{{ avatar_decoration_url }}" alt="" />{% endif %}
+            </div>
             <span class="user-name">{{ user.username }}</span>
           </div>
           <form method="post" action="{{ url_for('logout') }}" class="logout-form">

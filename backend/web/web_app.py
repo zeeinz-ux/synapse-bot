@@ -88,7 +88,12 @@ def _translate(key):
 
 @app.context_processor
 def _inject_globals():
-    return dict(lang=session.get("lang", "id"), current_year=datetime.now().year)
+    user = session.get("user")
+    return dict(
+        lang=session.get("lang", "id"),
+        current_year=datetime.now().year,
+        avatar_decoration_url=_discord_avatar_decoration_url(user) if user else "",
+    )
 
 
 # ==========================================================
@@ -724,7 +729,6 @@ def dashboard():
         other_guilds=other_guilds,
         user=user,
         avatar_url=_discord_avatar_url(user) if user else "",
-        avatar_decoration_url=_discord_avatar_decoration_url(user) if user else "",
         lang=session.get("lang", "id"),
     )
 

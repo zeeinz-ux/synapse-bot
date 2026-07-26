@@ -21,7 +21,10 @@
     <div class="nav-actions">
       {% if user %}
       <div class="navbar-user">
-        <img class="navbar-avatar" src="{{ avatar_url }}" alt="{{ user.username }}" title="{{ user.username }}" />
+        <div class="avatar-wrap">
+          <img class="navbar-avatar" src="{{ avatar_url }}" alt="{{ user.username }}" title="{{ user.username }}" />
+          {% if avatar_decoration_url %}<img class="avatar-deco" src="{{ avatar_decoration_url }}" alt="" />{% endif %}
+        </div>
         <form method="post" action="{{ url_for('logout') }}" class="navbar-logout-form">
           <button type="submit" class="btn-logout" aria-label="{{ 'nav.logout' | t }}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -96,7 +99,10 @@
 
   {% if user %}
   <div class="mobile-user-info">
-    <img class="mobile-avatar" src="{{ avatar_url }}" alt="{{ user.username }}" />
+    <div class="avatar-wrap">
+      <img class="mobile-avatar" src="{{ avatar_url }}" alt="{{ user.username }}" />
+      {% if avatar_decoration_url %}<img class="avatar-deco" src="{{ avatar_decoration_url }}" alt="" />{% endif %}
+    </div>
     <span class="mobile-username">{{ user.username }}</span>
   </div>
   <form method="post" action="{{ url_for('logout') }}" class="navbar-mobile-logout-form">
