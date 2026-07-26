@@ -46,7 +46,7 @@
           </svg>
         </button>
       </div>
-      {% elif s.guilds_list %}
+      {% if s.guilds_list %}
       <div class="guild-selector">
         <label class="selector-label">{{ "base.select_server" | t }}</label>
         <div class="guild-selector-current" id="guildSelectorCurrent">
