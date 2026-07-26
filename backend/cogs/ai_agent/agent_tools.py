@@ -239,6 +239,13 @@ TOOL_DEFINITIONS = [
             "roles": "array of objects — WAJIB. Daftar role yang mau dibuat. Format: [{\"name\": \"nama-role\", \"color\": \"#HEX\" (optional), \"permissions\": {...} (optional)}]",
         },
     },
+    {
+        "name": "apply_template",
+        "description": "Terapkan template server lengkap (kategori, channel, role) untuk berbagai tema. Bikin semua struktur server langsung jadi dalam 1 panggilan — jauh lebih cepat daripada make channel/role satu-satu.",
+        "parameters": {
+            "template": "string — nama template. Pilihan: 'gaming' (server gaming dengan voice), 'study' (server belajar/akademik), 'community' (server komunitas umum).",
+        },
+    },
 ]
 
 
@@ -260,6 +267,7 @@ ATURAN PENTING:
 8. Jika sudah selesai semua, berikan ringkasan apa yang sudah dilakukan.
 9. Saat membuat channel (create_channel), WAJIB tentukan parameter "category" agar channel langsung terkelompok dalam kategori. Jika kategori belum ada, tool akan membuatnya otomatis. Contoh: / create_channel name="📜-rules" category="📢 Announcements"
 10. Untuk bikin banyak channel/role sekaligus, GUNAKAN batch_create_channels / batch_create_roles, bukan create_channel/create_role satu-satu. Batch tool jauh lebih cepat dan hemat token.
+11. Jika user mau setup server dari awal (bikin struktur channel & role), GUNAKAN apply_template — itu tool template server lengkap dengan 3 pilihan: 'gaming', 'study', 'community'.
 """
 
 DISCORD_UI_KNOWLEDGE = """
@@ -545,6 +553,8 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot) -> str:
             return await _batch_create_channels(guild, args)
         elif fn == "batch_create_roles":
             return await _batch_create_roles(guild, args)
+        elif fn == "apply_template":
+            return await _apply_template(guild, args)
         else:
             return f"[TOOL_RESULT]\nFunction: {fn}\nResult: {{\"success\": false, \"error\": \"Tool '{fn}' tidak dikenal\"}}"
     except discord.Forbidden:
@@ -720,6 +730,136 @@ async def _batch_create_roles(guild: discord.Guild, args: dict) -> str:
     if errors:
         summary["errors"] = errors
     return f"[TOOL_RESULT]\nFunction: batch_create_roles\nResult: {summary}"
+
+
+# ── Server Templates ──
+
+SERVER_TEMPLATES = {
+    "gaming": {
+        "name": "🎮 Gaming Server",
+        "categories": ["📢 Announcements", "💬 General", "🎮 Gaming", "🤖 Bots"],
+        "channels": [
+            {"name": "📜-rules", "type": "text", "category": "📢 Announcements", "topic": "Baca aturan server sebelum chat"},
+            {"name": "📢-announcements", "type": "text", "category": "📢 Announcements", "topic": "Pengumuman resmi server"},
+            {"name": "💬-general-chat", "type": "text", "category": "💬 General", "topic": "Ngobrol santai semua topik"},
+            {"name": "🤝-looking-for-group", "type": "text", "category": "💬 General", "topic": "Cari temen buat main bareng"},
+            {"name": "🎮-game-discussion", "type": "text", "category": "🎮 Gaming", "topic": "Diskusi game favorit"},
+            {"name": "📸-screenshots", "type": "text", "category": "🎮 Gaming", "topic": "Share screenshot momen epic"},
+            {"name": "💻-bot-commands", "type": "text", "category": "🤖 Bots", "topic": "Command dan interaksi bot"},
+            {"name": "📊-bot-logs", "type": "text", "category": "🤖 Bots", "topic": "Log aktivitas bot"},
+            {"name": "🎤-general-voice", "type": "voice", "category": "🎮 Gaming"},
+        ],
+        "roles": [
+            {"name": "Admin", "color": "#FF0000", "permissions": {"administrator": True}},
+            {"name": "Moderator", "color": "#00BFFF", "permissions": {"kick_members": True, "ban_members": True, "manage_messages": True, "mute_members": True, "deafen_members": True, "move_members": True}},
+            {"name": "Member", "color": "#57F287"},
+        ],
+    },
+    "study": {
+        "name": "📚 Study Server",
+        "categories": ["📢 Announcements", "📚 Study", "📝 Assignments", "🤖 Bots"],
+        "channels": [
+            {"name": "📜-rules", "type": "text", "category": "📢 Announcements", "topic": "Aturan server belajar"},
+            {"name": "📢-announcements", "type": "text", "category": "📢 Announcements", "topic": "Pengumuman kelas dan jadwal"},
+            {"name": "📚-study-general", "type": "text", "category": "📚 Study", "topic": "Diskusi umum seputar pelajaran"},
+            {"name": "❓-tanya-jawab", "type": "text", "category": "📚 Study", "topic": "Tanya soal PR atau materi"},
+            {"name": "📝-tugas", "type": "text", "category": "📝 Assignments", "topic": "Kumpulin tugas dan diskusi"},
+            {"name": "📅-deadline-tracker", "type": "text", "category": "📝 Assignments", "topic": "Catat deadline tugas"},
+            {"name": "💻-bot-commands", "type": "text", "category": "🤖 Bots", "topic": "Command bot"},
+            {"name": "🔊-study-room", "type": "voice", "category": "📚 Study"},
+        ],
+        "roles": [
+            {"name": "Admin", "color": "#FF0000", "permissions": {"administrator": True}},
+            {"name": "Teacher", "color": "#FFD700", "permissions": {"kick_members": True, "manage_messages": True, "manage_channels": True}},
+            {"name": "Student", "color": "#00FF88"},
+        ],
+    },
+    "community": {
+        "name": "🌍 Community Server",
+        "categories": ["📢 Announcements", "💬 General", "🎨 Creations", "🤖 Bots"],
+        "channels": [
+            {"name": "📜-rules", "type": "text", "category": "📢 Announcements", "topic": "Aturan komunitas"},
+            {"name": "📢-announcements", "type": "text", "category": "📢 Announcements", "topic": "Pengumuman resmi"},
+            {"name": "💬-general-chat", "type": "text", "category": "💬 General", "topic": "Ngobrol santai"},
+            {"name": "📸-media-share", "type": "text", "category": "💬 General", "topic": "Share foto, video, meme"},
+            {"name": "🎨-showcase", "type": "text", "category": "🎨 Creations", "topic": "Pamerin karya kamu"},
+            {"name": "💡-suggestions", "type": "text", "category": "🎨 Creations", "topic": "Kasih saran buat server"},
+            {"name": "💻-bot-commands", "type": "text", "category": "🤖 Bots", "topic": "Command bot"},
+            {"name": "🔊-community-voice", "type": "voice", "category": "💬 General"},
+        ],
+        "roles": [
+            {"name": "Admin", "color": "#FF0000", "permissions": {"administrator": True}},
+            {"name": "Moderator", "color": "#9B59B6", "permissions": {"kick_members": True, "manage_messages": True, "mute_members": True}},
+            {"name": "Member", "color": "#3498DB"},
+            {"name": "Creator", "color": "#E67E22", "permissions": {"attach_files": True, "embed_links": True}},
+        ],
+    },
+}
+
+
+async def _apply_template(guild: discord.Guild, args: dict) -> str:
+    template_name = args.get("template", "").strip().lower()
+    if template_name not in SERVER_TEMPLATES:
+        available = ", ".join(SERVER_TEMPLATES.keys())
+        return f'{{"success": false, "error": "Template \\"{template_name}\\" tidak dikenal. Pilihan: {available}"}}'
+
+    tpl = SERVER_TEMPLATES[template_name]
+
+    # 1. Buat kategori dulu
+    cat_map = {}
+    for cat_name in tpl.get("categories", []):
+        existing = discord.utils.get(guild.categories, name=cat_name)
+        if existing:
+            cat_map[cat_name] = existing
+        else:
+            cat_map[cat_name] = await guild.create_category(cat_name, reason="AI Agent: template setup")
+
+    # 2. Buat channel
+    chan_results = []
+    for ch_def in tpl.get("channels", []):
+        name = ch_def["name"]
+        ch_type = ch_def.get("type", "text")
+        topic = ch_def.get("topic", "")
+        category = cat_map.get(ch_def.get("category", ""))
+
+        try:
+            if ch_type == "voice":
+                ch = await guild.create_voice_channel(name, category=category, reason="AI Agent: template setup")
+            else:
+                ch = await guild.create_text_channel(name, category=category, topic=topic, reason="AI Agent: template setup")
+            chan_results.append({"name": ch.name, "id": ch.id, "type": ch_type})
+        except Exception as e:
+            chan_results.append({"name": name, "error": str(e)[:100]})
+
+    # 3. Buat role
+    role_results = []
+    for r_def in tpl.get("roles", []):
+        color = discord.Color.default()
+        if r_def.get("color"):
+            try:
+                color = discord.Color.from_str(r_def["color"])
+            except Exception:
+                pass
+        perms = discord.Permissions()
+        for perm_name, val in r_def.get("permissions", {}).items():
+            if hasattr(perms, perm_name):
+                setattr(perms, perm_name, val)
+        try:
+            role = await guild.create_role(name=r_def["name"], color=color, permissions=perms, reason="AI Agent: template setup")
+            role_results.append({"name": role.name, "id": role.id})
+        except Exception as e:
+            role_results.append({"name": r_def["name"], "error": str(e)[:100]})
+
+    summary = {
+        "success": True,
+        "template": tpl["name"],
+        "categories_created": len(cat_map),
+        "channels_created": len(chan_results),
+        "roles_created": len(role_results),
+        "channels": chan_results,
+        "roles": role_results,
+    }
+    return f"[TOOL_RESULT]\nFunction: apply_template\nResult: {summary}"
 
 
 async def _delete_channel(guild: discord.Guild, args: dict) -> str:

@@ -29,7 +29,7 @@ class AIChatAgent(commands.Cog):
         "create_role", "edit_role", "delete_role", "assign_role", "remove_role",
         "create_channel", "delete_channel", "rename_channel", "edit_channel_permissions",
         "ban_member", "unban_member", "kick_member", "timeout_member",
-        "batch_create_channels", "batch_create_roles",
+        "batch_create_channels", "batch_create_roles", "apply_template",
     }
 
     # ── Firestore scan cache ──
@@ -67,7 +67,7 @@ class AIChatAgent(commands.Cog):
             return
 
         try:
-            if tool_fn in ("create_channel", "delete_channel", "rename_channel", "edit_channel_permissions", "batch_create_channels"):
+            if tool_fn in ("create_channel", "delete_channel", "rename_channel", "edit_channel_permissions", "batch_create_channels", "apply_template"):
                 channels = []
                 categories = []
                 for cat in guild.categories:
@@ -98,7 +98,7 @@ class AIChatAgent(commands.Cog):
                 scan["channels"] = channels
                 scan["categories"] = categories
 
-            elif tool_fn in ("create_role", "edit_role", "delete_role", "batch_create_roles"):
+            elif tool_fn in ("create_role", "edit_role", "delete_role", "batch_create_roles", "apply_template"):
                 scan["roles"] = []
                 for role in sorted(guild.roles, key=lambda r: r.position, reverse=True):
                     if role.is_default() or role.is_bot_managed() or role.is_integration():
@@ -571,6 +571,10 @@ Arguments: {{"categories": ["📢 Announcements", "🤖 Bots"], "channels": [{{"
 [TOOL_CALL]
 Function: batch_create_roles
 Arguments: {{"roles": [{{"name": "Admin", "color": "#FF0000", "permissions": {{"administrator": true}}}}, {{"name": "Moderator", "color": "#00BFFF", "permissions": {{"kick_members": true, "manage_messages": true}}}}]}}
+
+[TOOL_CALL]
+Function: apply_template
+Arguments: {{"template": "gaming"}}
 
 JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah plan!
 """
