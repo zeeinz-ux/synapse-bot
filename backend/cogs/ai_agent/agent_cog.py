@@ -30,7 +30,7 @@ class AIChatAgent(commands.Cog):
         "create_channel", "delete_channel", "rename_channel", "edit_channel_permissions",
         "ban_member", "unban_member", "kick_member", "timeout_member",
         "batch_create_channels", "batch_create_roles", "apply_template",
-        "edit_server",
+        "edit_server", "save_snapshot", "rollback",
     }
 
     # ── Firestore scan cache ──
@@ -600,6 +600,15 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
 
         # History untuk dikirim ke provider (tanpa system prompt)
         history: list[dict] = list(memory) if memory else []
+        # Auto-save snapshot sebelum mulai (rollback safety)
+        try:
+            from .agent_tools import _build_snapshot
+            snap = await _build_snapshot(guild)
+            await asyncio.to_thread(
+                lambda: db.collection("agent_snapshots").document(str(guild.id)).set(snap)
+            )
+        except Exception:
+            pass  # snapshot gagal — tetap lanjut
         # Pesan user saat ini
         current_message = user_message
         step_count = 0

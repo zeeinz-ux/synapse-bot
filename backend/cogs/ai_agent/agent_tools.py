@@ -1,8 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 
 import discord
+
+try:
+    from ..database.firebase_setup import db
+    _HAS_FS = True
+except Exception:
+    db = None
+    _HAS_FS = False
 
 DISCORD_PERMISSIONS_KNOWLEDGE = """
 ## Discord Permission System — Panduan Lengkap
@@ -256,6 +265,18 @@ TOOL_DEFINITIONS = [
             "afk_channel": "string — nama voice channel untuk AFK (optional). Contoh: 'AFK'",
             "afk_timeout": "integer — detik timeout AFK: 60, 300, 900, 1800, 3600 (optional)",
             "system_channel": "string — nama channel untuk welcome messages & tips (optional)",
+        },
+    },
+    {
+        "name": "save_snapshot",
+        "description": "Simpan snapshot kondisi server saat ini (roles, channels, categories, permissions). Berguna sebelum melakukan perubahan besar agar bisa di-rollback.",
+        "parameters": {},
+    },
+    {
+        "name": "rollback",
+        "description": "Kembalikan server ke kondisi snapshot terakhir. Cocok kalo perubahan yang dilakukan AI Agent sebelumnya salah atau gak sesuai. Bisa restore: nama role, warna, permission, posisi, nama channel, kategori, topic.",
+        "parameters": {
+            "confirm": "boolean — WAJIB true. Konfirmasi bahwa kamu serius mau rollback.",
         },
     },
 ]
@@ -569,6 +590,10 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot) -> str:
             return await _apply_template(guild, args)
         elif fn == "edit_server":
             return await _edit_server(guild, args)
+        elif fn == "save_snapshot":
+            return await _save_snapshot(guild, args)
+        elif fn == "rollback":
+            return await _rollback(guild, args)
         else:
             return f"[TOOL_RESULT]\nFunction: {fn}\nResult: {{\"success\": false, \"error\": \"Tool '{fn}' tidak dikenal\"}}"
     except discord.Forbidden:
@@ -940,6 +965,185 @@ async def _edit_server(guild: discord.Guild, args: dict) -> str:
     if skipped:
         result["skipped"] = skipped
     return f"[TOOL_RESULT]\nFunction: edit_server\nResult: {result}"
+
+
+# ── Snapshot / Rollback ──
+
+SNAPSHOT_COLLECTION = "agent_snapshots"
+
+
+async def _snapshot_id(guild: discord.Guild) -> str:
+    return f"snap_{guild.id}_{int(time.time())}"
+
+
+async def _build_snapshot(guild: discord.Guild) -> dict:
+    roles = []
+    for r in sorted(guild.roles, key=lambda x: x.position, reverse=True):
+        if r.is_default() or r.is_bot_managed() or r.is_integration():
+            continue
+        roles.append({
+            "name": r.name, "id": r.id, "color": str(r.color),
+            "position": r.position, "hoist": r.hoist, "mentionable": r.mentionable,
+            "permissions": [p for p, v in r.permissions if v],
+        })
+    channels = []
+    for ch in guild.channels:
+        if isinstance(ch, discord.CategoryChannel):
+            channels.append({
+                "name": ch.name, "id": ch.id, "type": "category",
+                "position": ch.position,
+            })
+        else:
+            channels.append({
+                "name": ch.name, "id": ch.id,
+                "type": "text" if isinstance(ch, discord.TextChannel) else "voice",
+                "position": ch.position,
+                "category": ch.category.name if ch.category else None,
+                "topic": ch.topic if isinstance(ch, discord.TextChannel) else None,
+            })
+    return {
+        "guild_id": guild.id,
+        "guild_name": guild.name,
+        "timestamp": time.time(),
+        "roles": roles,
+        "channels": channels,
+    }
+
+
+async def _save_snapshot(guild: discord.Guild, args: dict) -> str:
+    snap = await _build_snapshot(guild)
+    if _HAS_FS and db is not None:
+        try:
+            await asyncio.to_thread(
+                lambda: db.collection("agent_snapshots").document(str(guild.id)).set(snap)
+            )
+            return f'[TOOL_RESULT]\nFunction: save_snapshot\nResult: {{"success": true, "roles": {len(snap["roles"])}, "channels": {len(snap["channels"])}}}'
+        except Exception as e:
+            return f'{{"success": false, "error": "Gagal simpan snapshot: {e}"}}'
+    return '{"success": false, "error": "Firestore tidak tersedia"}'
+
+SNAPSHOT_CACHE: dict[int, dict] = {}
+
+async def _load_snapshot(guild_id: int) -> dict | None:
+    if guild_id in SNAPSHOT_CACHE:
+        return SNAPSHOT_CACHE[guild_id]
+    if _HAS_FS and db is not None:
+        try:
+            doc = await asyncio.to_thread(
+                lambda: db.collection("agent_snapshots").document(str(guild_id)).get()
+            )
+            if doc.exists:
+                data = doc.to_dict()
+                SNAPSHOT_CACHE[guild_id] = data
+                return data
+        except Exception:
+            pass
+    return None
+
+
+async def _rollback(guild: discord.Guild, args: dict) -> str:
+    if not args.get("confirm"):
+        return '{"success": false, "error": "Kamu harus set confirm=true untuk melanjutkan rollback. Ini aksi serius!"}'
+
+    snap = await _load_snapshot(guild.id)
+    if not snap:
+        return '{"success": false, "error": "Tidak ada snapshot tersimpan untuk server ini. Gunakan save_snapshot dulu."}'
+
+    results = {"roles_restored": 0, "roles_created": 0, "channels_restored": 0, "channels_created": 0, "errors": []}
+
+    # Restore roles: cari by ID, kalo gak ada, cari by name terus update
+    for r_snap in snap.get("roles", []):
+        role = guild.get_role(r_snap["id"])
+        if role:
+            try:
+                color = discord.Color.default()
+                if r_snap.get("color") and r_snap["color"] != "None":
+                    try:
+                        color = discord.Color.from_str(r_snap["color"])
+                    except Exception:
+                        pass
+                perms = discord.Permissions()
+                for p_name in r_snap.get("permissions", []):
+                    if hasattr(perms, p_name):
+                        setattr(perms, p_name, True)
+                await role.edit(
+                    name=r_snap["name"], color=color,
+                    hoist=r_snap.get("hoist", False),
+                    mentionable=r_snap.get("mentionable", False),
+                    permissions=perms,
+                    reason="AI Agent: rollback roles",
+                )
+                results["roles_restored"] += 1
+            except Exception as e:
+                results["errors"].append(f"Role '{r_snap['name']}': {str(e)[:80]}")
+        else:
+            # Role udah kehapus — coba bikin ulang
+            try:
+                color = discord.Color.default()
+                if r_snap.get("color") and r_snap["color"] != "None":
+                    try:
+                        color = discord.Color.from_str(r_snap["color"])
+                    except Exception:
+                        pass
+                perms = discord.Permissions()
+                for p_name in r_snap.get("permissions", []):
+                    if hasattr(perms, p_name):
+                        setattr(perms, p_name, True)
+                await guild.create_role(
+                    name=r_snap["name"], color=color, permissions=perms,
+                    hoist=r_snap.get("hoist", False),
+                    mentionable=r_snap.get("mentionable", False),
+                    reason="AI Agent: rollback recreate role",
+                )
+                results["roles_created"] += 1
+            except Exception as e:
+                results["errors"].append(f"Create role '{r_snap['name']}': {str(e)[:80]}")
+
+    # Restore channels
+    for ch_snap in snap.get("channels", []):
+        ch = guild.get_channel(ch_snap["id"])
+        if ch:
+            try:
+                edits = {"name": ch_snap["name"], "position": ch_snap["position"]}
+                if ch_snap.get("topic") is not None and hasattr(ch, "edit") and "topic" in ch.__dir__():
+                    edits["topic"] = ch_snap["topic"]
+                if ch_snap.get("category"):
+                    cat = discord.utils.get(guild.categories, name=ch_snap["category"])
+                    if cat:
+                        edits["category"] = cat
+                await ch.edit(**edits, reason="AI Agent: rollback channels")
+                results["channels_restored"] += 1
+            except Exception as e:
+                results["errors"].append(f"Channel '{ch_snap['name']}': {str(e)[:80]}")
+        else:
+            # Channel udah kehapus — coba bikin ulang
+            try:
+                category = None
+                if ch_snap.get("category"):
+                    category = discord.utils.get(guild.categories, name=ch_snap["category"])
+                ch_type = ch_snap.get("type", "text")
+                if ch_type == "voice":
+                    await guild.create_voice_channel(
+                        ch_snap["name"], category=category,
+                        reason="AI Agent: rollback recreate channel",
+                    )
+                elif ch_type == "category":
+                    await guild.create_category(
+                        ch_snap["name"],
+                        reason="AI Agent: rollback recreate category",
+                    )
+                else:
+                    await guild.create_text_channel(
+                        ch_snap["name"], category=category,
+                        topic=ch_snap.get("topic", ""),
+                        reason="AI Agent: rollback recreate channel",
+                    )
+                results["channels_created"] += 1
+            except Exception as e:
+                results["errors"].append(f"Create channel '{ch_snap['name']}': {str(e)[:80]}")
+
+    results["success"] = True
+    return f"[TOOL_RESULT]\nFunction: rollback\nResult: {results}"
 
 
 async def _delete_channel(guild: discord.Guild, args: dict) -> str:
