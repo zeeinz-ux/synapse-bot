@@ -701,8 +701,16 @@ def api_firestore_health():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    s = _get_filtered_stats()
-    return _render_page("dashboard/select_server.html", active_page="main", guild_id="")
+    user = session.get("user")
+    stats = _get_filtered_stats()
+    guilds = [g for g in stats.get("guilds_list", []) if g.get("card_type") == "available"]
+    return render_template(
+        "dashboard/select_server.html",
+        guilds=guilds,
+        user=user,
+        avatar_url=_discord_avatar_url(user) if user else "",
+        lang=session.get("lang", "id"),
+    )
 
 @app.route("/dashboard/<guild_id>/")
 @login_required

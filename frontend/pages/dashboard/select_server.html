@@ -1,72 +1,166 @@
-{% extends "base.html" %}
-{% block title %}Synapse — Pilih Server{% endblock %}
-{% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/select-server.css') }}" />
-{% endblock %}
-{% block content %}
-<div class="ss-wrap">
-  <div class="ss-header">
-    <h1 class="ss-title">Pilih Server</h1>
-    <p class="ss-sub">Pilih server Discord yang ingin kamu atur</p>
-  </div>
-
-  <div class="ss-grid">
-    {% for g in s.guilds_list %}
-    <div class="ss-card ss-card--{{ g.card_type }}">
-      <div class="ss-card-top">
-        <div class="ss-icon" data-icon="{{ g.icon or '' }}" data-name="{{ g.name }}" data-id="{{ g.id }}"></div>
-        <div class="ss-card-info">
-          <div class="ss-card-name">{{ g.name }}</div>
-          {% if g.member_count %}
-          <div class="ss-card-members">{{ g.member_count }} members</div>
-          {% endif %}
-        </div>
-      </div>
-
-      <div class="ss-card-bottom">
-        {% if g.card_type == "available" %}
-        <span class="ss-badge ss-badge--available">
-          <i data-lucide="shield-check" width="14" height="14"></i>
-          Available
-        </span>
-        <a href="{{ g.url }}" class="ss-btn ss-btn--config">Configure</a>
-
-        {% elif g.card_type == "locked" %}
-        <span class="ss-badge ss-badge--locked">
-          <i data-lucide="lock" width="14" height="14"></i>
-          Locked
-        </span>
-        <span class="ss-locked-note">No access</span>
-
-        {% elif g.card_type == "invite" %}
-        <span class="ss-badge ss-badge--invite">
-          <i data-lucide="plus-circle" width="14" height="14"></i>
-          Invite
-        </span>
-        <a href="{{ g.invite_url }}" target="_blank" rel="noopener noreferrer" class="ss-btn ss-btn--invite">Invite Bot</a>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-
-  <div class="ss-info">
-    <i data-lucide="info" width="16" height="16"></i>
-    <span>Kamu bisa mengatur bot di server yang bertanda shield-check. Server tanpa bot bisa di-invite dulu. Server lock hanya bisa dilihat.</span>
-  </div>
-</div>
-
-<script>
-  document.querySelectorAll('.ss-icon').forEach(function(el) {
-    var icon = el.dataset.icon;
-    var name = el.dataset.name;
-    var id = el.dataset.id;
-    if (icon) {
-      var url = icon.startsWith('http') ? icon : 'https://cdn.discordapp.com/icons/' + id + '/' + icon + '.png';
-      el.style.backgroundImage = 'url(' + url + ')';
-    } else {
-      el.textContent = (name || '?')[0].toUpperCase();
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Synapse — Pilih Server</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/select-server.css') }}" />
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='LOGO-SYNAPSE-NO-BG.png') }}" />
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='LOGO-SYNAPSE-NO-BG.png') }}" />
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='LOGO-SYNAPSE-NO-BG.png') }}" />
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='LOGO-SYNAPSE-NO-BG.png') }}" />
+  <link rel="shortcut icon" href="{{ url_for('static', filename='LOGO-SYNAPSE-NO-BG.png') }}" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    body {
+      background: var(--bg-deep);
+      font-family: var(--font-family);
+      min-height: 100vh;
     }
-  });
-</script>
-{% endblock %}
+    .ss-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--sidebar-border);
+      background: var(--sidebar-bg);
+    }
+    .ss-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .ss-nav-brand img {
+      height: 32px;
+      width: auto;
+    }
+    .ss-nav-brand span {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .ss-nav-right {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .ss-user {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.7rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--sidebar-border);
+      border-radius: var(--radius-sm);
+    }
+    .ss-user img {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+    }
+    .ss-user span {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+    .ss-logout {
+      padding: 0.35rem 0.75rem;
+      background: transparent;
+      border: 1px solid var(--sidebar-border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s ease, color 0.15s ease;
+    }
+    .ss-logout:hover {
+      border-color: var(--accent-red);
+      color: var(--accent-red);
+    }
+    .ss-avail-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-green);
+      background: rgba(59, 165, 92, 0.1);
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="ss-nav">
+    <div class="ss-nav-brand">
+      <img src="{{ url_for('static', filename='LOGO-SYNAPSE-WITH-FONT-WHITE-NO-BG.png') }}" alt="Synapse" />
+    </div>
+    <div class="ss-nav-right">
+      {% if user %}
+      <div class="ss-user">
+        <img src="{{ avatar_url }}" alt="{{ user.username }}" />
+        <span>{{ user.username }}</span>
+      </div>
+      {% endif %}
+      <form method="post" action="{{ url_for('logout') }}" style="margin:0">
+        <button type="submit" class="ss-logout">Logout</button>
+      </form>
+    </div>
+  </nav>
+
+  <div class="ss-wrap">
+    <div class="ss-header">
+      <h1 class="ss-title">Pilih Server</h1>
+      <p class="ss-sub">Pilih server Discord yang ingin kamu atur</p>
+    </div>
+
+    {% if guilds %}
+    <div class="ss-grid">
+      {% for g in guilds %}
+      <a href="{{ g.url }}" class="ss-card ss-card--available">
+        <div class="ss-card-top">
+          <div class="ss-icon" data-icon="{{ g.icon or '' }}" data-name="{{ g.name }}" data-id="{{ g.id }}"></div>
+          <div class="ss-card-info">
+            <div class="ss-card-name">{{ g.name }}</div>
+            {% if g.member_count %}
+            <div class="ss-card-members">{{ g.member_count }} members</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="ss-card-bottom">
+          <span class="ss-avail-label">
+            <i data-lucide="shield-check" width="14" height="14"></i>
+            Available
+          </span>
+          <span class="ss-btn ss-btn--config">Configure</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="ss-empty">
+      <i data-lucide="shield-off" width="32" height="32"></i>
+      <p>Kamu tidak punya server dengan akses admin atau bot belum di-invite.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <script>
+    lucide.createIcons();
+    document.querySelectorAll('.ss-icon').forEach(function(el) {
+      var icon = el.dataset.icon;
+      var name = el.dataset.name;
+      var id = el.dataset.id;
+      if (icon) {
+        var url = icon.startsWith('http') ? icon : 'https://cdn.discordapp.com/icons/' + id + '/' + icon + '.png';
+        el.style.backgroundImage = 'url(' + url + ')';
+      } else {
+        el.textContent = (name || '?')[0].toUpperCase();
+      }
+    });
+  </script>
+</body>
+</html>
