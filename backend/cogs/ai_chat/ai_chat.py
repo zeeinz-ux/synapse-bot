@@ -48,6 +48,16 @@ from .chat_enhancer import (
 )
 from .web_search import search_web, needs_web_search
 from ..ai_agent.agent_tools import is_agent_request
+
+OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
+OPENROUTER_IMAGE_MODELS = [
+    "black-forest-labs/flux-1.1-pro",
+    "black-forest-labs/flux-dev",
+    "stabilityai/stable-diffusion-3.5-large",
+    "stabilityai/stable-diffusion-3.5-medium",
+]
+DEFAULT_IMAGE_MODEL = "black-forest-labs/flux-1.1-pro"
+
 from .providers import (
     GeminiProvider,
     GroqProvider,
@@ -308,6 +318,7 @@ class AIChat(commands.Cog):
                 "rate_limit_max": ai_chat.get("rate_limit_max", RATE_LIMIT_MAX),
                 "rate_limit_window": ai_chat.get("rate_limit_window", RATE_LIMIT_WINDOW),
                 "rate_limit_cooldown": ai_chat.get("rate_limit_cooldown", RATE_LIMIT_COOLDOWN),
+                "channel_personalities": ai_chat.get("channel_personalities", {}),
             }
             _SETTINGS_CACHE[guild_id] = (result, now)
             return result
@@ -961,6 +972,12 @@ class AIChat(commands.Cog):
             return
 
         personality = settings.get("personality", DEFAULT_PERSONALITY)
+        # Per-channel personality override (_process_ai_chat)
+        ch_personalities = settings.get("channel_personalities", {})
+        if channel_id in ch_personalities:
+            personality = ch_personalities[channel_id]
+        elif str(ctx.channel.id) in ch_personalities:
+            personality = ch_personalities[str(ctx.channel.id)]
         intent = detect_intent(user_message)
 
         print(
@@ -1048,6 +1065,10 @@ class AIChat(commands.Cog):
             return
 
         personality = settings.get("personality", DEFAULT_PERSONALITY)
+        # Per-channel personality override (_process_ai_chat_stream)
+        ch_personalities = settings.get("channel_personalities", {})
+        if channel_id in ch_personalities:
+            personality = ch_personalities[channel_id]
         intent = detect_intent(user_message)
         intent_instructions = get_intent_instructions(intent)
         temperature = settings.get("temperature", 0.75)
@@ -1233,6 +1254,72 @@ class AIChat(commands.Cog):
                 pass
 
     # ═══════════════════════════════════════════════════════════════════════
+    # COMMAND: /imagine (Image Generation via OpenRouter)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @commands.hybrid_command(name="imagine", description="Generate gambar dari teks menggunakan AI")
+    async def imagine(self, ctx: commands.Context, prompt: str):
+        await ctx.defer()
+        api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("GROQ_API_KEY")
+        if not api_key:
+            await ctx.send("❌ API key untuk image generation tidak tersedia.")
+            return
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": DEFAULT_IMAGE_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{OPENROUTER_API_BASE}/chat/completions",
+                    json=payload,
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=120),
+                ) as resp:
+                    if resp.status != 200:
+                        text = await resp.text()
+                        await ctx.send(f"❌ Gagal generate gambar: HTTP {resp.status}")
+                        return
+                    data = await resp.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+            # Cari URL gambar dari response
+            urls = re.findall(r'https?://[^\s\)\"\']+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s\)\"\']*)?', content)
+            if not urls:
+                urls = re.findall(r'https?://[^\s\)\"\']+', content)
+            # Filter URL yang likely image hosting
+            image_url = None
+            for u in urls:
+                if any(ext in u.lower() for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp', 'oaidalle', 'flux', 'image']):
+                    image_url = u
+                    break
+            if not image_url and urls:
+                image_url = urls[0]
+
+            if image_url:
+                embed = discord.Embed(
+                    title="🎨 Gambar Generated",
+                    description=f"Prompt: *{prompt[:1900]}*",
+                    color=0x5865F2,
+                )
+                embed.set_image(url=image_url)
+                embed.set_footer(text=f"Model: {DEFAULT_IMAGE_MODEL}")
+                await ctx.send(embed=embed)
+            else:
+                # Fallback: kirim raw content
+                await ctx.send(f"🎨 **Generated Image**\nPrompt: {prompt[:1500]}\n\n{content[:1500]}")
+        except asyncio.TimeoutError:
+            await ctx.send("⏱️ Timeout — image generation terlalu lama. Coba prompt yang lebih sederhana.")
+        except Exception as e:
+            await ctx.send(f"❌ Error: {type(e).__name__}: {str(e)[:200]}")
+
+    # ═══════════════════════════════════════════════════════════════════════
     # COMMANDS: RAG Knowledge Base (from Discord)
     # ═══════════════════════════════════════════════════════════════════════
 
@@ -1297,6 +1384,88 @@ class AIChat(commands.Cog):
         except Exception as e:
             print(f"[RAG] Delete error: {e}")
             await ctx.send("Terjadi error internal.")
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # COMMAND: /personality (set personality for a channel)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @commands.hybrid_command(name="personality", description="Atur kepribadian AI Chat di channel tertentu")
+    @commands.has_permissions(manage_guild=True)
+    async def personality(
+        self, ctx: commands.Context,
+        channel: discord.TextChannel | None = None,
+        personality: str = "friendly",
+    ):
+        target = channel or ctx.channel
+        guild_id = str(ctx.guild.id)
+        valid = {"friendly", "formal", "tsundere", "wise"}
+        if personality not in valid:
+            await ctx.send(f"Personality harus salah satu: {', '.join(valid)}")
+            return
+        try:
+            doc_ref = db.collection("guild_settings").document(guild_id)
+            def _update():
+                doc = doc_ref.get()
+                if not doc.exists:
+                    doc_ref.set({"ai_chat": {"channel_personalities": {str(target.id): personality}}})
+                else:
+                    doc_ref.update({"ai_chat.channel_personalities." + str(target.id): personality})
+            await asyncio.to_thread(_update)
+            _SETTINGS_CACHE.pop(guild_id, None)
+            await ctx.send(f"✅ Personality channel {target.mention} diubah ke **{personality}**")
+        except Exception as e:
+            await ctx.send(f"❌ Gagal: {str(e)[:200]}")
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # COMMAND: /chat-search (search chat history)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @commands.hybrid_command(name="chat-search", description="Cari percakapan lama dengan AI Chat berdasarkan kata kunci")
+    async def chat_search(self, ctx: commands.Context, kata_kunci: str):
+        guild_id = str(ctx.guild.id)
+        user_id = str(ctx.author.id)
+        await ctx.defer()
+
+        try:
+            doc_ref = (
+                db.collection("guild_settings")
+                .document(guild_id)
+                .collection("ai_chat")
+                .document(user_id)
+            )
+            doc = await asyncio.to_thread(doc_ref.get)
+            if not doc.exists:
+                await ctx.send("Belum ada riwayat chat untuk dicari.")
+                return
+
+            history = doc.to_dict().get("history", [])
+            keyword = kata_kunci.lower()
+            matches = []
+            for entry in history:
+                if keyword in entry.get("content", "").lower():
+                    role = "👤" if entry.get("role") == "user" else "🤖"
+                    ts = entry.get("timestamp", "")[:19] if entry.get("timestamp") else ""
+                    text = entry.get("content", "")[:200]
+                    matches.append(f"{role} [{ts}] {text}")
+
+            if not matches:
+                await ctx.send(f"Tidak ada hasil untuk `{kata_kunci[:100]}`.")
+                return
+
+            total = len(matches)
+            shown = matches[:15]
+            result = f"🔍 **{total} hasil** untuk `{kata_kunci[:100]}`:\n\n" + "\n\n".join(shown)
+            if total > 15:
+                result += f"\n\n...dan {total - 15} lagi."
+
+            if len(result) > 1900:
+                chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
+                for i, chunk in enumerate(chunks):
+                    await ctx.send(chunk if i == 0 else chunk)
+            else:
+                await ctx.send(result)
+        except Exception as e:
+            await ctx.send(f"❌ Error: {str(e)[:200]}")
 
     # ═══════════════════════════════════════════════════════════════════════
     # EVENT LISTENER: Mention @Synapse
