@@ -8,7 +8,8 @@ from discord.ext import commands
 
 from ..database.firebase_setup import db
 from .agent_tools import (
-    TOOL_DEFINITIONS, TOOL_DESCRIPTION, parse_tool_call, execute_tool,
+    TOOL_DEFINITIONS, TOOL_DESCRIPTION, DISCORD_PERMISSIONS_KNOWLEDGE,
+    parse_tool_call, execute_tool,
 )
 
 MAX_AGENT_STEPS = 15
@@ -85,13 +86,16 @@ class AIChatAgent(commands.Cog):
             return "Sistem AI tidak tersedia."
 
         tools_json = json.dumps(TOOL_DEFINITIONS, indent=2)
-        system_prompt = f"{TOOL_DESCRIPTION}\n\nBerikut adalah tool yang tersedia:\n{tools_json}\n\n"
-        system_prompt += (
-            "Server ini: {name} (ID: {id})\n"
-            "Owner: {owner}\n"
-            "Kamu adalah asisten AI yang membantu mengelola server ini.\n"
-            "Ikuti aturan di atas dengan ketat."
-        ).format(name=guild.name, id=guild.id, owner=guild.owner)
+        system_prompt = (
+            f"{TOOL_DESCRIPTION}\n\n"
+            f"Berikut adalah tool yang tersedia:\n{tools_json}\n\n"
+            f"{DISCORD_PERMISSIONS_KNOWLEDGE}\n\n"
+            f"Server ini: {guild.name} (ID: {guild.id})\n"
+            f"Owner: {guild.owner}\n"
+            f"Kamu adalah AI Agent profesional yang paham seluruh struktur Discord server.\n"
+            f"Gunakan pengetahuan permission di atas untuk memberikan saran terbaik ke user.\n"
+            f"Ikuti aturan dengan ketat."
+        )
 
         messages = [
             {"role": "system", "content": system_prompt},

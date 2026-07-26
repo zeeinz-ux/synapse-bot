@@ -2,6 +2,84 @@ from __future__ import annotations
 
 import discord
 
+DISCORD_PERMISSIONS_KNOWLEDGE = """
+## Discord Permission System — Panduan Lengkap
+
+### General Server Permissions
+- View Channels — Melihat channel (termasuk private jika diizinkan)
+- Manage Channels — Buat/edit/hapus channel
+- Manage Roles — Buat/edit/hapus role (hanya role di bawah role tertinggi)
+- Create Expressions — Tambah emoji/sticker/sound kustom
+- Manage Expressions — Edit/hapus emoji/sticker/sound kustom
+- View Audit Log — Lihat log perubahan di server
+- View Server Insights — Lihat data pertumbuhan server
+- Manage Webhooks — Buat/edit/hapus webhook
+- Manage Server — Ubah nama server, region, invite, tambah app, atur AutoMod
+
+### Membership Permissions
+- Create Invite — Undang orang baru
+- Change Nickname — Ubah nickname sendiri
+- Manage Nicknames — Ubah nickname orang lain
+- Kick Members — Kick anggota
+- Ban Members — Ban permanen + hapus history chat
+- Timeout Members — Nonaktifkan sementara (gak bisa chat/react/voice)
+
+### Text Channel Permissions
+- Send Messages — Kirim pesan & buat post di forum
+- Send Messages in Threads — Kirim pesan di thread
+- Create Public Threads — Buat thread publik
+- Create Private Threads — Buat thread privat
+- Embed Links — Tampilkan embed dari link
+- Attach Files — Upload file/media
+- Add Reactions — Tambah reaksi emoji
+- Use External Emoji — Pakai emoji dari server lain (Nitro)
+- Use External Stickers — Pakai sticker dari server lain (Nitro)
+- Mention @everyone/@here/All Roles — Mention massal
+- Manage Messages — Hapus/hide embed dari pesan
+- Pin Messages — Pin/unpin pesan
+- Read Message History — Baca pesan lama
+- Send TTS Messages — Kirim pesan text-to-speech
+- Send Voice Messages — Kirim voice message
+- Create Polls — Buat polling
+- Bypass Slowmode — Kirim pesan tanpa kena slowmode
+- Manage Threads — Rename/delete/close thread
+
+### Voice Channel Permissions
+- Connect — Join voice channel
+- Speak — Bicara di voice
+- Video — Share video/screen/stream
+- Use Soundboard — Kirim sound dari soundboard server
+- Use External Sounds — Pakai sound dari server lain (Nitro)
+- Use Voice Activity — Bicara tanpa push-to-talk
+- Priority Speaker — Lebih didengar di voice
+- Mute Members — Mute orang lain
+- Deafen Members — Deaf orang lain
+- Move Members — Pindahin atau disconnect orang dari voice
+- Set Voice Channel Status — Edit status voice channel
+
+### Apps Permissions
+- Use Application Commands — Pakai slash command & context menu
+- Use Activities — Pakai Activities (games, dll)
+- Use External Apps — App dari member bisa posting
+
+### Stage Channel Permissions
+- Request to Speak — Minta bicara di Stage
+
+### Events Permissions
+- Create Events — Buat event
+- Manage Events — Edit & cancel event
+
+### Advanced
+- Administrator — Semua permission + bypass semua batasan channel (DANGEROUS)
+
+### Best Practices:
+1. @everyone: minimal permissions (biasanya cuma View Channels, Send Messages, Read History)
+2. Moderator role: Manage Messages, Kick, Ban, Timeout, Mute/Deafen Members
+3. Admin role: Manage Channels, Manage Roles, Manage Server (tanpa Administrator biar aman)
+4. JANGAN pernah kasih Administrator ke sembarang orang
+5. Gunakan channel-specific overwrites untuk kontrol lebih detail
+"""
+
 TOOL_DEFINITIONS = [
     {
         "name": "server_info",
@@ -113,6 +191,20 @@ TOOL_DEFINITIONS = [
             "duration": "string — durasi (contoh: '10m', '1h', '1d'). Default: '1h'",
             "reason": "string — alasan (optional)",
         },
+    },
+    {
+        "name": "edit_channel_permissions",
+        "description": "Ubah permission channel untuk role tertentu. Beri permission name dan nilai true/false.",
+        "parameters": {
+            "channel": "string — nama channel",
+            "role": "string — nama role (atau '@everyone')",
+            "permissions": "object — permission Discord beserta nilai true/false. Contoh: {\"send_messages\": false, \"read_messages\": true}",
+        },
+    },
+    {
+        "name": "list_bans",
+        "description": "Lihat daftar member yang di-ban di server ini.",
+        "parameters": {},
     },
 ]
 
@@ -246,6 +338,10 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot) -> str:
             return await _kick_member(guild, args)
         elif fn == "timeout_member":
             return await _timeout_member(guild, args)
+        elif fn == "edit_channel_permissions":
+            return await _edit_channel_permissions(guild, args)
+        elif fn == "list_bans":
+            return await _list_bans(guild)
         else:
             return f"[TOOL_RESULT]\nFunction: {fn}\nResult: {{\"success\": false, \"error\": \"Tool '{fn}' tidak dikenal\"}}"
     except discord.Forbidden:
@@ -499,3 +595,61 @@ async def _timeout_member(guild: discord.Guild, args: dict) -> str:
         return f'{{"success": false, "error": "Member \\"{member_query}\\" tidak ditemukan di server"}}'
     await member.timeout(delta, reason=reason)
     return f'{{"success": true, "timeout": "{member.name}", "duration": "{duration_str}", "until": "{datetime.datetime.now() + delta}"}}'
+
+
+async def _edit_channel_permissions(guild: discord.Guild, args: dict) -> str:
+    channel_name = args.get("channel", "").strip()
+    role_name = args.get("role", "").strip()
+    perms_dict = args.get("permissions", {})
+    if not channel_name:
+        return '{"success": false, "error": "Nama channel wajib diisi"}'
+    if not role_name:
+        return '{"success": false, "error": "Nama role wajib diisi"}'
+    channel = find_channel(guild, channel_name)
+    if not channel:
+        return f'{{"success": false, "error": "Channel \\"{channel_name}\\" tidak ditemukan"}}'
+    role = None
+    if role_name == "@everyone":
+        role = guild.default_role
+    else:
+        role = find_role(guild, role_name)
+    if not role:
+        return f'{{"success": false, "error": "Role \\"{role_name}\\" tidak ditemukan"}}'
+    perm_kwargs = {}
+    valid_perms = [
+        "view_channel", "manage_channels", "manage_roles",
+        "create_instant_invite", "change_nickname", "manage_nicknames",
+        "kick_members", "ban_members", "timeout_members",
+        "send_messages", "send_messages_in_threads", "create_public_threads",
+        "create_private_threads", "embed_links", "attach_files",
+        "add_reactions", "use_external_emoji", "use_external_stickers",
+        "mention_everyone", "manage_messages", "manage_threads",
+        "read_message_history", "send_tts_messages", "send_voice_messages",
+        "create_polls", "connect", "speak", "stream", "use_soundboard",
+        "use_voice_activity", "priority_speaker", "mute_members",
+        "deafen_members", "move_members", "set_voice_channel_status",
+        "request_to_speak", "use_application_commands", "use_activities",
+    ]
+    for key, value in perms_dict.items():
+        normalized_key = key.lower().replace(" ", "_").replace("-", "_")
+        if normalized_key in valid_perms:
+            perm_kwargs[normalized_key] = bool(value)
+    if not perm_kwargs:
+        return '{"success": false, "error": "Tidak ada permission valid yang diberikan. Lihat DISCORD_PERMISSIONS_KNOWLEDGE untuk daftar permission."}'
+    await channel.set_permissions(role, **perm_kwargs, reason="AI Agent: edit channel permissions")
+    return f'{{"success": true, "channel": "{channel_name}", "role": "{role_name}", "permissions_set": {list(perm_kwargs.keys())}}}'
+
+
+async def _list_bans(guild: discord.Guild) -> str:
+    try:
+        bans = [b async for b in guild.bans()]
+        result = []
+        for ban_entry in bans[:50]:
+            result.append({
+                "user": ban_entry.user.name,
+                "id": ban_entry.user.id,
+                "reason": ban_entry.reason or "Tidak ada alasan",
+            })
+        return f'{{"success": true, "total_bans": {len(bans)}, "bans": {result}}}'
+    except discord.Forbidden:
+        return '{"success": false, "error": "Bot tidak punya izin View Audit Log untuk melihat ban list"}'
