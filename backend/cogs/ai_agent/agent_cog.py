@@ -555,6 +555,14 @@ Arguments: {{"name": "Moderator", "hoist": true, "mentionable": true}}
 Function: assign_role
 Arguments: {{"member": "@user", "role": "Moderator"}}
 
+[TOOL_CALL]
+Function: create_channel
+Arguments: {{"name": "📜-rules", "type": "text", "category": "📢 Announcements", "topic": "Baca aturan server"}}
+
+[TOOL_CALL]
+Function: create_channel
+Arguments: {{"name": "🎮-gaming", "type": "voice", "category": "🔊 Voice Channels"}}
+
 JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah plan!
 """
         # Prompt ringkas untuk step selanjutnya (tapi tool list tetap disertakan)

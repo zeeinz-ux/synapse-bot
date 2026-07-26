@@ -243,6 +243,7 @@ ATURAN PENTING:
 
 7. Setelah dapat hasil tool, analisis hasilnya lalu lanjutkan.
 8. Jika sudah selesai semua, berikan ringkasan apa yang sudah dilakukan.
+9. Saat membuat channel (create_channel), WAJIB tentukan parameter "category" agar channel langsung terkelompok dalam kategori. Jika kategori belum ada, tool akan membuatnya otomatis. Contoh: / create_channel name="📜-rules" category="📢 Announcements"
 """
 
 DISCORD_UI_KNOWLEDGE = """
