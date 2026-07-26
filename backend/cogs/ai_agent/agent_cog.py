@@ -78,9 +78,34 @@ class AIChatAgent(commands.Cog):
         if not ai:
             return None, None
         for p in ai._providers:
+            if not p or not p.is_available:
+                continue
+            # Skip Gemini jika circuit breaker open / quota habis
+            if p.name == "Gemini" and hasattr(p, "can_use_for_text") and not p.can_use_for_text():
+                continue
+            return ai, p
+        # Fallback: coba Gemini walau quota/circuit lagi masalah
+        for p in ai._providers:
             if p and p.is_available:
                 return ai, p
         return ai, None
+
+    def _get_next_provider(self, ai_cog, current_provider):
+        if not ai_cog or not current_provider:
+            return None
+        found_current = False
+        for p in ai_cog._providers:
+            if not p:
+                continue
+            if not found_current:
+                if p is current_provider:
+                    found_current = True
+                continue
+            if p.is_available:
+                if p.name == "Gemini" and hasattr(p, "can_use_for_text") and not p.can_use_for_text():
+                    continue
+                return p
+        return None
 
     # ── ReAct Loop ──
 
@@ -126,7 +151,14 @@ class AIChatAgent(commands.Cog):
             )
 
             if not success or not response:
-                print(f"[AGENT] Provider call failed: success={success}, response='{response}'")
+                print(f"[AGENT] Provider {provider.name} failed: success={success}, response='{response}'")
+                # Fallback ke provider berikutnya
+                next_provider = self._get_next_provider(ai_cog, provider)
+                if next_provider and step_count == 1:
+                    print(f"[AGENT] Fallback ke {next_provider.name}")
+                    provider = next_provider
+                    step_count -= 1
+                    continue
                 if conversation:
                     final = "\n\n".join(t for _, t in conversation)
                     return f"{final}\n\n---\nMaaf, terjadi error di langkah {step_count}. Coba lagi dengan permintaan yang lebih sederhana."
