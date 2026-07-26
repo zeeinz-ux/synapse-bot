@@ -174,13 +174,16 @@ class AIChatAgent(commands.Cog):
                 conversation.append(("TOOL_CALL", f"Memanggil {fn_name}..."))
 
                 result = await execute_tool(guild, tc, self.bot)
-                conversation.append(("TOOL_RESULT", result[:300]))
+                conversation.append(("TOOL_RESULT", result[:500]))
 
                 # Simpan interaksi ke history untuk konteks berikutnya
                 history.append({"role": "user", "content": current_message})
                 history.append({"role": "assistant", "content": response})
-                # Hasil tool dikirim sebagai user message berikutnya
-                current_message = f"Hasil eksekusi {fn_name}:\n{result}\n\nLanjutkan atau berikan respon ke user."
+                # Hasil tool dikirim sebagai user message berikutnya (truncated biar gak overload context)
+                truncated = result[:1500]
+                if len(result) > 1500:
+                    truncated += "\n\n...(dipotong, total terlalu panjang)"
+                current_message = f"Hasil eksekusi {fn_name}:\n{truncated}\n\nLanjutkan atau berikan respon ke user."
 
                 await asyncio.sleep(0.3)
 
