@@ -47,12 +47,11 @@
         </button>
       </div>
       {% if guild_info and guild_info.id %}
-      <div class="guild-context">
-        <div class="guild-context-icon" data-icon="{{ guild_info.icon or '' }}" data-id="{{ guild_info.id }}"></div>
-        <div class="guild-context-info">
-          <div class="guild-context-name">{{ guild_info.name }}</div>
-          <div class="guild-context-members">{{ guild_info.member_count }} members</div>
-        </div>
+      <div class="ss-sidebar-btn">
+        <a href="/dashboard">
+          <i data-lucide="layout-dashboard" width="16" height="16"></i>
+          Daftar Server
+        </a>
       </div>
       {% elif s.guilds_list %}
       <div class="guild-selector">
@@ -296,36 +295,11 @@
         </div>
       </div>
       {% endif %}
-      {% if guild_info and guild_info.id %}
-      <div class="back-bar">
-        <a href="/dashboard" class="back-btn">
-          <i data-lucide="chevron-left" width="14" height="14"></i>
-          Daftar Server
-        </a>
-      </div>
-      {% endif %}
       <div class="content-wrapper">{% block content %}{% endblock %}</div>
     </main>
   </div>
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-  <!-- Guild context icon init -->
-  <script>
-    (function() {
-      var ctxIcon = document.querySelector('.guild-context-icon');
-      if (ctxIcon) {
-        var icon = ctxIcon.dataset.icon;
-        var id = ctxIcon.dataset.id;
-        if (icon) {
-          var url = icon.startsWith('http') ? icon : 'https://cdn.discordapp.com/icons/' + id + '/' + icon + '.png';
-          ctxIcon.style.backgroundImage = 'url(' + url + ')';
-          ctxIcon.textContent = '';
-        } else {
-          ctxIcon.textContent = '?';
-        }
-      }
-    })();
-  </script>
   <!-- Guild dropdown sync script -->
   <script>
     (function() {
