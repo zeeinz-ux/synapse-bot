@@ -14,8 +14,7 @@ from .agent_tools import (
 
 MAX_AGENT_STEPS = 15
 AGENT_TIMEOUT = 120
-MEMORY_TTL = 300  # 5 menit
-MEMORY_MAX_TURNS = 5  # maksimal 5 pasang Q&A disimpan
+MEMORY_MAX_TURNS = 20  # maksimal 20 pasang Q&A disimpan (permanen di Firestore)
 
 
 class AIChatAgent(commands.Cog):
@@ -23,8 +22,7 @@ class AIChatAgent(commands.Cog):
         self.bot = bot
         self._active_sessions: set[int] = set()
         self._agent_channels: dict[int, float] = {}  # channel_id -> timestamp
-        self._conversation_memory: dict[int, list[dict]] = {}  # user_id -> history
-        self._memory_ts: dict[int, float] = {}  # user_id -> last_access
+        self._conversation_memory: dict[int, list[dict]] = {}  # user_id -> history (RAM cache)
         self._server_scan_cache: dict[int, dict] = {}  # guild_id -> scan data
 
     # ── Scan Server ──
@@ -228,16 +226,46 @@ class AIChatAgent(commands.Cog):
             return True
         return False
 
-    def _get_memory(self, user_id: int) -> list[dict]:
-        ts = self._memory_ts.get(user_id)
-        if ts and time_module.time() - ts < MEMORY_TTL:
-            self._memory_ts[user_id] = time_module.time()
-            return self._conversation_memory.get(user_id, [])
-        self._conversation_memory.pop(user_id, None)
-        self._memory_ts.pop(user_id, None)
+    def _memory_doc_id(self, user_id: int, guild_id: int) -> str:
+        return f"{user_id}_{guild_id}"
+
+    async def _load_memory_firestore(self, user_id: int, guild_id: int) -> list[dict]:
+        """Load memory dari Firestore."""
+        try:
+            doc_id = self._memory_doc_id(user_id, guild_id)
+            doc = await asyncio.to_thread(
+                lambda: db.collection("agent_memory").document(doc_id).get()
+            )
+            if doc.exists:
+                data = doc.to_dict()
+                history = data.get("history", [])
+                # Cache di RAM
+                self._conversation_memory[user_id] = history
+                return history
+        except Exception as e:
+            print(f"[AGENT] Error load memory from Firestore: {e}")
         return []
 
-    def _save_memory(self, user_id: int, new_user_msg: str, new_ai_msg: str):
+    async def _save_memory_firestore(self, user_id: int, guild_id: int, history: list[dict]):
+        """Simpan memory ke Firestore (async, fire-and-forget)."""
+        try:
+            doc_id = self._memory_doc_id(user_id, guild_id)
+            await asyncio.to_thread(
+                lambda: db.collection("agent_memory").document(doc_id).set({
+                    "user_id": user_id,
+                    "guild_id": guild_id,
+                    "history": history,
+                    "updated_at": time_module.time(),
+                })
+            )
+        except Exception as e:
+            print(f"[AGENT] Error save memory to Firestore: {e}")
+
+    def _get_memory(self, user_id: int) -> list[dict]:
+        # Cek RAM cache dulu (tanpa TTL)
+        return self._conversation_memory.get(user_id, [])
+
+    def _save_memory(self, user_id: int, guild_id: int, new_user_msg: str, new_ai_msg: str):
         mem = self._get_memory(user_id)
         if new_user_msg:
             mem.append({"role": "user", "content": new_user_msg})
@@ -247,7 +275,8 @@ class AIChatAgent(commands.Cog):
         if len(mem) > MEMORY_MAX_TURNS * 2:
             mem = mem[-(MEMORY_MAX_TURNS * 2):]
         self._conversation_memory[user_id] = mem
-        self._memory_ts[user_id] = time_module.time()
+        # Simpan ke Firestore (background)
+        asyncio.ensure_future(self._save_memory_firestore(user_id, guild_id, mem))
 
     # ── Settings ──
 
@@ -645,12 +674,15 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
         self._active_sessions.add(ctx.author.id)
         try:
             memory = self._get_memory(ctx.author.id)
+            # Kalo RAM kosong, coba load dari Firestore
+            if not memory:
+                memory = await self._load_memory_firestore(ctx.author.id, ctx.guild.id)
             result = await asyncio.wait_for(
                 self._agent_react(ctx.guild, request, ctx.author, memory),
                 timeout=AGENT_TIMEOUT,
             )
             self._agent_channels[ctx.channel.id] = time_module.time()
-            self._save_memory(ctx.author.id, request, result[:1000])
+            self._save_memory(ctx.author.id, ctx.guild.id, request, result[:1000])
 
             if len(result) > 1900:
                 chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
