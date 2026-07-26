@@ -329,16 +329,43 @@ def is_agent_request(text: str) -> bool:
 
 def parse_tool_call(text: str) -> list[dict] | None:
     import re, json
-    pattern = r'\[TOOL_CALL\]\s*Function:\s*(\w+)\s*Arguments:\s*(\{.*?\})'
-    matches = re.findall(pattern, text, re.DOTALL)
+    # Support 2 format Arguments: JSON object {…} atau key=value
+    call_pattern = r'\[TOOL_CALL\]\s*Function:\s*(\w+)\s*Arguments:\s*(.*?)(?=\[TOOL_CALL\]|\Z)'
+    matches = re.findall(call_pattern, text, re.DOTALL)
     if not matches:
         return None
     calls = []
-    for fn_name, args_str in matches:
-        try:
-            args = json.loads(args_str)
-        except json.JSONDecodeError:
+    for fn_name, args_raw in matches:
+        args_raw = args_raw.strip()
+        # Coba parse sebagai JSON dulu
+        if args_raw.startswith("{"):
+            try:
+                args = json.loads(args_raw)
+            except json.JSONDecodeError:
+                args = {}
+        else:
+            # Fallback: parse key=value pairs
             args = {}
+            for part in args_raw.split(","):
+                part = part.strip()
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip('"').strip("'")
+                    # Coba konversi ke bool/number kalo sesuai
+                    if v.lower() in ("true", "false"):
+                        v = v.lower() == "true"
+                    else:
+                        try:
+                            # Cek apakah number
+                            float(v)
+                            if "." in v or "e" in v.lower():
+                                v = float(v)
+                            else:
+                                v = int(v)
+                        except ValueError:
+                            pass
+                    args[k] = v
         calls.append({"function": fn_name, "arguments": args})
     return calls
 
