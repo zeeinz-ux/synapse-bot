@@ -233,21 +233,32 @@ Gemini (gemini-3.6-flash) → Groq → Mistral → Cohere → OpenRouter
 
 ---
 
-## 4. Planned / Next Moves
+## 4. Planned / Next Moves — Status
 
-Prioritas pribadi: **batch ops (#1) → server templates (#2) → settings tools (#3)** — ini yang paling sering bikin AI kelamaan/nyerah.
+| # | Feature | Status |
+|---|---------|--------|
+| 1 | Batch operations | ✅ Done — `batch_create_channels` + `batch_create_roles` |
+| 2 | Server templates | ✅ Done — 3 templates (gaming/study/community) + `apply_template` |
+| 3 | Server settings tools | ✅ Done — `edit_server` (name, desc, verification, AFK, system channel) |
+| 4 | Rollback/snapshot | ✅ Done — `save_snapshot` + `rollback` + auto-snapshot di awal `_agent_react` |
+| 5 | Scheduler | ✅ Done — `schedule_task` tool + background loop 60s di `_scheduler_loop` |
+| 6 | Image generation | ❌ Pending — perlu provider image generation |
+| 7 | Channel personality | ❌ Pending — per-channel personality config |
+| 8 | Search memory | ❌ Pending — search Firestore chat history |
+
+Prioritas pribadi: **batch ops (#1) → server templates (#2) → settings tools (#3)** ✅ done.
 
 ### AI Agent
-1. **Batch operations** — `batch_create_channels` terima list channel + category sekali panggil, bukan 15 langkah
-2. **Server templates** — "bikin server gaming" → AI terapin template lengkap (categories, channels, roles) dalam 1-2 langkah
-3. **Server settings tools** — ganti nama server, verification level, AFK channel, dll. Belum ada sama sekali
-4. **Rollback / snapshot** — simpan state server sebelum mutasi, biar bisa `!undo`
-5. **Scheduler** — "jadwalin auto-role tiap hari Minggu" → simpan tugas ke Firestore + background task
+1. ✅ **Batch operations** — `batch_create_channels` terima list channel + category sekali panggil, bukan 15 tool calls. Juga `batch_create_roles`.
+2. ✅ **Server templates** — 3 template (gaming/study/community). `apply_template` buat categories, channels, roles dalam 1 panggilan.
+3. ✅ **Server settings tools** — `edit_server`: name, description, verification_level, afk_channel, afk_timeout, system_channel.
+4. ✅ **Rollback / snapshot** — `save_snapshot` simpan state ke Firestore, `rollback` restore. Auto-snapshot setiap `_agent_react` jalan.
+5. ✅ **Scheduler** — `schedule_task` simpan tugas ke Firestore, background loop `_scheduler_loop` (60s) eksekusi `assign_role`, `remove_role`, `send_message`.
 
 ### AI Chat
-6. **Image generation** — gambar via provider yang support
-7. **Channel personality** — beda personality tiap channel (misal `#game-discussion` pake "casual", `#help` pake "formal")
-8. **Search memory** — "kemarin kita bahas apa tentang X?" → cari dari Firestore chat history
+6. ❌ **Image generation** — gambar via provider yang support
+7. ❌ **Channel personality** — beda personality tiap channel (misal `#game-discussion` pake "casual", `#help` pake "formal")
+8. ❌ **Search memory** — "kemarin kita bahas apa tentang X?" → cari dari Firestore chat history
 
 ---
 
