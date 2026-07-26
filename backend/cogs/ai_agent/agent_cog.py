@@ -179,6 +179,7 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
         current_message = user_message
         step_count = 0
         conversation = []
+        plan_summary = ""
 
         while step_count < MAX_AGENT_STEPS:
             step_count += 1
@@ -204,6 +205,14 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             plan_match = re.search(r'\[PLAN\](.*?)\[/PLAN\]', response, re.DOTALL)
             if plan_match:
                 plan_text = plan_match.group(1).strip()
+                # Summarize plan biar gak overload context
+                lines = plan_text.split('\n')
+                if len(plan_text) > 500 or len(lines) > 5:
+                    plan_summary = '\n'.join(lines[:5])
+                    if len(lines) > 5:
+                        plan_summary += f"\n  ... +{len(lines)-5} langkah lagi"
+                else:
+                    plan_summary = plan_text
                 conversation.append(("PLAN", f"📋 **Rencana:**\n{plan_text}"))
 
             tool_calls = parse_tool_call(response)
@@ -221,11 +230,12 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
                 # Simpan interaksi ke history untuk konteks berikutnya
                 history.append({"role": "user", "content": current_message})
                 history.append({"role": "assistant", "content": response})
-                # Hasil tool dikirim sebagai user message berikutnya (truncated biar gak overload context)
+                # Hasil tool + sisa rencana dikirim sebagai user message berikutnya
                 truncated = result[:1500]
                 if len(result) > 1500:
                     truncated += "\n\n...(dipotong, total terlalu panjang)"
-                current_message = f"Hasil eksekusi {fn_name}:\n{truncated}\n\nLanjutkan atau berikan respon ke user."
+                plan_status = f"\n\n[SISA RENCANA]\n{plan_summary}\n[/SISA RENCANA]" if plan_summary else ""
+                current_message = f"Hasil eksekusi {fn_name}:\n{truncated}{plan_status}\n\nLanjutkan langkah berikutnya dari rencana, atau berikan respon ke user jika sudah selesai."
 
                 await asyncio.sleep(0.3)
 
