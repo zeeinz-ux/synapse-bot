@@ -42,9 +42,13 @@ class AIChatAgent(commands.Cog):
 
     async def _save_agent_config(self, guild_id: str, config: dict):
         try:
+            payload = {
+                "enabled": config.get("agent_enabled", False),
+                "mode": config.get("agent_mode", "admin"),
+            }
             await asyncio.to_thread(
                 lambda: db.collection("guild_settings").document(str(guild_id)).set(
-                    {"agent": config}, merge=True
+                    {"agent": payload}, merge=True
                 )
             )
         except Exception as e:
