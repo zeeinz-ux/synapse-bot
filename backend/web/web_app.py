@@ -2386,6 +2386,7 @@ def ai_chat_page(guild_id: str):
     rate_limit_window = 30
     rate_limit_cooldown = 60
 
+    channel_personalities = {}
     try:
         if db is not None:
             doc_ref = db.collection("guild_settings").document(str(guild_id))
@@ -2402,6 +2403,7 @@ def ai_chat_page(guild_id: str):
                 rate_limit_max = ai_cfg.get("rate_limit_max", 10)
                 rate_limit_window = ai_cfg.get("rate_limit_window", 30)
                 rate_limit_cooldown = ai_cfg.get("rate_limit_cooldown", 60)
+                channel_personalities = ai_cfg.get("channel_personalities", {})
     except Exception:
         pass
 
@@ -2419,7 +2421,108 @@ def ai_chat_page(guild_id: str):
         rate_limit_max=rate_limit_max,
         rate_limit_window=rate_limit_window,
         rate_limit_cooldown=rate_limit_cooldown,
+        channel_personalities=channel_personalities,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AI Agent Dashboard Routes
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/dashboard/<guild_id>/agent")
+@login_required
+def agent_page(guild_id: str):
+    agent_enabled = False
+    agent_mode = "admin"
+
+    try:
+        if db is not None:
+            doc_ref = db.collection("guild_settings").document(str(guild_id))
+            doc = doc_ref.get()
+            if doc.exists:
+                data = doc.to_dict()
+                agent = data.get("agent", {}) if isinstance(data.get("agent"), dict) else {}
+                agent_enabled = agent.get("enabled", False)
+                agent_mode = agent.get("mode", "admin")
+    except Exception:
+        pass
+
+    return _render_page(
+        "dashboard/agent.html",
+        active_page="agent",
+        guild_id=guild_id,
+        agent_enabled=agent_enabled,
+        agent_mode=agent_mode,
+    )
+
+
+@app.route("/dashboard/<guild_id>/ai-agent/toggle", methods=["POST"])
+@login_required
+def agent_toggle(guild_id):
+    try:
+        if request.is_json:
+            data = request.get_json() or {}
+            enabled = data.get("enabled", False)
+        else:
+            enabled = request.form.get("enabled", "false").lower() == "true"
+
+        if db is None:
+            return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
+
+        doc_ref = db.collection("guild_settings").document(str(guild_id))
+        doc_ref.set({"agent": {"enabled": enabled}}, merge=True)
+
+        return jsonify({
+            "success": True,
+            "enabled": enabled,
+            "message": f"AI Agent {'diaktifkan' if enabled else 'dinonaktifkan'}."
+        }), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Terjadi error internal: {str(e)}"}), 500
+
+
+@app.route("/dashboard/<guild_id>/ai-agent/save", methods=["POST"])
+@login_required
+def agent_save(guild_id):
+    try:
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+        else:
+            data = request.form.to_dict()
+
+        agent_mode = data.get("agent_mode", "admin")
+        if agent_mode not in ("admin", "owner"):
+            agent_mode = "admin"
+
+        if db is None:
+            return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
+
+        doc_ref = db.collection("guild_settings").document(str(guild_id))
+        doc_ref.set({
+            "agent": {
+                "mode": agent_mode,
+                "updated_at": datetime.now(timezone.utc),
+            }
+        }, merge=True)
+
+        import uuid, json
+        try:
+            cq = os.path.join(CONTROL_QUEUE_DIR, f"inv_agent_{uuid.uuid4().hex}.json")
+            with open(cq, "w") as f:
+                json.dump({"action": "refresh_settings_cache", "guild_id": str(guild_id)}, f)
+        except Exception:
+            pass
+
+        return jsonify({
+            "success": True,
+            "message": "Pengaturan AI Agent berhasil disimpan."
+        }), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Terjadi error: {str(e)}"}), 500
 
 
 @app.route("/dashboard/<guild_id>/ai-chat/toggle", methods=["POST"])
@@ -2471,6 +2574,7 @@ def ai_chat_save(guild_id):
         rate_limit_max = int(data.get("rate_limit_max", 10))
         rate_limit_window = int(data.get("rate_limit_window", 30))
         rate_limit_cooldown = int(data.get("rate_limit_cooldown", 60))
+        channel_personalities = data.get("channel_personalities", {})
 
         valid_personalities = ["friendly", "formal", "tsundere", "sarcastic", "wise"]
         if personality not in valid_personalities:
@@ -2480,20 +2584,21 @@ def ai_chat_save(guild_id):
             return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
 
         doc_ref = db.collection("guild_settings").document(str(guild_id))
-        
-        doc_ref.set({
-            "ai_chat": {
-                "personality": personality,
-                "channel_id": channel_id,
-                "temperature": temperature,
-                "dedicated_ai_channel": dedicated_ai_channel if channel_id else False,
-                "ai_model": ai_model,
-                "rate_limit_max": max(1, min(rate_limit_max, 100)),
-                "rate_limit_window": max(5, min(rate_limit_window, 300)),
-                "rate_limit_cooldown": max(5, min(rate_limit_cooldown, 600)),
-                "updated_at": datetime.now(timezone.utc),
-            }
-        }, merge=True)
+
+        payload = {
+            "personality": personality,
+            "channel_id": channel_id,
+            "temperature": temperature,
+            "dedicated_ai_channel": dedicated_ai_channel if channel_id else False,
+            "ai_model": ai_model,
+            "rate_limit_max": max(1, min(rate_limit_max, 100)),
+            "rate_limit_window": max(5, min(rate_limit_window, 300)),
+            "rate_limit_cooldown": max(5, min(rate_limit_cooldown, 600)),
+            "updated_at": datetime.now(timezone.utc),
+        }
+        payload["channel_personalities"] = channel_personalities
+
+        doc_ref.set({"ai_chat": payload}, merge=True)
 
         import uuid, json
         try:
@@ -2558,6 +2663,7 @@ def api_ai_chat_settings(guild_id):
                 "rate_limit_max": ai_chat.get("rate_limit_max", 10),
                 "rate_limit_window": ai_chat.get("rate_limit_window", 30),
                 "rate_limit_cooldown": ai_chat.get("rate_limit_cooldown", 60),
+                "channel_personalities": ai_chat.get("channel_personalities", {}),
             }
         }), 200
 

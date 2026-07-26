@@ -46,6 +46,8 @@
     toast: document.getElementById("toast"),
     toastMsg: document.getElementById("toast-message"),
     apiStatus: document.getElementById("ai-status-text"),
+    chPersonalitiesList: document.getElementById("channel-personalities-list"),
+    addChPersonalityBtn: document.getElementById("add-channel-personality"),
   };
 
   function show(el) { if (!el) return; el.style.display = ""; el.classList.remove("hidden"); }
@@ -100,6 +102,8 @@
       if (cfg.rate_limit_window !== undefined && els.rlWindow) els.rlWindow.value = cfg.rate_limit_window;
       if (cfg.rate_limit_cooldown !== undefined && els.rlCooldown) els.rlCooldown.value = cfg.rate_limit_cooldown;
 
+      renderChannelPersonalities(data);
+
       console.log("[AI Chat] ✅ Settings loaded:", data);
     } catch (err) {
       console.error("[AI Chat] Error load settings:", err);
@@ -117,6 +121,63 @@
     }
   }
 
+  function getChannelPersonalityRows() {
+    if (!els.chPersonalitiesList) return [];
+    return els.chPersonalitiesList.querySelectorAll(".ch-personality-row");
+  }
+
+  function collectChannelPersonalities() {
+    const rows = getChannelPersonalityRows();
+    const result = {};
+    rows.forEach(function(row) {
+      const ch = row.querySelector(".ch-personality-channel");
+      const val = row.querySelector(".ch-personality-value");
+      if (ch && val && ch.value) {
+        result[ch.value] = val.value;
+      }
+    });
+    return result;
+  }
+
+  function renderChannelPersonalities(data) {
+    if (!els.chPersonalitiesList) return;
+    const mainSelect = document.getElementById("channel-select");
+    const channels = [];
+    if (mainSelect) {
+      for (var i = 0; i < mainSelect.options.length; i++) {
+        var o = mainSelect.options[i];
+        if (o.value) channels.push({ id: o.value, name: o.textContent });
+      }
+    }
+    const cp = data.ai_chat && data.ai_chat.channel_personalities ? data.ai_chat.channel_personalities : {};
+    const persOpts = ["friendly", "formal", "tsundere", "sarcastic", "wise"];
+    const persLabels = ["😊 Friendly", "🧐 Formal", "😤 Tsundere", "😏 Sarcastic", "🦉 Wise"];
+    var html = "";
+    Object.keys(cp).forEach(function(chId) {
+      var pers = cp[chId];
+      html += '<div class="ch-personality-row" data-channel="' + chId + '">';
+      html += '<select class="form-select ch-personality-channel" style="flex:1;">';
+      html += '<option value="">— Pilih Channel —</option>';
+      channels.forEach(function(ch) {
+        html += '<option value="' + ch.id + '"' + (ch.id === chId ? ' selected' : '') + '>' + ch.name + '</option>';
+      });
+      html += '</select>';
+      html += '<select class="form-select ch-personality-value" style="flex:1;">';
+      for (var j = 0; j < persOpts.length; j++) {
+        html += '<option value="' + persOpts[j] + '"' + (persOpts[j] === pers ? ' selected' : '') + '>' + persLabels[j] + '</option>';
+      }
+      html += '</select>';
+      html += '<button type="button" class="btn btn-danger ch-personality-remove" style="padding:0.4rem 0.6rem;">✕</button>';
+      html += '</div>';
+    });
+    els.chPersonalitiesList.innerHTML = html;
+    els.chPersonalitiesList.querySelectorAll(".ch-personality-remove").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        this.closest(".ch-personality-row").remove();
+      });
+    });
+  }
+
   function setupEventListeners() {
     if (els.toggle) els.toggle.addEventListener("change", handleToggle);
 
@@ -127,6 +188,56 @@
     if (els.temperature) {
       els.temperature.addEventListener("input", (e) => {
         if (els.tempValue) els.tempValue.textContent = e.target.value;
+      });
+    }
+
+    if (els.addChPersonalityBtn) {
+      els.addChPersonalityBtn.addEventListener("click", function() {
+        if (!els.chPersonalitiesList) return;
+        var row = document.createElement("div");
+        row.className = "ch-personality-row";
+        var chSel = document.createElement("select");
+        chSel.className = "form-select ch-personality-channel";
+        chSel.style.flex = "1";
+        var blank = document.createElement("option");
+        blank.value = "";
+        blank.textContent = "— Pilih Channel —";
+        chSel.appendChild(blank);
+        var mainChannelSelect = document.getElementById("channel-select");
+        if (mainChannelSelect) {
+          for (var i = 0; i < mainChannelSelect.options.length; i++) {
+            var opt = mainChannelSelect.options[i];
+            if (opt.value) {
+              var clone = document.createElement("option");
+              clone.value = opt.value;
+              clone.textContent = opt.textContent;
+              chSel.appendChild(clone);
+            }
+          }
+        }
+        var valSel = document.createElement("select");
+        valSel.className = "form-select ch-personality-value";
+        valSel.style.flex = "1";
+        var persOpts = ["friendly", "formal", "tsundere", "sarcastic", "wise"];
+        var persLabels = ["😊 Friendly", "🧐 Formal", "😤 Tsundere", "😏 Sarcastic", "🦉 Wise"];
+        for (var j = 0; j < persOpts.length; j++) {
+          var opt2 = document.createElement("option");
+          opt2.value = persOpts[j];
+          opt2.textContent = persLabels[j];
+          valSel.appendChild(opt2);
+        }
+        var rmBtn = document.createElement("button");
+        rmBtn.type = "button";
+        rmBtn.className = "btn btn-danger ch-personality-remove";
+        rmBtn.style.padding = "0.4rem 0.6rem";
+        rmBtn.textContent = "✕";
+        rmBtn.addEventListener("click", function() {
+          this.closest(".ch-personality-row").remove();
+        });
+        row.appendChild(chSel);
+        row.appendChild(valSel);
+        row.appendChild(rmBtn);
+        els.chPersonalitiesList.appendChild(row);
       });
     }
 
@@ -188,6 +299,7 @@
       rate_limit_max: els.rlMax ? parseInt(els.rlMax.value, 10) : 10,
       rate_limit_window: els.rlWindow ? parseInt(els.rlWindow.value, 10) : 30,
       rate_limit_cooldown: els.rlCooldown ? parseInt(els.rlCooldown.value, 10) : 60,
+      channel_personalities: collectChannelPersonalities(),
     };
 
     const originalText = els.saveBtn ? els.saveBtn.innerHTML : "💾 Simpan Pengaturan";

@@ -5,10 +5,11 @@ COG: AI Chat Module v5.0 — Synapse Discord Bot
 File    : backend/cogs/ai_chat/ai_chat.py
 Deskripsi : 5-Tier API Fallback Engine — modular provider system
   • Tier 1: Gemini — Primary (text + vision), circuit breaker, quota reserve
-  • Tier 2: Groq — Backup (Llama 3.3 70B)
-  • Tier 3: Mistral — Third (open-mistral-nemo)
-  • Tier 4: Cohere — Fourth (command-a-03-2025)
-  • Tier 5: OpenRouter — Last resort (auto-prioritize free models)
+  • Tier 2: Gemini — Primary (gemini-3.6-flash)
+  • Tier 3: Groq — Backup (Llama 3.3 70B)
+  • Tier 4: Mistral — Third (open-mistral-nemo)
+  • Tier 5: Cohere — Fourth (command-a-03-2025)
+  • Tier 6: OpenRouter — Last resort (auto-prioritize free models)
   • Slash command /ask + Mention handler (@bot)
   • Channel restriction, personality, temperature via dashboard
   • Chat history Firestore (max 5 pasang Q&A per user)
@@ -195,7 +196,7 @@ class AIChat(commands.Cog):
             await asyncio.gather(*[self._get_rag_chunks(gid) for gid in guild_ids], return_exceptions=True)
             print(f"[RAG] Synced {len(guild_ids)} guild(s) to ChromaDB")
 
-        print("[AI CHAT] Cog loaded. 5-Tier: Gemini -> Groq -> Mistral -> Cohere -> OpenRouter")
+        print("[AI CHAT] Cog loaded. 6-Tier: Zen -> Gemini -> Groq -> Mistral -> Cohere -> OpenRouter")
 
     async def cog_unload(self):
         self.history_prune_loop.cancel()
@@ -266,6 +267,10 @@ class AIChat(commands.Cog):
         return result
 
     async def analyze_image_spam(self, image_data: bytes, mime_type: str = "image/png") -> bool:
+        if self.zen and self.zen.is_available:
+            result = await self.zen.analyze_image_spam(image_data, mime_type)
+            if result:
+                return True
         if self.gemini and self.gemini.quota_available:
             result = await self.gemini.analyze_image_spam(image_data, mime_type)
             if result:
@@ -1260,64 +1265,70 @@ class AIChat(commands.Cog):
     @commands.hybrid_command(name="imagine", description="Generate gambar dari teks menggunakan AI")
     async def imagine(self, ctx: commands.Context, prompt: str):
         await ctx.defer()
-        api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("GROQ_API_KEY")
+        api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
-            await ctx.send("❌ API key untuk image generation tidak tersedia.")
+            await ctx.send("❌ API key OpenRouter untuk image generation tidak tersedia.")
             return
 
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
-        payload = {
-            "model": DEFAULT_IMAGE_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-        }
 
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{OPENROUTER_API_BASE}/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=120),
-                ) as resp:
-                    if resp.status != 200:
-                        text = await resp.text()
-                        await ctx.send(f"❌ Gagal generate gambar: HTTP {resp.status}")
+        models_to_try = list(OPENROUTER_IMAGE_MODELS)
+        last_error = ""
+        async with aiohttp.ClientSession() as session:
+            for model in models_to_try:
+                payload = {
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                }
+                try:
+                    async with session.post(
+                        f"{OPENROUTER_API_BASE}/chat/completions",
+                        json=payload,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=120),
+                    ) as resp:
+                        if resp.status != 200:
+                            body = await resp.text()
+                            last_error = f"HTTP {resp.status} on {model}: {body[:300]}"
+                            continue
+                        data = await resp.json()
+                        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+                    urls = re.findall(r'https?://[^\s\)\"\']+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s\)\"\']*)?', content)
+                    if not urls:
+                        urls = re.findall(r'https?://[^\s\)\"\']+', content)
+                    image_url = None
+                    for u in urls:
+                        if any(ext in u.lower() for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp', 'oaidalle', 'flux', 'image']):
+                            image_url = u
+                            break
+                    if not image_url and urls:
+                        image_url = urls[0]
+
+                    if image_url:
+                        embed = discord.Embed(
+                            title="🎨 Gambar Generated",
+                            description=f"Prompt: *{prompt[:1900]}*",
+                            color=0x5865F2,
+                        )
+                        embed.set_image(url=image_url)
+                        embed.set_footer(text=f"Model: {model}")
+                        await ctx.send(embed=embed)
                         return
-                    data = await resp.json()
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    else:
+                        last_error = f"No image URL in response from {model}"
+                        continue
+                except asyncio.TimeoutError:
+                    last_error = f"Timeout on {model}"
+                    continue
+                except Exception as e:
+                    last_error = f"{type(e).__name__} on {model}: {str(e)[:150]}"
+                    continue
 
-            # Cari URL gambar dari response
-            urls = re.findall(r'https?://[^\s\)\"\']+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s\)\"\']*)?', content)
-            if not urls:
-                urls = re.findall(r'https?://[^\s\)\"\']+', content)
-            # Filter URL yang likely image hosting
-            image_url = None
-            for u in urls:
-                if any(ext in u.lower() for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp', 'oaidalle', 'flux', 'image']):
-                    image_url = u
-                    break
-            if not image_url and urls:
-                image_url = urls[0]
-
-            if image_url:
-                embed = discord.Embed(
-                    title="🎨 Gambar Generated",
-                    description=f"Prompt: *{prompt[:1900]}*",
-                    color=0x5865F2,
-                )
-                embed.set_image(url=image_url)
-                embed.set_footer(text=f"Model: {DEFAULT_IMAGE_MODEL}")
-                await ctx.send(embed=embed)
-            else:
-                # Fallback: kirim raw content
-                await ctx.send(f"🎨 **Generated Image**\nPrompt: {prompt[:1500]}\n\n{content[:1500]}")
-        except asyncio.TimeoutError:
-            await ctx.send("⏱️ Timeout — image generation terlalu lama. Coba prompt yang lebih sederhana.")
-        except Exception as e:
-            await ctx.send(f"❌ Error: {type(e).__name__}: {str(e)[:200]}")
+        await ctx.send(f"❌ Semua model gagal. Error terakhir: {last_error}")
 
     # ═══════════════════════════════════════════════════════════════════════
     # COMMANDS: RAG Knowledge Base (from Discord)

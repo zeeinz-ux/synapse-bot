@@ -52,12 +52,16 @@ class OpenCodeZenProvider(AIProvider):
                     pricing = m.get("pricing") or {}
                     prompt_price = pricing.get("prompt")
                     completion_price = pricing.get("completion")
-                    # Free = pricing kosong/null, atau prompt=0 dan completion=0
                     is_free = False
-                    if not prompt_price and not completion_price:
+                    if prompt_price is None and completion_price is None:
                         is_free = True
-                    elif str(prompt_price) == "0" and str(completion_price) == "0":
-                        is_free = True
+                    elif prompt_price is not None and completion_price is not None:
+                        try:
+                            if float(prompt_price) == 0.0 and float(completion_price) == 0.0:
+                                is_free = True
+                        except (ValueError, TypeError):
+                            if str(prompt_price) == "0" and str(completion_price) == "0":
+                                is_free = True
                     if not is_free:
                         continue
                     free.append(mid)
@@ -69,6 +73,11 @@ class OpenCodeZenProvider(AIProvider):
                 vision.sort()
 
                 if free:
+                    known_vision = set(ZEN_VISION_MODELS)
+                    for m in free:
+                        if m in known_vision and m not in vision:
+                            vision.append(m)
+                    vision.sort()
                     print(f"[ZEN] {len(free)} free models loaded ({len(vision)} vision-capable)")
                     for m in free:
                         tag = " [VISION]" if m in vision else ""
@@ -269,3 +278,46 @@ class OpenCodeZenProvider(AIProvider):
                 yield ""
                 return
         yield ""
+
+    async def analyze_image_spam(self, image_data: bytes, mime_type: str = "image/png") -> bool:
+        if not self.api_key or not self.session:
+            return False
+        if not self._vision_models:
+            self._free_models, self._vision_models = await self._fetch_models()
+        if not self._vision_models:
+            return False
+
+        import base64
+        try:
+            b64 = base64.b64encode(image_data).decode()
+            payload = {
+                "model": self._vision_models[0],
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Analisis gambar ini. Apakah mengandung: promosi judi/slot, scam, konten penipuan, atau phishing? Jawab HANYA 'YA' atau 'TIDAK'."},
+                        {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64}"}},
+                    ],
+                }],
+                "temperature": 0.1,
+                "max_tokens": 64,
+            }
+
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.api_key}",
+            }
+
+            url = f"{ZEN_API_BASE}/chat/completions"
+            async with self.session.post(url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    return False
+                data = await resp.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    return False
+                text = choices[0].get("message", {}).get("content", "")
+                return "YA" in text.upper()
+        except Exception as e:
+            print(f"[ZEN VISION] Image spam error: {e}")
+            return False

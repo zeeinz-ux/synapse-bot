@@ -38,11 +38,12 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 
 ## AI Chat
 
-`Gemini → Groq → Mistral → Cohere → OpenRouter` (5 providers in `backend/cogs/ai_chat/providers/`).
+`OpenCode Zen → Gemini → Groq → Mistral → Cohere → OpenRouter` (6 providers in `backend/cogs/ai_chat/providers/`).
 
+- OpenCode Zen: **Tier 1 — Free priority**. Fetches free models from API at startup; fallback hardcoded list (`opencode_zen.py:10-23`).
 - Gemini: model `gemini-3.6-flash`. Circuit breaker (3 consecutive fails → skip 2h) + daily quota reserve for vision.
-- **Image analysis is Gemini-only** — if Gemini is down, image features unavailable.
-- OpenRouter auto-prioritizes free models (fetched from API on startup, hardcoded fallback list).
+- **Image analysis is NOT Gemini-only** — OpenRouter and OpenCodeZen also track `_vision_models` and use them automatically. Vision falls back through providers like chat does.
+- OpenRouter: **Tier 6 — Last resort**. Auto-fetches `:free` models from API on startup (`_fetch_models`), tries all free before paid fallback. Pricing detection now handles `"0.000000"` and `null` correctly.
 - Streaming: `/ask` uses progressive message edits (~1s). Mention-based chat uses batch mode.
 - Intent router (`intent_router.py`) + web search (`web_search.py`) integrated in `ai_chat.py`.
 

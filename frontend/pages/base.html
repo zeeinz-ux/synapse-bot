@@ -136,6 +136,10 @@
               <span class="nav-icon"><i data-lucide="brain"></i></span>
               <span class="nav-label">{{ "base.nav.ai_chat" | t }}</span>
             </a>
+            <a href="/dashboard/{{ guild_id }}/agent" class="nav-item {% if active_page == 'agent' %}active{% endif %}" data-search="ai agent bot automation manage">
+              <span class="nav-icon"><i data-lucide="bot"></i></span>
+              <span class="nav-label">{{ "base.nav.ai_agent" | t }}</span>
+            </a>
             <a href="/dashboard/{{ guild_id }}/auto-responders" class="nav-item {% if active_page == 'auto_responders' %}active{% endif %}" data-search="auto responder otomatis">
               <span class="nav-icon"><i data-lucide="bot"></i></span>
               <span class="nav-label">{{ "base.nav.auto_responders" | t }}</span>

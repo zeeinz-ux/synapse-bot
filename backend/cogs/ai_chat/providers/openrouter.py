@@ -17,9 +17,12 @@ OPENROUTER_FALLBACK_MODELS = [
     "nvidia/nemotron-3-super-120b-a12b:free",
     "nvidia/nemotron-3-nano-30b-a3b:free",
     "nvidia/nemotron-nano-9b-v2:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "mistralai/mistral-nemo:free",
     "poolside/laguna-s-2.1:free",
     "poolside/laguna-m.1:free",
-    "google/lyria-3-pro-preview",
+    "microsoft/phi-4-mini-instruct:free",
+    "qwen/qwen2.5-72b-instruct:free",
 ]
 
 
@@ -66,8 +69,15 @@ class OpenRouterProvider(AIProvider):
                 free = []
                 vision = []
                 for m in data.get("data", []):
-                    p = m.get("pricing", {})
-                    if p.get("prompt") != "0" or p.get("completion") != "0":
+                    p = m.get("pricing") or {}
+                    p_prompt = p.get("prompt")
+                    p_comp = p.get("completion")
+                    try:
+                        pp = float(p_prompt) if p_prompt is not None else 0.0
+                        pc = float(p_comp) if p_comp is not None else 0.0
+                    except (ValueError, TypeError):
+                        continue
+                    if pp != 0.0 or pc != 0.0:
                         continue
                     mid = m["id"]
                     modality = m.get("architecture", {}).get("modality", "")

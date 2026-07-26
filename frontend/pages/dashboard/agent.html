@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}AI Agent Settings — Synapse{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/agent.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<!-- Toast Notification -->
+<div id="toast" class="toast hidden">
+  <span id="toast-message">✅ Berhasil disimpan!</span>
+</div>
+
+<!-- Header -->
+<div class="page-header">
+  <h1><i data-lucide="bot"></i> AI Agent Settings</h1>
+  <p>Atur AI Agent untuk bantu manage server secara otomatis.</p>
+</div>
+
+<!-- Status Card -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-icon"><i data-lucide="zap"></i></span>
+    <div class="card-title-group">
+      <h2>Status AI Agent</h2>
+      <p>Aktifkan atau nonaktifkan AI Agent di server ini.</p>
+    </div>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">Saat aktif, AI Agent bisa membuat/mengelola channel, role, dan tindakan server lainnya berdasarkan perintah natural language via command <code>/agent</code>.</p>
+    <br>
+    <label class="toggle-switch">
+      <input type="checkbox" id="agent-toggle" {% if agent_enabled %}checked{% endif %}>
+      <span class="toggle-slider"></span>
+    </label>
+    <span id="toggle-label" class="toggle-label">{% if agent_enabled %}Aktif{% else %}Nonaktif{% endif %}</span>
+  </div>
+</div>
+
+<!-- Access Mode Card -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-icon"><i data-lucide="shield"></i></span>
+    <div class="card-title-group">
+      <h2>Akses Mode</h2>
+      <p>Siapa yang bisa menggunakan AI Agent.</p>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="form-group">
+      <label for="agent-mode-select">Mode Akses</label>
+      <p class="field-hint">
+        <strong>Owner + Admin:</strong> Server owner dan role dengan permission Administrator bisa akses.<br>
+        <strong>Owner Only:</strong> Hanya server owner yang bisa akses.
+      </p>
+      <select id="agent-mode-select" class="form-select">
+        <option value="admin" {% if agent_mode == 'admin' %}selected{% endif %}>Owner + Admin</option>
+        <option value="owner" {% if agent_mode == 'owner' %}selected{% endif %}>Owner Only</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Info Card -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-icon"><i data-lucide="info"></i></span>
+    <div class="card-title-group">
+      <h2>Info & Limitations</h2>
+      <p>Detail tentang kemampuan AI Agent.</p>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="tier-info">
+      <div class="tier-header">
+        <span class="tier-dot tier-1-dot"></span>
+        <strong>Available Tools (23)</strong>
+      </div>
+      <div class="tier-details">
+        <div class="detail-row"><span class="detail-label">Channels</span><span class="detail-value">Create, Delete, Edit, Batch Create</span></div>
+        <div class="detail-row"><span class="detail-label">Roles</span><span class="detail-value">Create, Delete, Assign, Batch Create</span></div>
+        <div class="detail-row"><span class="detail-label">Server</span><span class="detail-value">Edit Settings, Apply Templates, Snapshot/Rollback</span></div>
+        <div class="detail-row"><span class="detail-label">Moderation</span><span class="detail-value">Kick, Ban, Timeout, Purge Messages</span></div>
+        <div class="detail-row"><span class="detail-label">Automation</span><span class="detail-value">Schedule Tasks, Auto-Responders</span></div>
+      </div>
+    </div>
+
+    <hr class="tier-divider">
+
+    <div class="tier-info">
+      <div class="tier-header">
+        <span class="tier-dot tier-2-dot"></span>
+        <strong>Memory & Context</strong>
+      </div>
+      <div class="tier-details">
+        <div class="detail-row"><span class="detail-label">Memory</span><span class="detail-value">20 turns per user, persists across restarts</span></div>
+        <div class="detail-row"><span class="detail-label">Scan Cache</span><span class="detail-value">Auto-updates after mutations, Firestore-backed</span></div>
+        <div class="detail-row"><span class="detail-label">Scheduler</span><span class="detail-value">Background task every 60s</span></div>
+      </div>
+    </div>
+
+    <hr class="tier-divider">
+
+    <div class="global-limits">
+      <div class="detail-row"><span class="detail-label">Scan Status</span><span class="detail-value" id="scan-status-text">Checking...</span></div>
+      <div class="detail-row"><span class="detail-label">Snapshots</span><span class="detail-value">Auto-snapshot before each session</span></div>
+    </div>
+
+    <div class="form-group" style="margin-top:1.5rem;">
+      <button id="save-btn" class="btn btn-primary"><i data-lucide="save"></i> Simpan Pengaturan</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/agent.js') }}"></script>
+{% endblock %}

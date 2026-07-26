@@ -101,6 +101,33 @@
       <input type="text" id="ai-model-input" class="form-input" value="{{ ai_model }}" placeholder="gemini-3.6-flash">
     </div>
 
+    <!-- Per-Channel Personalities -->
+    <div class="form-group">
+      <label>Per-Channel Personality Override</label>
+      <p class="field-hint">Atur personality berbeda untuk channel tertentu. Biarkan kosong untuk memakai personality global.</p>
+      <div id="channel-personalities-list">
+        {% for ch_id, ch_personality in channel_personalities.items() %}
+        <div class="ch-personality-row" data-channel="{{ ch_id }}">
+          <select class="form-select ch-personality-channel" style="flex:1;">
+            <option value="">— Pilih Channel —</option>
+            {% for ch in channels %}
+            <option value="{{ ch.id }}" {% if ch.id == ch_id %}selected{% endif %}>{{ ch.name }}</option>
+            {% endfor %}
+          </select>
+          <select class="form-select ch-personality-value" style="flex:1;">
+            <option value="friendly" {% if ch_personality == 'friendly' %}selected{% endif %}>😊 Friendly</option>
+            <option value="formal" {% if ch_personality == 'formal' %}selected{% endif %}>🧐 Formal</option>
+            <option value="tsundere" {% if ch_personality == 'tsundere' %}selected{% endif %}>😤 Tsundere</option>
+            <option value="sarcastic" {% if ch_personality == 'sarcastic' %}selected{% endif %}>😏 Sarcastic</option>
+            <option value="wise" {% if ch_personality == 'wise' %}selected{% endif %}>🦉 Wise</option>
+          </select>
+          <button type="button" class="btn btn-danger ch-personality-remove" style="padding:0.4rem 0.6rem;">✕</button>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="button" id="add-channel-personality" class="btn btn-secondary" style="margin-top:0.5rem;"><i data-lucide="plus"></i> Tambah Channel</button>
+    </div>
+
     <div class="form-group">
       <label>Rate Limit (per-user)</label>
       <div class="rate-limit-grid" style="display:flex;gap:1rem;">
