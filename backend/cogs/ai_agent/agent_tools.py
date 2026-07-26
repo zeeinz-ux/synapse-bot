@@ -111,14 +111,16 @@ TOOL_DEFINITIONS = [
         "description": "Hapus channel berdasarkan nama. BERBAHAYA — minta konfirmasi user dulu sebelum eksekusi!",
         "parameters": {
             "name": "string — nama channel yang akan dihapus",
+            "type": "string — 'text', 'voice', atau 'category' (optional). Default cari semua tipe.",
         },
     },
     {
         "name": "rename_channel",
-        "description": "Ubah nama channel.",
+        "description": "Ubah nama channel atau kategori.",
         "parameters": {
-            "old_name": "string — nama channel saat ini",
+            "old_name": "string — nama channel/kategori saat ini",
             "new_name": "string — nama baru",
+            "type": "string — 'text', 'voice', atau 'category' (optional). Default cari semua tipe.",
         },
     },
     {
@@ -294,8 +296,15 @@ def parse_tool_call(text: str) -> list[dict] | None:
     return calls
 
 
-def find_channel(guild: discord.Guild, name: str) -> discord.abc.GuildChannel | None:
-    return discord.utils.get(guild.channels, name=name)
+def find_channel(guild: discord.Guild, name: str, ch_type: str = "") -> discord.abc.GuildChannel | None:
+    channels = guild.channels
+    if ch_type == "text":
+        channels = [c for c in channels if isinstance(c, discord.TextChannel) and not isinstance(c, discord.CategoryChannel)]
+    elif ch_type == "voice":
+        channels = [c for c in channels if isinstance(c, discord.VoiceChannel)]
+    elif ch_type == "category":
+        channels = [c for c in channels if isinstance(c, discord.CategoryChannel)]
+    return discord.utils.get(channels, name=name)
 
 
 def find_role(guild: discord.Guild, name: str) -> discord.Role | None:
@@ -444,9 +453,10 @@ async def _create_channel(guild: discord.Guild, args: dict) -> str:
 
 async def _delete_channel(guild: discord.Guild, args: dict) -> str:
     name = args.get("name", "").strip()
+    ch_type = args.get("type", "").strip().lower()
     if not name:
         return '{"success": false, "error": "Nama channel wajib diisi"}'
-    channel = find_channel(guild, name)
+    channel = find_channel(guild, name, ch_type)
     if not channel:
         return f'{{"success": false, "error": "Channel dengan nama \\"{name}\\" tidak ditemukan"}}'
     ch_name = channel.name
@@ -457,9 +467,10 @@ async def _delete_channel(guild: discord.Guild, args: dict) -> str:
 async def _rename_channel(guild: discord.Guild, args: dict) -> str:
     old = args.get("old_name", "").strip()
     new = args.get("new_name", "").strip()
+    ch_type = args.get("type", "").strip().lower()
     if not old or not new:
         return '{"success": false, "error": "old_name dan new_name wajib diisi"}'
-    channel = find_channel(guild, old)
+    channel = find_channel(guild, old, ch_type)
     if not channel:
         return f'{{"success": false, "error": "Channel \\"{old}\\" tidak ditemukan"}}'
     await channel.edit(name=new, reason="AI Agent: rename channel")
