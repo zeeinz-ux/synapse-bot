@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Synapse — {{ guild_info.name }}{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/guild.css') }}" />
+{% endblock %}
+{% block content %}
+<div class="gld-wrap">
+  <div class="gld-header">
+    <div class="gld-header-main">
+      <div class="gld-icon" data-icon="{{ guild_info.icon or '' }}" data-id="{{ guild_info.id }}"></div>
+      <div>
+        <h1 class="gld-name">{{ guild_info.name }}</h1>
+        <span class="gld-members">{{ guild_info.member_count }} members</span>
+      </div>
+    </div>
+    <div class="gld-stats">
+      <div class="gld-stat">
+        <span class="gld-stat-value">{{ guild_info.member_count }}</span>
+        <span class="gld-stat-label">Members</span>
+      </div>
+      <div class="gld-stat">
+        <span class="gld-stat-value">{{ guild_info.channel_count if guild_info.channel_count else '—' }}</span>
+        <span class="gld-stat-label">Channels</span>
+      </div>
+      <div class="gld-stat">
+        <span class="gld-stat-value">{{ guild_info.role_count if guild_info.role_count else '—' }}</span>
+        <span class="gld-stat-label">Roles</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="gld-section">
+    <h2 class="gld-section-title">Quick Actions</h2>
+    <div class="gld-actions">
+      <a href="/dashboard/{{ guild_id }}/settings" class="gld-action">
+        <i data-lucide="settings" width="20" height="20"></i>
+        <span>General Settings</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/welcome" class="gld-action">
+        <i data-lucide="hand" width="20" height="20"></i>
+        <span>Welcome</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/leave" class="gld-action">
+        <i data-lucide="log-out" width="20" height="20"></i>
+        <span>Leave Message</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/ban" class="gld-action">
+        <i data-lucide="ban" width="20" height="20"></i>
+        <span>Ban Announce</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/boost" class="gld-action">
+        <i data-lucide="zap" width="20" height="20"></i>
+        <span>Boost Tracker</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/donation" class="gld-action">
+        <i data-lucide="heart" width="20" height="20"></i>
+        <span>Donation Tracker</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/ai-chat" class="gld-action">
+        <i data-lucide="bot" width="20" height="20"></i>
+        <span>AI Chat</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/anti-spam" class="gld-action">
+        <i data-lucide="shield" width="20" height="20"></i>
+        <span>Anti-Spam</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/anti-nuke" class="gld-action">
+        <i data-lucide="shield-alert" width="20" height="20"></i>
+        <span>Anti-Nuke</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/voice" class="gld-action">
+        <i data-lucide="mic-2" width="20" height="20"></i>
+        <span>Voice</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/auto-responders" class="gld-action">
+        <i data-lucide="message-circle" width="20" height="20"></i>
+        <span>Auto Responders</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/message-builder" class="gld-action">
+        <i data-lucide="pen-tool" width="20" height="20"></i>
+        <span>Message Builder</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/templates" class="gld-action">
+        <i data-lucide="layout" width="20" height="20"></i>
+        <span>Templates</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/actions" class="gld-action">
+        <i data-lucide="list-checks" width="20" height="20"></i>
+        <span>Actions</span>
+      </a>
+      <a href="/dashboard/{{ guild_id }}/rag" class="gld-action">
+        <i data-lucide="database" width="20" height="20"></i>
+        <span>RAG</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.gld-icon').forEach(function(el) {
+    var icon = el.dataset.icon;
+    var id = el.dataset.id;
+    if (icon) {
+      var url = icon.startsWith('http') ? icon : 'https://cdn.discordapp.com/icons/' + id + '/' + icon + '.png';
+      el.style.backgroundImage = 'url(' + url + ')';
+    } else {
+      el.textContent = '?';
+    }
+  });
+</script>
+{% endblock %}

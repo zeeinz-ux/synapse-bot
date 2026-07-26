@@ -799,7 +799,81 @@ body {
     padding: 8px 12px;
   }
 
-  .guild-dropdown {
+/* ---------- Guild Context (current guild info in sidebar) ---------- */
+.guild-context {
+  padding: 12px;
+  border-bottom: 1px solid var(--sidebar-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.sidebar.collapsed .guild-context {
+  display: none;
+}
+
+.guild-context-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--guild-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  border: 2px solid var(--sidebar-border);
+}
+
+.guild-context-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.guild-context-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.guild-context-members {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* ---------- Back Button Bar ---------- */
+.back-bar {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--sidebar-border);
+  background: var(--sidebar-bg);
+}
+
+.back-bar a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.back-bar a:hover {
+  color: var(--accent);
+}
+
+.guild-dropdown {
     min-height: 40px;
     font-size: 0.85rem;
   }

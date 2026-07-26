@@ -574,7 +574,7 @@ ADMIN_PERM = 0x8        # ADMINISTRATOR
 MANAGE_GUILD_PERM = 0x20  # MANAGE_GUILD (formerly MANAGE_SERVER)
 
 def _fetch_user_guilds(access_token: str) -> list:
-    """Fetch user's guilds from Discord and filter by admin/manager permission."""
+    """Fetch ALL guilds the user is in (no permission filter)."""
     resp = requests.get(
         f"{DISCORD_API_BASE}/users/@me/guilds",
         headers={"Authorization": f"Bearer {access_token}"}
@@ -582,61 +582,76 @@ def _fetch_user_guilds(access_token: str) -> list:
     if resp.status_code != 200:
         return []
     all_guilds = resp.json()
-    # Filter: only guilds where user has ADMINISTRATOR or MANAGE_GUILD
-    permitted = []
-    bot_guild_ids = {g["id"] for g in get_stats_snapshot().get("guilds_list", [])}
-    for g in all_guilds:
-        perms = int(g.get("permissions", 0))
-        has_admin = (perms & ADMIN_PERM) == ADMIN_PERM
-        has_manage = (perms & MANAGE_GUILD_PERM) == MANAGE_GUILD_PERM
-        if has_admin or has_manage:
-            # Only include guilds the bot is also in
-            if g["id"] in bot_guild_ids:
-                permitted.append({
-                    "id": g["id"],
-                    "name": g["name"],
-                    "icon": g.get("icon"),
-                    "owner": g.get("owner", False),
-                })
-    return permitted
+    return [{
+        "id": g["id"],
+        "name": g["name"],
+        "icon": g.get("icon"),
+        "owner": g.get("owner", False),
+        "permissions": g.get("permissions", "0"),
+    } for g in all_guilds]
 
 # ==========================================================
 # Helper — render template dengan sidebar context
 # ==========================================================
 def _get_filtered_stats():
-    """Return stats snapshot with guilds_list filtered to user's permitted guilds."""
+    """Return stats with ALL user guilds, each tagged with card_type."""
     stats = get_stats_snapshot()
     user = session.get("user")
     user_guilds = session.get("user_guilds") if user else None
     if user_guilds is not None:
-        # Merge guild info from bot stats (member_count) with user's guilds
         bot_guild_map = {g["id"]: g for g in stats.get("guilds_list", [])}
         merged = []
         for ug in user_guilds:
             bg = bot_guild_map.get(ug["id"])
-            if bg:
-                merged.append({
-                    "id": ug["id"],
-                    "name": ug["name"],
-                    "member_count": bg.get("member_count", 0),
-                    "icon": bg.get("icon") or ug.get("icon"),
-                })
+            perms = int(ug.get("permissions", 0))
+            can_manage = bool(perms & ADMIN_PERM) or bool(perms & MANAGE_GUILD_PERM)
+
+            guild_data = {
+                "id": ug["id"],
+                "name": ug["name"],
+                "icon": ug.get("icon"),
+                "member_count": bg.get("member_count", 0) if bg else 0,
+                "owner": ug.get("owner", False),
+            }
+
+            if bg and can_manage:
+                guild_data["card_type"] = "available"
+                guild_data["url"] = f"/dashboard/{ug['id']}/"
+            elif bg and not can_manage:
+                guild_data["card_type"] = "locked"
+                guild_data["url"] = None
+            else:
+                guild_data["card_type"] = "invite"
+                guild_data["url"] = None
+                guild_data["invite_url"] = (
+                    f"https://discord.com/oauth2/authorize?"
+                    f"client_id={DISCORD_CLIENT_ID}&scope=bot&permissions=8&guild_id={ug['id']}"
+                )
+
+            merged.append(guild_data)
         stats["guilds_list"] = merged
     return stats
 
 def _render_page(template_name: str, active_page: str, guild_id: str, **kwargs):
     user = session.get("user")
     stats = _get_filtered_stats()
-    # If user requests a guild they don't have access to, redirect to dashboard
+    # Only allow access if user has admin/manage and bot is in guild
+    guild_info = {}
     if user and guild_id:
-        permitted_ids = [g["id"] for g in stats.get("guilds_list", [])]
-        if guild_id not in permitted_ids:
+        for g in stats.get("guilds_list", []):
+            if g["id"] == guild_id:
+                guild_info = g
+                if g.get("card_type") != "available":
+                    return redirect("/dashboard")
+                break
+        else:
             return redirect("/dashboard")
     return render_template(
         template_name,
         s=stats,
         active_page=active_page,
         guild_id=guild_id,
+        guild_info=guild_info,
         user=user,
         avatar_url=_discord_avatar_url(user) if user else "",
         **kwargs
@@ -687,17 +702,12 @@ def api_firestore_health():
 @login_required
 def dashboard():
     s = _get_filtered_stats()
-    guilds = s.get("guilds_list", [])
-    if guilds:
-        first_id = str(guilds[0].get("id", ""))
-        if first_id:
-            return redirect(f"/dashboard/{first_id}/")
-    return _render_page("dashboard/dashboard.html", active_page="main", guild_id="")
+    return _render_page("dashboard/select_server.html", active_page="main", guild_id="")
 
 @app.route("/dashboard/<guild_id>/")
 @login_required
 def dashboard_guild(guild_id: str):
-    return _render_page("dashboard/dashboard.html", active_page="main", guild_id=guild_id)
+    return _render_page("dashboard/guild.html", active_page="main", guild_id=guild_id)
 
 # ==========================================================
 # API — Settings

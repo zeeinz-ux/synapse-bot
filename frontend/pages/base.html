@@ -46,7 +46,15 @@
           </svg>
         </button>
       </div>
-      {% if s.guilds_list %}
+      {% if guild_info and guild_info.id %}
+      <div class="guild-context">
+        <div class="guild-context-icon" data-icon="{{ guild_info.icon or '' }}" data-id="{{ guild_info.id }}"></div>
+        <div class="guild-context-info">
+          <div class="guild-context-name">{{ guild_info.name }}</div>
+          <div class="guild-context-members">{{ guild_info.member_count }} members</div>
+        </div>
+      </div>
+      {% elif s.guilds_list %}
       <div class="guild-selector">
         <label class="selector-label">{{ "base.select_server" | t }}</label>
         <div class="guild-selector-current" id="guildSelectorCurrent">
@@ -264,7 +272,7 @@
             <line x1="3" y1="18" x2="21" y2="18"></line>
           </svg>
         </button>
-        <span class="mobile-title">Synapse</span>
+        <span class="mobile-title">{% if guild_info and guild_info.id %}{{ guild_info.name }}{% else %}Synapse{% endif %}</span>
         <div class="mobile-guild-selector">
           {% if s.guilds_list %}
           <select id="mobileGuildDropdown" data-current-guild="{{ guild_id }}">
@@ -303,11 +311,36 @@
         </div>
       </div>
       {% endif %}
+      {% if guild_info and guild_info.id %}
+      <div class="back-bar">
+        <a href="/dashboard">
+          <i data-lucide="arrow-left" width="16" height="16"></i>
+          Kembali ke daftar server
+        </a>
+      </div>
+      {% endif %}
       <div class="content-wrapper">{% block content %}{% endblock %}</div>
     </main>
   </div>
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
+  <!-- Guild context icon init -->
+  <script>
+    (function() {
+      var ctxIcon = document.querySelector('.guild-context-icon');
+      if (ctxIcon) {
+        var icon = ctxIcon.dataset.icon;
+        var id = ctxIcon.dataset.id;
+        if (icon) {
+          var url = icon.startsWith('http') ? icon : 'https://cdn.discordapp.com/icons/' + id + '/' + icon + '.png';
+          ctxIcon.style.backgroundImage = 'url(' + url + ')';
+          ctxIcon.textContent = '';
+        } else {
+          ctxIcon.textContent = '?';
+        }
+      }
+    })();
+  </script>
   <!-- Guild dropdown sync script -->
   <script>
     (function() {

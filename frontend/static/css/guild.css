@@ -1,0 +1,122 @@
+/* ── Guild Dashboard Page ── */
+
+.gld-wrap {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.gld-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--sidebar-border);
+}
+
+.gld-header-main {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.gld-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--tag-bg);
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  border: 2px solid var(--sidebar-border);
+}
+
+.gld-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.2rem;
+}
+
+.gld-members {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.gld-stats {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.gld-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.gld-stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.gld-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ── Quick Actions ── */
+
+.gld-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.gld-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.gld-action {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--sidebar-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.gld-action:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.gld-action svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.gld-action:hover svg {
+  color: var(--accent);
+}
