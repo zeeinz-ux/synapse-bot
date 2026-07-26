@@ -55,11 +55,11 @@ User Input
 | File | Fungsi |
 |------|--------|
 | `agent_cog.py` | Cog utama: `_agent_react()`, `/scan`, `/agent`, `/agent-toggle`, `/agent-mode`, `/agent-status` |
-| `agent_tools.py` | `TOOL_DEFINITIONS` (18 tools), `TOOL_DESCRIPTION`, `DISCORD_PERMISSIONS_KNOWLEDGE`, `DISCORD_UI_KNOWLEDGE`, `parse_tool_call()`, `validate_tool_call()`, `execute_tool()` |
+| `agent_tools.py` | `TOOL_DEFINITIONS` (23 tools), `TOOL_DESCRIPTION`, `DISCORD_PERMISSIONS_KNOWLEDGE`, `DISCORD_UI_KNOWLEDGE`, `parse_tool_call()`, `validate_tool_call()`, `execute_tool()` |
 
-### 1.3 Tools (18)
+### 1.3 Tools (23)
 
-AI Chat → `/ask`, `/rag-upload`, `/rag-list`, `/rag-delete`
+AI Chat → `/ask`, `/rag-upload`, `/rag-list`, `/rag-delete`, `/imagine`, `/chat-search`, `/personality`
 AI Agent → `/scan`, `/agent`, `/agent-toggle`, `/agent-mode`, `/agent-status`
 
 **Read-only:**
@@ -83,6 +83,17 @@ AI Agent → `/scan`, `/agent`, `/agent-toggle`, `/agent-mode`, `/agent-status`
 - `unban_member` — unban user
 - `kick_member` — kick user
 - `timeout_member` — timeout user
+
+**Batch:**
+- `batch_create_channels` — bikin banyak channel + kategori sekaligus
+- `batch_create_roles` — bikin banyak role sekaligus
+- `apply_template` — terapin template server (gaming/study/community)
+
+**Server Management:**
+- `edit_server` — ubah nama, deskripsi, verification, AFK, system channel
+- `save_snapshot` — simpan state server
+- `rollback` — restore dari snapshot terakhir
+- `schedule_task` — jadwalin tugas otomatis (assign_role, remove_role, send_message)
 
 ### 1.4 Memory System
 
@@ -242,9 +253,9 @@ Gemini (gemini-3.6-flash) → Groq → Mistral → Cohere → OpenRouter
 | 3 | Server settings tools | ✅ Done — `edit_server` (name, desc, verification, AFK, system channel) |
 | 4 | Rollback/snapshot | ✅ Done — `save_snapshot` + `rollback` + auto-snapshot di awal `_agent_react` |
 | 5 | Scheduler | ✅ Done — `schedule_task` tool + background loop 60s di `_scheduler_loop` |
-| 6 | Image generation | ❌ Pending — perlu provider image generation |
-| 7 | Channel personality | ❌ Pending — per-channel personality config |
-| 8 | Search memory | ❌ Pending — search Firestore chat history |
+| 6 | Image generation | ✅ Done — `/imagine` command via OpenRouter (Flux, Stable Diffusion) |
+| 7 | Channel personality | ✅ Done — `/personality` command, per-channel override di `channel_personalities` |
+| 8 | Search memory | ✅ Done — `/chat-search` cari keyword di Firestore history |
 
 Prioritas pribadi: **batch ops (#1) → server templates (#2) → settings tools (#3)** ✅ done.
 
@@ -256,9 +267,9 @@ Prioritas pribadi: **batch ops (#1) → server templates (#2) → settings tools
 5. ✅ **Scheduler** — `schedule_task` simpan tugas ke Firestore, background loop `_scheduler_loop` (60s) eksekusi `assign_role`, `remove_role`, `send_message`.
 
 ### AI Chat
-6. ❌ **Image generation** — gambar via provider yang support
-7. ❌ **Channel personality** — beda personality tiap channel (misal `#game-discussion` pake "casual", `#help` pake "formal")
-8. ❌ **Search memory** — "kemarin kita bahas apa tentang X?" → cari dari Firestore chat history
+6. ✅ **Image generation** — `/imagine` command via OpenRouter (Flux, Stable Diffusion, dll.)
+7. ✅ **Channel personality** — `/personality` command, per-channel override di `channel_personalities` Firestore field
+8. ✅ **Search memory** — `/chat-search` cari keyword di chat history Firestore
 
 ---
 
@@ -267,7 +278,7 @@ Prioritas pribadi: **batch ops (#1) → server templates (#2) → settings tools
 | Path | Desc |
 |------|------|
 | `backend/cogs/ai_agent/agent_cog.py` | Cog: `_agent_react`, `_scan_server`, `_update_scan_cache`, memory, `/agent`, `/scan` |
-| `backend/cogs/ai_agent/agent_tools.py` | 18 tools, definitions, parsing, validation, execute |
+| `backend/cogs/ai_agent/agent_tools.py` | 23 tools, definitions, parsing, validation, execute, templates, snapshot, scheduler |
 | `backend/cogs/ai_chat/ai_chat.py` | `/ask`, mention handler, RAG, provider chain |
 | `backend/cogs/ai_chat/prompt.py` | `SYSTEM_PROMPT_TEMPLATE` — redirect ke `/agent` |
 | `backend/utils/firestore_stats.py` | Circuit breaker, Firestore helpers |
