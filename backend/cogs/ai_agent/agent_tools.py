@@ -304,6 +304,11 @@ def find_channel(guild: discord.Guild, name: str, ch_type: str = "") -> discord.
         channels = [c for c in channels if isinstance(c, discord.VoiceChannel)]
     elif ch_type == "category":
         channels = [c for c in channels if isinstance(c, discord.CategoryChannel)]
+    # Cari by ID dulu kalo input numeric
+    if name.isdigit():
+        c = discord.utils.get(channels, id=int(name))
+        if c:
+            return c
     return discord.utils.get(channels, name=name)
 
 
