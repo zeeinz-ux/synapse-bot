@@ -123,7 +123,7 @@ class Help(commands.Cog):
 
         embed.add_field(
             name="🔗 Links",
-            value="🌐 [Website](https://synapsebot.com)\n💬 [Support Server](https://discord.gg/synapse)\n📄 [Invite Bot](https://discord.com/oauth2/authorize?client_id=" + (str(self.bot.user.id) if self.bot.user else "0") + "&permissions=8&scope=bot%20applications.commands)",
+            value="🌐 [Website](https://synapse-bot-dk9u.onrender.com/)\n💬 [Support Server](https://discord.gg/synapse)\n📄 [Invite Bot](https://discord.com/oauth2/authorize?client_id=1505849571039907900&permissions=8&integration_type=0&scope=bot%20applications.commands)",
             inline=True,
         )
 

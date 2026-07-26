@@ -121,9 +121,15 @@
       const res = await fetch("/api/stats");
       if (!res.ok) return;
       const data = await res.json();
+      const serversEl = document.getElementById("stat-servers");
+      if (serversEl && data.guilds !== undefined)
+        serversEl.textContent = data.guilds.toLocaleString("id-ID");
       const membersEl = document.getElementById("stat-members");
       if (membersEl && data.members !== undefined)
         membersEl.textContent = data.members.toLocaleString("id-ID");
+      const uptimeEl = document.getElementById("stat-uptime");
+      if (uptimeEl && data.uptime_fmt)
+        uptimeEl.textContent = data.uptime_fmt;
       renderMarquee(data.guilds_list);
     } catch (_) {}
   }
