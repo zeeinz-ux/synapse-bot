@@ -25,6 +25,202 @@ class AIChatAgent(commands.Cog):
         self._agent_channels: dict[int, float] = {}  # channel_id -> timestamp
         self._conversation_memory: dict[int, list[dict]] = {}  # user_id -> history
         self._memory_ts: dict[int, float] = {}  # user_id -> last_access
+        self._server_scan_cache: dict[int, dict] = {}  # guild_id -> scan data
+
+    # ── Scan Server ──
+
+    async def _scan_server(self, guild: discord.Guild) -> dict:
+        """Scan seluruh data server dan return dict lengkap."""
+        data = {
+            "server": {
+                "name": guild.name,
+                "id": guild.id,
+                "owner_name": str(guild.owner),
+                "owner_id": guild.owner_id,
+                "member_count": guild.member_count,
+                "boost_level": guild.premium_tier,
+                "boost_count": guild.premium_subscription_count,
+                "features": list(guild.features),
+                "created_at": guild.created_at.isoformat(),
+                "description": guild.description,
+                "afk_timeout": guild.afk_timeout,
+            },
+            "roles": [],
+            "channels": [],
+            "categories": [],
+            "members": [],
+            "bans": [],
+            "emojis": [],
+            "stickers": [],
+        }
+
+        # Roles
+        for role in sorted(guild.roles, key=lambda r: r.position, reverse=True):
+            if role.is_default() or role.is_bot_managed() or role.is_integration():
+                continue
+            data["roles"].append({
+                "name": role.name,
+                "id": role.id,
+                "color": str(role.color),
+                "position": role.position,
+                "member_count": len(role.members),
+                "mentionable": role.mentionable,
+                "hoist": role.hoist,
+                "permissions": [p for p, v in role.permissions if v],
+            })
+
+        # Categories + Channels
+        for cat in guild.categories:
+            cat_info = {
+                "name": cat.name,
+                "id": cat.id,
+                "position": cat.position,
+                "channels": [],
+            }
+            for ch in cat.channels:
+                ch_info = {
+                    "name": ch.name,
+                    "id": ch.id,
+                    "type": str(ch.type),
+                    "position": ch.position,
+                    "topic": ch.topic if hasattr(ch, "topic") else None,
+                    "nsfw": ch.nsfw if hasattr(ch, "nsfw") else False,
+                    "bitrate": ch.bitrate if hasattr(ch, "bitrate") else None,
+                    "user_limit": ch.user_limit if hasattr(ch, "user_limit") else 0,
+                }
+                cat_info["channels"].append(ch_info)
+                data["channels"].append(ch_info)
+            data["categories"].append(cat_info)
+
+        # Uncategorized channels
+        uncat = [c for c in guild.channels if not c.category and not isinstance(c, discord.CategoryChannel)]
+        if uncat:
+            cat_info = {
+                "name": "[No Category]",
+                "id": 0,
+                "position": -1,
+                "channels": [],
+            }
+            for ch in uncat:
+                ch_info = {
+                    "name": ch.name,
+                    "id": ch.id,
+                    "type": str(ch.type),
+                    "position": ch.position,
+                    "topic": ch.topic if hasattr(ch, "topic") else None,
+                    "nsfw": ch.nsfw if hasattr(ch, "nsfw") else False,
+                }
+                cat_info["channels"].append(ch_info)
+                data["channels"].append(ch_info)
+            data["categories"].append(cat_info)
+
+        # Members (max 100)
+        for m in guild.members[:100]:
+            data["members"].append({
+                "name": m.name,
+                "display_name": m.display_name,
+                "id": m.id,
+                "bot": m.bot,
+                "joined_at": m.joined_at.isoformat() if m.joined_at else None,
+                "top_role": m.top_role.name if m.top_role.name != "@everyone" else None,
+                "roles": [r.name for r in m.roles if r.name != "@everyone"][:5],
+            })
+
+        # Bans
+        try:
+            bans = [b async for b in guild.bans()]
+            for b in bans[:50]:
+                data["bans"].append({
+                    "user_name": b.user.name,
+                    "user_id": b.user.id,
+                    "reason": b.reason,
+                })
+        except discord.Forbidden:
+            data["bans"] = []
+
+        # Emojis
+        for e in guild.emojis:
+            data["emojis"].append({
+                "name": e.name,
+                "id": e.id,
+                "animated": e.animated,
+            })
+
+        # Stickers
+        for s in guild.stickers:
+            data["stickers"].append({
+                "name": s.name,
+                "id": s.id,
+                "description": s.description,
+            })
+
+        return data
+
+    def _build_scan_context(self, data: dict) -> str:
+        """Buat teks ringkasan dari hasil scan untuk disuntikkan ke prompt AI."""
+        if not data:
+            return ""
+        s = data["server"]
+        lines = [
+            f"=== SERVER SCAN: {s['name']} (ID: {s['id']}) ===",
+            f"Owner: {s['owner_name']} | Member: {s['member_count']} | Boost: Lv.{s['boost_level']} ({s['boost_count']})",
+        ]
+
+        # Roles
+        roles = data.get("roles", [])
+        lines.append(f"\n--- ROLES ({len(roles)}) ---")
+        for r in roles[:30]:
+            perms = ", ".join(r["permissions"][:8])
+            if len(r["permissions"]) > 8:
+                perms += f" +{len(r['permissions'])-8} lagi"
+            lines.append(f"  {r['name']} (pos:{r['position']}, {r['member_count']} member)")
+            if perms:
+                lines.append(f"    perms: {perms}")
+
+        # Categories & Channels
+        cats = data.get("categories", [])
+        lines.append(f"\n--- CHANNELS ({len(data.get('channels', []))}) ---")
+        for cat in cats:
+            lines.append(f"  ▸ {cat['name']}")
+            for ch in cat.get("channels", []):
+                nsfw_tag = " [NSFW]" if ch.get("nsfw") else ""
+                extra = ""
+                if ch.get("topic"):
+                    extra = f" topic=\"{ch['topic'][:60]}\""
+                if ch.get("bitrate"):
+                    extra += f" bitrate={ch['bitrate']}"
+                if ch.get("user_limit"):
+                    extra += f" limit={ch['user_limit']}"
+                lines.append(f"    - {ch['name']} ({ch['type']}){nsfw_tag}{extra}")
+
+        # Members
+        members = data.get("members", [])
+        lines.append(f"\n--- MEMBERS ({s['member_count']}, showing {len(members)}) ---")
+        for m in members[:30]:
+            roles_str = ", ".join(m["roles"][:3]) if m["roles"] else "-"
+            bot_tag = " [BOT]" if m["bot"] else ""
+            lines.append(f"  {m['display_name']}{bot_tag} → {roles_str}")
+
+        # Bans
+        bans = data.get("bans", [])
+        if bans:
+            lines.append(f"\n--- BANS ({len(bans)}) ---")
+            for b in bans[:10]:
+                reason = f" reason: {b['reason'][:50]}" if b["reason"] else ""
+                lines.append(f"  {b['user_name']}{reason}")
+
+        # Emojis & Stickers
+        emojis = data.get("emojis", [])
+        if emojis:
+            lines.append(f"\n--- CUSTOM EMOJIS ({len(emojis)}) ---")
+            lines.append(f"  {', '.join(e['name'] for e in emojis[:20])}")
+        stickers = data.get("stickers", [])
+        if stickers:
+            lines.append(f"\n--- CUSTOM STICKERS ({len(stickers)}) ---")
+            lines.append(f"  {', '.join(s['name'] for s in stickers[:10])}")
+
+        lines.append("\n=== END SCAN ===")
+        return "\n".join(lines)
 
     def _is_recent_agent_channel(self, channel_id: int) -> bool:
         ts = self._agent_channels.get(channel_id)
@@ -126,6 +322,8 @@ class AIChatAgent(commands.Cog):
             return "Sistem AI tidak tersedia."
 
         tools_json = json.dumps(TOOL_DEFINITIONS, indent=2)
+        scan_data = self._server_scan_cache.get(guild.id)
+        scan_context = self._build_scan_context(scan_data) if scan_data else ""
         system_prompt = (
             f"{TOOL_DESCRIPTION}\n\n"
             f"Berikut adalah tool yang tersedia:\n{tools_json}\n\n"
@@ -133,6 +331,7 @@ class AIChatAgent(commands.Cog):
             f"{DISCORD_UI_KNOWLEDGE}\n\n"
             f"Server ini: {guild.name} (ID: {guild.id})\n"
             f"Owner: {guild.owner}\n"
+            f"{'Berikut data hasil scan server terbaru:\n' + scan_context + '\n\n' if scan_context else ''}"
             f"Kamu adalah AI Agent profesional yang paham seluruh struktur Discord server.\n"
             f"Gunakan pengetahuan permission di atas untuk memberikan saran terbaik ke user.\n"
             f"Ikuti aturan dengan ketat."
@@ -145,7 +344,7 @@ Tool yang tersedia:
 
 Server: {guild.name}
 Owner: {guild.owner}
-
+{'Data hasil scan server:\n' + scan_context + '\n\n' if scan_context else ''}
 SEKARANG KAMU HARUS MEMBUAT RENCANA DAHULU SEBELUM EKSEKUSI!
 
 ⚠️ LANGKAH WAJIB SEBELUM BIKIN RENCANA:
@@ -178,6 +377,7 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             f"Kamu adalah AI Agent Discord.\n"
             f"Server: {guild.name}\n\n"
             f"Tool yang tersedia:\n{tool_names}\n\n"
+            f"{scan_context + '\n' if scan_context else ''}"
             f"Lanjutkan eksekusi rencana yang sudah dibuat. Format: [TOOL_CALL] Function: ... Arguments: {{...}}"
         )
 
@@ -256,6 +456,47 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
     # ── Slash Commands ──
 
     @commands.hybrid_command(
+        name="scan",
+        description="Scan seluruh server — cache data roles, channels, members, bans untuk AI Agent.",
+    )
+    async def scan(self, ctx: commands.Context):
+        if not ctx.guild:
+            await ctx.send("Command ini hanya bisa digunakan di server.", ephemeral=True)
+            return
+
+        config = await self._get_agent_config(str(ctx.guild.id))
+        if not self._can_use_agent(ctx.author, config):
+            await ctx.send("❌ Hanya owner/admin yang bisa melakukan scan.", ephemeral=True)
+            return
+
+        await ctx.defer(ephemeral=False)
+        msg = await ctx.send("🔍 **Mulai scan server...**")
+
+        try:
+            data = await self._scan_server(ctx.guild)
+            self._server_scan_cache[ctx.guild.id] = data
+
+            s = data["server"]
+            summary = (
+                f"✅ **Scan selesai!**\n\n"
+                f"📊 **{s['name']}**\n"
+                f"👑 Owner: {s['owner_name']}\n"
+                f"👥 Member: {s['member_count']}\n"
+                f"🎭 Roles: {len(data['roles'])}\n"
+                f"📁 Channels: {len(data['channels'])}\n"
+                f"📂 Categories: {len(data['categories'])}\n"
+                f"🚫 Bans: {len(data['bans'])}\n"
+                f"⭐ Boost: Lv.{s['boost_level']} ({s['boost_count']})\n"
+                f"😀 Custom Emojis: {len(data['emojis'])}\n"
+                f"🏷️ Custom Stickers: {len(data['stickers'])}\n\n"
+                f"📋 Data scan sekarang otomatis dipakai oleh AI Agent saat kamu panggil `/agent`.\n"
+                f"Gunakan `/scan` lagi untuk update."
+            )
+            await msg.edit(content=summary)
+        except Exception as e:
+            await msg.edit(content=f"❌ **Gagal scan:** {type(e).__name__}: {str(e)[:200]}")
+
+    @commands.hybrid_command(
         name="agent",
         description="AI Agent untuk bantu manage server. Khusus owner/admin.",
     )
@@ -289,6 +530,10 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             )
             return
 
+        scan_hint = ""
+        if ctx.guild.id not in self._server_scan_cache:
+            scan_hint = "\n💡 *Server belum pernah di-scan. Gunakan `/scan` dulu biar AI paham kondisi server secara menyeluruh.*"
+
         defer_msg = await ctx.defer(ephemeral=False)
 
         self._active_sessions.add(ctx.author.id)
@@ -305,11 +550,11 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
                 chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
                 for i, chunk in enumerate(chunks):
                     if i == 0:
-                        await ctx.send(f"🤖 **AI Agent — {ctx.author.display_name}**\n\n{chunk}")
+                        await ctx.send(f"🤖 **AI Agent — {ctx.author.display_name}**\n\n{chunk}{scan_hint}")
                     else:
                         await ctx.send(chunk)
             else:
-                await ctx.send(f"🤖 **AI Agent — {ctx.author.display_name}**\n\n{result}")
+                await ctx.send(f"🤖 **AI Agent — {ctx.author.display_name}**\n\n{result}{scan_hint}")
         except asyncio.TimeoutError:
             await ctx.send("⏰ **Waktu habis.** Agent butuh waktu terlalu lama. Coba dengan permintaan yang lebih sederhana.")
         except Exception as e:
