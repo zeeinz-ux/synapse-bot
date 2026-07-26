@@ -46,13 +46,6 @@
           </svg>
         </button>
       </div>
-      {% if guild_info and guild_info.id %}
-      <div class="ss-sidebar-btn">
-        <a href="/dashboard">
-          <span class="ss-sidebar-btn-icon"><i data-lucide="log-out" width="16" height="16"></i></span>
-          Daftar Server
-        </a>
-      </div>
       {% elif s.guilds_list %}
       <div class="guild-selector">
         <label class="selector-label">{{ "base.select_server" | t }}</label>
@@ -239,6 +232,14 @@
           </div>
         </div>
       </nav>
+      {% if guild_info and guild_info.id %}
+      <div class="ss-sidebar-btn">
+        <a href="/dashboard">
+          <span class="ss-sidebar-btn-icon"><i data-lucide="log-out" width="16" height="16"></i></span>
+          Daftar Server
+        </a>
+      </div>
+      {% endif %}
       <div class="sidebar-footer">
         <div class="footer-info">
           <span class="version">v4.6</span>
