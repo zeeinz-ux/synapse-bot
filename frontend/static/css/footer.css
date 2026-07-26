@@ -144,11 +144,22 @@
     text-align: center;
     gap: 1.25rem;
   }
+  .footer-brand img {
+    width: 90px;
+    height: 90px;
+  }
   .footer-links {
     justify-content: center;
   }
   .footer-actions {
     flex-wrap: wrap;
     justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer-brand img {
+    width: 72px;
+    height: 72px;
   }
 }

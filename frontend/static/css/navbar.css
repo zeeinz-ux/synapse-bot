@@ -492,4 +492,9 @@
   .navbar-hamburger {
     display: flex;
   }
+
+  .brand-avatar {
+    width: 80px;
+    height: 80px;
+  }
 }

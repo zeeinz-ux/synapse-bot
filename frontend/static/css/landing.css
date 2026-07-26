@@ -577,7 +577,7 @@ img {
   line-height: 1.7;
 }
 
-.cta-card > div {
+.cta-actions {
   display: flex;
   justify-content: center;
   gap: 1rem;
@@ -691,7 +691,7 @@ img {
     gap: 0.5rem;
   }
 
-  .cta-card > div {
+  .cta-actions {
     flex-direction: column;
     align-items: stretch;
   }
@@ -1371,15 +1371,150 @@ img {
   .feature-card--wide {
     flex-direction: column;
     text-align: center;
+    gap: 1rem;
   }
 
   .feature-card--wide p {
     max-width: none;
+  }
+
+  /* How It Works */
+  .steps-timeline {
+    padding-left: 0;
+  }
+
+  .step-line {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-bottom: 1.5rem;
+  }
+
+  .step-line::before {
+    display: none;
+  }
+
+  .step-marker {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Commands */
+  .command-card {
+    padding: 1.25rem;
+  }
+
+  .command-card-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .command-row {
+    padding: 0.4rem 0.5rem;
+  }
+
+  .command-row code {
+    font-size: 0.78rem;
+  }
+
+  /* CTA */
+  .cta-card {
+    padding: 2.5rem 1.5rem;
+  }
+
+  /* Footer */
+  .footer-brand img {
+    width: 90px;
+    height: 90px;
+  }
+
+  .footer-inner {
+    gap: 1.5rem;
   }
 }
 
 @media (max-width: 480px) {
   .about-card {
     padding: 1.25rem;
+  }
+
+  /* Feature cards */
+  .feature-card {
+    padding: 1.25rem;
+  }
+
+  .feature-card .feature-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .feature-card h3 {
+    font-size: 0.95rem;
+  }
+
+  .feature-card p {
+    font-size: 0.85rem;
+  }
+
+  .feature-card--wide .feature-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  /* Steps */
+  .step-marker {
+    width: 36px;
+    height: 36px;
+  }
+
+  .step-body h3 {
+    font-size: 0.95rem;
+  }
+
+  .step-body p {
+    font-size: 0.85rem;
+  }
+
+  /* Commands */
+  .command-card {
+    padding: 1rem;
+  }
+
+  .command-card-header {
+    padding-bottom: 0.75rem;
+  }
+
+  .command-card-header h3 {
+    font-size: 0.9rem;
+  }
+
+  /* CTA */
+  .cta-card {
+    padding: 2rem 1.25rem;
+  }
+
+  .cta-card h2 {
+    font-size: clamp(1.25rem, 6vw, 1.75rem);
+  }
+
+  .cta-card p {
+    font-size: 0.85rem;
+  }
+
+  /* Footer */
+  .footer-brand img {
+    width: 72px;
+    height: 72px;
+  }
+
+  /* FAQ */
+  .faq-question {
+    font-size: 0.85rem;
+    padding: 1rem;
+  }
+
+  .faq-answer {
+    padding: 0 1rem 1rem;
+    font-size: 0.82rem;
   }
 }
