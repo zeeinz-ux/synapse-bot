@@ -409,6 +409,49 @@ def find_member(guild: discord.Guild, query: str) -> discord.Member | None:
     return member
 
 
+# ── Tool Call Validation ──
+
+def validate_tool_call(tool_call: dict) -> str | None:
+    """Validasi tool call. Return string error kalo ada masalah, None kalo OK."""
+    fn = tool_call.get("function", "")
+    args = tool_call.get("arguments", {})
+
+    if not fn:
+        return "Function name kosong. Format: [TOOL_CALL] Function: nama_function Arguments: {...}"
+
+    # Cari definisi tool
+    tdef = None
+    for t in TOOL_DEFINITIONS:
+        if t["name"] == fn:
+            tdef = t
+            break
+
+    if not tdef:
+        # Tool gak dikenal — kasih saran
+        suggestions = [t["name"] for t in TOOL_DEFINITIONS]
+        return f"Tool '{fn}' tidak dikenal. Tool yang tersedia: {', '.join(suggestions)}"
+
+    # Validasi tipe arguments dari parameter definition
+    for pname, pdesc in tdef.get("parameters", {}).items():
+        if pname in ("color", "new_name", "reason", "duration", "topic", "ch_type"):
+            continue  # optional string
+        is_optional = "(optional)" in pdesc.lower()
+        if not is_optional and pname not in args:
+            return f"Tool '{fn}' butuh parameter '{pname}' yang wajib diisi."
+
+        if pname in args:
+            val = args[pname]
+            desc_lower = pdesc.lower()
+            if "boolean" in desc_lower and not isinstance(val, bool):
+                return f"Parameter '{pname}' untuk tool '{fn}' harus boolean (true/false), bukan '{type(val).__name__}'."
+            if "integer" in desc_lower and not isinstance(val, (int, float)):
+                return f"Parameter '{pname}' untuk tool '{fn}' harus angka (integer), bukan '{type(val).__name__}'."
+            if "object" in desc_lower and not isinstance(val, dict):
+                return f"Parameter '{pname}' untuk tool '{fn}' harus object (JSON), bukan '{type(val).__name__}'."
+
+    return None
+
+
 async def execute_tool(guild: discord.Guild, tool_call: dict, bot) -> str:
     fn = tool_call.get("function", "")
     args = tool_call.get("arguments", {})
@@ -452,9 +495,13 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot) -> str:
         else:
             return f"[TOOL_RESULT]\nFunction: {fn}\nResult: {{\"success\": false, \"error\": \"Tool '{fn}' tidak dikenal\"}}"
     except discord.Forbidden:
-        return f'[TOOL_RESULT]\nFunction: {fn}\nResult: {{"success": false, "error": "Bot tidak punya izin untuk melakukan ini. Pastikan bot punya role dengan permission yang cukup."}}'
+        return f'[TOOL_RESULT]\nFunction: {fn}\nResult: {{"success": false, "error": "Bot tidak punya izin untuk melakukan ini. Pastikan bot punya role dengan permission yang cukup di Server Settings > Roles."}}'
+    except discord.NotFound as e:
+        return f'[TOOL_RESULT]\nFunction: {fn}\nResult: {{"success": false, "error": "Target tidak ditemukan: {str(e)[:100]}"}}'
+    except discord.HTTPException as e:
+        return f'[TOOL_RESULT]\nFunction: {fn}\nResult: {{"success": false, "error": "Discord API error (kode {e.status}): {str(e)[:200]}"}}'
     except Exception as e:
-        return f'[TOOL_RESULT]\nFunction: {fn}\nResult: {{"success": false, "error": "{type(e).__name__}: {str(e)}"}}'
+        return f'[TOOL_RESULT]\nFunction: {fn}\nResult: {{"success": false, "error": "{type(e).__name__}: {str(e)[:200]}"}}'
 
 
 async def _server_info(guild: discord.Guild) -> str:

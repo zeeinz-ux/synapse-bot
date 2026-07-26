@@ -9,7 +9,7 @@ from discord.ext import commands
 from ..database.firebase_setup import db
 from .agent_tools import (
     TOOL_DEFINITIONS, TOOL_DESCRIPTION, DISCORD_PERMISSIONS_KNOWLEDGE, DISCORD_UI_KNOWLEDGE,
-    parse_tool_call, execute_tool,
+    parse_tool_call, execute_tool, validate_tool_call,
 )
 
 MAX_AGENT_STEPS = 15
@@ -434,6 +434,47 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             for tc in tool_calls:
                 fn_name = tc.get("function", "unknown")
                 conversation.append(("TOOL_CALL", f"Memanggil {fn_name}..."))
+
+                # Validasi dulu sebelum eksekusi
+                validation_error = validate_tool_call(tc)
+                if validation_error:
+                    conversation.append(("TOOL_ERROR", f"❌ {validation_error}"))
+                    # Auto-retry: kirim error balik ke AI biar diperbaiki (max 3x)
+                    retry_count = 0
+                    while retry_count < 3 and validation_error:
+                        retry_count += 1
+                        retry_msg = (
+                            f"❌ Tool call `{fn_name}` gagal validasi:\n{validation_error}\n\n"
+                            f"Perbaiki panggilan tool dan kirim ulang dengan format yang benar."
+                        )
+                        retry_resp, retry_ok = await provider.call(
+                            user_message=retry_msg,
+                            history=history,
+                            system_prompt=used_prompt,
+                            temperature=0.3,
+                        )
+                        if not retry_ok or not retry_resp:
+                            break
+                        # Parse ulang tool call dari respon retry
+                        retry_calls = parse_tool_call(retry_resp)
+                        if not retry_calls:
+                            # AI gak ngirim tool call — anggep dia nyerah
+                            conversation.append(("AI", retry_resp))
+                            validation_error = None
+                            break
+                        # Coba validasi lagi
+                        tc = retry_calls[0]
+                        fn_name = tc.get("function", fn_name)
+                        validation_error = validate_tool_call(tc)
+                        if not validation_error:
+                            conversation.append(("TOOL_CALL", f"Memanggil {fn_name} (retry #{retry_count})..."))
+                    if validation_error:
+                        # Abis retry 3x masih error — kirim error ke user
+                        conversation.append(("AI", f"❌ Gagal setelah {retry_count}x percobaan: {validation_error}"))
+                        continue
+                    else:
+                        # Retry sukses, lanjut ke eksekusi
+                        pass
 
                 result = await execute_tool(guild, tc, self.bot)
                 conversation.append(("TOOL_RESULT", result[:500]))
