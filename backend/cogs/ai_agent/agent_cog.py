@@ -132,6 +132,12 @@ class AIChatAgent(commands.Cog):
             f"Gunakan pengetahuan permission di atas untuk memberikan saran terbaik ke user.\n"
             f"Ikuti aturan dengan ketat."
         )
+        # Prompt ringkas untuk step selanjutnya (hemat context)
+        followup_prompt = (
+            f"Kamu adalah AI Agent Discord. Tool sudah dijelaskan sebelumnya.\n"
+            f"Server: {guild.name}. Gunakan tool yang sesuai atau berikan respon ke user.\n"
+            f"Format: [TOOL_CALL] Function: ... Arguments: {{...}}"
+        )
 
         # History untuk dikirim ke provider (tanpa system prompt)
         history: list[dict] = []
@@ -143,10 +149,13 @@ class AIChatAgent(commands.Cog):
         while step_count < MAX_AGENT_STEPS:
             step_count += 1
 
+            # Step 1: full prompt. Step 2+: prompt ringkas aja (hemat context)
+            used_prompt = system_prompt if step_count == 1 else followup_prompt
+
             response, success = await provider.call(
                 user_message=current_message,
                 history=history,
-                system_prompt=system_prompt,
+                system_prompt=used_prompt,
                 temperature=0.3,
             )
 
@@ -154,15 +163,15 @@ class AIChatAgent(commands.Cog):
                 print(f"[AGENT] Provider {provider.name} failed: success={success}, response='{response}'")
                 # Fallback ke provider berikutnya
                 next_provider = self._get_next_provider(ai_cog, provider)
-                if next_provider and step_count == 1:
+                if next_provider:
                     print(f"[AGENT] Fallback ke {next_provider.name}")
                     provider = next_provider
                     step_count -= 1
                     continue
                 if conversation:
                     final = "\n\n".join(t for _, t in conversation)
-                    return f"{final}\n\n---\nMaaf, terjadi error di langkah {step_count}. Coba lagi dengan permintaan yang lebih sederhana."
-                return "Maaf, terjadi error saat memproses permintaan. Coba lagi nanti."
+                    return f"{final}\n\n---\nMaaf, terjadi error di langkah {step_count}. Semua provider gagal. Coba lagi."
+                return "Maaf, terjadi error saat memproses permintaan. Semua provider AI tidak merespon."
 
             tool_calls = parse_tool_call(response)
             if not tool_calls:
