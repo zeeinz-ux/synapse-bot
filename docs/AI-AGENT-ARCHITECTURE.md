@@ -235,15 +235,19 @@ Gemini (gemini-3.6-flash) → Groq → Mistral → Cohere → OpenRouter
 
 ## 4. Planned / Next Moves
 
-Prioritas:
+Prioritas pribadi: **batch ops (#1) → server templates (#2) → settings tools (#3)** — ini yang paling sering bikin AI kelamaan/nyerah.
 
-1. **Batch operations** — `batch_create_channels` buat bikin banyak channel + category sekali panggil
-2. **Server templates** — template presets (gaming, study, community) terapin struktur server penuh
-3. **Server settings tools** — ganti nama server, verification level, AFK channel, dll.
-4. **Rollback/snapshot** — simpan state sebelum mutasi biar bisa undo
-5. **Scheduler** — jadwalin aksi otomatis (auto-role, auto-channel, dll) via Firestore + background task
-6. **Image generation** — gambar via AI provider
-7. **Search memory** — "kemarin kita bahas apa?" → search Firestore history
+### AI Agent
+1. **Batch operations** — `batch_create_channels` terima list channel + category sekali panggil, bukan 15 langkah
+2. **Server templates** — "bikin server gaming" → AI terapin template lengkap (categories, channels, roles) dalam 1-2 langkah
+3. **Server settings tools** — ganti nama server, verification level, AFK channel, dll. Belum ada sama sekali
+4. **Rollback / snapshot** — simpan state server sebelum mutasi, biar bisa `!undo`
+5. **Scheduler** — "jadwalin auto-role tiap hari Minggu" → simpan tugas ke Firestore + background task
+
+### AI Chat
+6. **Image generation** — gambar via provider yang support
+7. **Channel personality** — beda personality tiap channel (misal `#game-discussion` pake "casual", `#help` pake "formal")
+8. **Search memory** — "kemarin kita bahas apa tentang X?" → cari dari Firestore chat history
 
 ---
 
