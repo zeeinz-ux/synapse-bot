@@ -331,45 +331,77 @@ def is_agent_request(text: str) -> bool:
 
 def parse_tool_call(text: str) -> list[dict] | None:
     import re, json
-    # Support 2 format Arguments: JSON object {…} atau key=value
-    call_pattern = r'\[TOOL_CALL\]\s*Function:\s*(\w+)\s*Arguments:\s*(.*?)(?=\[TOOL_CALL\]|\Z)'
-    matches = re.findall(call_pattern, text, re.DOTALL)
-    if not matches:
-        return None
     calls = []
-    for fn_name, args_raw in matches:
-        args_raw = args_raw.strip()
-        # Coba parse sebagai JSON dulu
-        if args_raw.startswith("{"):
+
+    # Format 1: [TOOL_CALL] Function: xxx Arguments: {json} atau key=value
+    pattern1 = r'\[TOOL_CALL\]\s*Function:\s*(\w+)\s*Arguments:\s*(.*?)(?=\[TOOL_CALL\]|\Z)'
+    for fn_name, args_raw in re.findall(pattern1, text, re.DOTALL):
+        calls.append(_parse_single_call(fn_name, args_raw.strip()))
+
+    # Format 2: [TOOL_CALL] Function: xxx | arg1=val1, arg2=val2 (pipe separator, no Arguments label)
+    pattern2 = r'\[TOOL_CALL\]\s*Function:\s*(\w+)\s*(?:\|\s*)?(.*?)(?=\[TOOL_CALL\]|\Z)'
+    if not calls:
+        for fn_name, args_raw in re.findall(pattern2, text, re.DOTALL):
+            args_raw = args_raw.strip()
+            if args_raw and not args_raw.startswith("Arguments"):
+                calls.append(_parse_single_call(fn_name, args_raw))
+
+    # Format 3: Raw JSON — {"function": "xxx", "arguments": {...}}
+    if not calls:
+        json_pattern = r'\{[^{]*"function"\s*:\s*"(\w+)"[^}]*"arguments"\s*:\s*(\{.*?\})[^}]*\}'
+        for fn_name, args_str in re.findall(json_pattern, text, re.DOTALL):
             try:
-                args = json.loads(args_raw)
+                args = json.loads(args_str)
+                calls.append({"function": fn_name, "arguments": args})
             except json.JSONDecodeError:
+                pass
+
+    return calls if calls else None
+
+
+def _parse_single_call(fn_name: str, args_raw: str) -> dict:
+    import json
+    args_raw = args_raw.strip()
+    # Coba parse sebagai JSON dulu
+    if args_raw.startswith("{"):
+        try:
+            args = json.loads(args_raw)
+        except json.JSONDecodeError:
+            # JSON broken — coba fix dengan aggressive repair
+            try:
+                # Replace single quotes, normalize
+                fixed = args_raw.replace("'", '"')
+                # Fix trailing commas
+                fixed = re.sub(r',\s*\}', '}', fixed)
+                fixed = re.sub(r',\s*\]', ']', fixed)
+                # Fix unquoted keys (true/false/null should be quoted?)
+                args = json.loads(fixed)
+            except (json.JSONDecodeError, re.error):
                 args = {}
-        else:
-            # Fallback: parse key=value pairs
-            args = {}
-            for part in args_raw.split(","):
-                part = part.strip()
-                if "=" in part:
-                    k, v = part.split("=", 1)
-                    k = k.strip()
-                    v = v.strip().strip('"').strip("'")
-                    # Coba konversi ke bool/number kalo sesuai
-                    if v.lower() in ("true", "false"):
-                        v = v.lower() == "true"
+        return {"function": fn_name, "arguments": args}
+
+    # Key=value pairs
+    args = {}
+    # Split by comma or pipe
+    for part in re.split(r'[,|]', args_raw):
+        part = part.strip()
+        if "=" in part:
+            k, v = part.split("=", 1)
+            k = k.strip()
+            v = v.strip().strip('"').strip("'")
+            if v.lower() in ("true", "false"):
+                v = v.lower() == "true"
+            else:
+                try:
+                    float(v)
+                    if "." in v or "e" in v.lower():
+                        v = float(v)
                     else:
-                        try:
-                            # Cek apakah number
-                            float(v)
-                            if "." in v or "e" in v.lower():
-                                v = float(v)
-                            else:
-                                v = int(v)
-                        except ValueError:
-                            pass
-                    args[k] = v
-        calls.append({"function": fn_name, "arguments": args})
-    return calls
+                        v = int(v)
+                except ValueError:
+                    pass
+            args[k] = v
+    return {"function": fn_name, "arguments": args}
 
 
 def find_channel(guild: discord.Guild, name: str, ch_type: str = "") -> discord.abc.GuildChannel | None:

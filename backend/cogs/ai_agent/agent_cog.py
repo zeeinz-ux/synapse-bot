@@ -298,12 +298,36 @@ class AIChatAgent(commands.Cog):
         ai = self.bot.get_cog("AIChat")
         if not ai:
             return None, None
+        # Prioritaskan OpenCode Zen, fallback ke provider lain
+        zen = None
         for p in ai._providers:
-            if p and p.name == "OpenCode Zen" and p.is_available:
+            if p and p.name == "OpenCode Zen":
+                zen = p
+                if p.is_available:
+                    return ai, p
+        # Zen unavailable — coba provider lain
+        for p in ai._providers:
+            if p and p.is_available and p is not zen:
                 return ai, p
+        # Zen ada tapi unavailable, return dia anyway (biar error message jelas)
+        if zen:
+            return ai, zen
         return ai, None
 
     def _get_next_provider(self, ai_cog, current_provider):
+        if not ai_cog or not ai_cog._providers:
+            return None
+        found = False
+        for p in ai_cog._providers:
+            if p is current_provider:
+                found = True
+                continue
+            if found and p and p.is_available:
+                return p
+        # Fallback ke provider pertama yang available
+        for p in ai_cog._providers:
+            if p and p.is_available:
+                return p
         return None
 
     # ── ReAct Loop ──
@@ -371,6 +395,28 @@ SETELAH itu, langsung eksekusi langkah pertama dengan format:
 Function: ...
 Arguments: {{...}}
 
+📌 CONTOH FORMAT TOOL CALL YANG BENAR:
+
+[TOOL_CALL]
+Function: create_role
+Arguments: {{"name": "Moderator", "color": "#00BFFF", "permissions": {{"kick_members": true, "manage_messages": true}}}}
+
+[TOOL_CALL]
+Function: server_info
+Arguments: {{}}
+
+[TOOL_CALL]
+Function: list_roles
+Arguments: {{}}
+
+[TOOL_CALL]
+Function: edit_role
+Arguments: {{"name": "Moderator", "hoist": true, "mentionable": true}}
+
+[TOOL_CALL]
+Function: assign_role
+Arguments: {{"member": "@user", "role": "Moderator"}}
+
 JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah plan!
 """
         # Prompt ringkas untuk step selanjutnya (tapi tool list tetap disertakan)
@@ -381,7 +427,11 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             f"Server: {guild.name}\n\n"
             f"Tool yang tersedia:\n{tool_names}\n\n"
             f"{scan_section}"
-            f"Lanjutkan eksekusi rencana yang sudah dibuat. Format: [TOOL_CALL] Function: ... Arguments: {{...}}"
+            f"Lanjutkan eksekusi rencana yang sudah dibuat.\n\n"
+            f"Contoh format:\n"
+            f"[TOOL_CALL]\nFunction: nama_tool\nArguments: {{\"key\": \"value\"}}\n\n"
+            f"Atau:\n"
+            f"[TOOL_CALL]\nFunction: nama_tool\nArguments: key=value, key2=value2\n"
         )
 
         # History untuk dikirim ke provider (tanpa system prompt)
@@ -407,10 +457,22 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
 
             if not success or not response:
                 print(f"[AGENT] Provider {provider.name} failed: success={success}, response='{response}'")
-                if conversation:
-                    final = "\n\n".join(t for _, t in conversation)
-                    return f"{final}\n\n---\nMaaf, terjadi error di langkah {step_count}. Coba lagi."
-                return "Maaf, terjadi error saat memproses permintaan. Coba lagi nanti."
+                # Coba fallback ke provider lain
+                next_provider = self._get_next_provider(ai_cog, provider)
+                if next_provider:
+                    print(f"[AGENT] Falling back to {next_provider.name}")
+                    provider = next_provider
+                    response, success = await provider.call(
+                        user_message=current_message,
+                        history=history,
+                        system_prompt=used_prompt,
+                        temperature=0.3,
+                    )
+                if not success or not response:
+                    if conversation:
+                        final = "\n\n".join(t for _, t in conversation)
+                        return f"{final}\n\n---\nMaaf, terjadi error di langkah {step_count}. Coba lagi."
+                    return "Maaf, terjadi error saat memproses permintaan. Coba lagi nanti."
 
             # Ambil plan kalo ada
             plan_match = re.search(r'\[PLAN\](.*?)\[/PLAN\]', response, re.DOTALL)
