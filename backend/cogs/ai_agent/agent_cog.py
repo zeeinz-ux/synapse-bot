@@ -4,7 +4,7 @@ import asyncio, os, json, re, time as time_module
 from typing import List
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from ..database.firebase_setup import db
 from .agent_tools import (
@@ -24,14 +24,74 @@ class AIChatAgent(commands.Cog):
         self._agent_channels: dict[int, float] = {}  # channel_id -> timestamp
         self._conversation_memory: dict[int, list[dict]] = {}  # user_id -> history (RAM cache)
         self._server_scan_cache: dict[int, dict] = {}  # guild_id -> scan data
+        self._scheduler_loop.start()
 
     MUTATING_TOOLS = {
         "create_role", "edit_role", "delete_role", "assign_role", "remove_role",
         "create_channel", "delete_channel", "rename_channel", "edit_channel_permissions",
         "ban_member", "unban_member", "kick_member", "timeout_member",
         "batch_create_channels", "batch_create_roles", "apply_template",
-        "edit_server", "save_snapshot", "rollback",
+        "edit_server", "save_snapshot", "rollback", "schedule_task",
     }
+
+    def cog_unload(self):
+        self._scheduler_loop.cancel()
+
+    @tasks.loop(seconds=60)
+    async def _scheduler_loop(self):
+        """Cek & eksekusi tugas terjadwal dari Firestore."""
+        if db is None:
+            return
+        try:
+            docs = await asyncio.to_thread(
+                lambda: list(db.collection("agent_schedules").where("enabled", "==", True).stream())
+            )
+            now = time_module.time()
+            for doc in docs:
+                task = doc.to_dict()
+                if task.get("next_run", 0) > now:
+                    continue
+                guild = self.bot.get_guild(task.get("guild_id", 0))
+                if not guild:
+                    continue
+                action = task.get("action", "")
+                params = task.get("params", {})
+                try:
+                    if action == "assign_role":
+                        role_name = params.get("role", "")
+                        member_name = params.get("member", "")
+                        if role_name and member_name:
+                            role = discord.utils.get(guild.roles, name=role_name)
+                            member = discord.utils.find(lambda m: member_name.lower() in str(m).lower() or m.name.lower() == member_name.lower(), guild.members)
+                            if role and member:
+                                await member.add_roles(role, reason="AI Agent: scheduled task")
+                    elif action == "remove_role":
+                        role_name = params.get("role", "")
+                        member_name = params.get("member", "")
+                        if role_name and member_name:
+                            role = discord.utils.get(guild.roles, name=role_name)
+                            member = discord.utils.find(lambda m: member_name.lower() in str(m).lower() or m.name.lower() == member_name.lower(), guild.members)
+                            if role and member:
+                                await member.remove_roles(role, reason="AI Agent: scheduled task")
+                    elif action == "send_message":
+                        channel_name = params.get("channel", "")
+                        message = params.get("message", "")
+                        if channel_name and message:
+                            ch = discord.utils.get(guild.text_channels, name=channel_name)
+                            if ch:
+                                await ch.send(message[:1900])
+                    task["last_run"] = now
+                    task["next_run"] = now + task.get("interval", 3600)
+                    await asyncio.to_thread(
+                        lambda d=doc.id, t=task: db.collection("agent_schedules").document(d).update({
+                            "last_run": t["last_run"],
+                            "next_run": t["next_run"],
+                        })
+                    )
+                except Exception as e:
+                    print(f"[AGENT SCHEDULER] Error executing task '{task.get('name')}': {e}")
+        except Exception as e:
+            print(f"[AGENT SCHEDULER] Error: {e}")
 
     # ── Firestore scan cache ──
 

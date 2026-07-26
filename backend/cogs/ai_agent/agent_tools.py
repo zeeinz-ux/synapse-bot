@@ -279,6 +279,17 @@ TOOL_DEFINITIONS = [
             "confirm": "boolean — WAJIB true. Konfirmasi bahwa kamu serius mau rollback.",
         },
     },
+    {
+        "name": "schedule_task",
+        "description": "Jadwalkan tugas otomatis di server. Bot akan jalanin tugas secara background sesuai jadwal. Berguna untuk auto-role, pengumuman rutin, dll.",
+        "parameters": {
+            "name": "string — nama unik tugas (untuk referensi & management)",
+            "action": "string — jenis aksi: 'assign_role' (kasih role ke member), 'send_message' (kirim pesan ke channel), 'remove_role' (cabut role dari member)",
+            "params": "object — parameter aksi. assign_role/remove_role: {\"role\": \"nama-role\", \"member\": \"nama-member\"}. send_message: {\"channel\": \"nama-channel\", \"message\": \"teks pesan\"}",
+            "schedule": "string — jadwal eksekusi. Format: 'interval:Xh' (tiap X jam), 'interval:Xm' (tiap X menit). Contoh: 'interval:24h' = tiap 24 jam, 'interval:30m' = tiap 30 menit",
+            "enabled": "boolean — (optional) true = aktif, false = nonaktif. Default: true",
+        },
+    },
 ]
 
 
@@ -594,6 +605,8 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot) -> str:
             return await _save_snapshot(guild, args)
         elif fn == "rollback":
             return await _rollback(guild, args)
+        elif fn == "schedule_task":
+            return await _schedule_task(guild, args)
         else:
             return f"[TOOL_RESULT]\nFunction: {fn}\nResult: {{\"success\": false, \"error\": \"Tool '{fn}' tidak dikenal\"}}"
     except discord.Forbidden:
@@ -1144,6 +1157,64 @@ async def _rollback(guild: discord.Guild, args: dict) -> str:
 
     results["success"] = True
     return f"[TOOL_RESULT]\nFunction: rollback\nResult: {results}"
+
+
+async def _schedule_task(guild: discord.Guild, args: dict) -> str:
+    name = args.get("name", "").strip()
+    action = args.get("action", "").strip()
+    params = args.get("params", {})
+    schedule = args.get("schedule", "").strip()
+    enabled = args.get("enabled", True)
+
+    if not name:
+        return '{"success": false, "error": "Nama tugas wajib diisi"}'
+    if action not in ("assign_role", "remove_role", "send_message"):
+        return '{"success": false, "error": "Aksi harus salah satu: assign_role, remove_role, send_message"}'
+    if not schedule:
+        return '{"success": false, "error": "Jadwal wajib diisi. Contoh: interval:24h"}'
+
+    interval_seconds = None
+    if schedule.startswith("interval:"):
+        raw = schedule[9:].strip()
+        try:
+            if raw.endswith("h"):
+                interval_seconds = int(raw[:-1]) * 3600
+            elif raw.endswith("m"):
+                interval_seconds = int(raw[:-1]) * 60
+            elif raw.endswith("d"):
+                interval_seconds = int(raw[:-1]) * 86400
+            else:
+                interval_seconds = int(raw) * 60
+        except ValueError:
+            return f'{{"success": false, "error": "Format interval salah. Contoh: interval:24h, interval:30m"}}'
+    else:
+        return '{"success": false, "error": "Format jadwal tidak dikenal. Gunakan format: interval:24h"}'
+
+    if interval_seconds < 300:
+        interval_seconds = 300
+
+    task_data = {
+        "name": name,
+        "action": action,
+        "params": params,
+        "interval": interval_seconds,
+        "enabled": bool(enabled),
+        "guild_id": guild.id,
+        "created_at": time.time(),
+        "last_run": 0,
+        "next_run": time.time() + interval_seconds,
+    }
+
+    if _HAS_FS and db is not None:
+        try:
+            doc_id = f"{guild.id}_{name.lower().replace(' ', '-')}"
+            await asyncio.to_thread(
+                lambda: db.collection("agent_schedules").document(doc_id).set(task_data)
+            )
+            return f'[TOOL_RESULT]\nFunction: schedule_task\nResult: {{"success": true, "task": "{name}", "action": "{action}", "interval": "{interval_seconds}s", "next_run": "{time.ctime(time.time() + interval_seconds)}"}}'
+        except Exception as e:
+            return f'{{"success": false, "error": "Gagal simpan jadwal: {e}"}}'
+    return '{"success": false, "error": "Firestore tidak tersedia"}'
 
 
 async def _delete_channel(guild: discord.Guild, args: dict) -> str:
