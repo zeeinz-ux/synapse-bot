@@ -819,7 +819,7 @@ body {
   padding: 0.45rem 0.7rem;
   font-size: 0.82rem;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   background: var(--bg-surface);
   border: 1px solid var(--sidebar-border);
   border-radius: var(--radius-sm);
