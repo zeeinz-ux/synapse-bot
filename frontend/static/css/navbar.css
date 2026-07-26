@@ -75,9 +75,9 @@
 }
 
 .brand-avatar img {
-  width: 28%;
-  height: 28%;
-  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .brand-avatar:empty {
@@ -157,10 +157,9 @@
 
 /* Brand avatar image */
 .brand-avatar img {
-  width: 87px;
-  height: 87px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 /* Hamburger */
