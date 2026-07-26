@@ -108,71 +108,54 @@ class AIChatAgent(commands.Cog):
             f"Ikuti aturan dengan ketat."
         )
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ]
-
+        # History untuk dikirim ke provider (tanpa system prompt)
+        history: list[dict] = []
+        # Pesan user saat ini
+        current_message = user_message
         step_count = 0
         conversation = []
 
         while step_count < MAX_AGENT_STEPS:
             step_count += 1
-            last_msg = messages[-1]["content"]
 
             response, success = await provider.call(
-                user_message=last_msg,
-                history=messages[:-1] if not messages[-1].get("history_mode") else [],
+                user_message=current_message,
+                history=history,
                 system_prompt=system_prompt,
                 temperature=0.3,
             )
 
             if not success or not response:
+                print(f"[AGENT] Provider call failed: success={success}, response='{response}'")
+                if conversation:
+                    final = "\n\n".join(t for _, t in conversation)
+                    return f"{final}\n\n---\nMaaf, terjadi error di langkah {step_count}. Coba lagi dengan permintaan yang lebih sederhana."
                 return "Maaf, terjadi error saat memproses permintaan. Coba lagi nanti."
 
             tool_calls = parse_tool_call(response)
             if not tool_calls:
-                # Check if response asks for confirmation
-                if "konfirmasi" in response.lower() or "setuju" in response.lower() or "?" in response:
-                    conversation.append(("AI", response))
-                    messages.append({"role": "assistant", "content": response})
-                    # Wait for user confirmation isn't possible via slash command auto-reply
-                    # For now, just return the AI's response asking for confirmation
-                    conversation.append(("AI", response))
-                    break
                 conversation.append(("AI", response))
                 break
 
             for tc in tool_calls:
                 fn_name = tc.get("function", "unknown")
-                conversation.append(("TOOL_CALL", f"Calling {fn_name}({tc.get('arguments', {})})"))
+                conversation.append(("TOOL_CALL", f"Memanggil {fn_name}..."))
 
                 result = await execute_tool(guild, tc, self.bot)
-                conversation.append(("TOOL_RESULT", result[:200]))
+                conversation.append(("TOOL_RESULT", result[:300]))
 
-                messages.append({
-                    "role": "assistant",
-                    "content": response,
-                    "history_mode": True,
-                })
-                messages.append({
-                    "role": "user",
-                    "content": f"Hasil eksekusi tool:\n{result}\n\nLanjutkan atau berikan respon ke user.",
-                    "history_mode": True,
-                })
+                # Simpan interaksi ke history untuk konteks berikutnya
+                history.append({"role": "user", "content": current_message})
+                history.append({"role": "assistant", "content": response})
+                # Hasil tool dikirim sebagai user message berikutnya
+                current_message = f"Hasil eksekusi {fn_name}:\n{result}\n\nLanjutkan atau berikan respon ke user."
 
                 await asyncio.sleep(0.3)
 
         if step_count >= MAX_AGENT_STEPS:
             conversation.append(("AI", "Saya sudah mencapai batas maksimum langkah. Berikut ringkasan apa yang sudah dilakukan."))
 
-        final_text = []
-        for speaker, text in conversation:
-            if speaker == "AI":
-                final_text.append(text)
-            elif speaker == "TOOL_CALL":
-                pass
-
+        final_text = [t for speaker, t in conversation if speaker == "AI"]
         return "\n\n".join(final_text) if final_text else response
 
     # ── Slash Commands ──
