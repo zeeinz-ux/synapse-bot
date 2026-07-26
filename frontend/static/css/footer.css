@@ -90,12 +90,12 @@
 .btn-footer-dashboard:hover {
   color: var(--text-primary);
   border-color: var(--accent);
-  background: rgba(0, 212, 255, 0.1);
+  background: rgba(88, 101, 242, 0.1);
 }
 
 .btn-footer-dashboard {
   color: var(--accent);
-  border-color: rgba(0, 212, 255, 0.3);
+  border-color: rgba(88, 101, 242, 0.3);
 }
 
 .btn-footer-invite {
@@ -109,13 +109,13 @@
   font-size: 0.875rem;
   font-weight: 600;
   transition: var(--transition);
-  box-shadow: 0 0 18px rgba(0, 212, 255, 0.3);
+  box-shadow: 0 0 18px rgba(88, 101, 242, 0.3);
   white-space: nowrap;
 }
 
 .btn-footer-invite:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 24px rgba(0, 212, 255, 0.5);
+  box-shadow: 0 4px 24px rgba(88, 101, 242, 0.5);
   filter: brightness(1.1);
 }
 
