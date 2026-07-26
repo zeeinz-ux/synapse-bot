@@ -245,6 +245,36 @@
           </div>
         </div>
 
+        <!-- AI Agent Category -->
+        <div class="command-card" data-category="agent">
+          <div class="command-card-header">
+            <div class="command-icon" aria-hidden="true"><i data-lucide="brain"></i></div>
+            <h3>{{ "commands.title.agent" | t }}</h3>
+          </div>
+          <div class="command-list">
+            <div class="command-row" data-cmd="scan">
+              <code>/scan</code>
+              <span>{{ "commands.desc.scan" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="agent">
+              <code>/agent</code>
+              <span>{{ "commands.desc.agent" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="agent toggle">
+              <code>/agent-toggle</code>
+              <span>{{ "commands.desc.agent_toggle" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="agent mode">
+              <code>/agent-mode</code>
+              <span>{{ "commands.desc.agent_mode" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="agent status">
+              <code>/agent-status</code>
+              <span>{{ "commands.desc.agent_status" | t }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Voice Room Category -->
         <div class="command-card" data-category="voice">
           <div class="command-card-header">
@@ -260,17 +290,29 @@
               <code>/voice-config</code>
               <span>{{ "commands.desc.voice_config" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="join">
-              <code>/join</code>
-              <span>{{ "commands.desc.join" | t }}</span>
+            <div class="command-row" data-cmd="voice info">
+              <code>/voice-info</code>
+              <span>{{ "commands.desc.voice_info" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="voice bitrate">
+              <code>/voice-bitrate</code>
+              <span>{{ "commands.desc.voice_bitrate" | t }}</span>
             </div>
             <div class="command-row" data-cmd="voice password">
               <code>/voice-password</code>
               <span>{{ "commands.desc.voice_password" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="voice bitrate">
-              <code>/voice-bitrate</code>
-              <span>{{ "commands.desc.voice_bitrate" | t }}</span>
+            <div class="command-row" data-cmd="join">
+              <code>/join</code>
+              <span>{{ "commands.desc.join" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="find">
+              <code>/find</code>
+              <span>{{ "commands.desc.find" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="voice reset">
+              <code>/voice-reset</code>
+              <span>{{ "commands.desc.voice_reset" | t }}</span>
             </div>
           </div>
         </div>
@@ -298,14 +340,44 @@
               <code>/ar-toggle</code>
               <span>{{ "commands.desc.ar_toggle" | t }}</span>
             </div>
+            <div class="command-row" data-cmd="ar remove">
+              <code>/ar-remove</code>
+              <span>{{ "commands.desc.ar_remove" | t }}</span>
+            </div>
           </div>
         </div>
 
-        <!-- Utility Category -->
-        <div class="command-card" data-category="utility">
+        <!-- Leveling & Boost Category -->
+        <div class="command-card" data-category="leveling">
           <div class="command-card-header">
-            <div class="command-icon" aria-hidden="true"><i data-lucide="settings"></i></div>
-            <h3>{{ "commands.title.utility" | t }}</h3>
+            <div class="command-icon" aria-hidden="true"><i data-lucide="trophy"></i></div>
+            <h3>{{ "commands.title.leveling" | t }}</h3>
+          </div>
+          <div class="command-list">
+            <div class="command-row" data-cmd="rank">
+              <code>/rank</code>
+              <span>{{ "commands.desc.rank" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="leaderboard">
+              <code>/leaderboard</code>
+              <span>{{ "commands.desc.leaderboard" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="cekboost">
+              <code>/cekboost</code>
+              <span>{{ "commands.desc.cekboost" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="testboost">
+              <code>/testboost</code>
+              <span>{{ "commands.desc.testboost" | t }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Server Tools Category -->
+        <div class="command-card" data-category="tools">
+          <div class="command-card-header">
+            <div class="command-icon" aria-hidden="true"><i data-lucide="shield"></i></div>
+            <h3>{{ "commands.title.tools" | t }}</h3>
           </div>
           <div class="command-list">
             <div class="command-row" data-cmd="help">
@@ -320,13 +392,25 @@
               <code>/dashboard</code>
               <span>{{ "commands.desc.dashboard" | t }}</span>
             </div>
-            <div class="command-row" data-cmd="rank">
-              <code>/rank</code>
-              <span>{{ "commands.desc.rank" | t }}</span>
-            </div>
             <div class="command-row" data-cmd="photobox">
               <code>/photobox</code>
               <span>{{ "commands.desc.photobox" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="antinuke">
+              <code>/antinuke</code>
+              <span>{{ "commands.desc.antinuke" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="antinuke whitelist">
+              <code>/antinuke-whitelist</code>
+              <span>{{ "commands.desc.antinuke_whitelist" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="antinuke restore">
+              <code>/antinuke-restore</code>
+              <span>{{ "commands.desc.antinuke_restore" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="antinuke status">
+              <code>/antinuke-status</code>
+              <span>{{ "commands.desc.antinuke_status" | t }}</span>
             </div>
           </div>
         </div>
