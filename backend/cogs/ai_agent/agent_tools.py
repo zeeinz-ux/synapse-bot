@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import discord
 
 DISCORD_PERMISSIONS_KNOWLEDGE = """
@@ -125,10 +127,22 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "create_role",
-        "description": "Buat role baru dengan nama tertentu.",
+        "description": "Buat role baru dengan nama dan permission tertentu.",
         "parameters": {
             "name": "string — nama role",
             "color": "string — warna dalam hex (optional, contoh: '#FF0000'). Default: tidak ada warna.",
+            "permissions": "object — permission apa yang ON. Contoh: {\"administrator\": false, \"kick_members\": true, \"manage_messages\": true}. Lihat DISCORD_PERMISSIONS_KNOWLEDGE untuk daftar permission. (optional)",
+        },
+    },
+    {
+        "name": "edit_role",
+        "description": "Ubah role yang sudah ada: nama, warna, permission, atau posisi. Cari role berdasarkan nama.",
+        "parameters": {
+            "name": "string — nama role yang akan diubah",
+            "new_name": "string — nama baru (optional)",
+            "color": "string — warna hex baru (optional, contoh: '#FFD700')",
+            "permissions": "object — permission yang ingin diubah. Contoh: {\"administrator\": true, \"kick_members\": false}. Hanya permission yang disebut yang diubah. (optional)",
+            "position": "integer — posisi role (0 = paling bawah). Semakin besar angka, semakin atas posisinya. (optional)",
         },
     },
     {
@@ -384,6 +398,8 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot) -> str:
             return await _rename_channel(guild, args)
         elif fn == "create_role":
             return await _create_role(guild, args)
+        elif fn == "edit_role":
+            return await _edit_role(guild, args)
         elif fn == "delete_role":
             return await _delete_role(guild, args)
         elif fn == "assign_role":
@@ -526,8 +542,80 @@ async def _create_role(guild: discord.Guild, args: dict) -> str:
             color = discord.Color(int(color_hex.lstrip("#"), 16))
         except ValueError:
             pass
-    role = await guild.create_role(name=name, color=color, reason="AI Agent: create role")
-    return f'{{"success": true, "role_id": "{role.id}", "role_name": "{role.name}"}}'
+    perms_dict = args.get("permissions", {})
+    perm_kwargs = {}
+    if perms_dict:
+        for key, value in perms_dict.items():
+            normalized = key.lower().replace(" ", "_").replace("-", "_")
+            perm_kwargs[normalized] = bool(value)
+    permissions = discord.Permissions(**perm_kwargs) if perm_kwargs else discord.Permissions.none()
+    role = await guild.create_role(
+        name=name, color=color, permissions=permissions,
+        reason="AI Agent: create role"
+    )
+    enabled = [k for k, v in perm_kwargs.items() if v]
+    disabled = [k for k, v in perm_kwargs.items() if not v]
+    result = {"success": True, "role_id": str(role.id), "role_name": role.name}
+    if enabled:
+        result["permissions_enabled"] = enabled
+    if disabled:
+        result["permissions_disabled"] = disabled
+    return json.dumps(result)
+
+
+async def _edit_role(guild: discord.Guild, args: dict) -> str:
+    name = args.get("name", "").strip()
+    if not name:
+        return '{"success": false, "error": "Nama role wajib diisi"}'
+    role = find_role(guild, name)
+    if not role:
+        return f'{{"success": false, "error": "Role \\"{name}\\" tidak ditemukan"}}'
+    kwargs = {}
+    changes = []
+
+    new_name = args.get("new_name", "")
+    if new_name:
+        kwargs["name"] = new_name.strip()
+        changes.append(f"nama: {name} → {new_name.strip()}")
+
+    color_hex = args.get("color", "")
+    if color_hex:
+        try:
+            kwargs["color"] = discord.Color(int(color_hex.lstrip("#"), 16))
+            changes.append(f"warna: {color_hex}")
+        except ValueError:
+            pass
+
+    perms_dict = args.get("permissions", {})
+    if perms_dict:
+        perm_kwargs = {}
+        for key, value in perms_dict.items():
+            normalized = key.lower().replace(" ", "_").replace("-", "_")
+            perm_kwargs[normalized] = bool(value)
+        if perm_kwargs:
+            kwargs["permissions"] = discord.Permissions(**perm_kwargs)
+            enabled = [k for k, v in perm_kwargs.items() if v]
+            disabled = [k for k, v in perm_kwargs.items() if not v]
+            if enabled:
+                changes.append(f"permission ON: {', '.join(enabled)}")
+            if disabled:
+                changes.append(f"permission OFF: {', '.join(disabled)}")
+
+    position = args.get("position")
+    if position is not None:
+        try:
+            pos = int(position)
+            if pos >= 0:
+                kwargs["position"] = pos
+                changes.append(f"posisi: {pos}")
+        except (ValueError, TypeError):
+            pass
+
+    if not kwargs:
+        return '{"success": false, "error": "Tidak ada perubahan yang diberikan. Beri setidaknya satu: new_name, color, permissions, atau position."}'
+
+    await role.edit(**kwargs, reason="AI Agent: edit role")
+    return f'{{"success": true, "role": "{name}", "changes": "{", ".join(changes)}"}}'
 
 
 async def _delete_role(guild: discord.Guild, args: dict) -> str:
