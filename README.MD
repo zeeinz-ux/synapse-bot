@@ -10,7 +10,7 @@
 [![ChromaDB](https://img.shields.io/badge/ChromaDB_Vector-6C5CE7?logo=vector&logoColor=white&style=for-the-badge)](https://www.trychroma.com/)
 [![Railway](https://img.shields.io/badge/Deployed_on-Railway-0B0D0E?logo=railway&logoColor=white&style=for-the-badge)](https://railway.app/)
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=20&duration=2000&pause=500&color=5865F2&center=true&vCenter=true&width=600&lines=🚀+AI+Chat+with+5+Provider+Fallback;📊+Web+Dashboard+with+Firestore;🎮+Voice+Room+Manager;🛡️+Anti-Nuke+%26+Moderation;🧠+RAG+Knowledge+Base" alt="Feature Rotator"/>
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white&style=for-the-badge)
 
 ---
 
@@ -204,20 +204,20 @@ flowchart LR
     
     subgraph "AI Agent"
         AG --> SC[Scan Cache]
-        SC --> PLAN[Plan Phase<br/>`[PLAN]...[/PLAN]`]
-        PLAN --> BUILD[Build Phase<br/>Tool Execution]
+        SC --> PLAN["Plan Phase&lt;br/&gt;[PLAN]...[/PLAN]"]
+        PLAN --> BUILD["Build Phase&lt;br/&gt;Tool Execution"]
         BUILD --> TC{Validate?}
         TC -->|Valid| EXEC[Execute Tool]
         TC -->|Invalid| RETRY[Auto-Retry 3x]
         RETRY --> TC
-        EXEC --> NEXT[Next Step<br/>`[SISA RENCANA]`]
+        EXEC --> NEXT["Next Step&lt;br/&gt;[SISA RENCANA]"]
         NEXT -->|More steps| BUILD
         NEXT -->|Done| RESP[Response to User]
     end
     
     subgraph "Memory & RAG"
-        CM[(Conversation Memory<br/>5 turns / 5 min)]
-        CH[(ChromaDB<br/>Vector Store)]
+        CM["Conversation Memory&lt;br/&gt;5 turns / 5 min"]
+        CH["ChromaDB&lt;br/&gt;Vector Store"]
     end
     
     ASK --> CM
