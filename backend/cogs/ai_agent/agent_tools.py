@@ -136,13 +136,15 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "edit_role",
-        "description": "Ubah role yang sudah ada: nama, warna, permission, atau posisi. Cari role berdasarkan nama.",
+        "description": "Ubah role yang sudah ada: nama, warna, permission, posisi, hoist, atau mentionable. Cari role berdasarkan nama.",
         "parameters": {
             "name": "string — nama role yang akan diubah",
             "new_name": "string — nama baru (optional)",
             "color": "string — warna hex baru (optional, contoh: '#FFD700')",
             "permissions": "object — permission yang ingin diubah. Contoh: {\"administrator\": true, \"kick_members\": false}. Hanya permission yang disebut yang diubah. (optional)",
             "position": "integer — posisi role (0 = paling bawah). Semakin besar angka, semakin atas posisinya. (optional)",
+            "hoist": "boolean — true = tampilkan member role ini terpisah di sidebar (Display role members separately). false = jangan. (optional)",
+            "mentionable": "boolean — true = semua orang bisa @mention role ini. false = cuma yang punya permission. (optional)",
         },
     },
     {
@@ -620,7 +622,11 @@ async def _edit_role(guild: discord.Guild, args: dict) -> str:
             normalized = key.lower().replace(" ", "_").replace("-", "_")
             perm_kwargs[normalized] = bool(value)
         if perm_kwargs:
-            kwargs["permissions"] = discord.Permissions(**perm_kwargs)
+            # Merge: ambil permission existing, update cuma yang disebut
+            current_perms = role.permissions
+            current_dict = {flag: getattr(current_perms, flag) for flag in discord.Permissions.VALID_FLAGS}
+            current_dict.update(perm_kwargs)
+            kwargs["permissions"] = discord.Permissions(**current_dict)
             enabled = [k for k, v in perm_kwargs.items() if v]
             disabled = [k for k, v in perm_kwargs.items() if not v]
             if enabled:
@@ -638,8 +644,18 @@ async def _edit_role(guild: discord.Guild, args: dict) -> str:
         except (ValueError, TypeError):
             pass
 
+    hoist = args.get("hoist")
+    if hoist is not None:
+        kwargs["hoist"] = bool(hoist)
+        changes.append(f"hoist: {'ON' if hoist else 'OFF'}")
+
+    mentionable = args.get("mentionable")
+    if mentionable is not None:
+        kwargs["mentionable"] = bool(mentionable)
+        changes.append(f"mentionable: {'ON' if mentionable else 'OFF'}")
+
     if not kwargs:
-        return '{"success": false, "error": "Tidak ada perubahan yang diberikan. Beri setidaknya satu: new_name, color, permissions, atau position."}'
+        return '{"success": false, "error": "Tidak ada perubahan yang diberikan. Beri setidaknya satu: new_name, color, permissions, position, hoist, atau mentionable."}'
 
     await role.edit(**kwargs, reason="AI Agent: edit role")
     return f'{{"success": true, "role": "{name}", "changes": "{", ".join(changes)}"}}'
