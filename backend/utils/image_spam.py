@@ -13,12 +13,17 @@ from PIL import Image
 
 
 class ImageSpamDetector:
-    OCR_KEYWORDS = [
-        "mrbeast", "cugamb", "usdt", "withdrawal success",
-        "free crypto", "claim now", "free nitro",
-        "steamcommunity", "discord-nitro", "login verify",
-        "gift", "giveaway", "free-discord",
-    ]
+OCR_KEYWORDS = [
+    "mrbeast", "cugamb", "usdt", "withdrawal success",
+    "free crypto", "claim now", "free nitro",
+    "steamcommunity", "discord-nitro", "login verify",
+    "gift", "giveaway", "free-discord",
+    "elon musk", "free bitcoin", "free ethereum",
+    "claim reward", "you won", "crypto gift",
+    "profit guaranteed", "double your", "instant withdrawal",
+    "nft giveaway", "whitelist", "presale",
+    "verify account", "account suspended", "login attempt",
+]
 
     def __init__(self):
         # ── Layer 1: Image rate limit ──

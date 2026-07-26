@@ -51,13 +51,7 @@ from .web_search import search_web, needs_web_search
 from ..ai_agent.agent_tools import is_agent_request
 
 OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
-OPENROUTER_IMAGE_MODELS = [
-    "black-forest-labs/flux-1.1-pro",
-    "black-forest-labs/flux-dev",
-    "stabilityai/stable-diffusion-3.5-large",
-    "stabilityai/stable-diffusion-3.5-medium",
-]
-DEFAULT_IMAGE_MODEL = "black-forest-labs/flux-1.1-pro"
+OPENROUTER_IMAGE_MODELS: list[str] = []
 
 from .providers import (
     GeminiProvider,
@@ -244,7 +238,8 @@ class AIChat(commands.Cog):
             prompt = (
                 f"Pesan: \"\"\"{content}\"\"\"\n"
                 f"Konteks: skor_risiko={risk_score}, usia_akun={account_age_days}hari, keyword_terdeteksi=[{keywords_str}]\n"
-                f"Analisis apakah ini spam/scam/iklan judi. Jawab HANYA 'YA' atau 'TIDAK'."
+                f"Analisis apakah ini spam BERBAHAYA. Deteksi: giveaway palsu MrBeast/Elon, phishing crypto, "
+                f"link menipu, @everyone/@here scam, judi online. Jangan tolerir! Jawab HANYA 'YA' atau 'TIDAK'."
             )
 
             response = await self._call_ai(
@@ -277,7 +272,9 @@ class AIChat(commands.Cog):
                 return True
         if self.openrouter and self.openrouter.is_available:
             is_safe, reason = await self.openrouter.check_content_safety(
-                "Analisis gambar ini. Apakah mengandung: promosi judi/slot, scam, konten penipuan, atau phishing?",
+                "Analisis GAMBAR ini dengan KETAT. Apakah mengandung: screenshot giveaway palsu MrBeast/Elon Musk/tokoh terkenal, "
+                "link crypto/saham palsu, promosi judi/slot/gacor, scam berkedok giveaway, "
+                "QR code atau link mencurigakan, atau konten penipuan APAPUN? Jawab HANYA unsafe atau safe.",
                 image_data, mime_type,
             )
             if not is_safe:
@@ -1257,78 +1254,6 @@ class AIChat(commands.Cog):
                 await ctx.send("Terjadi error internal. Coba lagi nanti ya!")
             except Exception:
                 pass
-
-    # ═══════════════════════════════════════════════════════════════════════
-    # COMMAND: /imagine (Image Generation via OpenRouter)
-    # ═══════════════════════════════════════════════════════════════════════
-
-    @commands.hybrid_command(name="imagine", description="Generate gambar dari teks menggunakan AI")
-    async def imagine(self, ctx: commands.Context, prompt: str):
-        await ctx.defer()
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        if not api_key:
-            await ctx.send("❌ API key OpenRouter untuk image generation tidak tersedia.")
-            return
-
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-
-        models_to_try = list(OPENROUTER_IMAGE_MODELS)
-        last_error = ""
-        async with aiohttp.ClientSession() as session:
-            for model in models_to_try:
-                payload = {
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                }
-                try:
-                    async with session.post(
-                        f"{OPENROUTER_API_BASE}/chat/completions",
-                        json=payload,
-                        headers=headers,
-                        timeout=aiohttp.ClientTimeout(total=120),
-                    ) as resp:
-                        if resp.status != 200:
-                            body = await resp.text()
-                            last_error = f"HTTP {resp.status} on {model}: {body[:300]}"
-                            continue
-                        data = await resp.json()
-                        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-
-                    urls = re.findall(r'https?://[^\s\)\"\']+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s\)\"\']*)?', content)
-                    if not urls:
-                        urls = re.findall(r'https?://[^\s\)\"\']+', content)
-                    image_url = None
-                    for u in urls:
-                        if any(ext in u.lower() for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp', 'oaidalle', 'flux', 'image']):
-                            image_url = u
-                            break
-                    if not image_url and urls:
-                        image_url = urls[0]
-
-                    if image_url:
-                        embed = discord.Embed(
-                            title="🎨 Gambar Generated",
-                            description=f"Prompt: *{prompt[:1900]}*",
-                            color=0x5865F2,
-                        )
-                        embed.set_image(url=image_url)
-                        embed.set_footer(text=f"Model: {model}")
-                        await ctx.send(embed=embed)
-                        return
-                    else:
-                        last_error = f"No image URL in response from {model}"
-                        continue
-                except asyncio.TimeoutError:
-                    last_error = f"Timeout on {model}"
-                    continue
-                except Exception as e:
-                    last_error = f"{type(e).__name__} on {model}: {str(e)[:150]}"
-                    continue
-
-        await ctx.send(f"❌ Semua model gagal. Error terakhir: {last_error}")
 
     # ═══════════════════════════════════════════════════════════════════════
     # COMMANDS: RAG Knowledge Base (from Discord)

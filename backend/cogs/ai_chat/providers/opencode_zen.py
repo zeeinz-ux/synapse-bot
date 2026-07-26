@@ -295,7 +295,7 @@ class OpenCodeZenProvider(AIProvider):
                 "messages": [{
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Analisis gambar ini. Apakah mengandung: promosi judi/slot, scam, konten penipuan, atau phishing? Jawab HANYA 'YA' atau 'TIDAK'."},
+                        {"type": "text", "text": "Analisis GAMBAR ini KETAT. Apakah mengandung: giveaway palsu MrBeast/Elon Musk, link crypto/saham palsu, promosi judi/slot/gacor, scam berkedok giveaway, konten penipuan APAPUN? Jawab HANYA 'YA' atau 'TIDAK'. Jangan tolerir!"},
                         {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64}"}},
                     ],
                 }],

@@ -9,6 +9,7 @@ class SpamEngine:
         self.url_patterns = [
             r"https?://(bit\.ly|t\.co|tinyurl\.com|shorturl\.at|rb\.gy|cutt\.ly|ow\.ly|buff\.ly)",
             r"discord(?:\.gg|\.com/invite)/[a-zA-Z0-9_\-]+",
+            r"https?://(?:[a-z]+\.)?(?:giveaway|claim|free|verify|secure|login|account)[a-z]*\.[a-z]{2,}(?:/[^\s]*)",
         ]
         self.compiled_url_patterns = [re.compile(p, re.IGNORECASE) for p in self.url_patterns]
         self._url_extractor = re.compile(r"https?://[^\s/\"'<>]+", re.IGNORECASE)
@@ -16,6 +17,11 @@ class SpamEngine:
         self.keywords = [
             "slot", "judi", "deposit", "gacor", "maxwin",
             "join now", "click here", "free crypto", "giveaway", "free nitro",
+            "mrbeast", "elon musk", "free bitcoin", "free ethereum",
+            "withdrawal success", "claim reward", "you won", "you are winner",
+            "crypto gift", "usdt free", "invest now", "profit guaranteed",
+            "raffle winner", "you have been selected", "congratulations you won",
+            "free money", "double your", "instant withdrawal",
         ]
 
         self.suspicious_domain_keywords = [
@@ -27,16 +33,24 @@ class SpamEngine:
             "nitro-free", "discord-free", "verify-account", "verify-login",
             "get-free", "claim-free", "claim-nitro", "free-nitro",
             "discord-nitro-free", "nitro-steam", "free-discord-nitro",
+            "mrbeast-giveaway", "elon-giveaway", "crypto-giveaway",
+            "bitcoin-giveaway", "ethereum-giveaway", "usdt-giveaway",
+            "withdrawal-success", "crypto-claim", "free-bitcoin",
+            "free-ethereum", "nft-giveaway", "metamask-claim",
         ]
 
         self.suspicious_tlds = {
             ".xyz", ".top", ".gq", ".cf", ".ml", ".ga", ".tk", ".pw", ".cc",
+            ".click", ".download", ".review", ".work", ".date", ".party",
+            ".men", ".loan", ".win", ".bid", ".trade", ".webcam", ".science",
         }
 
         self.known_targets = [
             "discord", "steam", "netflix", "spotify", "youtube", "google",
             "instagram", "facebook", "twitter", "github", "paypal",
             "amazon", "apple", "microsoft", "roblox",
+            "telegram", "whatsapp", "binance", "coinbase", "metamask",
+            "opensea", "twitch", "epicgames", "spotify",
         ]
 
         self.homoglyph_map = {

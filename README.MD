@@ -40,16 +40,19 @@
 <td width="50%" valign="top">
 
 ### 🤖 AI Chat & Agent
-- Multi‑provider AI chat (Gemini → Groq → Mistral → Cohere → OpenRouter → OpenCode Zen)
+- Multi‑provider AI chat (OpenCode Zen → Gemini → Groq → Mistral → Cohere → OpenRouter)
 - Streaming responses (progressive message edits)
 - `/ask` command + mention‑based chat
+- AI dapat membaca & menganalisis gambar yang dikirim user
 - **AI Agent** — ReAct loop with Plan → Build phases
-- 18 server management tools (roles, channels, members, bans)
-- Conversation memory (5 turns, 5 min TTL)
+- 23 server management tools (roles, channels, members, bans, batch ops, templates, snapshots, scheduler)
+- Permanent conversation memory (Firestore-backed, 20 turns, no TTL)
 - RAG Knowledge Base (ChromaDB vector search)
+- Channel‑specific AI personality (`/personality` command)
 
 ### 🛡️ Moderation & Anti‑Nuke
-- 3‑layer image spam detection (rate limit → pHash → Gemini Vision)
+- 3‑layer image spam detection (rate limit → pHash → AI Vision: OpenCode Zen → Gemini → OpenRouter)
+- AI Vision khusus untuk deteksi spam gambar (scam, phishing, judi, giveaway palsu)
 - 3‑strike system: timeout → kick → ban
 - Anti‑Nuke: sliding window for mass ban/kick/channel/role operations
 - Auto‑lockdown with permission restore
@@ -100,6 +103,8 @@
 | Command | Description |
 |---------|-------------|
 | `/ask` | Tanya apa saja ke AI Synapse |
+| `/chat-search` | Cari percakapan AI yang sudah lalu |
+| `/personality` | Atur kepribadian AI per channel |
 | `/rag-upload` | Upload file ke RAG Knowledge Base |
 | `/rag-list` | Lihat daftar dokumen di RAG Knowledge Base |
 | `/rag-delete` | Hapus dokumen dari RAG Knowledge Base |
@@ -117,7 +122,7 @@
 | `/agent-mode` | Ubah mode akses AI Agent (owner / admin) |
 | `/agent-status` | Cek status AI Agent |
 
-**Agent Tools:** `server_info`, `list_channels`, `list_roles`, `create_channel`, `delete_channel`, `rename_channel`, `create_role`, `edit_role` (name, color, permissions, position, hoist, mentionable), `delete_role`, `assign_role`, `remove_role`, `list_members`, `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `edit_channel_permissions`, `list_bans`
+**Agent Tools (23):** `server_info`, `list_channels`, `list_roles`, `create_channel`, `delete_channel`, `rename_channel`, `create_role`, `edit_role`, `delete_role`, `assign_role`, `remove_role`, `list_members`, `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `edit_channel_permissions`, `list_bans`, `edit_server`, `batch_create_channels`, `batch_create_roles`, `apply_template`, `save_snapshot`, `rollback`, `schedule_task`
 
 </details>
 
@@ -193,17 +198,19 @@ flowchart LR
     
     subgraph "AI Chat"
         ASK --> P[Provider Chain]
+        P --> Z[OpenCode Zen ⚡]
         P --> G[Gemini 🔵]
         P --> R[Groq 🟢]
         P --> M[Mistral 🟠]
         P --> C[Cohere 🟣]
         P --> O[OpenRouter 🔴]
-        P --> Z[OpenCode Zen ⚡]
-        G --> |vision|IMG[Image Analysis]
+        Z --> |vision|IMG[Image Analysis]
+        G --> |vision|IMG
+        O --> |vision|IMG
     end
     
     subgraph "AI Agent"
-        AG --> SC[Scan Cache]
+        AG --> SC[Scan Cache 🔄]
         SC --> PLAN["Plan Phase&lt;br/&gt;[PLAN]...[/PLAN]"]
         PLAN --> BUILD["Build Phase&lt;br/&gt;Tool Execution"]
         BUILD --> TC{Validate?}
@@ -213,11 +220,20 @@ flowchart LR
         EXEC --> NEXT["Next Step&lt;br/&gt;[SISA RENCANA]"]
         NEXT -->|More steps| BUILD
         NEXT -->|Done| RESP[Response to User]
+        AG --> SNAP[Snapshot 🔄]
+        SNAP --> AUTORESTORE[Auto-save before session]
     end
     
     subgraph "Memory & RAG"
-        CM["Conversation Memory&lt;br/&gt;5 turns / 5 min"]
+        CM["Conversation Memory&lt;br/&gt;20 turns · Firestore · No TTL"]
         CH["ChromaDB&lt;br/&gt;Vector Store"]
+    end
+    
+    subgraph "Scheduler"
+        SCH["_scheduler_loop&lt;br/&gt;60s interval"]
+        SCH -->|assign_role| AR[Auto Assign Role]
+        SCH -->|remove_role| RR[Auto Remove Role]
+        SCH -->|send_message| SM[Auto Send Message]
     end
     
     ASK --> CM
@@ -228,13 +244,17 @@ flowchart LR
 ### Provider Fallback Chain
 
 ```
-Gemini (vision capable)
+OpenCode Zen (Tier 1 — Free, priority)
+  └─ 59 free models, auto‑fetched at startup
+  └─ Vision models for image analysis
+     ↓
+  Gemini (vision capable)
   └─ Circuit breaker (3 fails → skip 2h)
   └─ Daily quota reserve for vision
      ↓
-  Groq / Mistral / Cohere / OpenRouter / OpenCode Zen
+  Groq → Mistral → Cohere → OpenRouter (last resort)
      ↓
-  OpenRouter auto‑prioritizes free models
+  OpenRouter auto‑fetches `:free` models on startup
 ```
 
 ### AI Agent Features
@@ -246,8 +266,13 @@ Gemini (vision capable)
 | **Tool Validation** | Args type-checked before execution |
 | **Auto-Retry** | 3 retry attempts on invalid tool calls |
 | **Provider Fallback** | If primary fails, auto-switches to next provider |
-| **Scan Cache** | `/scan` caches full server state → injected into AI prompts |
-| **Memory** | 5-turn / 5-minute conversation memory per user |
+| **23 Tools** | Roles, channels, members, bans, batch ops, templates, snapshots, scheduler |
+| **Batch Operations** | `batch_create_channels` / `batch_create_roles` for bulk work |
+| **Server Templates** | 3 templates (gaming, study, community) via `apply_template` |
+| **Snapshot & Rollback** | Auto-snapshot on agent start + manual `rollback` tool |
+| **Scheduler** | `schedule_task` tool → background loop every 60s |
+| **Scan Cache** | `/scan` caches full server state (Firestore-backed, auto-updated) |
+| **Memory** | 20-turn / Firestore-backed / no TTL — permanent per user+guild |
 | **Format Support** | `[TOOL_CALL]` in JSON, key=value, or raw JSON format |
 
 ---
@@ -260,6 +285,7 @@ Gemini (vision capable)
 | `/login` | Discord OAuth2 login |
 | `/dashboard` | Guild selection |
 | `/dashboard/<guild_id>` | Server management: stats, roles, channels, settings |
+| `/dashboard/<guild_id>/agent` | AI Agent page: toggle, mode, scan status, info |
 | `/api/stats` | Bot stats JSON endpoint |
 
 ### Dashboard Features
@@ -269,6 +295,7 @@ Gemini (vision capable)
 - **Session** — Flask-Session (filesystem)
 - **Image compression** — Images >400KB → base64 data URLs for Firestore
 - **Control Queue** — Dashboard → Bot IPC via JSON files
+- **Channel Personality UI** — Per‑channel AI personality override (add/remove/save)
 
 <p align="center">
   <img src="https://capsule-render.vercel.app/api?type=rect&color=gradient&height=2&section=header&animation=twinkling" width="100%">
@@ -292,7 +319,7 @@ Gemini (vision capable)
 | **HTTP** | aiohttp, requests |
 | **Deployment** | Railway + Docker + Honcho (Procfile) |
 | **Templating** | Jinja2 (23 templates) |
-| **AI Agent** | ReAct loop, Plan→Build, tool validation, auto-retry |
+| **AI Agent** | ReAct loop, Plan→Build, 23 tools, tool validation, auto-retry, snapshot, scheduler |
 
 </div>
 
@@ -302,40 +329,40 @@ Gemini (vision capable)
 
 ```
 backend/
-├── main.py                    # Bot entry point, startup, task loops
+├── main.py                    # Bot entry point, startup, task loops, control queue
 ├── cogs/
-│   ├── ai_chat/               # AI Chat (providers, RAG, streaming)
-│   │   └── providers/         # Gemini, Groq, Mistral, Cohere, OpenRouter, OpenCode Zen
-│   ├── ai_agent/              # AI Agent (ReAct loop, 18 tools)
-│   ├── anti_nuke/             # Anti-Nuke protection
+│   ├── ai_chat/               # AI Chat (providers, RAG, streaming, personality)
+│   │   └── providers/         # OpenCode Zen, Gemini, Groq, Mistral, Cohere, OpenRouter
+│   ├── ai_agent/              # AI Agent (ReAct loop, 23 tools, memory, scheduler, snapshots)
+│   ├── anti_nuke/             # Anti-Nuke protection (sliding window, lockdown, AI analysis)
 │   ├── auto_response/         # Auto-responder system
 │   ├── boost/                 # Boost tracker
 │   ├── boost_announce/        # Boost announcements
-│   ├── donation/              # Donation tracker
+│   ├── donation/              # Donation tracker (Saweria/Sociabuzz webhooks)
 │   ├── general/               # General commands & setup
 │   ├── help/                  # Help command
 │   ├── leave_settings/        # Leave messages
 │   ├── leveling/              # Leveling & rank cards
-│   ├── moderation/            # Spam detection, image spam, word filter
+│   ├── moderation/            # Spam detection, image spam (3-layer), word filter
 │   ├── photobox/              # PhotoBox booth
 │   ├── settings/              # Server settings
 │   ├── templates/             # Message templates
-│   └── voice_interface/       # Voice room manager
+│   └── voice_interface/       # Voice room manager (auto-create, control panel, password)
 ├── web/
-│   ├── web_app.py             # Flask app (70+ routes)
+│   ├── web_app.py             # Flask app (70+ routes, dashboard, API)
 │   └── language/              # i18n translations (id.json, en.json)
 └── utils/
-    ├── firestore_stats.py     # Firestore stats & circuit breaker
+    ├── firestore_stats.py     # Firestore stats, circuit breaker, debounce
     ├── formatters.py          # Uptime & data formatters
     └── ...
 
 frontend/
 ├── pages/                     # Jinja2 templates (base, landing, dashboard, photobox)
-│   ├── dashboard/             # Dashboard pages per guild
+│   ├── dashboard/             # Dashboard pages (stats, settings, agent, ai_chat)
 │   └── partials/              # Navbar, footer, SVG icons
 └── static/
-    ├── css/                   # landing.css, navbar.css, sidebar.css, footer.css, dashboard.css
-    ├── js/                    # landing.js, navbar.js, footer.js, dashboard.js, stars.js
+    ├── css/                   # landing, navbar, sidebar, footer, dashboard, agent, ai_chat
+    ├── js/                    # landing, navbar, footer, dashboard, agent, ai_chat, stars
     └── images/                # Logos, banners
 ```
 
@@ -384,8 +411,8 @@ FLASK_SECRET_KEY=<session secret>
 FIREBASE_KEY=<base64/raw JSON/path to firebase key>
 ```
 
-**AI Keys (at least one required):**
-`GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `COHERE_API_KEY`, `OPENROUTER_API_KEY`, `OPENCODE_ZEN_API_KEY`
+**AI Keys (at least one required — OpenCode Zen recommended for free priority):**
+`OPENCODE_ZEN_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`, `COHERE_API_KEY`, `OPENROUTER_API_KEY`
 
 ---
 

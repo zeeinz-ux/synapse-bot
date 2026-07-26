@@ -126,9 +126,21 @@
         </div>
 
         <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><i data-lucide="brain"></i></div>
+          <h3>{{ "features.agent.title" | t }}</h3>
+          <p>{{ "features.agent.desc" | t }}</p>
+        </div>
+
+        <div class="feature-card">
           <div class="feature-icon" aria-hidden="true"><i data-lucide="hand"></i></div>
           <h3>{{ "features.welcome.title" | t }}</h3>
           <p>{{ "features.welcome.desc" | t }}</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><i data-lucide="shield"></i></div>
+          <h3>{{ "features.antinuke.title" | t }}</h3>
+          <p>{{ "features.antinuke.desc" | t }}</p>
         </div>
 
         <div class="feature-card">
@@ -229,6 +241,14 @@
             <div class="command-row" data-cmd="ask">
               <code>/ask</code>
               <span>{{ "commands.desc.ask" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="chat search">
+              <code>/chat-search</code>
+              <span>{{ "commands.desc.chat_search" | t }}</span>
+            </div>
+            <div class="command-row" data-cmd="personality">
+              <code>/personality</code>
+              <span>{{ "commands.desc.personality" | t }}</span>
             </div>
             <div class="command-row" data-cmd="rag upload">
               <code>/rag-upload</code>
@@ -513,14 +533,14 @@
             </div>
 
             <div class="about-block">
-              <h4>{{ "about.dev.title" | t }}</h4>
-              <p>{{ "about.dev.desc" | t | safe }}</p>
+              <h4>{{ "about.mission.title" | t }}</h4>
+              <p>{{ "about.mission.desc" | t | safe }}</p>
             </div>
 
             <div class="about-block">
               <h4>{{ "about.tech.title" | t }}</h4>
               <div class="tech-stack">
-                Python, Discord.py, Flask, Gemini AI, OpenRouter, Groq
+                Python, Discord.py, Flask, OpenCode Zen, Gemini AI, OpenRouter, Groq
               </div>
             </div>
           </div>

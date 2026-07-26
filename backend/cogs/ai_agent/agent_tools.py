@@ -127,10 +127,11 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "rename_channel",
-        "description": "Ubah nama channel atau kategori.",
+        "description": "Ubah nama DAN/ATAU topic/deskripsi channel text. Gunakan ini untuk edit topic channel.",
         "parameters": {
             "old_name": "string — nama channel/kategori saat ini",
-            "new_name": "string — nama baru",
+            "new_name": "string — nama baru (optional, kosongkan jika cuma mau ganti topic)",
+            "topic": "string — topic/deskripsi baru channel (optional, hanya untuk text channel). Kosongkan jika cuma mau ganti nama.",
             "type": "string — 'text', 'voice', atau 'category' (optional). Default cari semua tipe.",
         },
     },
@@ -1233,14 +1234,30 @@ async def _delete_channel(guild: discord.Guild, args: dict) -> str:
 async def _rename_channel(guild: discord.Guild, args: dict) -> str:
     old = args.get("old_name", "").strip()
     new = args.get("new_name", "").strip()
+    topic = args.get("topic", "")
     ch_type = args.get("type", "").strip().lower()
-    if not old or not new:
-        return '{"success": false, "error": "old_name dan new_name wajib diisi"}'
+    if not old:
+        return '{"success": false, "error": "old_name wajib diisi"}'
+    if not new and not topic:
+        return '{"success": false, "error": "setidaknya new_name atau topic harus diisi"}'
     channel = find_channel(guild, old, ch_type)
     if not channel:
         return f'{{"success": false, "error": "Channel \\"{old}\\" tidak ditemukan"}}'
-    await channel.edit(name=new, reason="AI Agent: rename channel")
-    return f'{{"success": true, "old_name": "{old}", "new_name": "{new}"}}'
+    edits = {"reason": "AI Agent: edit channel"}
+    if new:
+        edits["name"] = new
+    if topic:
+        if isinstance(channel, discord.TextChannel):
+            edits["topic"] = topic
+        else:
+            return f'{{"success": false, "error": "Topic hanya bisa diatur untuk text channel"}}'
+    await channel.edit(**edits)
+    parts = []
+    if new:
+        parts.append(f'name "{old}" → "{new}"')
+    if topic:
+        parts.append(f'topic diubah')
+    return f'{{"success": true, "changes": "{", ".join(parts)}"}}'
 
 
 async def _create_role(guild: discord.Guild, args: dict) -> str:

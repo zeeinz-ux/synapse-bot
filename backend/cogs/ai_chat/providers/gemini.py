@@ -275,8 +275,9 @@ class GeminiProvider(AIProvider):
             payload = {
                 "contents": [{
                     "parts": [
-                        {"text": "Analisis gambar ini. Apakah mengandung: promosi judi/slot, scam, "
-                                 "konten penipuan, atau phishing? Jawab HANYA 'YA' atau 'TIDAK'."},
+                        {"text": "Analisis GAMBAR ini KETAT. Apakah mengandung: giveaway palsu MrBeast/Elon Musk, "
+                                 "link crypto/saham palsu, promosi judi/slot/gacor, scam berkedok giveaway, "
+                                 "konten penipuan APAPUN? Jawab HANYA 'YA' atau 'TIDAK'. Jangan tolerir!"},
                         {"inline_data": {"mime_type": mime_type, "data": b64}},
                     ]
                 }],

@@ -313,66 +313,78 @@ class Moderation(commands.Cog):
             if hasattr(message.author, "created_at"):
                 account_age = (datetime.datetime.now(timezone.utc) - message.author.created_at).days
 
-            new_account_max_age = cfg.get("new_account_max_age", 60)
-            new_account_action = cfg.get("new_account_action", "ban")
+            reason_lower = reason.lower()
+            is_ai_serious = any(k in reason_lower for k in [
+                "gambar mengandung", "scam", "judi", "phishing", "berbahaya",
+                "diverifikasi sebagai spam oleh ai", "konten mencurigakan oleh llm",
+            ])
 
-            if account_age < new_account_max_age:
-                na_action = new_account_action
-                if na_action == "ban":
-                    await message.author.ban(reason=f"Auto-Ban (akun <{new_account_max_age}hr): {reason}")
-                    punishment_msg = f"BAN (akun baru < {new_account_max_age} hari)"
-                elif na_action == "kick":
-                    await message.author.kick(reason=f"Auto-Kick (akun <{new_account_max_age}hr): {reason}")
-                    punishment_msg = f"KICK (akun baru < {new_account_max_age} hari)"
-                elif na_action == "timeout":
-                    hours = cfg.get("new_account_timeout_hours", 1)
-                    duration = datetime.timedelta(hours=hours)
-                    await message.author.timeout(duration, reason=f"Spam (akun baru): {reason}")
-                    punishment_msg = f"TIMEOUT {hours} jam (akun baru)"
-                else:
-                    await message.author.ban(reason=f"Auto-Ban (akun <{new_account_max_age}hr): {reason}")
-                    punishment_msg = f"BAN (akun baru < {new_account_max_age} hari)"
+            if is_ai_serious:
+                await message.author.ban(reason=f"BAN LANGSUNG (AI): {reason}")
+                punishment_msg = "BAN LANGSUNG ⛔"
                 strikes = "-"
             else:
-                user_id = str(message.author.id)
-                strike_key = f"{guild_id}_{user_id}"
-                doc_ref = db.collection("strikes").document(strike_key)
-                doc = await asyncio.to_thread(doc_ref.get)
-                if doc.exists:
-                    data = doc.to_dict()
-                    if time.time() - data.get("last_strike", 0) > 86400:
-                        strikes = 0
+                new_account_max_age = cfg.get("new_account_max_age", 60)
+                new_account_action = cfg.get("new_account_action", "ban")
+
+                if account_age < new_account_max_age:
+                    na_action = new_account_action
+                    if na_action == "ban":
+                        await message.author.ban(reason=f"Auto-Ban (akun <{new_account_max_age}hr): {reason}")
+                        punishment_msg = f"BAN (akun baru < {new_account_max_age} hari)"
+                    elif na_action == "kick":
+                        await message.author.kick(reason=f"Auto-Kick (akun <{new_account_max_age}hr): {reason}")
+                        punishment_msg = f"KICK (akun baru < {new_account_max_age} hari)"
+                    elif na_action == "timeout":
+                        hours = cfg.get("new_account_timeout_hours", 1)
+                        duration = datetime.timedelta(hours=hours)
+                        await message.author.timeout(duration, reason=f"Spam (akun baru): {reason}")
+                        punishment_msg = f"TIMEOUT {hours} jam (akun baru)"
                     else:
-                        strikes = data.get("count", 0)
+                        await message.author.ban(reason=f"Auto-Ban (akun <{new_account_max_age}hr): {reason}")
+                        punishment_msg = f"BAN (akun baru < {new_account_max_age} hari)"
+                    strikes = "-"
                 else:
-                    strikes = 0
-                strikes += 1
-                await asyncio.to_thread(doc_ref.set, {"count": strikes, "last_strike": time.time()})
+                    user_id = str(message.author.id)
+                    strike_key = f"{guild_id}_{user_id}"
+                    doc_ref = db.collection("strikes").document(strike_key)
+                    doc = await asyncio.to_thread(doc_ref.get)
+                    if doc.exists:
+                        data = doc.to_dict()
+                        if time.time() - data.get("last_strike", 0) > 86400:
+                            strikes = 0
+                        else:
+                            strikes = data.get("count", 0)
+                    else:
+                        strikes = 0
+                    strikes += 1
+                    await asyncio.to_thread(doc_ref.set, {"count": strikes, "last_strike": time.time()})
 
-                action_cfg = await self._get_action(guild_id, min(strikes, 3))
-                action = action_cfg.get("action", "ban")
+                    action_cfg = await self._get_action(guild_id, min(strikes, 3))
+                    action = action_cfg.get("action", "ban")
 
-                if action == "ban":
-                    await message.author.ban(reason=f"Auto-Ban: {reason}")
-                    punishment_msg = "BAN permanen"
-                elif action == "kick":
-                    await message.author.kick(reason=f"Auto-Kick: {reason}")
-                    punishment_msg = "KICK"
-                elif action == "timeout":
-                    hours = action_cfg.get("duration_hours", 1)
-                    duration = datetime.timedelta(hours=hours)
-                    await message.author.timeout(duration, reason=f"Spam: {reason}")
-                    punishment_msg = f"TIMEOUT {hours} jam"
-                else:
-                    await message.author.ban(reason=f"Auto-Ban: {reason}")
-                    punishment_msg = "BAN permanen"
+                    if action == "ban":
+                        await message.author.ban(reason=f"Auto-Ban: {reason}")
+                        punishment_msg = "BAN permanen"
+                    elif action == "kick":
+                        await message.author.kick(reason=f"Auto-Kick: {reason}")
+                        punishment_msg = "KICK"
+                    elif action == "timeout":
+                        hours = action_cfg.get("duration_hours", 1)
+                        duration = datetime.timedelta(hours=hours)
+                        await message.author.timeout(duration, reason=f"Spam: {reason}")
+                        punishment_msg = f"TIMEOUT {hours} jam"
+                    else:
+                        await message.author.ban(reason=f"Auto-Ban: {reason}")
+                        punishment_msg = "BAN permanen"
 
             report_ch_id = cfg.get("report_channel", "") or str(self.report_channel_id)
             report_channel = self.bot.get_channel(int(report_ch_id))
             if report_channel:
+                embed_color = discord.Color.dark_red() if is_ai_serious else discord.Color.red()
                 embed = discord.Embed(
-                    title="Laporan Spam",
-                    color=discord.Color.red(),
+                    title="🚨 Laporan Spam Berbahaya" if is_ai_serious else "Laporan Spam",
+                    color=embed_color,
                     description=f"User **{message.author.name}** ({message.author.id}) dihukum: **{punishment_msg}**"
                 )
                 embed.add_field(name="Alasan", value=reason, inline=False)
@@ -386,7 +398,21 @@ class Moderation(commands.Cog):
                 await report_channel.send("\n".join(spoiler_lines))
 
             try:
-                await message.author.send(f"Kamu telah di-{punishment_msg} dari server {message.guild.name} karena melanggar aturan. Ini adalah peringatan ke-{strikes}.")
+                if is_ai_serious:
+                    dm_msg = (
+                        f"⚠️ KAMU TELAH DI-BAN DARI SERVER {message.guild.name.upper()}!\n\n"
+                        f"Alasan: {reason}\n\n"
+                        f"🔴 Ini adalah hukuman OTOMATIS karena sistem AI kami mendeteksi kamu mengirim konten "
+                        f"BERBAHAYA (scam/phishing/konten penipuan).\n"
+                        f"🛡️ Server ini menggunakan sistem keamanan super ketat — TIDAK ada toleransi bagi pelaku spam berbahaya.\n"
+                        f"❌ Banding TIDAK DITERIMA untuk pelanggaran ini."
+                    )
+                else:
+                    dm_msg = (
+                        f"Kamu telah di-{punishment_msg} dari server {message.guild.name} "
+                        f"karena melanggar aturan. Ini adalah peringatan ke-{strikes}."
+                    )
+                await message.author.send(dm_msg)
             except discord.Forbidden:
                 print(f"[MODERATION] Gagal kirim DM ke {message.author}, DM ditutup.")
 
