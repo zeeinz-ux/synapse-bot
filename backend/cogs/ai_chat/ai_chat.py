@@ -48,6 +48,7 @@ from .chat_enhancer import (
 )
 from .web_search import search_web, needs_web_search
 from ..ai_agent.agent_tools import is_agent_request
+from .providers import (
     GeminiProvider,
     GroqProvider,
     MistralProvider,
