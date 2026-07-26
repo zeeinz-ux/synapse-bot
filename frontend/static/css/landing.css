@@ -1364,6 +1364,10 @@ img {
     grid-template-columns: 1fr;
   }
 
+  .feature-card {
+    text-align: center;
+  }
+
   .feature-card--wide {
     flex-direction: column;
     text-align: center;
