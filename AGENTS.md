@@ -11,7 +11,7 @@
 | Bot only | `python backend/main.py` |
 | Web only | `python -m backend.web.web_app` |
 
-`.env` lives in `backend/.env`. Required: `TOKEN_BOT`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `FLASK_SECRET_KEY`, `FIREBASE_KEY`. AI needs at least one of `GEMINI_API_KEY`/`GROQ_API_KEY`/`MISTRAL_API_KEY`/`COHERE_API_KEY`/`OPENROUTER_API_KEY`.
+`.env` lives in `backend/.env` (loaded by both `main.py` and `web_app.py` via `load_dotenv`). Required: `TOKEN_BOT`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `FLASK_SECRET_KEY`, `FIREBASE_KEY`. AI needs at least one of `GEMINI_API_KEY`/`GROQ_API_KEY`/`MISTRAL_API_KEY`/`COHERE_API_KEY`/`OPENROUTER_API_KEY`.
 
 Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 
@@ -25,6 +25,8 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - **Control queue**: dashboard → bot IPC via JSON files in `control_queue/` (dir must exist), consumed every 5s. Actions: `send_message`, `refresh_rag_cache`, `refresh_settings_cache` (`main.py:100-216`).
 - **Cookies**: `COOKIES_CONTENT` env var auto-written to `cookies/cookies.txt` at startup (`main.py:31-41`).
 - **Console language**: mixed Indonesian + English.
+- **`_project_root`** set in `main.py` via `sys.path.insert(0, ...)` so module resolution works locally; Dockerfile sets `ENV PYTHONPATH=/app` for prod.
+- **Frontend**: Jinja2 templates in `frontend/pages/`, static assets in `frontend/static/`. Flask references them via relative paths from `backend/web/web_app.py`.
 
 ## Firestore (Firebase Admin SDK)
 
@@ -60,7 +62,6 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - Guild config via `/voice-config` or dashboard.
 - Auto-delete: owner leave + empty → immediate; empty 10s → auto-delete.
 - `/setup` command creates the voice infrastructure (7 categories, 21 channels).
-- Console language: mixed Indonesian + English.
 
 ## Dashboard (Flask)
 
@@ -68,7 +69,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - Sessions: Flask-Session (filesystem) at `backend/flask_session/` (gitignored).
 - `MAX_CONTENT_LENGTH = 50MB`. Images >400KB auto-compressed to base64 data URLs for Firestore.
 - `PYTHONPATH=/app` set via Dockerfile (required for `backend.` imports in production).
-- i18n: `session["lang"]` defaults to `id`. Template filter `{{ "key" | t }}`. Fallback: requested lang → `id.json` → raw key. Translations in `backend/web/translations/`.
+- i18n: `session["lang"]` defaults to `id`. Template filter `{{ "key" | t }}`. Fallback: requested lang → `id.json` → raw key. Translations in `backend/web/language/` (not `translations/`).
 
 ## Moderation (spam, `backend/utils/`)
 
