@@ -32,6 +32,13 @@
   color: var(--text-primary);
 }
 
+.footer-brand img {
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
 /* Links */
 .footer-links {
   display: flex;
