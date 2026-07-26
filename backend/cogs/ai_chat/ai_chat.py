@@ -47,7 +47,7 @@ from .chat_enhancer import (
     update_user_style_prefs,
 )
 from .web_search import search_web, needs_web_search
-from .providers import (
+from ..ai_agent.agent_tools import is_agent_request
     GeminiProvider,
     GroqProvider,
     MistralProvider,
@@ -1198,6 +1198,23 @@ class AIChat(commands.Cog):
                 return
 
         try:
+            agent_cog = self.bot.get_cog("AIChatAgent")
+            if (agent_cog and not images and
+                ctx.author.guild_permissions.administrator and
+                is_agent_request(pertanyaan)):
+                config = await agent_cog._get_agent_config(str(ctx.guild.id))
+                if config.get("agent_enabled") and agent_cog._can_use_agent(ctx.author, config):
+                    result = await asyncio.wait_for(
+                        agent_cog._agent_react(ctx.guild, pertanyaan, ctx.author),
+                        timeout=120,
+                    )
+                    if len(result) > 1900:
+                        chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
+                        for i, chunk in enumerate(chunks):
+                            await ctx.send(chunk if i == 0 else chunk)
+                    else:
+                        await ctx.send(result)
+                    return
             await self._process_ai_chat_stream(
                 ctx=ctx,
                 user_message=pertanyaan,
@@ -1329,6 +1346,25 @@ class AIChat(commands.Cog):
         images = await self._extract_images_from_attachments(message.attachments)
         if images:
             print(f"[AI VISION] {len(images)} image(s) attached")
+
+        agent_cog = self.bot.get_cog("AIChatAgent")
+        if (agent_cog and not images and
+            message.author.guild_permissions.administrator and
+            is_agent_request(content)):
+            config = await agent_cog._get_agent_config(str(message.guild.id))
+            if config.get("agent_enabled") and agent_cog._can_use_agent(message.author, config):
+                async with message.channel.typing():
+                    result = await asyncio.wait_for(
+                        agent_cog._agent_react(message.guild, content, message.author),
+                        timeout=120,
+                    )
+                    if len(result) > 1900:
+                        chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
+                        for chunk in chunks:
+                            await message.reply(chunk, mention_author=False)
+                    else:
+                        await message.reply(result, mention_author=False)
+                return
 
         try:
             await self._process_ai_chat(

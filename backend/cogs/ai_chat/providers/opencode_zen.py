@@ -49,10 +49,16 @@ class OpenCodeZenProvider(AIProvider):
                 vision = []
                 for m in data.get("data", []):
                     mid = m.get("id", "")
-                    pricing = m.get("pricing", {})
-                    prompt_price = pricing.get("prompt", "0")
-                    completion_price = pricing.get("completion", "0")
-                    if prompt_price != "0" or completion_price != "0":
+                    pricing = m.get("pricing") or {}
+                    prompt_price = pricing.get("prompt")
+                    completion_price = pricing.get("completion")
+                    # Free = pricing kosong/null, atau prompt=0 dan completion=0
+                    is_free = False
+                    if not prompt_price and not completion_price:
+                        is_free = True
+                    elif str(prompt_price) == "0" and str(completion_price) == "0":
+                        is_free = True
+                    if not is_free:
                         continue
                     free.append(mid)
                     modality = (m.get("architecture") or {}).get("modality", "")
