@@ -52,31 +52,6 @@
   color: var(--text-muted);
 }
 
-.gld-stats {
-  display: flex;
-  gap: 1.25rem;
-}
-
-.gld-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
-}
-
-.gld-stat-value {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.gld-stat-label {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
 /* ── Quick Actions ── */
 
 .gld-section-title {

@@ -13,20 +13,6 @@
         <span class="gld-members">{{ guild_info.member_count }} members</span>
       </div>
     </div>
-    <div class="gld-stats">
-      <div class="gld-stat">
-        <span class="gld-stat-value">{{ guild_info.member_count }}</span>
-        <span class="gld-stat-label">Members</span>
-      </div>
-      <div class="gld-stat">
-        <span class="gld-stat-value">{{ guild_info.channel_count if guild_info.channel_count else '—' }}</span>
-        <span class="gld-stat-label">Channels</span>
-      </div>
-      <div class="gld-stat">
-        <span class="gld-stat-value">{{ guild_info.role_count if guild_info.role_count else '—' }}</span>
-        <span class="gld-stat-label">Roles</span>
-      </div>
-    </div>
   </div>
 
   <div class="gld-section">
@@ -40,11 +26,11 @@
         <i data-lucide="hand" width="20" height="20"></i>
         <span>Welcome</span>
       </a>
-      <a href="/dashboard/{{ guild_id }}/leave" class="gld-action">
+      <a href="/dashboard/{{ guild_id }}/welcome/leave" class="gld-action">
         <i data-lucide="log-out" width="20" height="20"></i>
         <span>Leave Message</span>
       </a>
-      <a href="/dashboard/{{ guild_id }}/ban" class="gld-action">
+      <a href="/dashboard/{{ guild_id }}/welcome/ban" class="gld-action">
         <i data-lucide="ban" width="20" height="20"></i>
         <span>Ban Announce</span>
       </a>
