@@ -623,8 +623,7 @@ async def _edit_role(guild: discord.Guild, args: dict) -> str:
             perm_kwargs[normalized] = bool(value)
         if perm_kwargs:
             # Merge: ambil permission existing, update cuma yang disebut
-            current_perms = role.permissions
-            current_dict = {flag: getattr(current_perms, flag) for flag in discord.Permissions.VALID_FLAGS}
+            current_dict = dict(role.permissions)
             current_dict.update(perm_kwargs)
             kwargs["permissions"] = discord.Permissions(**current_dict)
             enabled = [k for k, v in perm_kwargs.items() if v]
