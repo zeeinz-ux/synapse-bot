@@ -801,11 +801,10 @@ body {
 
 /* ---------- Sidebar Daftar Server Button ---------- */
 .ss-sidebar-btn {
-  padding: 10px 12px;
+  padding: 6px 12px 10px;
   border-top: 1px solid var(--sidebar-border);
-  border-bottom: 1px solid var(--sidebar-border);
+  margin-top: 2px;
   flex-shrink: 0;
-  background: var(--bg-surface2);
 }
 
 .sidebar.collapsed .ss-sidebar-btn {
@@ -815,25 +814,19 @@ body {
 .ss-sidebar-btn a {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.45rem 0.7rem;
-  font-size: 0.82rem;
+  gap: 0.5rem;
+  padding: 6px 10px;
+  font-size: 0.85rem;
   font-weight: 500;
   color: var(--text-muted);
-  background: var(--bg-surface);
-  border: 1px solid var(--sidebar-border);
-  border-radius: var(--radius-sm);
   text-decoration: none;
-  transition: border-color 0.15s ease, color 0.15s ease;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
 .ss-sidebar-btn a:hover {
-  border-color: var(--accent-red);
   color: var(--accent-red);
-}
-
-.ss-sidebar-btn a:hover svg {
-  color: var(--accent-red);
+  background: rgba(237, 66, 69, 0.06);
 }
 
 .ss-sidebar-btn a svg {
