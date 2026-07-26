@@ -25,6 +25,111 @@ class AIChatAgent(commands.Cog):
         self._conversation_memory: dict[int, list[dict]] = {}  # user_id -> history (RAM cache)
         self._server_scan_cache: dict[int, dict] = {}  # guild_id -> scan data
 
+    MUTATING_TOOLS = {
+        "create_role", "edit_role", "delete_role", "assign_role", "remove_role",
+        "create_channel", "delete_channel", "rename_channel", "edit_channel_permissions",
+        "ban_member", "unban_member", "kick_member", "timeout_member",
+    }
+
+    # ── Firestore scan cache ──
+
+    async def _save_scan_firestore(self, guild_id: int, data: dict):
+        try:
+            await asyncio.to_thread(
+                lambda: db.collection("agent_scan_cache").document(str(guild_id)).set({
+                    "guild_id": guild_id,
+                    "data": data,
+                    "updated_at": time_module.time(),
+                })
+            )
+        except Exception as e:
+            print(f"[AGENT] Error save scan to Firestore: {e}")
+
+    async def _load_scan_firestore(self, guild_id: int) -> dict | None:
+        try:
+            doc = await asyncio.to_thread(
+                lambda: db.collection("agent_scan_cache").document(str(guild_id)).get()
+            )
+            if doc.exists:
+                data = doc.to_dict().get("data")
+                if data:
+                    self._server_scan_cache[guild_id] = data
+                    return data
+        except Exception as e:
+            print(f"[AGENT] Error load scan from Firestore: {e}")
+        return None
+
+    async def _update_scan_cache(self, guild: discord.Guild, tool_fn: str):
+        """Partial update scan cache setelah tool mutation, lalu simpan ke Firestore."""
+        scan = self._server_scan_cache.get(guild.id)
+        if not scan:
+            return
+
+        try:
+            if tool_fn in ("create_channel", "delete_channel", "rename_channel", "edit_channel_permissions"):
+                channels = []
+                categories = []
+                for cat in guild.categories:
+                    cat_info = {"name": cat.name, "id": cat.id, "position": cat.position, "channels": []}
+                    for ch in cat.channels:
+                        ch_info = {
+                            "name": ch.name, "id": ch.id, "type": str(ch.type),
+                            "position": ch.position, "topic": ch.topic if hasattr(ch, "topic") else None,
+                            "nsfw": ch.nsfw if hasattr(ch, "nsfw") else False,
+                            "bitrate": ch.bitrate if hasattr(ch, "bitrate") else None,
+                            "user_limit": ch.user_limit if hasattr(ch, "user_limit") else 0,
+                        }
+                        cat_info["channels"].append(ch_info)
+                        channels.append(ch_info)
+                    categories.append(cat_info)
+                uncat = [c for c in guild.channels if not c.category and not isinstance(c, discord.CategoryChannel)]
+                if uncat:
+                    cat_info = {"name": "[No Category]", "id": 0, "position": -1, "channels": []}
+                    for ch in uncat:
+                        ch_info = {
+                            "name": ch.name, "id": ch.id, "type": str(ch.type),
+                            "position": ch.position, "topic": ch.topic if hasattr(ch, "topic") else None,
+                            "nsfw": ch.nsfw if hasattr(ch, "nsfw") else False,
+                        }
+                        cat_info["channels"].append(ch_info)
+                        channels.append(ch_info)
+                    categories.append(cat_info)
+                scan["channels"] = channels
+                scan["categories"] = categories
+
+            elif tool_fn in ("create_role", "edit_role", "delete_role"):
+                scan["roles"] = []
+                for role in sorted(guild.roles, key=lambda r: r.position, reverse=True):
+                    if role.is_default() or role.is_bot_managed() or role.is_integration():
+                        continue
+                    scan["roles"].append({
+                        "name": role.name, "id": role.id,
+                        "color": str(role.color), "position": role.position,
+                        "member_count": len(role.members),
+                        "mentionable": role.mentionable, "hoist": role.hoist,
+                        "permissions": [p for p, v in role.permissions if v],
+                    })
+
+            elif tool_fn in ("assign_role", "remove_role"):
+                for role_entry in scan["roles"]:
+                    role_obj = guild.get_role(role_entry["id"])
+                    if role_obj:
+                        role_entry["member_count"] = len(role_obj.members)
+
+            elif tool_fn in ("ban_member", "unban_member"):
+                bans = [{"user_name": str(b.user), "id": b.user.id, "reason": b.reason}
+                        async for b in guild.bans()]
+                scan["bans"] = bans
+                scan["server"]["member_count"] = guild.member_count
+
+            elif tool_fn in ("kick_member", "timeout_member"):
+                scan["server"]["member_count"] = guild.member_count
+
+            self._server_scan_cache[guild.id] = scan
+            await self._save_scan_firestore(guild.id, scan)
+        except Exception as e:
+            print(f"[AGENT] Error updating scan cache for {tool_fn}: {e}")
+
     # ── Scan Server ──
 
     async def _scan_server(self, guild: discord.Guild) -> dict:
@@ -152,6 +257,7 @@ class AIChatAgent(commands.Cog):
                 "description": s.description,
             })
 
+        await self._save_scan_firestore(guild.id, data)
         return data
 
     def _build_scan_context(self, data: dict) -> str:
@@ -376,6 +482,9 @@ class AIChatAgent(commands.Cog):
 
         tools_json = json.dumps(TOOL_DEFINITIONS, indent=2)
         scan_data = self._server_scan_cache.get(guild.id)
+        # Kalo RAM kosong, coba dari Firestore
+        if not scan_data:
+            scan_data = await self._load_scan_firestore(guild.id)
         scan_context = self._build_scan_context(scan_data) if scan_data else ""
         scan_section_sys = (f"Berikut data hasil scan server terbaru:\n{scan_context}\n\n") if scan_context else ""
         system_prompt = (
@@ -570,6 +679,10 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
                 result = await execute_tool(guild, tc, self.bot)
                 conversation.append(("TOOL_RESULT", result[:500]))
 
+                # Auto-update scan cache kalo tool memodifikasi server
+                if fn_name in self.MUTATING_TOOLS:
+                    asyncio.ensure_future(self._update_scan_cache(guild, fn_name))
+
                 # Simpan interaksi ke history untuk konteks berikutnya
                 history.append({"role": "user", "content": current_message})
                 history.append({"role": "assistant", "content": response})
@@ -624,8 +737,9 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
                 f"⭐ Boost: Lv.{s['boost_level']} ({s['boost_count']})\n"
                 f"😀 Custom Emojis: {len(data['emojis'])}\n"
                 f"🏷️ Custom Stickers: {len(data['stickers'])}\n\n"
-                f"📋 Data scan sekarang otomatis dipakai oleh AI Agent saat kamu panggil `/agent`.\n"
-                f"Gunakan `/scan` lagi untuk update."
+                f"📋 Data scan sekarang otomatis dipakai oleh AI Agent dan tersimpan permanen.\n"
+                f"AI Agent akan auto-update cache setiap ada perubahan dari tool.\n"
+                f"Gunakan `/scan` lagi hanya jika ingin refresh manual."
             )
             await msg.edit(content=summary)
         except Exception as e:
@@ -667,7 +781,10 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
 
         scan_hint = ""
         if ctx.guild.id not in self._server_scan_cache:
-            scan_hint = "\n💡 *Server belum pernah di-scan. Gunakan `/scan` dulu biar AI paham kondisi server secara menyeluruh.*"
+            # Coba Firestore dulu
+            fs_scan = await self._load_scan_firestore(ctx.guild.id)
+            if not fs_scan:
+                scan_hint = "\n💡 *Server belum pernah di-scan. Gunakan `/scan` dulu biar AI paham kondisi server secara menyeluruh.*"
 
         defer_msg = await ctx.defer(ephemeral=False)
 
