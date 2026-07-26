@@ -324,6 +324,7 @@ class AIChatAgent(commands.Cog):
         tools_json = json.dumps(TOOL_DEFINITIONS, indent=2)
         scan_data = self._server_scan_cache.get(guild.id)
         scan_context = self._build_scan_context(scan_data) if scan_data else ""
+        scan_section_sys = (f"Berikut data hasil scan server terbaru:\n{scan_context}\n\n") if scan_context else ""
         system_prompt = (
             f"{TOOL_DESCRIPTION}\n\n"
             f"Berikut adalah tool yang tersedia:\n{tools_json}\n\n"
@@ -331,12 +332,13 @@ class AIChatAgent(commands.Cog):
             f"{DISCORD_UI_KNOWLEDGE}\n\n"
             f"Server ini: {guild.name} (ID: {guild.id})\n"
             f"Owner: {guild.owner}\n"
-            f"{'Berikut data hasil scan server terbaru:\n' + scan_context + '\n\n' if scan_context else ''}"
+            f"{scan_section_sys}"
             f"Kamu adalah AI Agent profesional yang paham seluruh struktur Discord server.\n"
             f"Gunakan pengetahuan permission di atas untuk memberikan saran terbaik ke user.\n"
             f"Ikuti aturan dengan ketat."
         )
         # Plan prompt — bikin rencana dulu sebelum eksekusi
+        scan_section_plan = (f"Data hasil scan server:\n{scan_context}\n\n") if scan_context else ""
         plan_prompt = f"""{TOOL_DESCRIPTION}
 
 Tool yang tersedia:
@@ -344,7 +346,7 @@ Tool yang tersedia:
 
 Server: {guild.name}
 Owner: {guild.owner}
-{'Data hasil scan server:\n' + scan_context + '\n\n' if scan_context else ''}
+{scan_section_plan}
 SEKARANG KAMU HARUS MEMBUAT RENCANA DAHULU SEBELUM EKSEKUSI!
 
 ⚠️ LANGKAH WAJIB SEBELUM BIKIN RENCANA:
@@ -373,11 +375,12 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
 """
         # Prompt ringkas untuk step selanjutnya (tapi tool list tetap disertakan)
         tool_names = "\n".join(f"  - {t['name']}: {t['description']}" for t in TOOL_DEFINITIONS)
+        scan_section = (scan_context + "\n") if scan_context else ""
         followup_prompt = (
             f"Kamu adalah AI Agent Discord.\n"
             f"Server: {guild.name}\n\n"
             f"Tool yang tersedia:\n{tool_names}\n\n"
-            f"{scan_context + '\n' if scan_context else ''}"
+            f"{scan_section}"
             f"Lanjutkan eksekusi rencana yang sudah dibuat. Format: [TOOL_CALL] Function: ... Arguments: {{...}}"
         )
 
