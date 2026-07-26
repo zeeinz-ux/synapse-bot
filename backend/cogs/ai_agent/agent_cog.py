@@ -30,6 +30,7 @@ class AIChatAgent(commands.Cog):
         "create_channel", "delete_channel", "rename_channel", "edit_channel_permissions",
         "ban_member", "unban_member", "kick_member", "timeout_member",
         "batch_create_channels", "batch_create_roles", "apply_template",
+        "edit_server",
     }
 
     # ── Firestore scan cache ──
@@ -125,6 +126,10 @@ class AIChatAgent(commands.Cog):
 
             elif tool_fn in ("kick_member", "timeout_member"):
                 scan["server"]["member_count"] = guild.member_count
+
+            elif tool_fn == "edit_server":
+                scan["server"]["name"] = guild.name
+                scan["server"]["description"] = guild.description
 
             self._server_scan_cache[guild.id] = scan
             await self._save_scan_firestore(guild.id, scan)

@@ -246,6 +246,18 @@ TOOL_DEFINITIONS = [
             "template": "string — nama template. Pilihan: 'gaming' (server gaming dengan voice), 'study' (server belajar/akademik), 'community' (server komunitas umum).",
         },
     },
+    {
+        "name": "edit_server",
+        "description": "Ubah pengaturan server: nama, ikon, deskripsi, verification level, AFK channel, system channel, notifikasi. Hanya isi parameter yang mau diubah.",
+        "parameters": {
+            "name": "string — nama baru server (optional). Contoh: 'Server Keren'",
+            "description": "string — deskripsi server (optional). Contoh: 'Server Discord komunitas kami'",
+            "verification_level": "string — level verifikasi: 'none', 'low', 'medium', 'high', 'very_high' (optional)",
+            "afk_channel": "string — nama voice channel untuk AFK (optional). Contoh: 'AFK'",
+            "afk_timeout": "integer — detik timeout AFK: 60, 300, 900, 1800, 3600 (optional)",
+            "system_channel": "string — nama channel untuk welcome messages & tips (optional)",
+        },
+    },
 ]
 
 
@@ -555,6 +567,8 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot) -> str:
             return await _batch_create_roles(guild, args)
         elif fn == "apply_template":
             return await _apply_template(guild, args)
+        elif fn == "edit_server":
+            return await _edit_server(guild, args)
         else:
             return f"[TOOL_RESULT]\nFunction: {fn}\nResult: {{\"success\": false, \"error\": \"Tool '{fn}' tidak dikenal\"}}"
     except discord.Forbidden:
@@ -860,6 +874,72 @@ async def _apply_template(guild: discord.Guild, args: dict) -> str:
         "roles": role_results,
     }
     return f"[TOOL_RESULT]\nFunction: apply_template\nResult: {summary}"
+
+
+async def _edit_server(guild: discord.Guild, args: dict) -> str:
+    edits = {}
+    skipped = []
+
+    name = args.get("name")
+    if name:
+        edits["name"] = str(name).strip()
+
+    description = args.get("description")
+    if description is not None:
+        edits["description"] = str(description).strip()
+
+    verification_str = args.get("verification_level")
+    if verification_str:
+        vmap = {
+            "none": discord.VerificationLevel.none,
+            "low": discord.VerificationLevel.low,
+            "medium": discord.VerificationLevel.medium,
+            "high": discord.VerificationLevel.high,
+            "very_high": discord.VerificationLevel.very_high,
+        }
+        v = vmap.get(verification_str.strip().lower())
+        if v is not None:
+            edits["verification_level"] = v
+        else:
+            skipped.append(f"verification_level '{verification_str}' tidak dikenal")
+
+    afk_channel_name = args.get("afk_channel")
+    if afk_channel_name:
+        ch = discord.utils.get(guild.voice_channels, name=afk_channel_name.strip())
+        if ch:
+            edits["afk_channel"] = ch
+        else:
+            skipped.append(f"AFK channel '{afk_channel_name}' tidak ditemukan")
+
+    afk_timeout = args.get("afk_timeout")
+    if afk_timeout is not None:
+        try:
+            edits["afk_timeout"] = int(afk_timeout)
+        except (ValueError, TypeError):
+            skipped.append(f"afk_timeout harus angka")
+
+    system_channel_name = args.get("system_channel")
+    if system_channel_name:
+        ch = discord.utils.get(guild.text_channels, name=system_channel_name.strip())
+        if ch:
+            edits["system_channel"] = ch
+        else:
+            skipped.append(f"system channel '{system_channel_name}' tidak ditemukan")
+
+    if not edits:
+        return '{"success": false, "error": "Tidak ada parameter yang diisi. Isi minimal satu parameter."}'
+
+    try:
+        await guild.edit(**edits, reason="AI Agent: edit server")
+    except discord.Forbidden:
+        return '{"success": false, "error": "Bot tidak punya izin Manage Server untuk mengubah pengaturan ini."}'
+    except Exception as e:
+        return f'{{"success": false, "error": "{type(e).__name__}: {str(e)[:200]}"}}'
+
+    result = {"success": True, "changes": list(edits.keys())}
+    if skipped:
+        result["skipped"] = skipped
+    return f"[TOOL_RESULT]\nFunction: edit_server\nResult: {result}"
 
 
 async def _delete_channel(guild: discord.Guild, args: dict) -> str:
