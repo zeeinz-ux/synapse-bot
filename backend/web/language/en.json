@@ -104,6 +104,7 @@
   "commands.title": "Commands Reference",
   "commands.search": "Search commands...",
   "commands.count": "Showing all commands",
+  "commands.none": "No matching commands found",
 
   "about.title": "About Synapse",
   "about.subtitle": "Get to know the versatile Discord bot ready to help your community.",

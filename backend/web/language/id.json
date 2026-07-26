@@ -104,6 +104,7 @@
   "commands.title": "Commands Reference",
   "commands.search": "Cari perintah...",
   "commands.count": "Menampilkan semua perintah",
+  "commands.none": "Tidak ada perintah yang cocok",
 
   "about.title": "Tentang Synapse",
   "about.subtitle": "Kenali lebih dekat bot Discord serbaguna yang siap membantu komunitas kamu.",

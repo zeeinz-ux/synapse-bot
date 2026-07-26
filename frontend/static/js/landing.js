@@ -194,21 +194,28 @@
       });
 
       if (cmdCount) {
+        var template = cmdCount.getAttribute("data-template");
+        if (!template) {
+          template = cmdCount.textContent.replace(/[0-9]+/g, "{n}");
+          cmdCount.setAttribute("data-template", template);
+        }
         if (query === "") {
-          cmdCount.textContent = `Menampilkan semua ${totalCommands} perintah`;
+          cmdCount.textContent = template.replace("{n}", totalCommands);
         } else if (totalVisible === 0) {
-          cmdCount.textContent = "Tidak ada perintah yang cocok";
+          cmdCount.textContent = cmdCount.getAttribute("data-empty") || "Tidak ada perintah yang cocok";
         } else {
-          cmdCount.textContent = `Menampilkan ${totalVisible} perintah`;
+          cmdCount.textContent = template.replace("{n}", totalVisible);
         }
       }
     });
 
-    let initialCount = 0;
-    commandCards.forEach((card) => {
+    var initialCount = 0;
+    commandCards.forEach(function (card) {
       initialCount += card.querySelectorAll(".command-row").length;
     });
-    if (cmdCount)
-      cmdCount.textContent = `Menampilkan semua ${initialCount} perintah`;
+    if (cmdCount) {
+      var tmpl = cmdCount.getAttribute("data-template");
+      if (tmpl) cmdCount.textContent = tmpl.replace("{n}", initialCount);
+    }
   }
 })();
