@@ -413,19 +413,6 @@ class AIChat(commands.Cog):
 - Total Member: {guild.member_count or 0}
 - Boost Level : {guild.premium_tier}
 - Dibuat Pada : {guild.created_at.strftime('%Y-%m-%d')}
-
-[AI AGENT]
-Kamu punya fitur AI Agent yang bisa bantu manage server Discord! Kalo user minta:
-- bikin/hapus/rename channel atau kategori
-- bikin/hapus/atur role
-- ban/kick/timeout/unban member
-- atur permission channel
-- info server, daftar channel, daftar role, daftar member
-- dll yang berhubungan dengan pengaturan server
-
-Maka SURUH user pake command /agent (misal: /agent halo bikin channel baru).
-JANGAN coba-coba jawab sendiri pake tool palsu — kamu bukan agent, kamu cuma chat AI.
-Cukup arahkan ke /agent aja.
 """
         except Exception:
             return ""
