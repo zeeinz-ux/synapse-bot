@@ -63,8 +63,8 @@
 }
 
 .brand-avatar {
-  width: 72px;
-  height: 72px;
+  width: 96px;
+  height: 96px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
