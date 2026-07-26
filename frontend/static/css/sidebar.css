@@ -818,7 +818,7 @@ body {
   padding: 7px 10px;
   font-size: 0.82rem;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: #d0d0d0 !important;
   text-decoration: none;
   border-radius: 6px;
   margin: 0 2px;
@@ -831,7 +831,11 @@ body {
 
 .ss-sidebar-btn a:hover {
   background: var(--hover-bg);
-  color: var(--accent-red);
+  color: #ed4245 !important;
+}
+
+.ss-sidebar-btn a:hover svg {
+  color: #ed4245 !important;
 }
 
 .ss-sidebar-btn-icon {
@@ -846,6 +850,7 @@ body {
 .ss-sidebar-btn-icon svg {
   width: 100%;
   height: 100%;
+  color: #d0d0d0 !important;
 }
 
 .guild-dropdown {
