@@ -56,10 +56,24 @@
       border: 1px solid var(--sidebar-border);
       border-radius: var(--radius-sm);
     }
-    .ss-user img {
+    .ss-avatar-wrap {
+      position: relative;
       width: 24px;
       height: 24px;
+      flex-shrink: 0;
+    }
+    .ss-avatar-wrap > img {
+      width: 100%;
+      height: 100%;
       border-radius: 50%;
+      display: block;
+    }
+    .ss-avatar-deco {
+      position: absolute;
+      inset: -50%;
+      width: 200%;
+      height: 200%;
+      pointer-events: none;
     }
     .ss-user span {
       font-size: 0.82rem;
@@ -90,7 +104,12 @@
     <div class="ss-nav-right">
       {% if user %}
       <div class="ss-user">
-        <img src="{{ avatar_url }}" alt="{{ user.username }}" />
+        <div class="ss-avatar-wrap">
+          <img src="{{ avatar_url }}" alt="{{ user.username }}" />
+          {% if avatar_decoration_url %}
+          <img class="ss-avatar-deco" src="{{ avatar_decoration_url }}" alt="" />
+          {% endif %}
+        </div>
         <span>{{ user.username }}</span>
       </div>
       {% endif %}

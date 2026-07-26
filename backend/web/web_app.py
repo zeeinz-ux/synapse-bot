@@ -157,11 +157,13 @@ def callback():
     user = user_response.json()
     
     # Simpan ke session
+    deco = user.get("avatar_decoration_data")
     session["user"] = {
         "id": user.get("id"),
         "username": user.get("username"),
         "avatar": user.get("avatar"),
-        "discriminator": user.get("discriminator")
+        "discriminator": user.get("discriminator"),
+        "avatar_decoration": deco.get("asset") if deco and isinstance(deco, dict) else None,
     }
     # Fetch & store user's permitted guilds
     session["user_guilds"] = _fetch_user_guilds(access_token)
@@ -567,6 +569,15 @@ def _discord_avatar_url(user: dict, size: int = 64) -> str:
     return f"https://cdn.discordapp.com/embed/avatars/{idx}.png?size={size}"
 
 
+def _discord_avatar_decoration_url(user: dict, size: int = 64) -> str:
+    if not user:
+        return ""
+    asset = user.get("avatar_decoration")
+    if not asset:
+        return ""
+    return f"https://cdn.discordapp.com/avatar-decoration-presets/{asset}.png?size={size}"
+
+
 # ==========================================================
 # Helper — fetch & filter user guilds by permission
 # ==========================================================
@@ -713,6 +724,7 @@ def dashboard():
         other_guilds=other_guilds,
         user=user,
         avatar_url=_discord_avatar_url(user) if user else "",
+        avatar_decoration_url=_discord_avatar_decoration_url(user) if user else "",
         lang=session.get("lang", "id"),
     )
 
