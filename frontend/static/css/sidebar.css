@@ -799,6 +799,17 @@ body {
     padding: 8px 12px;
   }
 
+  .guild-dropdown {
+    min-height: 40px;
+    font-size: 0.85rem;
+  }
+
+  .sidebar-search input {
+    min-height: 40px;
+    font-size: 0.85rem;
+  }
+}
+
 /* ---------- Sidebar Daftar Server Button ---------- */
 .ss-sidebar-btn {
   padding: 4px 6px 2px;
@@ -851,17 +862,6 @@ body {
   width: 100%;
   height: 100%;
   color: #d0d0d0 !important;
-}
-
-.guild-dropdown {
-    min-height: 40px;
-    font-size: 0.85rem;
-  }
-
-  .sidebar-search input {
-    min-height: 40px;
-    font-size: 0.85rem;
-  }
 }
 
 /* ---------- TABLET: 481px – 768px ---------- */
