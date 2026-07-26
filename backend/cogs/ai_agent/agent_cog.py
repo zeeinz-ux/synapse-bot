@@ -148,7 +148,15 @@ Owner: {guild.owner}
 
 SEKARANG KAMU HARUS MEMBUAT RENCANA DAHULU SEBELUM EKSEKUSI!
 
-Analisis permintaan user, lalu buat rencana langkah demi langkah.
+⚠️ LANGKAH WAJIB SEBELUM BIKIN RENCANA:
+Sebelum membuat rencana dan sebelum menyentuh apapun, PANGGIL DAHULU:
+1. server_info() — lihat statistik server
+2. list_roles() — lihat semua role dan posisinya
+3. list_channels() — lihat semua channel
+
+Ini penting biar kamu tau kondisi real server, gak asal tebak atau buat sesuatu yang udah ada.
+
+Setelah dapet data server, baru buat rencana:
 
 Format jawaban:
 [PLAN]
