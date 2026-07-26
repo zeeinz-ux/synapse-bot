@@ -8,7 +8,7 @@ from discord.ext import commands
 
 from ..database.firebase_setup import db
 from .agent_tools import (
-    TOOL_DEFINITIONS, TOOL_DESCRIPTION, DISCORD_PERMISSIONS_KNOWLEDGE,
+    TOOL_DEFINITIONS, TOOL_DESCRIPTION, DISCORD_PERMISSIONS_KNOWLEDGE, DISCORD_UI_KNOWLEDGE,
     parse_tool_call, execute_tool,
 )
 
@@ -130,6 +130,7 @@ class AIChatAgent(commands.Cog):
             f"{TOOL_DESCRIPTION}\n\n"
             f"Berikut adalah tool yang tersedia:\n{tools_json}\n\n"
             f"{DISCORD_PERMISSIONS_KNOWLEDGE}\n\n"
+            f"{DISCORD_UI_KNOWLEDGE}\n\n"
             f"Server ini: {guild.name} (ID: {guild.id})\n"
             f"Owner: {guild.owner}\n"
             f"Kamu adalah AI Agent profesional yang paham seluruh struktur Discord server.\n"

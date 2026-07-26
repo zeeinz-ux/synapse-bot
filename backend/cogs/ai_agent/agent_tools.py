@@ -229,6 +229,39 @@ ATURAN PENTING:
 8. Jika sudah selesai semua, berikan ringkasan apa yang sudah dilakukan.
 """
 
+DISCORD_UI_KNOWLEDGE = """
+## Discord UI — Server & Channel Menu (right-click)
+
+### Server Context Menu (klik kanan pada nama server di sidebar)
+- Server Boost — Lihat status & manage Nitro boosts
+- Invite to Server — Buat invite link
+- Server Settings — Buka dashboard pengaturan server
+- Create Channel — Buat channel baru (sama kaya tool create_channel)
+- Create Category — Buat kategori baru
+- Create Event — Buat event server
+- App Directory — Cari & tambah aplikasi Discord
+- Notification Settings — Atur notifikasi per-server
+- Privacy Settings — Atur privacy per-server
+- Edit Per-server Profile — Ubah nickname & avatar di server ini
+- Hide Muted Channels — Sembunyikan channel yang di-mute
+- Copy Server ID — Salin ID server ke clipboard
+
+### Channel Context Menu (klik kanan pada channel)
+- Mark As Read — Tandai semua pesan sudah dibaca
+- Invite to Channel — Buat invite link ke channel ini
+- Pin Channel to Top — Sematkan channel di atas daftar
+- Copy Link — Salin link channel
+- Mute Channel — Matikan notifikasi channel (15 menit, 1 jam, 3 jam, 8 jam, 24 jam, sampai di-unmute)
+- Notification Settings — Atur notifikasi per-channel (All Messages, Only @mentions, Nothing)
+- Edit Channel — Ubah nama, topic, kategori, dll (sama kaya tool rename_channel)
+- Duplicate Channel — Duplikat channel beserta permission-nya
+- Create Text Channel — Buat text channel baru di dalam kategori yang sama
+- Delete Channel — Hapus channel (BERBAHAYA)
+- Copy Channel ID — Salin ID channel ke clipboard
+
+Gunakan pengetahuan ini untuk menjawab pertanyaan user tentang cara manual melakukan sesuatu di Discord.
+"""
+
 
 import re as _re
 
