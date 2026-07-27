@@ -16,7 +16,7 @@ except Exception:
 
 LOFI_DEFAULT_URL = "https://play.streamafrica.net/lofiradio"
 LOFI_KEYWORDS = {"lofi", "lo-fi", "lo_fi", "lofi radio", "default", "radio"}
-COOKIES_PATH = "cookies/cookies.txt"
+COOKIES_PATH = next((p for p in ["cookies/cookies.txt", "cookies.txt", "/etc/secrets/cookies.txt"] if os.path.isfile(p)), "cookies/cookies.txt")
 VOICE_STATE_COLLECTION = "voice_state"
 COLOR = 0x5865F2
 
@@ -33,45 +33,51 @@ def _clean_url(url: str) -> str:
     return url
 
 
+_YT_CLIENTS = [
+    {"youtube": {"player_client": ["android"]}},
+    {"youtube": {"player_client": ["ios"]}},
+    {"youtube": {"player_client": ["web"]}},
+    {"youtube": {"player_client": ["android_music"]}},
+]
+
 def _yt_fetch(url_or_query: str) -> dict | None:
-    opts = {
-        "format": "bestaudio/best",
-        "noplaylist": True,
-        "quiet": True,
-        "no_warnings": True,
-        "ignoreerrors": True,
-        "extract_flat": False,
-        "socket_timeout": 15,
-        "extractor_retries": 3,
-        "extractor_args": {"youtube": {"player_client": ["android"]}},
-    }
-    if os.path.isfile(COOKIES_PATH):
-        opts["cookiefile"] = COOKIES_PATH
-    try:
-        with YoutubeDL(opts) as ydl:
-            data = ydl.extract_info(url_or_query, download=False)
-            if not data:
-                print(f"[MUSIC] yt-dlp android: no data")
-                return None
-            if data.get("is_live"):
-                print(f"[MUSIC] yt-dlp: is a livestream, skipping")
-                return None
-            audio_url = data.get("url") or ""
-            if not audio_url:
-                print(f"[MUSIC] yt-dlp: no url field")
-                return None
-            title = data.get("title", "Unknown")
-            if isinstance(title, str):
-                title = title.encode("utf-8", errors="replace").decode("utf-8")
-            print(f"[MUSIC] yt-dlp OK: {title[:60]}")
-            return {
-                "audio_url": audio_url,
-                "title": title,
-                "thumbnail": data.get("thumbnail", ""),
-                "webpage_url": data.get("webpage_url", ""),
-            }
-    except Exception as e:
-        print(f"[MUSIC] yt-dlp error: {e}")
+    for idx, extra_args in enumerate(_YT_CLIENTS):
+        opts = {
+            "format": "bestaudio/best",
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+            "ignoreerrors": True,
+            "extract_flat": False,
+            "socket_timeout": 15,
+            "extractor_retries": 2,
+            "extractor_args": extra_args,
+        }
+        if os.path.isfile(COOKIES_PATH):
+            opts["cookiefile"] = COOKIES_PATH
+        try:
+            with YoutubeDL(opts) as ydl:
+                data = ydl.extract_info(url_or_query, download=False)
+                if not data:
+                    continue
+                if data.get("is_live"):
+                    continue
+                audio_url = data.get("url") or ""
+                if not audio_url:
+                    continue
+                title = data.get("title", "Unknown")
+                if isinstance(title, str):
+                    title = title.encode("utf-8", errors="replace").decode("utf-8")
+                print(f"[MUSIC] yt-dlp client#{idx} OK: {title[:60]}")
+                return {
+                    "audio_url": audio_url,
+                    "title": title,
+                    "thumbnail": data.get("thumbnail", ""),
+                    "webpage_url": data.get("webpage_url", ""),
+                }
+        except Exception as e:
+            print(f"[MUSIC] yt-dlp client#{idx} error: {e}")
+    print(f"[MUSIC] all {len(_YT_CLIENTS)} clients failed for: {url_or_query[:80]}")
     return None
 
 
