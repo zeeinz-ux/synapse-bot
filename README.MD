@@ -69,13 +69,21 @@
 - Auto‑delete on empty
 - Guild config via `/voice-config`
 
-### 🎵 Music Player (Prefix Commands)
-- `!connect` / `!joinvc` — join voice channel
-- `!leave` — leave voice channel
-- `!play` / `!p` — play LoFi radio, YouTube, or search by song name
-- `!stop` — stop playback
-- Auto-restart on EOF, auto-resume on restart
-- YouTube search via yt-dlp, DAVE encryption support
+### 🎵 Music Player (Hybrid Commands)
+- `!connect` / `!joinvc` — join voice channel (prefix only)
+- `!leave` — leave voice channel (prefix only)
+- `/play` / `!play` / `!p` — play LoFi, YouTube URL, or search by name; adds to queue if something is playing
+- `/search` — search YouTube, pick from 5-result Select menu
+- `/nowplaying` / `!np` — show current song
+- `/queue` / `!q` — show music queue
+- `/skip` / `!next` — skip to next track
+- `/stop` / `!stop` — stop + clear queue
+- `/pause` — pause playback
+- `/resume` — resume playback
+- `/shuffle` — shuffle remaining queue
+- `/loop off|track|queue` — set loop mode
+- Queue with auto-advance, auto-restart on EOF, auto-resume on restart
+- YouTube via yt-dlp, DAVE encryption support
 
 ### 📊 Web Dashboard
 - Discord OAuth2 login (identify + guilds)
@@ -84,6 +92,10 @@
 - Flask‑Session (filesystem)
 - i18n: 🇮🇩 Indonesian + 🇬🇧 English
 - Auto‑compressed images for Firestore
+
+### 🛡️ Moderation
+- `/purge` / `!purge` / `!clear` — bulk delete messages (max 100), filter by user. Requires Manage Messages.
+- AI Agent access via `run_command("purge 10 @user")`
 
 ### ⚡ Utility
 - Leveling system with rank cards
@@ -137,16 +149,24 @@
 </details>
 
 <details>
-<summary><b>🎵 Music (<code>music</code>) — Prefix Commands</b></summary>
+<summary><b>🎵 Music (<code>music</code>) — Hybrid Commands</b></summary>
 
 | Command | Description |
 |---------|-------------|
-| `!connect` / `!joinvc` | Bot join voice channel (kosongkan untuk ikut user) |
-| `!leave` | Bot tinggalkan voice channel |
-| `!play` / `!p` | Putar audio — LoFi (kosongkan), URL YouTube, atau cari nama lagu (otomatis search) |
-| `!stop` | Hentikan audio yang sedang diputar |
+| `/play` / `!play` / `!p` | Putar lagu — URL YouTube, nama lagu (auto-search), atau LoFi |
+| `/search` | Cari YouTube, pilih dari 5 hasil via Select menu |
+| `/nowplaying` / `!np` | Lihat lagu yang sedang diputar |
+| `/queue` / `!q` | Lihat antrian lagu |
+| `/skip` / `!next` | Lewati ke lagu berikutnya |
+| `/stop` / `!stop` | Hentikan musik + kosongkan antrian |
+| `/pause` | Jeda lagu |
+| `/resume` | Lanjutkan lagu |
+| `/shuffle` | Acak antrian |
+| `/loop off\|track\|queue` | Atur mode loop |
+| `!connect` / `!joinvc` | Bot join voice channel (prefix only) |
+| `!leave` | Bot tinggalkan voice channel (prefix only) |
 
-**Fitur:** Auto-restart on EOF, auto-resume setelah restart (Firestore), DAVE encryption.
+**Fitur:** Queue with auto-advance, loop (off/track/queue), auto-restart on EOF, auto-resume setelah restart (Firestore), DAVE encryption, `_yt_fetch()` via yt-dlp `--print` with stable URL save + fresh re-resolve.
 
 </details>
 
