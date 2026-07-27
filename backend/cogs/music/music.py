@@ -3,10 +3,9 @@ from discord.ext import commands
 import asyncio
 import os
 import re
-import subprocess as sp
 import time
-import json
 import random
+from yt_dlp import YoutubeDL
 
 try:
     from backend.cogs.database.firebase_setup import db
@@ -35,56 +34,50 @@ def _clean_url(url: str) -> str:
 
 
 def _yt_fetch(url_or_query: str) -> dict | None:
-    _TIMEOUT = 20
-
-    def _run(args: list[str]) -> dict | None:
-        try:
-            r = sp.run(args, capture_output=True, text=True, timeout=_TIMEOUT)
-            stderr_snippet = r.stderr[:500] if r.stderr else ""
-            print(f"[MUSIC] yt-dlp rc={r.returncode}, stdout={len(r.stdout)}b, stderr={stderr_snippet}")
-            if r.returncode != 0 or not r.stdout.strip():
-                return None
-            data = json.loads(r.stdout)
-            audio_url = data.get('url') or ''
-            if not audio_url:
-                print(f"[MUSIC] yt-dlp JSON has no url field. Keys: {list(data.keys())[:15]}")
-                return None
-            title = data.get('title', 'Unknown')
-            if isinstance(title, str):
-                title = title.encode('utf-8', errors='replace').decode('utf-8')
-            return {
-                "audio_url": audio_url,
-                "title": title,
-                "thumbnail": data.get('thumbnail', ''),
-                "webpage_url": data.get('webpage_url', '')
-            }
-        except Exception as e:
-            print(f"[MUSIC] _yt_fetch inner error: {e}")
-        return None
-
-    base = ['yt-dlp', '--no-playlist', '--dump-json', '--ignore-errors', '--no-warnings']
+    opts = {
+        "format": "bestaudio/best",
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+        "ignoreerrors": True,
+        "extract_flat": False,
+        "socket_timeout": 15,
+        "extractor_retries": 3,
+    }
     if os.path.isfile(COOKIES_PATH):
-        base.extend(['--cookies', COOKIES_PATH])
+        opts["cookiefile"] = COOKIES_PATH
 
-    # Try 1: bestaudio with cookies
-    result = _run(base + ['-f', 'bestaudio/best', url_or_query])
-    if result:
-        return result
-
-    # Try 2: bestaudio without cookies
-    nocookie = ['yt-dlp', '--no-playlist', '--dump-json', '--ignore-errors', '--no-warnings']
-    result = _run(nocookie + ['-f', 'bestaudio/best', url_or_query])
-    if result:
-        return result
-
-    # Try 3: any format without cookies
-    result = _run(nocookie + ['-f', 'best', url_or_query])
-    if result:
-        return result
-
-    # Try 4: no format filter
-    result = _run(nocookie + [url_or_query])
-    return result
+    for attempt, fmt in enumerate(["bestaudio/best", "bestaudio", "best", None], 1):
+        if fmt is None:
+            opts.pop("format", None)
+        else:
+            opts["format"] = fmt
+        try:
+            with YoutubeDL(opts) as ydl:
+                data = ydl.extract_info(url_or_query, download=False)
+                if not data:
+                    print(f"[MUSIC] yt-dlp attempt {attempt} (format={fmt}): no data")
+                    continue
+                if data.get("is_live"):
+                    print(f"[MUSIC] yt-dlp attempt {attempt}: is a livestream, skipping")
+                    continue
+                audio_url = data.get("url") or ""
+                if not audio_url:
+                    print(f"[MUSIC] yt-dlp attempt {attempt}: no url field. keys={list(data.keys())[:15]}")
+                    continue
+                title = data.get("title", "Unknown")
+                if isinstance(title, str):
+                    title = title.encode("utf-8", errors="replace").decode("utf-8")
+                print(f"[MUSIC] yt-dlp OK attempt {attempt}: {title[:60]}")
+                return {
+                    "audio_url": audio_url,
+                    "title": title,
+                    "thumbnail": data.get("thumbnail", ""),
+                    "webpage_url": data.get("webpage_url", ""),
+                }
+        except Exception as e:
+            print(f"[MUSIC] yt-dlp attempt {attempt} (format={fmt}) failed: {e}")
+    return None
 
 
 class SearchSelect(discord.ui.Select):
