@@ -69,21 +69,12 @@
 - Auto‑delete on empty
 - Guild config via `/voice-config`
 
-### 🎵 Music Player (Hybrid Commands)
-- `!connect` / `!joinvc` — join voice channel (prefix only)
-- `!leave` — leave voice channel (prefix only)
-- `/play` / `!play` / `!p` — play LoFi, YouTube URL, or search by name; adds to queue if something is playing
-- `/search` — search YouTube, pick from 5-result Select menu
-- `/nowplaying` / `!np` — show current song
-- `/queue` / `!q` — show music queue
-- `/skip` / `!next` — skip to next track
-- `/stop` / `!stop` — stop + clear queue
-- `/pause` — pause playback
-- `/resume` — resume playback
-- `/shuffle` — shuffle remaining queue
-- `/loop off|track|queue` — set loop mode
-- Queue with auto-advance, auto-restart on EOF, auto-resume on restart
-- YouTube via yt-dlp, DAVE encryption support
+### 🎵 LoFi Radio
+- `!connect` / `!joinvc` — join voice (prefix only)
+- `!leave` — leave voice (prefix only)
+- `/play` — play LoFi radio
+- `/stop` — stop audio
+- LoFi radio stream (`play.streamafrica.net/lofiradio`) with auto-restart on EOF
 
 ### 📊 Web Dashboard
 - Discord OAuth2 login (identify + guilds)
@@ -149,24 +140,16 @@
 </details>
 
 <details>
-<summary><b>🎵 Music (<code>music</code>) — Hybrid Commands</b></summary>
+<summary><b>🎵 LoFi Radio (<code>music</code>)</b></summary>
 
 | Command | Description |
 |---------|-------------|
-| `/play` / `!play` / `!p` | Putar lagu — URL YouTube, nama lagu (auto-search), atau LoFi |
-| `/search` | Cari YouTube, pilih dari 5 hasil via Select menu |
-| `/nowplaying` / `!np` | Lihat lagu yang sedang diputar |
-| `/queue` / `!q` | Lihat antrian lagu |
-| `/skip` / `!next` | Lewati ke lagu berikutnya |
-| `/stop` / `!stop` | Hentikan musik + kosongkan antrian |
-| `/pause` | Jeda lagu |
-| `/resume` | Lanjutkan lagu |
-| `/shuffle` | Acak antrian |
-| `/loop off\|track\|queue` | Atur mode loop |
+| `/play` | Putar LoFi radio |
+| `/stop` | Hentikan audio |
 | `!connect` / `!joinvc` | Bot join voice channel (prefix only) |
 | `!leave` | Bot tinggalkan voice channel (prefix only) |
 
-**Fitur:** Queue with auto-advance, loop (off/track/queue), auto-restart on EOF, auto-resume setelah restart (Firestore), DAVE encryption, `_yt_fetch()` via yt-dlp `--print` with stable URL save + fresh re-resolve.
+**Fitur:** LoFi radio stream (`play.streamafrica.net/lofiradio`) auto-restart on EOF, auto-resume setelah restart (Firestore).
 
 </details>
 
