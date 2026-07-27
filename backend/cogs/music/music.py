@@ -19,10 +19,10 @@ COLOR = 0x5865F2
 
 STATIONS = {
     "lofi": {"url": "https://play.streamafrica.net/lofiradio", "label": "LoFi Radio"},
-    "jazz": {"url": "https://ice1.somafm.com/thetrip-128-aac", "label": "LoFi Jazz"},
-    "chill": {"url": "https://ice1.somafm.com/groovesalad-128-aac", "label": "LoFi Chill"},
-    "study": {"url": "https://ice1.somafm.com/defcon-128-aac", "label": "LoFi Study"},
-    "sleep": {"url": "https://ice1.somafm.com/dronezone-128-aac", "label": "LoFi Sleep"},
+    "jazz": {"url": "https://stream.zeno.fm/v4kaet5ab1ntv", "label": "LoFi Jazz"},
+    "chill": {"url": "https://radio.loficafe.net/listen/chilling/radio.mp3", "label": "LoFi Chill"},
+    "study": {"url": "https://live.lofiradio.ru/lofi_mp3_128", "label": "LoFi Study"},
+    "sleep": {"url": "https://streaming.hotmixradio.com/hotmix-lofi-en-mp3", "label": "LoFi Sleep"},
 }
 
 
