@@ -29,7 +29,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - **Memory monitor**: reads `/proc/*/status` VmRSS every 5 min → `gc.collect()` if >300MB. **Linux-only** — fails silently on Windows (`main.py:218-238`).
 - **Stats updater**: `tasks.loop(seconds=30)` — Firestore stats + guild channels/roles/categories (`main.py:291-330`).
 - **Control queue**: dashboard → bot IPC via JSON files in `control_queue/`. Web auto-creates dir (`_ensure_queue_dir`). Bot skips if absent (`main.py:100-216`). Actions: `send_message`, `refresh_rag_cache`, `refresh_settings_cache`.
-- **Cookies**: `COOKIES_CONTENT` env var auto-written to `cookies/cookies.txt` at startup (`main.py:31-41`).
+- **Cookies**: `COOKIES_CONTENT` env var auto-written to `cookies/cookies.txt` at startup (`main.py:31-41`). Used for Discord external links (not YouTube).
 - **Console logs**: Mix of Indonesian + English.
 - **`_project_root`**: set in `main.py` via `sys.path.insert(0, ...)` so module resolution works locally. Dockerfile sets `ENV PYTHONPATH=/app`.
 - **Frontend**: Jinja2 templates in `frontend/pages/`, Flask references them via relative paths from `backend/web/web_app.py`.
@@ -83,20 +83,13 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - Auto-delete: owner leave + empty → immediate; empty 10s → auto-delete.
 - `/setup` command creates the voice infrastructure (7 categories, 21 channels).
 
-## Music Player (`backend/cogs/music/music.py`)
+## Music Player (`backend/cogs/music/music.py`) — LoFi Only
 
-- **Hybrid commands** (slash + prefix): `/play`/`!play`/`!p`, `/search`, `/nowplaying`/`!np`, `/queue`/`!q`, `/skip`/`!next`, `/stop`/`!stop`, `/pause`, `/resume`, `/shuffle`, `/loop`/`!repeat`. Prefix-only: `!connect`/`!joinvc`, `!leave`.
-- **Queue system**: guild-based queue, auto-advance on track end. `/play` adds to queue (appends if playing, replaces if LoFi stream). `/skip` advances naturally. `/stop` clears queue. `/shuffle` randomizes remaining. `/loop off|track|queue`.
-- YouTube playback: `_yt_fetch()` via yt-dlp `--print urls --print title --print thumbnail --print webpage_url -f bestaudio/best`. Returns stable `webpage_url` (YouTube page URL) + fresh `audio_url` per resolution. Stable URL saved to Firestore, re-resolved on each play/auto-restart.
-- `/search` presents 5-result Select menu; selection auto-plays or appends to queue.
-- LoFi radio stream (`play.streamafrica.net/lofiradio`) auto-restarts on EOF (stream, non-YouTube). YouTube tracks only auto-advance queue or stop.
-- `_on_track_end`: intentional stop → skip; stream URL → auto-restart; loop track → replay; loop queue → cycle to front; else → next in queue or stop.
-- DAVE encryption via `davey>=0.1.6` + `PyNaCl==1.5.0` + `discord.py[voice]==2.7.1`.
+- **Hybrid commands**: `/play` (LoFi only), `/stop`. Prefix-only: `!connect`/`!joinvc`, `!leave`.
+- **YouTube removed**: Render IP diblokir YouTube total. Bot cuma muterin LoFi radio stream.
+- LoFi radio stream (`play.streamafrica.net/lofiradio`) auto-restarts on EOF.
 - Auto-resume: voice state saved to Firestore (`voice_state` collection), restored on cog `on_ready`.
-- Auto-reconnect on unexpected disconnect, respects `_intentional_stop` flag.
-- State updates on manual channel move; preserved on kick (reconnects on restart only).
-- AI Agent accesses music via `run_command("connect"/"play"/"leave"/"stop")`.
-- YouTube video IDs are case-sensitive — URL must NOT be lowercased.
+- AI Agent accesses via `run_command("connect"/"play"/"leave"/"stop")`.
 
 ## Dashboard (Flask)
 
