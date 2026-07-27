@@ -1683,7 +1683,7 @@ async def _join_voice(guild: discord.Guild, args: dict) -> str:
         await asyncio.sleep(0.5)
 
     try:
-        vc = await channel.connect(reason="AI Agent: join voice")
+        vc = await channel.connect()
     except discord.Forbidden:
         return '{"success": false, "error": "Bot tidak punya izin Connect atau Speak di voice channel tersebut"}'
     except Exception as e:
