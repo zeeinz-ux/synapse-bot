@@ -69,6 +69,14 @@
 - Auto‑delete on empty
 - Guild config via `/voice-config`
 
+### 🎵 Music Player (Prefix Commands)
+- `!connect` / `!joinvc` — join voice channel
+- `!leave` — leave voice channel
+- `!play` / `!p` — play LoFi radio, YouTube, or search by song name
+- `!stop` — stop playback
+- Auto-restart on EOF, auto-resume on restart
+- YouTube search via yt-dlp, DAVE encryption support
+
 ### 📊 Web Dashboard
 - Discord OAuth2 login (identify + guilds)
 - Server stats, roles, channels analytics
@@ -122,7 +130,23 @@
 | `/agent-mode` | Ubah mode akses AI Agent (owner / admin) |
 | `/agent-status` | Cek status AI Agent |
 
-**Agent Tools (32):** `server_info`, `list_channels`, `list_roles`, `create_channel`, `delete_channel`, `rename_channel`, `create_role`, `edit_role`, `delete_role`, `assign_role`, `remove_role`, `list_members`, `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `edit_channel_permissions`, `list_bans`, `edit_server`, `batch_create_channels`, `batch_create_roles`, `apply_template`, `save_snapshot`, `rollback`, `schedule_task`, `send_message`, `add_reaction`, `join_voice`, `leave_voice`, `play_audio`, `stop_audio`, `run_command`
+**Agent Tools (31):** `server_info`, `list_channels`, `list_roles`, `create_channel`, `delete_channel`, `rename_channel`, `create_role`, `edit_role`, `delete_role`, `assign_role`, `remove_role`, `list_members`, `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `edit_channel_permissions`, `list_bans`, `edit_server`, `batch_create_channels`, `batch_create_roles`, `apply_template`, `save_snapshot`, `rollback`, `schedule_task`, `send_message`, `add_reaction`, `run_command`, `web_search`
+
+> Voice tools (`join_voice`, `leave_voice`, `play_audio`, `stop_audio`) removed — use `run_command("connect"/"leave"/"play"/"stop")` instead.
+
+</details>
+
+<details>
+<summary><b>🎵 Music (<code>music</code>) — Prefix Commands</b></summary>
+
+| Command | Description |
+|---------|-------------|
+| `!connect` / `!joinvc` | Bot join voice channel (kosongkan untuk ikut user) |
+| `!leave` | Bot tinggalkan voice channel |
+| `!play` / `!p` | Putar audio — LoFi (kosongkan), URL YouTube, atau cari nama lagu (otomatis search) |
+| `!stop` | Hentikan audio yang sedang diputar |
+
+**Fitur:** Auto-restart on EOF, auto-resume setelah restart (Firestore), DAVE encryption.
 
 </details>
 
@@ -266,7 +290,7 @@ OpenCode Zen (Tier 1 — Free, priority)
 | **Tool Validation** | Args type-checked before execution |
 | **Auto-Retry** | 3 retry attempts on invalid tool calls |
 | **Provider Fallback** | If primary fails, auto-switches to next provider |
-| **32 Tools** | Roles, channels, members, bans, messaging, reactions, voice, commands, batch ops, templates, snapshots, scheduler |
+| **31 Tools** | Roles, channels, members, bans, messaging, reactions, commands, web search, batch ops, templates, snapshots, scheduler |
 | **Batch Operations** | `batch_create_channels` / `batch_create_roles` for bulk work |
 | **Server Templates** | 3 templates (gaming, study, community) via `apply_template` |
 | **Snapshot & Rollback** | Auto-snapshot on agent start + manual `rollback` tool |
@@ -319,7 +343,7 @@ OpenCode Zen (Tier 1 — Free, priority)
 | **HTTP** | aiohttp, requests |
 | **Deployment** | Railway + Docker + Honcho (Procfile) |
 | **Templating** | Jinja2 (23 templates) |
-| **AI Agent** | ReAct loop, Plan→Build, 32 tools, tool validation, auto-retry, snapshot, scheduler |
+| **Audio** | yt-dlp, FFmpeg, PyNaCl, davey (DAVE encryption) || **AI Agent** | ReAct loop, Plan→Build, 31 tools, tool validation, auto-retry, snapshot, scheduler |
 
 </div>
 
@@ -344,6 +368,7 @@ backend/
 │   ├── leave_settings/        # Leave messages
 │   ├── leveling/              # Leveling & rank cards
 │   ├── moderation/            # Spam detection, image spam (3-layer), word filter
+│   ├── music/                 # Music player (!connect, !play, !stop, yt-search)
 │   ├── photobox/              # PhotoBox booth
 │   ├── settings/              # Server settings
 │   ├── templates/             # Message templates
