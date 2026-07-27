@@ -17,6 +17,27 @@ except Exception:
 
 LOFI_DEFAULT_URL = "https://play.streamafrica.net/lofiradio"
 LOFI_KEYWORDS = {"lofi", "lo-fi", "lo_fi", "lofi radio", "default", "radio"}
+
+
+def _update_ytdlp():
+    import subprocess, importlib.metadata
+    try:
+        ver = importlib.metadata.version("yt-dlp")
+        print(f"[MUSIC] yt-dlp version: {ver}", flush=True)
+    except Exception:
+        ver = "?"
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"],
+            capture_output=True, timeout=60, check=False
+        )
+        new_ver = importlib.metadata.version("yt-dlp")
+        if new_ver != ver:
+            print(f"[MUSIC] yt-dlp upgraded: {ver} -> {new_ver}", flush=True)
+    except Exception as e:
+        print(f"[MUSIC] yt-dlp update skipped: {e}", flush=True)
+
+
 def _get_cookies_path():
     for p in ["cookies/cookies.txt", "cookies.txt", "/etc/secrets/cookies.txt"]:
         if os.path.isfile(p):
@@ -745,4 +766,5 @@ class MusicCog(commands.Cog, name="Music"):
 
 
 async def setup(bot: commands.Bot):
+    _update_ytdlp()
     await bot.add_cog(MusicCog(bot))
