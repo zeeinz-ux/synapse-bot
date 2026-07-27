@@ -1,11 +1,12 @@
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 import asyncio
 import os
 import re
 import subprocess as sp
 import time
 import json
+import random
 
 try:
     from backend.cogs.database.firebase_setup import db
@@ -33,50 +34,96 @@ def _clean_url(url: str) -> str:
     return url
 
 
-def _yt_get_info(url: str) -> dict | None:
+def _yt_fetch(url_or_query: str) -> dict | None:
     try:
-        url = _clean_url(url)
-        args = ['yt-dlp', '--no-playlist', '--dump-json', '-f', 'bestaudio/best', url, '--no-warnings']
+        base = ['yt-dlp', '--no-playlist', '--dump-json', '--no-warnings']
         if os.path.isfile(COOKIES_PATH):
-            args.extend(['--cookies', COOKIES_PATH])
-        result = sp.run(args, capture_output=True, text=True, timeout=30)
-        if result.returncode != 0 or not result.stdout.strip():
+            base.extend(['--cookies', COOKIES_PATH])
+        args = base + ['-f', 'bestaudio/best', url_or_query]
+        r = sp.run(args, capture_output=True, text=True, timeout=30)
+        if r.returncode != 0 or not r.stdout.strip():
+            print(f"[MUSIC] yt-dlp failed (rc={r.returncode}): {r.stderr[:200]}")
             return None
-        data = json.loads(result.stdout)
-        audio_url = data.get('url') or data.get('webpage_url')
-        if not audio_url:
-            return None
+        data = json.loads(r.stdout)
         return {
-            "audio_url": audio_url,
+            "audio_url": data.get('url', ''),
             "title": data.get('title', 'Unknown'),
-            "thumbnail": data.get('thumbnail', '')
+            "thumbnail": data.get('thumbnail', ''),
+            "webpage_url": data.get('webpage_url', '')
         }
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[MUSIC] _yt_fetch exception: {e}")
     return None
 
 
-def _yt_search(query: str) -> dict | None:
-    try:
-        args = ['yt-dlp', '--no-playlist', '--dump-json', '-f', 'bestaudio/best',
-                f'ytsearch1:{query}', '--no-warnings']
-        if os.path.isfile(COOKIES_PATH):
-            args.extend(['--cookies', COOKIES_PATH])
-        result = sp.run(args, capture_output=True, text=True, timeout=30)
-        if result.returncode != 0 or not result.stdout.strip():
-            return None
-        data = json.loads(result.stdout)
-        audio_url = data.get('url') or data.get('webpage_url')
-        if not audio_url:
-            return None
-        return {
-            "audio_url": audio_url,
-            "title": data.get('title', 'Unknown'),
-            "thumbnail": data.get('thumbnail', '')
-        }
-    except Exception:
-        pass
-    return None
+class SearchSelect(discord.ui.Select):
+    def __init__(self, tracks: list[dict], cog):
+        options = []
+        for i, t in enumerate(tracks[:5]):
+            label = t.get("title", "Unknown")[:90]
+            options.append(discord.SelectOption(label=label, value=str(i)))
+        super().__init__(placeholder="Pilih lagu...", options=options, min_values=1, max_values=1)
+        self.tracks = tracks
+        self.cog = cog
+
+    async def callback(self, interaction: discord.Interaction):
+        idx = int(self.values[0])
+        track = self.tracks[idx]
+        await interaction.response.defer()
+        gid = interaction.guild_id
+        vc = interaction.guild.voice_client
+        if not vc:
+            if interaction.user.voice and interaction.user.voice.channel:
+                vc = await interaction.user.voice.channel.connect()
+            else:
+                await interaction.followup.send("Bot gak di voice. Join voice dulu.", ephemeral=True)
+                return
+        if vc.is_playing():
+            current = self.cog._now_playing.get(gid)
+            is_stream = current and not _is_youtube_url(current.get("url", ""))
+            if is_stream:
+                self.cog._intentional_stop.add(gid)
+                vc.stop()
+                await asyncio.sleep(0.3)
+                self.cog._add_to_queue(gid, track)
+                self.cog._current_index[gid] = len(self.cog._queues[gid]) - 1
+                self.cog._now_playing[gid] = track
+                self.cog._play_looping(vc, track["url"])
+                embed = discord.Embed(
+                    title="\u25b6 Now Playing",
+                    description=f"**{track.get('title', 'Unknown')}**",
+                    color=COLOR
+                )
+                if track.get("thumbnail"):
+                    embed.set_thumbnail(url=track["thumbnail"])
+            else:
+                pos = self.cog._add_to_queue(gid, track)
+                embed = discord.Embed(
+                    title="\u2795 Added to Queue",
+                    description=f"**{track.get('title', 'Unknown')}**\nPosisi #{pos + 1}",
+                    color=COLOR
+                )
+                if track.get("thumbnail"):
+                    embed.set_thumbnail(url=track["thumbnail"])
+        else:
+            self.cog._add_to_queue(gid, track)
+            self.cog._current_index[gid] = len(self.cog._queues[gid]) - 1
+            self.cog._now_playing[gid] = track
+            self.cog._play_looping(vc, track["url"])
+            embed = discord.Embed(
+                title="\u25b6 Now Playing",
+                description=f"**{track.get('title', 'Unknown')}**",
+                color=COLOR
+            )
+            if track.get("thumbnail"):
+                embed.set_thumbnail(url=track["thumbnail"])
+        await interaction.followup.send(embed=embed)
+
+
+class SearchView(discord.ui.View):
+    def __init__(self, tracks: list[dict], cog, *, timeout=60):
+        super().__init__(timeout=timeout)
+        self.add_item(SearchSelect(tracks, cog))
 
 
 class MusicCog(commands.Cog, name="Music"):
@@ -84,7 +131,12 @@ class MusicCog(commands.Cog, name="Music"):
         self.bot = bot
         self._voice_states: dict[int, dict] = {}
         self._intentional_stop: set[int] = set()
+        self._queues: dict[int, list[dict]] = {}
+        self._current_index: dict[int, int] = {}
+        self._loop_mode: dict[int, str] = {}
+        self._now_playing: dict[int, dict] = {}
 
+    # --- state persistence ---
     def _save_state(self, guild_id: int, channel_id: int, url: str):
         data = {"guild_id": guild_id, "channel_id": channel_id, "url": url, "updated_at": time.time()}
         self._voice_states[guild_id] = data
@@ -142,6 +194,96 @@ class MusicCog(commands.Cog, name="Music"):
             except Exception as e:
                 print(f"[MUSIC] Auto-resume failed for {guild.name}: {e}")
 
+    # --- queue helpers ---
+    def _ensure_queue(self, guild_id: int):
+        if guild_id not in self._queues:
+            self._queues[guild_id] = []
+        if guild_id not in self._current_index:
+            self._current_index[guild_id] = -1
+
+    def _add_to_queue(self, guild_id: int, track: dict) -> int:
+        self._ensure_queue(guild_id)
+        self._queues[guild_id].append(track)
+        return len(self._queues[guild_id]) - 1
+
+    def _clear_queue(self, guild_id: int):
+        self._queues.pop(guild_id, None)
+        self._current_index.pop(guild_id, None)
+        self._now_playing.pop(guild_id, None)
+
+    # --- playback core ---
+    def _play_looping(self, vc, url: str):
+        gid = vc.guild.id if vc and vc.guild else None
+        if gid is not None:
+            self._intentional_stop.discard(gid)
+        try:
+            source = None
+            if _is_youtube_url(url):
+                info = _yt_fetch(url)
+                if info and info.get("audio_url"):
+                    ffmpeg_opts = {
+                        "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
+                        "options": "-vn",
+                    }
+                    source = discord.FFmpegPCMAudio(info["audio_url"], **ffmpeg_opts)
+            else:
+                ffmpeg_opts = {
+                    "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
+                    "options": "-vn",
+                }
+                source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
+            if source:
+                vc.play(source, after=lambda e: self._on_track_end(vc, url, e))
+        except Exception as e:
+            print(f"[MUSIC] _play_looping error: {e}")
+
+    def _on_track_end(self, vc, url: str, error):
+        gid = vc.guild.id if vc and vc.guild else None
+        if gid and gid in self._intentional_stop:
+            self._intentional_stop.discard(gid)
+            print(f"[MUSIC] Intentional stop for guild {gid}, not restarting.")
+            return
+        if error:
+            print(f"[MUSIC] Audio error: {error}")
+        if not vc or not vc.is_connected():
+            return
+        if not _is_youtube_url(url):
+            print(f"[MUSIC] Stream ended, restarting...")
+            self._play_looping(vc, url)
+            return
+        if gid is None:
+            return
+        loop = self._loop_mode.get(gid, "off")
+        if loop == "track":
+            print(f"[MUSIC] Loop track, replaying...")
+            self._play_looping(vc, url)
+            return
+        self._ensure_queue(gid)
+        if loop == "queue":
+            idx = self._current_index.get(gid, -1)
+            if 0 <= idx < len(self._queues[gid]):
+                t = self._queues[gid].pop(idx)
+                self._queues[gid].append(t)
+            if self._queues[gid]:
+                t = self._queues[gid][0]
+                self._current_index[gid] = 0
+                self._now_playing[gid] = t
+                print(f"[MUSIC] Loop queue: next {t.get('title', 'Unknown')}")
+                self._play_looping(vc, t["url"])
+                return
+        next_idx = self._current_index.get(gid, -1) + 1
+        if 0 <= next_idx < len(self._queues[gid]):
+            t = self._queues[gid][next_idx]
+            self._current_index[gid] = next_idx
+            self._now_playing[gid] = t
+            print(f"[MUSIC] Next track: {t.get('title', 'Unknown')}")
+            self._play_looping(vc, t["url"])
+        else:
+            print(f"[MUSIC] Queue empty, stopping.")
+            self._current_index[gid] = -1
+            self._now_playing.pop(gid, None)
+
+    # --- events ---
     @commands.Cog.listener()
     async def on_ready(self):
         await asyncio.sleep(3)
@@ -161,41 +303,7 @@ class MusicCog(commands.Cog, name="Music"):
         if before.channel and not after.channel:
             print(f"[MUSIC] Disconnected from {before.channel.name}, state preserved for restart auto-resume")
 
-    def _play_looping(self, vc, url: str):
-        try:
-            source = None
-            info = None
-            if _is_youtube_url(url):
-                info = _yt_get_info(url)
-                if info and info.get("audio_url"):
-                    ffmpeg_opts = {
-                        "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
-                        "options": "-vn",
-                    }
-                    source = discord.FFmpegPCMAudio(info["audio_url"], **ffmpeg_opts)
-            else:
-                ffmpeg_opts = {
-                    "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
-                    "options": "-vn",
-                }
-                source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
-            if source:
-                vc.play(source, after=lambda e: self._on_audio_end(vc, url, e))
-        except Exception as e:
-            print(f"[MUSIC] _play_looping error: {e}")
-
-    def _on_audio_end(self, vc, url: str, error):
-        gid = vc.guild.id if vc and vc.guild else None
-        if gid and gid in self._intentional_stop:
-            self._intentional_stop.discard(gid)
-            print(f"[MUSIC] Intentional stop for guild {gid}, not restarting.")
-            return
-        if error:
-            print(f"[MUSIC] Audio error: {error}")
-        if vc and vc.is_connected():
-            print(f"[MUSIC] Audio ended, restarting...")
-            self._play_looping(vc, url)
-
+    # --- commands ---
     @commands.command(name="connect", aliases=["joinvc"])
     async def connect(self, ctx: commands.Context, *, channel: discord.VoiceChannel = None):
         if not channel:
@@ -222,25 +330,262 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.send(embed=embed)
             return
         except Exception as e:
-            embed = discord.Embed(description=f"❌ Gagal: {e}", color=0xFF0000)
+            embed = discord.Embed(description=f"\u274c Gagal: {e}", color=0xFF0000)
             await ctx.send(embed=embed)
             return
         await asyncio.sleep(0.5)
         try:
             self._play_looping(vc, LOFI_DEFAULT_URL)
             self._save_state(ctx.guild.id, channel.id, LOFI_DEFAULT_URL)
+            self._clear_queue(ctx.guild.id)
             embed = discord.Embed(
-                title="🎵 Connected",
+                title="\u25b6 Connected",
                 description=f"Join **{channel.name}** dan muterin LoFi radio.",
                 color=COLOR
             )
             await ctx.send(embed=embed)
         except discord.ClientException:
-            embed = discord.Embed(description=f"✅ Join **{channel.name}** (voice tersambung, tapi audio error)", color=COLOR)
+            embed = discord.Embed(description=f"\u2705 Join **{channel.name}** (voice tersambung, tapi audio error)", color=COLOR)
             await ctx.send(embed=embed)
         except Exception:
-            embed = discord.Embed(description=f"✅ Join **{channel.name}**", color=COLOR)
+            embed = discord.Embed(description=f"\u2705 Join **{channel.name}**", color=COLOR)
             await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="play", aliases=["p"], description="Putar lagu dari YouTube")
+    @discord.app_commands.describe(query="Nama lagu atau URL YouTube")
+    async def play(self, ctx: commands.Context, *, query: str = None):
+        vc = ctx.guild.voice_client
+        if not vc:
+            if ctx.author.voice and ctx.author.voice.channel:
+                vc = await ctx.author.voice.channel.connect()
+            else:
+                embed = discord.Embed(description="Bot gak di voice. Pake `!connect` dulu atau join voice dulu.", color=COLOR)
+                await ctx.send(embed=embed)
+                return
+        q = (query or "").strip()
+        q_lower = q.lower()
+        track = None
+        if not q or q_lower in LOFI_KEYWORDS:
+            track = {"url": LOFI_DEFAULT_URL, "title": "LoFi Radio", "thumbnail": "", "requester": str(ctx.author)}
+        elif q.startswith("http://") or q.startswith("https://"):
+            url = _clean_url(q)
+            if _is_youtube_url(url):
+                info = await asyncio.to_thread(_yt_fetch, url)
+                if info and info.get("audio_url"):
+                    track = {"url": info["webpage_url"] or url, "title": info.get("title", "Unknown"), "thumbnail": info.get("thumbnail", ""), "requester": str(ctx.author)}
+                else:
+                    embed = discord.Embed(description="\u274c Gagal dapetin info YouTube.", color=0xFF0000)
+                    await ctx.send(embed=embed)
+                    return
+            else:
+                track = {"url": url, "title": url[:80], "thumbnail": "", "requester": str(ctx.author)}
+        else:
+            embed = discord.Embed(description=f"\ud83d\udd0d Cari **{q}** di YouTube...", color=COLOR)
+            msg = await ctx.send(embed=embed)
+            info = await asyncio.to_thread(_yt_fetch, f'ytsearch1:{q}')
+            if not info or not info.get("audio_url"):
+                embed = discord.Embed(description=f"\u274c Gak nemu hasil buat \"{q}\".", color=0xFF0000)
+                await msg.edit(embed=embed)
+                return
+            track = {"url": info["webpage_url"] or q, "title": info.get("title", "Unknown"), "thumbnail": info.get("thumbnail", ""), "requester": str(ctx.author)}
+            await msg.delete()
+        if vc.is_playing():
+            current = self._now_playing.get(ctx.guild.id)
+            is_stream = current and not _is_youtube_url(current.get("url", ""))
+            if is_stream:
+                self._intentional_stop.add(ctx.guild.id)
+                vc.stop()
+                await asyncio.sleep(0.3)
+                self._add_to_queue(ctx.guild.id, track)
+                self._current_index[ctx.guild.id] = len(self._queues[ctx.guild.id]) - 1
+                self._now_playing[ctx.guild.id] = track
+                self._play_looping(vc, track["url"])
+                embed = discord.Embed(
+                    title="\u25b6 Now Playing",
+                    description=f"**{track['title']}**",
+                    color=COLOR
+                )
+                if track["thumbnail"]:
+                    embed.set_thumbnail(url=track["thumbnail"])
+                embed.set_footer(text=f"Diminta oleh {ctx.author}")
+                self._save_state(ctx.guild.id, vc.channel.id, track["url"])
+                embed.set_footer(text=f"Diminta oleh {ctx.author}")
+                await ctx.send(embed=embed)
+            else:
+                pos = self._add_to_queue(ctx.guild.id, track)
+                embed = discord.Embed(
+                    title="\u2795 Added to Queue",
+                    description=f"**{track['title']}**\nPosisi #{pos + 1}",
+                    color=COLOR
+                )
+                if track["thumbnail"]:
+                    embed.set_thumbnail(url=track["thumbnail"])
+                embed.set_footer(text=f"Diminta oleh {ctx.author}")
+                await ctx.send(embed=embed)
+        else:
+            self._add_to_queue(ctx.guild.id, track)
+            self._current_index[ctx.guild.id] = len(self._queues[ctx.guild.id]) - 1
+            self._now_playing[ctx.guild.id] = track
+            self._play_looping(vc, track["url"])
+            self._save_state(ctx.guild.id, vc.channel.id, track["url"])
+            embed = discord.Embed(
+                title="\u25b6 Now Playing",
+                description=f"**{track['title']}**",
+                color=COLOR
+            )
+            if track["thumbnail"]:
+                embed.set_thumbnail(url=track["thumbnail"])
+            embed.set_footer(text=f"Diminta oleh {ctx.author}")
+            await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="search", description="Cari dan pilih lagu dari YouTube")
+    @discord.app_commands.describe(query="Kata kunci pencarian")
+    async def search(self, ctx: commands.Context, *, query: str):
+        q = query.strip()
+        if not q:
+            embed = discord.Embed(description="Masukin kata kunci pencarian.", color=COLOR)
+            await ctx.send(embed=embed, ephemeral=True)
+            return
+        loading = discord.Embed(description=f"\ud83d\udd0d Mencari **{q}**...", color=COLOR)
+        await ctx.send(embed=loading)
+        tracks = []
+        for i in range(5):
+            info = await asyncio.to_thread(_yt_fetch, f'ytsearch{i+1}:{q}')
+            if info and info.get("audio_url"):
+                tracks.append({"url": info["webpage_url"] or q, "title": info.get("title", "Unknown"), "thumbnail": info.get("thumbnail", ""), "requester": str(ctx.author)})
+        if not tracks:
+            embed = discord.Embed(description=f"\u274c Gak nemu hasil buat \"{q}\".", color=0xFF0000)
+            await ctx.send(embed=embed)
+            return
+        view = SearchView(tracks, self)
+        embed = discord.Embed(
+            title="\ud83d\udd0d Hasil Pencarian",
+            description=f"Pilih lagu dari hasil pencarian **{q}**:",
+            color=COLOR
+        )
+        await ctx.send(embed=embed, view=view)
+
+    @commands.hybrid_command(name="nowplaying", aliases=["np"], description="Lihat lagu yang sedang diputar")
+    async def nowplaying(self, ctx: commands.Context):
+        track = self._now_playing.get(ctx.guild.id)
+        vc = ctx.guild.voice_client
+        if not track or not vc or not vc.is_playing():
+            embed = discord.Embed(description="Gak ada lagu yang diputar.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        embed = discord.Embed(
+            title="\u25b6 Now Playing",
+            description=f"**{track.get('title', 'Unknown')}**",
+            color=COLOR
+        )
+        if track.get("thumbnail"):
+            embed.set_thumbnail(url=track["thumbnail"])
+        loop = self._loop_mode.get(ctx.guild.id, "off")
+        embed.set_footer(text=f"Loop: {loop} | Diminta oleh {track.get('requester', 'Unknown')}")
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="queue", aliases=["q"], description="Lihat antrian lagu")
+    async def queue(self, ctx: commands.Context):
+        q = self._queues.get(ctx.guild.id, [])
+        if not q:
+            embed = discord.Embed(description="Antrian kosong.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        loop = self._loop_mode.get(ctx.guild.id, "off")
+        now_idx = self._current_index.get(ctx.guild.id, -1)
+        desc_lines = []
+        for i, t in enumerate(q):
+            marker = " \u25b6" if i == now_idx else ""
+            desc_lines.append(f"`#{i + 1}`{marker} **{t.get('title', 'Unknown')}** — {t.get('requester', '?')}")
+        embed = discord.Embed(
+            title=f"\U0001f39b Queue ({len(q)} lagu)",
+            description="\n".join(desc_lines),
+            color=COLOR
+        )
+        embed.set_footer(text=f"Loop: {loop}")
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="skip", aliases=["next"], description="Lewati lagu yang sedang diputar")
+    async def skip(self, ctx: commands.Context):
+        vc = ctx.guild.voice_client
+        if not vc or not vc.is_playing():
+            embed = discord.Embed(description="Gak ada lagu yang diputar buat di-skip.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        vc.stop()
+        embed = discord.Embed(description="\u23ed Skipped", color=COLOR)
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="stop", description="Hentikan musik dan kosongkan antrian")
+    async def stop(self, ctx: commands.Context):
+        vc = ctx.guild.voice_client
+        if not vc or not vc.is_playing():
+            embed = discord.Embed(description="Gak ada audio yang diputar.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        self._clear_queue(ctx.guild.id)
+        self._intentional_stop.add(ctx.guild.id)
+        vc.stop()
+        embed = discord.Embed(description="\u23f9 Stopped", color=COLOR)
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="pause", description="Jeda lagu yang sedang diputar")
+    async def pause(self, ctx: commands.Context):
+        vc = ctx.guild.voice_client
+        if not vc or not vc.is_playing():
+            embed = discord.Embed(description="Gak ada lagu yang diputar.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        vc.pause()
+        embed = discord.Embed(description="\u23f8 Paused", color=COLOR)
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="resume", description="Lanjutkan lagu yang dijeda")
+    async def resume(self, ctx: commands.Context):
+        vc = ctx.guild.voice_client
+        if not vc or not vc.is_paused():
+            embed = discord.Embed(description="Gak ada lagu yang di-pause.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        vc.resume()
+        embed = discord.Embed(description="\u25b6 Resumed", color=COLOR)
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="shuffle", description="Acak antrian lagu")
+    async def shuffle(self, ctx: commands.Context):
+        q = self._queues.get(ctx.guild.id, [])
+        if len(q) < 2:
+            embed = discord.Embed(description="Antrian terlalu pendek buat di-acak.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        idx = self._current_index.get(ctx.guild.id, -1)
+        if 0 <= idx < len(q):
+            remaining = q[idx + 1:]
+            random.shuffle(remaining)
+            self._queues[ctx.guild.id] = q[:idx + 1] + remaining
+        else:
+            random.shuffle(q)
+            self._queues[ctx.guild.id] = q
+            self._current_index[ctx.guild.id] = -1
+        embed = discord.Embed(description="\ud83d\udd00 Queue di-acak!", color=COLOR)
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="loop", aliases=["repeat"], description="Set mode loop: off, track, atau queue")
+    @discord.app_commands.describe(mode="Pilih mode loop: off, track, atau queue")
+    async def loop(self, ctx: commands.Context, mode: str = None):
+        if mode is None:
+            current = self._loop_mode.get(ctx.guild.id, "off")
+            embed = discord.Embed(description=f"Loop saat ini: **{current}**\nGunakan `{ctx.clean_prefix}loop off|track|queue`", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        m = mode.lower().strip()
+        if m not in ("off", "track", "queue"):
+            embed = discord.Embed(description="Mode harus: `off`, `track`, atau `queue`.", color=0xFF0000)
+            await ctx.send(embed=embed)
+            return
+        self._loop_mode[ctx.guild.id] = m
+        embed = discord.Embed(description=f"\ud83d\udd01 Loop: **{m}**", color=COLOR)
+        await ctx.send(embed=embed)
 
     @commands.command(name="leave")
     async def leave(self, ctx: commands.Context):
@@ -254,88 +599,9 @@ class MusicCog(commands.Cog, name="Music"):
             self._intentional_stop.add(ctx.guild.id)
             vc.stop()
         await vc.disconnect()
+        self._clear_queue(ctx.guild.id)
         self._clear_state(ctx.guild.id)
-        embed = discord.Embed(description=f"👋 Leave **{name}**", color=COLOR)
-        await ctx.send(embed=embed)
-
-    @commands.command(name="play", aliases=["p"])
-    async def play(self, ctx: commands.Context, *, stream: str = None):
-        vc = ctx.guild.voice_client
-        if not vc:
-            if ctx.author.voice and ctx.author.voice.channel:
-                await ctx.author.voice.channel.connect()
-                vc = ctx.guild.voice_client
-            else:
-                embed = discord.Embed(description="Bot gak di voice. Pake `!connect` dulu atau join voice dulu.", color=COLOR)
-                await ctx.send(embed=embed)
-                return
-        raw = (stream or "").strip()
-        raw_lower = raw.lower()
-        title = ""
-        thumbnail = ""
-        if not raw or raw_lower in LOFI_KEYWORDS:
-            raw_url = LOFI_DEFAULT_URL
-            title = "LoFi Radio"
-        elif raw.startswith("http://") or raw.startswith("https://"):
-            raw_url = _clean_url(raw)
-            if _is_youtube_url(raw_url):
-                info = await asyncio.to_thread(_yt_get_info, raw_url)
-                if info:
-                    raw_url = info.get("audio_url", raw_url)
-                    title = info.get("title", "")
-                    thumbnail = info.get("thumbnail", "")
-                else:
-                    embed = discord.Embed(description="❌ Gagal dapetin info YouTube.", color=0xFF0000)
-                    await ctx.send(embed=embed)
-                    return
-            else:
-                title = raw_url[:80]
-        else:
-            embed = discord.Embed(description=f"🔍 Cari **{raw}** di YouTube...", color=COLOR)
-            msg = await ctx.send(embed=embed)
-            info = await asyncio.to_thread(_yt_search, raw)
-            if not info:
-                embed = discord.Embed(description=f"❌ Gak nemu hasil buat \"{raw}\".", color=0xFF0000)
-                await msg.edit(embed=embed)
-                return
-            raw_url = info["audio_url"]
-            title = info.get("title", "")
-            thumbnail = info.get("thumbnail", "")
-            await msg.delete()
-        if vc.is_playing():
-            self._intentional_stop.add(ctx.guild.id)
-            vc.stop()
-            await asyncio.sleep(0.3)
-        try:
-            self._play_looping(vc, raw_url)
-            self._save_state(ctx.guild.id, vc.channel.id, raw_url)
-            embed = discord.Embed(
-                title="🎵 Now Playing",
-                description=f"**{title or 'LoFi default'}**" if title else "**LoFi default**",
-                color=COLOR
-            )
-            if thumbnail:
-                embed.set_thumbnail(url=thumbnail)
-            if _is_youtube_url(raw) and title:
-                embed.set_footer(text="Auto-restart on EOF")
-            await ctx.send(embed=embed)
-        except discord.ClientException as e:
-            embed = discord.Embed(description=f"❌ Gagal: voice belum siap. Coba `!connect` dulu. ({e})", color=0xFF0000)
-            await ctx.send(embed=embed)
-        except Exception as e:
-            embed = discord.Embed(description=f"❌ Gagal putar audio: {e}", color=0xFF0000)
-            await ctx.send(embed=embed)
-
-    @commands.command(name="stop")
-    async def stop(self, ctx: commands.Context):
-        vc = ctx.guild.voice_client
-        if not vc or not vc.is_playing():
-            embed = discord.Embed(description="Gak ada audio yang diputar.", color=COLOR)
-            await ctx.send(embed=embed)
-            return
-        self._intentional_stop.add(ctx.guild.id)
-        vc.stop()
-        embed = discord.Embed(description="⏹ Audio dihentikan", color=COLOR)
+        embed = discord.Embed(description=f"\U0001f44b Leave **{name}**", color=COLOR)
         await ctx.send(embed=embed)
 
 

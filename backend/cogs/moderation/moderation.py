@@ -451,5 +451,35 @@ class Moderation(commands.Cog):
         except Exception as e:
             print(f"[ERROR] Gagal moderasi ringan: {e}")
 
+    @commands.hybrid_command(name="purge", aliases=["clear"], description="Hapus pesan dalam jumlah banyak dari channel")
+    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_permissions(manage_messages=True)
+    @discord.app_commands.describe(amount="Jumlah pesan yang mau dihapus (1-100)", member="Hapus hanya pesan dari member tertentu")
+    async def purge(self, ctx: commands.Context, amount: int, member: discord.Member = None):
+        if amount < 1 or amount > 100:
+            embed = discord.Embed(description="Jumlah harus antara 1-100.", color=0xFF0000)
+            await ctx.send(embed=embed, ephemeral=True)
+            return
+
+        def check(msg):
+            return member is None or msg.author.id == member.id
+
+        try:
+            deleted = await ctx.channel.purge(limit=amount, check=check, bulk=True)
+        except discord.Forbidden:
+            embed = discord.Embed(description="Bot gak punya izin Manage Messages.", color=0xFF0000)
+            await ctx.send(embed=embed, ephemeral=True)
+            return
+        except Exception as e:
+            embed = discord.Embed(description=f"Gagal purge: {e}", color=0xFF0000)
+            await ctx.send(embed=embed, ephemeral=True)
+            return
+
+        embed = discord.Embed(
+            description=f"Berhasil hapus **{len(deleted)}** pesan{' dari ' + member.mention if member else ''}.",
+            color=discord.Color.green()
+        )
+        await ctx.send(embed=embed, delete_after=5)
+
 async def setup(bot):
     await bot.add_cog(Moderation(bot))

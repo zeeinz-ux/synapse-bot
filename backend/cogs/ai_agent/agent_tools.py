@@ -341,6 +341,12 @@ Contoh: run_command("connect"), run_command("play lagu viral 2026"), run_command
 
 Jika user minta "putar lagu viral" atau "cari lagu trending", gunakan web_search dulu untuk cari daftar lagu viral/trending terkini, lalu tanya user pilih yang mana, baru jalankan run_command("play ...").
 
+Untuk MODERASI CHAT (hapus/purge pesan), gunakan run_command:
+- `!purge <jumlah>` — hapus pesan dalam jumlah banyak (max 100). Butuh izin Manage Messages. Alias: `!clear`.
+- `!purge <jumlah> @user` — hapus pesan dari user tertentu saja.
+
+Contoh: run_command("purge 10"), run_command("purge 20 @mawar").
+
 ATURAN PENTING:
 
 ATURAN PENTING:

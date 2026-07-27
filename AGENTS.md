@@ -57,7 +57,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 ## AI Agent (`backend/cogs/ai_agent/`)
 
 - **ReAct loop** with Plan → Build phases. Plan prompt generates `[PLAN]...[/PLAN]`, Build executes step-by-step with `[SISA RENCANA]`.
-- **31 tools**: `server_info`, `list_channels`, `list_roles`, `create_channel`, `delete_channel`, `rename_channel`, `create_role`, `edit_role`, `delete_role`, `assign_role`, `remove_role`, `list_members`, `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `edit_channel_permissions`, `list_bans`, `edit_server`, `batch_create_channels`, `batch_create_roles`, `apply_template`, `save_snapshot`, `rollback`, `schedule_task`, `send_message`, `add_reaction`, `run_command`, `web_search`.
+- **29 tools**: `server_info`, `list_channels`, `list_roles`, `create_channel`, `delete_channel`, `rename_channel`, `create_role`, `edit_role`, `delete_role`, `assign_role`, `remove_role`, `list_members`, `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `edit_channel_permissions`, `list_bans`, `edit_server`, `batch_create_channels`, `batch_create_roles`, `apply_template`, `save_snapshot`, `rollback`, `schedule_task`, `send_message`, `add_reaction`, `run_command`, `web_search`.
 - Voice tools removed — agent uses `run_command("connect"/"play"/"leave"/"stop")` for voice.
 - **`send_message`** auto-resolves `@Username` to real mention (`<@id>`).
 - **`web_search`** uses DuckDuckGo (`backend/cogs/ai_chat/web_search.py`).
@@ -85,12 +85,15 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 
 ## Music Player (`backend/cogs/music/music.py`)
 
-- Prefix commands only: `!connect`/`!joinvc`, `!leave`, `!play`/`!p`, `!stop`.
-- YouTube playback via yt-dlp pipe (`-o -` → stdout → FFmpeg). Supports search by song name.
-- LoFi radio stream (`play.streamafrica.net/lofiradio`) auto-restarts on EOF.
+- **Hybrid commands** (slash + prefix): `/play`/`!play`/`!p`, `/search`, `/nowplaying`/`!np`, `/queue`/`!q`, `/skip`/`!next`, `/stop`/`!stop`, `/pause`, `/resume`, `/shuffle`, `/loop`/`!repeat`. Prefix-only: `!connect`/`!joinvc`, `!leave`.
+- **Queue system**: guild-based queue, auto-advance on track end. `/play` adds to queue (appends if playing, replaces if LoFi stream). `/skip` advances naturally. `/stop` clears queue. `/shuffle` randomizes remaining. `/loop off|track|queue`.
+- YouTube playback: `_yt_fetch()` via yt-dlp `--print urls --print title --print thumbnail --print webpage_url -f bestaudio/best`. Returns stable `webpage_url` (YouTube page URL) + fresh `audio_url` per resolution. Stable URL saved to Firestore, re-resolved on each play/auto-restart.
+- `/search` presents 5-result Select menu; selection auto-plays or appends to queue.
+- LoFi radio stream (`play.streamafrica.net/lofiradio`) auto-restarts on EOF (stream, non-YouTube). YouTube tracks only auto-advance queue or stop.
+- `_on_track_end`: intentional stop → skip; stream URL → auto-restart; loop track → replay; loop queue → cycle to front; else → next in queue or stop.
 - DAVE encryption via `davey>=0.1.6` + `PyNaCl==1.5.0` + `discord.py[voice]==2.7.1`.
 - Auto-resume: voice state saved to Firestore (`voice_state` collection), restored on cog `on_ready`.
-- Auto-reconnect on unexpected disconnect (5s delay), respects `_intentional_stop` flag.
+- Auto-reconnect on unexpected disconnect, respects `_intentional_stop` flag.
 - State updates on manual channel move; preserved on kick (reconnects on restart only).
 - AI Agent accesses music via `run_command("connect"/"play"/"leave"/"stop")`.
 - YouTube video IDs are case-sensitive — URL must NOT be lowercased.
