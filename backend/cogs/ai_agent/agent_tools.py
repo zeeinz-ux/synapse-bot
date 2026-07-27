@@ -294,7 +294,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "send_message",
-        "description": "Kirim pesan ke channel text tertentu. Pesan bisa berupa teks biasa atau embed sederhana.",
+        "description": "Kirim pesan ke channel text tertentu. Pesan bisa berupa teks biasa atau embed sederhana. Untuk mention user, tulis @Username — otomatis ke-resolve jadi mention beneran.",
         "parameters": {
             "channel": "string — nama channel tujuan",
             "message": "string — isi pesan yang akan dikirim (mendukung markdown Discord)",
@@ -550,7 +550,20 @@ def find_channel(guild: discord.Guild, name: str, ch_type: str = "") -> discord.
         c = discord.utils.get(channels, id=int(name))
         if c:
             return c
-    return discord.utils.get(channels, name=name)
+    # Exact match
+    c = discord.utils.get(channels, name=name)
+    if c:
+        return c
+    name_clean = _re.sub(r'^[^a-zA-Z0-9]+', '', name).strip().lower()
+    for ch in channels:
+        ch_clean = _re.sub(r'^[^a-zA-Z0-9]+', '', ch.name).strip().lower()
+        if ch_clean == name_clean:
+            return ch
+    for ch in channels:
+        ch_clean = _re.sub(r'^[^a-zA-Z0-9]+', '', ch.name).strip().lower()
+        if name_clean in ch_clean or ch_clean in name_clean:
+            return ch
+    return None
 
 
 def find_role(guild: discord.Guild, name: str) -> discord.Role | None:
@@ -1621,6 +1634,14 @@ async def _list_bans(guild: discord.Guild) -> str:
 # ── New Tools ──
 
 
+def _resolve_mention(guild: discord.Guild, name: str) -> str:
+    name = name.strip()
+    member = find_member(guild, name)
+    if member:
+        return member.mention
+    return f"@{name}"
+
+
 async def _send_message(guild: discord.Guild, args: dict) -> str:
     channel_name = args.get("channel", "").strip()
     message = args.get("message", "").strip()
@@ -1631,8 +1652,11 @@ async def _send_message(guild: discord.Guild, args: dict) -> str:
     channel = find_channel(guild, channel_name, "text")
     if not channel:
         return f'{{"success": false, "error": "Channel \\"{channel_name}\\" tidak ditemukan"}}'
+    # Auto-resolve @username ke mention Discord
+    resolved = _re.sub(r'@([\w\s]+)', lambda m: _resolve_mention(guild, m.group(1)), message)
+    allowed = discord.AllowedMentions(users=True, roles=False, everyone=False)
     try:
-        sent = await channel.send(message[:1900])
+        sent = await channel.send(resolved[:1900], allowed_mentions=allowed)
         return f'{{"success": true, "channel": "{channel_name}", "message_id": {sent.id}}}'
     except discord.Forbidden:
         return '{"success": false, "error": "Bot tidak punya izin kirim pesan di channel tersebut"}'
