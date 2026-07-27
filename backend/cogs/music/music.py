@@ -5,6 +5,7 @@ import os
 import re
 import subprocess as sp
 import time
+import json
 
 try:
     from backend.cogs.database.firebase_setup import db
@@ -35,16 +36,21 @@ def _clean_url(url: str) -> str:
 def _yt_get_info(url: str) -> dict | None:
     try:
         url = _clean_url(url)
-        args = ['yt-dlp', '--no-playlist', '--print', '%(url)s', '--print', '%(title)s',
-                '--print', '%(thumbnail)s', '-f', 'bestaudio', url, '--no-warnings']
+        args = ['yt-dlp', '--no-playlist', '--dump-json', '-f', 'bestaudio/best', url, '--no-warnings']
         if os.path.isfile(COOKIES_PATH):
             args.extend(['--cookies', COOKIES_PATH])
         result = sp.run(args, capture_output=True, text=True, timeout=30)
-        lines = [l.strip() for l in result.stdout.strip().split('\n') if l.strip()]
-        if len(lines) >= 3:
-            return {"audio_url": lines[0], "title": lines[1], "thumbnail": lines[2]}
-        if len(lines) >= 1:
-            return {"audio_url": lines[0], "title": "Unknown", "thumbnail": ""}
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+        data = json.loads(result.stdout)
+        audio_url = data.get('url') or data.get('webpage_url')
+        if not audio_url:
+            return None
+        return {
+            "audio_url": audio_url,
+            "title": data.get('title', 'Unknown'),
+            "thumbnail": data.get('thumbnail', '')
+        }
     except Exception:
         pass
     return None
@@ -52,15 +58,22 @@ def _yt_get_info(url: str) -> dict | None:
 
 def _yt_search(query: str) -> dict | None:
     try:
-        args = ['yt-dlp', '--no-playlist', '--print', '%(url)s', '--print', '%(title)s',
-                '--print', '%(thumbnail)s', '-f', 'bestaudio',
+        args = ['yt-dlp', '--no-playlist', '--dump-json', '-f', 'bestaudio/best',
                 f'ytsearch1:{query}', '--no-warnings']
         if os.path.isfile(COOKIES_PATH):
             args.extend(['--cookies', COOKIES_PATH])
         result = sp.run(args, capture_output=True, text=True, timeout=30)
-        lines = [l.strip() for l in result.stdout.strip().split('\n') if l.strip()]
-        if len(lines) >= 3 and re.search(r'(youtube\.com|youtu\.be)', lines[0]):
-            return {"audio_url": lines[0], "title": lines[1], "thumbnail": lines[2]}
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+        data = json.loads(result.stdout)
+        audio_url = data.get('url') or data.get('webpage_url')
+        if not audio_url:
+            return None
+        return {
+            "audio_url": audio_url,
+            "title": data.get('title', 'Unknown'),
+            "thumbnail": data.get('thumbnail', '')
+        }
     except Exception:
         pass
     return None
