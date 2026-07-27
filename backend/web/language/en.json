@@ -101,7 +101,12 @@
   "commands.desc.personality": "Set AI personality per channel",
   "commands.desc.antinuke_status": "Check Anti-Nuke status",
   "commands.desc.purge": "Bulk delete messages (max 100), can filter by user",
-  "commands.desc.play_slash": "Play LoFi radio",
+  "commands.desc.play_slash": "Play LoFi radio (pick a station)",
+  "commands.desc.station": "Switch station: lofi, jazz, chill, study, sleep",
+  "commands.desc.song": "Show current station",
+  "commands.desc.sleep": "Set auto-disconnect timer (minutes)",
+  "commands.desc.stop": "Leave voice channel",
+  "commands.desc.fix_voice": "Fix voice connection by reconnecting",
   "commands.desc.connect": "Bot joins a voice channel",
   "commands.desc.leave": "Bot leaves the voice channel",
 

@@ -85,7 +85,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 
 ## Music Player (`backend/cogs/music/music.py`) — LoFi Only
 
-- **Commands**: `/play` (LoFi only), `!connect`/`!joinvc`, `!leave`. No `/stop` — LoFi selalu auto-restart.
+- **Commands**: `/play`, `/station`, `/song`, `/sleep`, `/stop`, `/fix-voice`, `!connect`/`!joinvc`, `!leave`.
 - **YouTube removed**: Render IP diblokir YouTube total. Bot cuma muterin LoFi radio stream.
 - LoFi radio stream (`play.streamafrica.net/lofiradio`) auto-restarts on EOF.
 - Auto-resume: voice state saved to Firestore (`voice_state` collection), restored on cog `on_ready`.

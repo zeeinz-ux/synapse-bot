@@ -16,12 +16,27 @@ LOFI_KEYWORDS = {"lofi", "lo-fi", "lo_fi", "lofi radio", "default", "radio"}
 VOICE_STATE_COLLECTION = "voice_state"
 COLOR = 0x5865F2
 
+STATIONS = {
+    "lofi": {"url": "https://play.streamafrica.net/lofiradio", "label": "LoFi Radio"},
+    "jazz": {"url": "https://streams.calmradio.com/api/64/128/stream", "label": "LoFi Jazz"},
+    "chill": {"url": "https://streams.calmradio.com/api/1027/128/stream", "label": "LoFi Chill"},
+    "study": {"url": "https://streams.calmradio.com/api/1029/128/stream", "label": "LoFi Study"},
+    "sleep": {"url": "https://streams.calmradio.com/api/1030/128/stream", "label": "LoFi Sleep"},
+}
+
 
 class MusicCog(commands.Cog, name="Music"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._voice_states: dict[int, dict] = {}
-        self._intentional_stop: set[int] = set()
+        self._guild_stations: dict[int, str] = {}
+        self._sleep_timers: dict[int, asyncio.Task] = {}
+
+    def _station_key(self, url: str) -> str:
+        for k, v in STATIONS.items():
+            if v["url"] == url:
+                return k
+        return "lofi"
 
     def _save_state(self, guild_id: int, channel_id: int, url: str):
         data = {"guild_id": guild_id, "channel_id": channel_id, "url": url, "updated_at": time.time()}
@@ -33,9 +48,12 @@ class MusicCog(commands.Cog, name="Music"):
                 ))
             except Exception:
                 pass
+        self._guild_stations[guild_id] = self._station_key(url)
 
     def _clear_state(self, guild_id: int):
         self._voice_states.pop(guild_id, None)
+        self._guild_stations.pop(guild_id, None)
+        self._cancel_sleep(guild_id)
         if _HAS_FS and db is not None:
             try:
                 asyncio.ensure_future(asyncio.to_thread(
@@ -43,6 +61,11 @@ class MusicCog(commands.Cog, name="Music"):
                 ))
             except Exception:
                 pass
+
+    def _cancel_sleep(self, guild_id: int):
+        task = self._sleep_timers.pop(guild_id, None)
+        if task and not task.done():
+            task.cancel()
 
     async def _restore_states(self):
         if not _HAS_FS or db is None:
@@ -82,8 +105,8 @@ class MusicCog(commands.Cog, name="Music"):
 
     def _play_looping(self, vc, url: str):
         gid = vc.guild.id if vc and vc.guild else None
-        if gid is not None:
-            self._intentional_stop.discard(gid)
+        if gid:
+            self._cancel_sleep(gid)
         try:
             ffmpeg_opts = {
                 "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
@@ -95,11 +118,6 @@ class MusicCog(commands.Cog, name="Music"):
             print(f"[MUSIC] _play_looping error: {e}")
 
     def _on_track_end(self, vc, url: str, error):
-        gid = vc.guild.id if vc and vc.guild else None
-        if gid and gid in self._intentional_stop:
-            self._intentional_stop.discard(gid)
-            print(f"[MUSIC] Intentional stop for guild {gid}, not restarting.")
-            return
         if error:
             print(f"[MUSIC] Audio error: {error}")
         if not vc or not vc.is_connected():
@@ -141,8 +159,6 @@ class MusicCog(commands.Cog, name="Music"):
                 embed = discord.Embed(description=f"Udah di {channel.mention} kok.", color=COLOR)
                 await ctx.send(embed=embed)
                 return
-            if vc.is_playing():
-                self._intentional_stop.add(ctx.guild.id)
             await vc.disconnect()
             await asyncio.sleep(0.5)
         try:
@@ -161,7 +177,7 @@ class MusicCog(commands.Cog, name="Music"):
             self._save_state(ctx.guild.id, channel.id, LOFI_DEFAULT_URL)
             embed = discord.Embed(
                 title="\u25b6 Connected",
-                description=f"Join **{channel.name}** dan muterin LoFi radio.",
+                description=f"Join **{channel.name}** — **LoFi Radio**",
                 color=COLOR
             )
             await ctx.send(embed=embed)
@@ -173,7 +189,7 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="play", aliases=["p"], description="Putar LoFi radio")
-    @discord.app_commands.describe(query="Kata kunci (kosongkan atau 'lofi' untuk LoFi radio)")
+    @discord.app_commands.describe(query="Nama station (lofi, jazz, chill, study, sleep)")
     async def play(self, ctx: commands.Context, *, query: str = None):
         await ctx.defer()
         vc = ctx.guild.voice_client
@@ -184,21 +200,112 @@ class MusicCog(commands.Cog, name="Music"):
                 embed = discord.Embed(description="Bot gak di voice. Pake `!connect` dulu atau join voice dulu.", color=COLOR)
                 await ctx.send(embed=embed)
                 return
-        q = (query or "").strip().lower()
-        if q and q not in LOFI_KEYWORDS:
-            embed = discord.Embed(description=f"Maaf, hanya LoFi radio yang tersedia. Gunakan `{ctx.clean_prefix}play` atau `{ctx.clean_prefix}play lofi`.", color=COLOR)
+        key = (query or "").strip().lower()
+        if key and key not in STATIONS:
+            available = ", ".join(STATIONS.keys())
+            embed = discord.Embed(description=f"Station `{key}` gak ada. Yang tersedia: {available}", color=COLOR)
             await ctx.send(embed=embed)
             return
-        self._intentional_stop.add(ctx.guild.id)
-        vc.stop()
+        if not key:
+            key = self._guild_stations.get(ctx.guild.id, "lofi")
+        station = STATIONS[key]
+        await _safe_stop(vc)
         await asyncio.sleep(0.3)
-        self._play_looping(vc, LOFI_DEFAULT_URL)
-        self._save_state(ctx.guild.id, vc.channel.id, LOFI_DEFAULT_URL)
+        self._play_looping(vc, station["url"])
+        self._save_state(ctx.guild.id, vc.channel.id, station["url"])
         embed = discord.Embed(
             title="\u25b6 Now Playing",
-            description="**LoFi Radio** \ud83c\udfb5",
+            description=f"**{station['label']}** \ud83c\udfb5",
             color=COLOR
         )
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="station", description="Ganti station LoFi radio")
+    @discord.app_commands.describe(name="Nama station: lofi, jazz, chill, study, sleep")
+    async def station(self, ctx: commands.Context, *, name: str):
+        key = name.strip().lower()
+        if key not in STATIONS:
+            available = ", ".join(STATIONS.keys())
+            embed = discord.Embed(description=f"Station `{key}` gak ada. Yang tersedia: {available}", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        vc = ctx.guild.voice_client
+        if not vc or not vc.is_connected():
+            embed = discord.Embed(description="Bot gak di voice channel.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        station = STATIONS[key]
+        await _safe_stop(vc)
+        await asyncio.sleep(0.3)
+        self._play_looping(vc, station["url"])
+        self._save_state(ctx.guild.id, vc.channel.id, station["url"])
+        embed = discord.Embed(
+            title="\U0001f3b5 Station Changed",
+            description=f"Sekarang muterin **{station['label']}**",
+            color=COLOR
+        )
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="song", description="Lihat station yang sedang diputar")
+    async def song(self, ctx: commands.Context):
+        vc = ctx.guild.voice_client
+        if not vc or not vc.is_connected() or not vc.is_playing():
+            embed = discord.Embed(description="Gak ada audio yang diputar.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        key = self._guild_stations.get(ctx.guild.id, "lofi")
+        station = STATIONS[key]
+        embed = discord.Embed(
+            title="\u25b6 Now Playing",
+            description=f"**{station['label']}** \ud83c\udfb5",
+            color=COLOR
+        )
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="sleep", description="Set sleep timer untuk auto-disconnect")
+    @discord.app_commands.describe(minutes="Menit sampai disconnect (contoh: 15, 30, 60)")
+    async def sleep(self, ctx: commands.Context, minutes: int):
+        vc = ctx.guild.voice_client
+        if not vc or not vc.is_connected():
+            embed = discord.Embed(description="Bot gak di voice channel.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        if minutes < 1 or minutes > 180:
+            embed = discord.Embed(description="Timer harus antara 1-180 menit.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        self._cancel_sleep(ctx.guild.id)
+
+        async def _sleep_timer(gid: int, mins: int):
+            try:
+                await asyncio.sleep(mins * 60)
+                vc2 = self.bot.get_guild(gid).voice_client
+                if vc2 and vc2.is_connected():
+                    await vc2.disconnect()
+                    self._clear_state(gid)
+                    print(f"[MUSIC] Sleep timer: disconnected from guild {gid}")
+            except asyncio.CancelledError:
+                pass
+
+        self._sleep_timers[ctx.guild.id] = asyncio.create_task(_sleep_timer(ctx.guild.id, minutes))
+        embed = discord.Embed(
+            description=f"\u23f0 Sleep timer: disconnect dalam **{minutes} menit**",
+            color=COLOR
+        )
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="stop", aliases=["leave"], description="Tinggalkan voice channel")
+    async def stop(self, ctx: commands.Context):
+        vc = ctx.guild.voice_client
+        if not vc:
+            embed = discord.Embed(description="Gak ada di voice channel.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        name = vc.channel.name
+        await _safe_stop(vc)
+        await vc.disconnect()
+        self._clear_state(ctx.guild.id)
+        embed = discord.Embed(description=f"\U0001f44b Leave **{name}**", color=COLOR)
         await ctx.send(embed=embed)
 
     @commands.command(name="leave")
@@ -209,13 +316,42 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.send(embed=embed)
             return
         name = vc.channel.name
-        if vc.is_playing():
-            self._intentional_stop.add(ctx.guild.id)
-            vc.stop()
+        await _safe_stop(vc)
         await vc.disconnect()
         self._clear_state(ctx.guild.id)
         embed = discord.Embed(description=f"\U0001f44b Leave **{name}**", color=COLOR)
         await ctx.send(embed=embed)
+
+    @commands.hybrid_command(name="fix-voice", description="Fix koneksi voice dengan reconnect")
+    async def fix_voice(self, ctx: commands.Context):
+        vc = ctx.guild.voice_client
+        if not vc or not vc.is_connected():
+            embed = discord.Embed(description="Bot gak di voice channel.", color=COLOR)
+            await ctx.send(embed=embed)
+            return
+        channel = vc.channel
+        url = self._voice_states.get(ctx.guild.id, {}).get("url", LOFI_DEFAULT_URL)
+        await _safe_stop(vc)
+        await vc.disconnect()
+        await asyncio.sleep(1)
+        try:
+            vc = await channel.connect()
+            await asyncio.sleep(0.5)
+            self._play_looping(vc, url)
+            self._save_state(ctx.guild.id, channel.id, url)
+            embed = discord.Embed(description="\u2705 Voice connection fixed!", color=COLOR)
+            await ctx.send(embed=embed)
+        except Exception as e:
+            embed = discord.Embed(description=f"\u274c Gagal reconnect: {e}", color=0xFF0000)
+            await ctx.send(embed=embed)
+
+
+async def _safe_stop(vc):
+    try:
+        if vc and vc.is_playing():
+            vc.stop()
+    except Exception:
+        pass
 
 
 async def setup(bot: commands.Bot):

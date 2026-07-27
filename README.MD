@@ -70,10 +70,13 @@
 - Guild config via `/voice-config`
 
 ### 🎵 LoFi Radio
+- `/play` — play LoFi radio (pick station: lofi, jazz, chill, study, sleep)
+- `/station` — switch to a different station
+- `/song` — show current station
+- `/sleep` — auto-disconnect timer (minutes)
+- `/stop` / `!leave` — leave voice channel
+- `/fix-voice` — reconnect voice
 - `!connect` / `!joinvc` — join voice (prefix only)
-- `!leave` — leave voice (prefix only)
-- `/play` — play LoFi radio
-- LoFi radio stream (`play.streamafrica.net/lofiradio`) auto-restart on EOF
 
 ### 📊 Web Dashboard
 - Discord OAuth2 login (identify + guilds)
@@ -143,7 +146,12 @@
 
 | Command | Description |
 |---------|-------------|
-| `/play` | Putar LoFi radio |
+| `/play` | Putar LoFi radio (station: lofi, jazz, chill, study, sleep) |
+| `/station` | Ganti station |
+| `/song` | Lihat station yang diputar |
+| `/sleep` | Auto-disconnect timer (menit) |
+| `/stop` | Tinggalkan voice channel |
+| `/fix-voice` | Reconnect voice |
 | `!connect` / `!joinvc` | Bot join voice channel (prefix only) |
 | `!leave` | Bot tinggalkan voice channel (prefix only) |
 

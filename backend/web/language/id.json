@@ -101,7 +101,12 @@
   "commands.desc.personality": "Atur kepribadian AI per-channel",
   "commands.desc.antinuke_status": "Cek status Anti-Nuke",
   "commands.desc.purge": "Hapus pesan dalam jumlah banyak (max 100), bisa filter per user",
-  "commands.desc.play_slash": "Putar LoFi radio",
+  "commands.desc.play_slash": "Putar LoFi radio (bisa pilih station)",
+  "commands.desc.station": "Ganti station: lofi, jazz, chill, study, sleep",
+  "commands.desc.song": "Lihat station yang sedang diputar",
+  "commands.desc.sleep": "Set timer auto-disconnect (menit)",
+  "commands.desc.stop": "Tinggalkan voice channel",
+  "commands.desc.fix_voice": "Fix koneksi voice dengan reconnect",
   "commands.desc.connect": "Bot join voice channel",
   "commands.desc.leave": "Bot tinggalkan voice channel",
 
