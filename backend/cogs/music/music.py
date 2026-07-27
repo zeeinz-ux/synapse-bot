@@ -129,6 +129,7 @@ class MusicCog(commands.Cog, name="Music"):
                 "options": "-vn",
             }
             source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
+            vc.stop()
             vc.play(source, after=lambda e: self._on_track_end(vc, url, e))
         except Exception as e:
             print(f"[MUSIC] _play_looping error: {e}")
