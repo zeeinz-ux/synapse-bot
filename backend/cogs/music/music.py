@@ -40,18 +40,21 @@ def _clean_url(url: str) -> str:
     return url
 
 
-_YT_CLIENTS = [
-    {"youtube": {"player_client": ["android"]}},
-    {"youtube": {"player_client": ["ios"]}},
-    {"youtube": {"player_client": ["web"]}},
-    {"youtube": {"player_client": ["android_music"]}},
+_YT_ATTEMPTS = [
+    ({"youtube": {"player_client": ["android"]}}, "bestaudio*"),
+    ({"youtube": {"player_client": ["ios"]}}, "bestaudio*"),
+    ({"youtube": {"player_client": ["web"]}}, "bestaudio*"),
+    ({"youtube": {"player_client": ["android"]}}, "bestaudio/best"),
+    ({"youtube": {"player_client": ["ios"]}}, "bestaudio/best"),
+    ({"youtube": {"player_client": ["web"]}}, "bestaudio/best"),
+    ({"youtube": {"player_client": ["android"]}}, "worstaudio/worst"),
 ]
 
 def _yt_fetch(url_or_query: str) -> dict | None:
     cookies_file = _get_cookies_path()
-    for idx, extra_args in enumerate(_YT_CLIENTS):
+    for idx, (extra_args, fmt) in enumerate(_YT_ATTEMPTS):
         opts = {
-            "format": "bestaudio/best",
+            "format": fmt,
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
@@ -76,7 +79,7 @@ def _yt_fetch(url_or_query: str) -> dict | None:
                 title = data.get("title", "Unknown")
                 if isinstance(title, str):
                     title = title.encode("utf-8", errors="replace").decode("utf-8")
-                print(f"[MUSIC] yt-dlp client#{idx} OK: {title[:60]}")
+                print(f"[MUSIC] attempt#{idx} ({fmt}) OK: {title[:60]}")
                 return {
                     "audio_url": audio_url,
                     "title": title,
@@ -84,8 +87,8 @@ def _yt_fetch(url_or_query: str) -> dict | None:
                     "webpage_url": data.get("webpage_url", ""),
                 }
         except Exception as e:
-            print(f"[MUSIC] yt-dlp client#{idx} error: {e}")
-    print(f"[MUSIC] all {len(_YT_CLIENTS)} clients failed for: {url_or_query[:80]}")
+            print(f"[MUSIC] attempt#{idx} ({fmt}) error: {e}")
+    print(f"[MUSIC] all {len(_YT_ATTEMPTS)} attempts failed for: {url_or_query[:80]}")
     return None
 
 
