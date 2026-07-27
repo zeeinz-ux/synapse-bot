@@ -52,6 +52,12 @@ _YT_CLIENTS_FALLBACK = [
 ]
 
 _PO_TOKEN_RAW = os.environ.get("YOUTUBE_PO_TOKEN") or os.environ.get("PO_TOKEN", "")
+if _PO_TOKEN_RAW:
+    print(f"[MUSIC] PO_TOKEN detected ({len(_PO_TOKEN_RAW)} chars)", flush=True)
+    print(f"[MUSIC] PO_TOKEN first 20: {_PO_TOKEN_RAW[:20]}...", flush=True)
+else:
+    print("[MUSIC] PO_TOKEN not set in env (checked YOUTUBE_PO_TOKEN and PO_TOKEN)", flush=True)
+    print(f"[MUSIC] Env keys with PO: {[k for k in os.environ if 'PO' in k.upper() or 'TOKEN' in k.upper()]}", flush=True)
 
 def _build_extractor_args(client_list: list[str], use_cookies: bool, use_po: bool) -> dict:
     ea = {"youtube": {"player_client": client_list}}
