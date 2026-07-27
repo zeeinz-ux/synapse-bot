@@ -41,13 +41,13 @@ def _clean_url(url: str) -> str:
 
 
 _YT_ATTEMPTS = [
+    ({}, "bestaudio*"),
+    ({}, "ba/b"),
+    ({"youtube": {"player_client": ["tv_downgraded"]}}, "bestaudio*"),
+    ({"youtube": {"player_client": ["web"]}}, "bestaudio*"),
     ({"youtube": {"player_client": ["android"]}}, "bestaudio*"),
     ({"youtube": {"player_client": ["ios"]}}, "bestaudio*"),
-    ({"youtube": {"player_client": ["web"]}}, "bestaudio*"),
-    ({"youtube": {"player_client": ["android"]}}, "bestaudio/best"),
-    ({"youtube": {"player_client": ["ios"]}}, "bestaudio/best"),
-    ({"youtube": {"player_client": ["web"]}}, "bestaudio/best"),
-    ({"youtube": {"player_client": ["android"]}}, "worstaudio/worst"),
+    ({"youtube": {"player_client": ["web"]}}, "ba/b"),
 ]
 
 def _yt_fetch(url_or_query: str) -> dict | None:
