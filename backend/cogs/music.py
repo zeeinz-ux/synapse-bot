@@ -1,13 +1,22 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import asyncio
 import os
 import re
 import subprocess as sp
+import time
+
+try:
+    from backend.cogs.database.firebase_setup import db
+    _HAS_FS = True
+except Exception:
+    db = None
+    _HAS_FS = False
 
 LOFI_DEFAULT_URL = "https://play.streamafrica.net/lofiradio"
 LOFI_KEYWORDS = {"lofi", "lo-fi", "lo_fi", "lofi radio", "default", "radio"}
 COOKIES_PATH = "cookies/cookies.txt"
+VOICE_STATE_COLLECTION = "voice_state"
 
 
 def _is_youtube_url(url: str) -> bool:
@@ -33,9 +42,78 @@ def _make_ytdl_source(url: str):
 class MusicCog(commands.Cog, name="Music"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self._voice_states: dict[int, dict] = {}
+
+    def _save_state(self, guild_id: int, channel_id: int, url: str):
+        data = {"guild_id": guild_id, "channel_id": channel_id, "url": url, "updated_at": time.time()}
+        self._voice_states[guild_id] = data
+        if _HAS_FS and db is not None:
+            try:
+                asyncio.ensure_future(asyncio.to_thread(
+                    lambda: db.collection(VOICE_STATE_COLLECTION).document(str(guild_id)).set(data)
+                ))
+            except Exception:
+                pass
+
+    def _clear_state(self, guild_id: int):
+        self._voice_states.pop(guild_id, None)
+        if _HAS_FS and db is not None:
+            try:
+                asyncio.ensure_future(asyncio.to_thread(
+                    lambda: db.collection(VOICE_STATE_COLLECTION).document(str(guild_id)).delete()
+                ))
+            except Exception:
+                pass
+
+    async def _restore_states(self):
+        if not _HAS_FS or db is None:
+            return
+        try:
+            docs = await asyncio.to_thread(
+                lambda: list(db.collection(VOICE_STATE_COLLECTION).stream())
+            )
+        except Exception:
+            return
+        for doc in docs:
+            data = doc.to_dict()
+            if not data:
+                continue
+            gid = data.get("guild_id")
+            cid = data.get("channel_id")
+            url = data.get("url", LOFI_DEFAULT_URL)
+            if not gid or not cid:
+                continue
+            guild = self.bot.get_guild(int(gid))
+            if not guild:
+                continue
+            channel = guild.get_channel(int(cid))
+            if not channel or not isinstance(channel, discord.VoiceChannel):
+                continue
+            vc = guild.voice_client
+            if vc:
+                continue
+            try:
+                vc = await channel.connect()
+                await asyncio.sleep(0.5)
+                self._play_looping(vc, url)
+                self._save_state(guild.id, channel.id, url)
+                print(f"[MUSIC] Auto-resume: {guild.name} / {channel.name}")
+            except Exception as e:
+                print(f"[MUSIC] Auto-resume failed for {guild.name}: {e}")
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        await asyncio.sleep(3)
+        await self._restore_states()
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
+        if member.id != self.bot.user.id:
+            return
+        if before.channel and not after.channel:
+            self._clear_state(member.guild.id)
 
     def _play_looping(self, vc, url: str):
-        """Play with auto-restart on EOF."""
         try:
             if _is_youtube_url(url):
                 url = _clean_url(url)
@@ -83,6 +161,7 @@ class MusicCog(commands.Cog, name="Music"):
         await asyncio.sleep(0.5)
         try:
             self._play_looping(vc, LOFI_DEFAULT_URL)
+            self._save_state(ctx.guild.id, channel.id, LOFI_DEFAULT_URL)
             await ctx.send(f"✅ Join **{channel.name}** 🎵 LoFi (auto-restart)")
         except discord.ClientException:
             await ctx.send(f"✅ Join **{channel.name}** (voice tersambung, tapi audio error)")
@@ -99,6 +178,7 @@ class MusicCog(commands.Cog, name="Music"):
         if vc.is_playing():
             vc.stop()
         await vc.disconnect()
+        self._clear_state(ctx.guild.id)
         await ctx.send(f"✅ Leave **{name}**")
 
     @commands.command(name="play", aliases=["p"])
@@ -125,6 +205,7 @@ class MusicCog(commands.Cog, name="Music"):
             await asyncio.sleep(0.3)
         try:
             self._play_looping(vc, raw_url)
+            self._save_state(ctx.guild.id, vc.channel.id, raw_url)
             label = "LoFi default" if not stream else (_clean_url(raw_url)[:80] if _is_youtube_url(raw_url) else raw_url[:80])
             await ctx.send(f"🎵 Putar **{label}** (auto-restart)")
         except discord.ClientException as e:
