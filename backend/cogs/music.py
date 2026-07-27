@@ -45,6 +45,29 @@ class MusicCog(commands.Cog, name="Music"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    def _get_ffmpeg_opts(self):
+        return {
+            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
+            "options": "-vn",
+        }
+
+    def _play_looping(self, vc, url: str):
+        """Play with auto-restart on EOF."""
+        ffmpeg_opts = self._get_ffmpeg_opts()
+        try:
+            src = _resolve_url(url)
+            source = discord.FFmpegPCMAudio(src, **ffmpeg_opts)
+            vc.play(source, after=lambda e: self._on_audio_end(vc, url, e))
+        except Exception as e:
+            print(f"[MUSIC] _play_looping error: {e}")
+
+    def _on_audio_end(self, vc, url: str, error):
+        if error:
+            print(f"[MUSIC] Audio error: {error}")
+        if vc and vc.channel:
+            print(f"[MUSIC] Audio ended, restarting...")
+            self._play_looping(vc, url)
+
     @commands.command(name="connect", aliases=["joinvc"])
     async def connect(self, ctx: commands.Context, *, channel: discord.VoiceChannel = None):
         if not channel:
@@ -69,18 +92,11 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.send(f"❌ Gagal: {e}")
             return
         await asyncio.sleep(0.5)
-        url = LOFI_DEFAULT_URL
-        ffmpeg_opts = {
-            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
-            "options": "-vn",
-        }
         try:
-            src = _resolve_url(url)
-            source = discord.FFmpegPCMAudio(src, **ffmpeg_opts)
-            vc.play(source, after=lambda e: print(f"[MUSIC] Stream ended: {e}") if e else None)
-            await ctx.send(f"✅ Join **{channel.name}** 🎵 LoFi")
+            self._play_looping(vc, LOFI_DEFAULT_URL)
+            await ctx.send(f"✅ Join **{channel.name}** 🎵 LoFi (auto-restart)")
         except discord.ClientException:
-            await ctx.send(f"✅ Join **{channel.name}** (voice tersambung, tapi audio error — coba `!play` lagi)")
+            await ctx.send(f"✅ Join **{channel.name}** (voice tersambung, tapi audio error)")
         except Exception:
             await ctx.send(f"✅ Join **{channel.name}**")
 
@@ -114,21 +130,15 @@ class MusicCog(commands.Cog, name="Music"):
         else:
             await ctx.send("Kalo mau LoFi tinggal `!play` aja (tanpa nama). Kalo mau link, kirim URL lengkapnya.")
             return
-        ffmpeg_opts = {
-            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
-            "options": "-vn",
-        }
         if vc.is_playing():
             vc.stop()
             await asyncio.sleep(0.3)
         try:
-            url = _resolve_url(raw_url)
-            source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
-            vc.play(source, after=lambda e: print(f"[MUSIC] Playback ended: {e}") if e else None)
+            self._play_looping(vc, raw_url)
             label = "LoFi default" if not stream else (raw_url[:60] if _is_youtube_url(raw_url) else raw_url[:60])
-            await ctx.send(f"🎵 Putar **{label}**")
+            await ctx.send(f"🎵 Putar **{label}** (auto-restart)")
         except discord.ClientException as e:
-            await ctx.send(f"❌ Gagal: voice belum siap. Coba `!connect` dulu atau tunggu bentar. ({e})")
+            await ctx.send(f"❌ Gagal: voice belum siap. Coba `!connect` dulu. ({e})")
         except Exception as e:
             await ctx.send(f"❌ Gagal putar audio: {e}")
 
