@@ -41,13 +41,13 @@ def _clean_url(url: str) -> str:
 
 
 _YT_ATTEMPTS = [
+    ({}, "worst"),
+    ({}, "worstaudio/worst"),
     ({}, "bestaudio*"),
-    ({}, "ba/b"),
-    ({"youtube": {"player_client": ["tv_downgraded"]}}, "bestaudio*"),
-    ({"youtube": {"player_client": ["web"]}}, "bestaudio*"),
-    ({"youtube": {"player_client": ["android"]}}, "bestaudio*"),
-    ({"youtube": {"player_client": ["ios"]}}, "bestaudio*"),
-    ({"youtube": {"player_client": ["web"]}}, "ba/b"),
+    ({"youtube": {"player_client": ["tv_downgraded"]}}, "worst"),
+    ({"youtube": {"player_client": ["web"]}}, "worst"),
+    ({"youtube": {"player_client": ["android"]}}, "worst"),
+    ({"youtube": {"player_client": ["ios"]}}, "worst"),
 ]
 
 def _yt_fetch(url_or_query: str) -> dict | None:
@@ -61,7 +61,7 @@ def _yt_fetch(url_or_query: str) -> dict | None:
             "ignoreerrors": True,
             "extract_flat": False,
             "socket_timeout": 15,
-            "extractor_retries": 2,
+            "extractor_retries": 0,
             "extractor_args": extra_args,
         }
         if cookies_file:
@@ -70,11 +70,15 @@ def _yt_fetch(url_or_query: str) -> dict | None:
             with YoutubeDL(opts) as ydl:
                 data = ydl.extract_info(url_or_query, download=False)
                 if not data:
+                    print(f"[MUSIC] attempt#{idx} ({fmt}): no data")
                     continue
                 if data.get("is_live"):
+                    print(f"[MUSIC] attempt#{idx} ({fmt}): is live")
                     continue
                 audio_url = data.get("url") or ""
                 if not audio_url:
+                    formats = data.get("formats", [])
+                    print(f"[MUSIC] attempt#{idx} ({fmt}): no url, {len(formats)} formats")
                     continue
                 title = data.get("title", "Unknown")
                 if isinstance(title, str):
@@ -87,7 +91,7 @@ def _yt_fetch(url_or_query: str) -> dict | None:
                     "webpage_url": data.get("webpage_url", ""),
                 }
         except Exception as e:
-            print(f"[MUSIC] attempt#{idx} ({fmt}) error: {e}")
+            print(f"[MUSIC] attempt#{idx} ({fmt}) exception: {e}")
     print(f"[MUSIC] all {len(_YT_ATTEMPTS)} attempts failed for: {url_or_query[:80]}")
     return None
 
