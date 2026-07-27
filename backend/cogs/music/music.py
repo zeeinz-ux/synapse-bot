@@ -288,6 +288,8 @@ class MusicCog(commands.Cog, name="Music"):
             except Exception as e:
                 print(f"[MUSIC] Auto-resume failed for {guild.name}: {e}")
 
+    MAX_QUEUE_SIZE = 20
+
     # --- queue helpers ---
     def _ensure_queue(self, guild_id: int):
         if guild_id not in self._queues:
@@ -297,8 +299,11 @@ class MusicCog(commands.Cog, name="Music"):
 
     def _add_to_queue(self, guild_id: int, track: dict) -> int:
         self._ensure_queue(guild_id)
-        self._queues[guild_id].append(track)
-        return len(self._queues[guild_id]) - 1
+        q = self._queues[guild_id]
+        if len(q) >= self.MAX_QUEUE_SIZE:
+            return -1
+        q.append(track)
+        return len(q) - 1
 
     def _clear_queue(self, guild_id: int):
         self._queues.pop(guild_id, None)
@@ -503,7 +508,8 @@ class MusicCog(commands.Cog, name="Music"):
                 self._intentional_stop.add(ctx.guild.id)
                 vc.stop()
                 await asyncio.sleep(0.3)
-                self._add_to_queue(ctx.guild.id, track)
+                self._ensure_queue(ctx.guild.id)
+                self._queues[ctx.guild.id].append(track)
                 self._current_index[ctx.guild.id] = len(self._queues[ctx.guild.id]) - 1
                 self._now_playing[ctx.guild.id] = track
                 self._play_looping(vc, track["url"])
@@ -520,6 +526,10 @@ class MusicCog(commands.Cog, name="Music"):
                     await ctx.send(embed=embed)
             else:
                 pos = self._add_to_queue(ctx.guild.id, track)
+                if pos == -1:
+                    embed = discord.Embed(description=f"\U0001f6ab Queue penuh (max {self.MAX_QUEUE_SIZE})!", color=0xFF0000)
+                    await ctx.send(embed=embed)
+                    return
                 embed = discord.Embed(
                     title="\u2795 Added to Queue",
                     description=f"**{track['title']}**\nPosisi #{pos + 1}",
@@ -530,7 +540,13 @@ class MusicCog(commands.Cog, name="Music"):
                 embed.set_footer(text=f"Diminta oleh {ctx.author}")
                 await ctx.send(embed=embed)
         else:
-            self._add_to_queue(ctx.guild.id, track)
+            q = self._queues.get(ctx.guild.id, [])
+            if len(q) >= self.MAX_QUEUE_SIZE:
+                embed = discord.Embed(description=f"\U0001f6ab Queue penuh (max {self.MAX_QUEUE_SIZE})!", color=0xFF0000)
+                await ctx.send(embed=embed)
+                return
+            self._ensure_queue(ctx.guild.id)
+            self._queues[ctx.guild.id].append(track)
             self._current_index[ctx.guild.id] = len(self._queues[ctx.guild.id]) - 1
             self._now_playing[ctx.guild.id] = track
             self._play_looping(vc, track["url"])
