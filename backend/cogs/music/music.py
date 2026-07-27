@@ -347,13 +347,10 @@ class MusicCog(commands.Cog, name="Music"):
             if _is_youtube_url(url):
                 import subprocess as _sp
                 clean = _clean_url(url)
-                cookies_file = _get_cookies_path()
-                clients = ['tv', 'mweb', 'android_vr', 'visionos']
-                extractor_args = 'youtube:player_client=' + ','.join(clients)
+                ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+                extractor_args = 'youtube:player_skip=webpage,configs'
                 if _PO_TOKEN_RAW:
-                    for c in clients:
-                        for ctx in ['gvs', 'player']:
-                            extractor_args += f';po_token={c}.{ctx}+{_PO_TOKEN_RAW}'
+                    extractor_args += f';po_token={_PO_TOKEN_RAW}'
                 ytdlp_args = [
                     sys.executable, '-m', 'yt_dlp',
                     '--format', 'ba/b',
@@ -362,9 +359,9 @@ class MusicCog(commands.Cog, name="Music"):
                     '--quiet',
                     '--no-warnings',
                     '--extractor-args', extractor_args,
+                    '--add-header', f'User-Agent:{ua}',
+                    '--add-header', 'Referer:https://www.youtube.com',
                 ]
-                if cookies_file:
-                    ytdlp_args.extend(['--cookies', cookies_file])
                 ytdlp_args.append(clean)
                 print(f"[MUSIC] Spawning yt-dlp subprocess for {clean[:60]}...", flush=True)
                 print(f"[MUSIC] yt-dlp extractor_args: {extractor_args[:100]}", flush=True)
