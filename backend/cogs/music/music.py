@@ -49,9 +49,12 @@ def _yt_fetch(url_or_query: str) -> dict | None:
         if not audio_url:
             print(f"[MUSIC] yt-dlp JSON has no url field. Keys: {list(data.keys())[:15]}")
             return None
+        title = data.get('title', 'Unknown')
+        if isinstance(title, str):
+            title = title.encode('utf-8', errors='replace').decode('utf-8')
         return {
             "audio_url": audio_url,
-            "title": data.get('title', 'Unknown'),
+            "title": title,
             "thumbnail": data.get('thumbnail', ''),
             "webpage_url": data.get('webpage_url', '')
         }
@@ -121,7 +124,8 @@ class SearchSelect(discord.ui.Select):
             )
             if track.get("thumbnail"):
                 embed.set_thumbnail(url=track["thumbnail"])
-        await interaction.followup.send(embed=embed)
+        if not self.cog._is_now_playing_dup(gid, track):
+            await interaction.followup.send(embed=embed)
 
 
 class SearchView(discord.ui.View):
@@ -139,6 +143,8 @@ class MusicCog(commands.Cog, name="Music"):
         self._current_index: dict[int, int] = {}
         self._loop_mode: dict[int, str] = {}
         self._now_playing: dict[int, dict] = {}
+        self._last_now_playing_url: dict[int, str] = {}
+        self._last_now_playing_at: dict[int, float] = {}
 
     # --- state persistence ---
     def _save_state(self, guild_id: int, channel_id: int, url: str):
@@ -214,6 +220,18 @@ class MusicCog(commands.Cog, name="Music"):
         self._queues.pop(guild_id, None)
         self._current_index.pop(guild_id, None)
         self._now_playing.pop(guild_id, None)
+        self._last_now_playing_at.pop(guild_id, None)
+        self._last_now_playing_url.pop(guild_id, None)
+
+    def _is_now_playing_dup(self, guild_id: int, track: dict) -> bool:
+        now = time.time()
+        last_url = self._last_now_playing_url.get(guild_id)
+        last_at = self._last_now_playing_at.get(guild_id, 0)
+        if last_url == track.get("url") and now - last_at < 2:
+            return True
+        self._last_now_playing_url[guild_id] = track.get("url", "")
+        self._last_now_playing_at[guild_id] = now
+        return False
 
     # --- playback core ---
     def _play_looping(self, vc, url: str):
@@ -385,7 +403,7 @@ class MusicCog(commands.Cog, name="Music"):
             else:
                 track = {"url": url, "title": url[:80], "thumbnail": "", "requester": str(ctx.author)}
         else:
-            embed = discord.Embed(description=f"\ud83d\udd0d Cari **{q}** di YouTube...", color=COLOR)
+            embed = discord.Embed(description="\U0001F50D Cari **{}** di YouTube...".format(q), color=COLOR)
             msg = await ctx.send(embed=embed)
             info = await asyncio.to_thread(_yt_fetch, f'ytsearch1:{q}')
             if not info or not info.get("audio_url"):
@@ -414,8 +432,8 @@ class MusicCog(commands.Cog, name="Music"):
                     embed.set_thumbnail(url=track["thumbnail"])
                 embed.set_footer(text=f"Diminta oleh {ctx.author}")
                 self._save_state(ctx.guild.id, vc.channel.id, track["url"])
-                embed.set_footer(text=f"Diminta oleh {ctx.author}")
-                await ctx.send(embed=embed)
+                if not self._is_now_playing_dup(ctx.guild.id, track):
+                    await ctx.send(embed=embed)
             else:
                 pos = self._add_to_queue(ctx.guild.id, track)
                 embed = discord.Embed(
@@ -441,7 +459,8 @@ class MusicCog(commands.Cog, name="Music"):
             if track["thumbnail"]:
                 embed.set_thumbnail(url=track["thumbnail"])
             embed.set_footer(text=f"Diminta oleh {ctx.author}")
-            await ctx.send(embed=embed)
+            if not self._is_now_playing_dup(ctx.guild.id, track):
+                await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="search", description="Cari dan pilih lagu dari YouTube")
     @discord.app_commands.describe(query="Kata kunci pencarian")
@@ -452,7 +471,7 @@ class MusicCog(commands.Cog, name="Music"):
             embed = discord.Embed(description="Masukin kata kunci pencarian.", color=COLOR)
             await ctx.send(embed=embed, ephemeral=True)
             return
-        loading = discord.Embed(description=f"\ud83d\udd0d Mencari **{q}**...", color=COLOR)
+        loading = discord.Embed(description="\U0001F50D Mencari **{}**...".format(q), color=COLOR)
         await ctx.send(embed=loading)
         tracks = []
         for i in range(5):
@@ -465,7 +484,7 @@ class MusicCog(commands.Cog, name="Music"):
             return
         view = SearchView(tracks, self)
         embed = discord.Embed(
-            title="\ud83d\udd0d Hasil Pencarian",
+            title="\U0001F50D Hasil Pencarian",
             description=f"Pilih lagu dari hasil pencarian **{q}**:",
             color=COLOR
         )
@@ -573,7 +592,7 @@ class MusicCog(commands.Cog, name="Music"):
             random.shuffle(q)
             self._queues[ctx.guild.id] = q
             self._current_index[ctx.guild.id] = -1
-        embed = discord.Embed(description="\ud83d\udd00 Queue di-acak!", color=COLOR)
+        embed = discord.Embed(description="\U0001F500 Queue di-acak!", color=COLOR)
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="loop", aliases=["repeat"], description="Set mode loop: off, track, atau queue")
@@ -590,7 +609,7 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.send(embed=embed)
             return
         self._loop_mode[ctx.guild.id] = m
-        embed = discord.Embed(description=f"\ud83d\udd01 Loop: **{m}**", color=COLOR)
+        embed = discord.Embed(description="\U0001F501 Loop: **{}**".format(m), color=COLOR)
         await ctx.send(embed=embed)
 
     @commands.command(name="leave")

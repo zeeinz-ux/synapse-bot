@@ -311,9 +311,9 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "run_command",
-        "description": "Jalankan command Synapse Bot (prefix ! atau /). Gunakan untuk perintah Synapse Bot yang tidak ada tool khususnya, seperti ngecek rank, leaderboard, boost status, help, purge, dll. CATATAN: hanya bisa menjalankan command milik Synapse Bot saja — TIDAK bisa menjalankan command milik bot lain (Dyno, Carl-bot, MEE6, dll). HATI-HATI: command yang mengubah data server hanya jalan jika authorized.",
+        "description": "Jalankan command Synapse Bot (prefix ! atau /). Gunakan untuk perintah Synapse Bot termasuk VOICE (join/leave/play/stop), MODERASI (purge/clear), dan info (rank/leaderboard/help). Contoh: 'play ...', 'leave', 'connect', 'stop', 'purge 10', 'rank @user'. CATATAN: hanya bisa menjalankan command milik Synapse Bot saja — TIDAK bisa menjalankan command milik bot lain (Dyno, Carl-bot, MEE6, dll). HATI-HATI: command yang mengubah data server hanya jalan jika authorized.",
         "parameters": {
-            "command": "string — command Synapse Bot yang ingin dijalankan beserta argumennya. Contoh: 'rank @user', 'help', 'leaderboard', 'cekboost @user', 'purge 100'",
+            "command": "string — command Synapse Bot yang ingin dijalankan beserta argumennya. Contoh: 'play iwan fals', 'leave', 'connect', 'stop', 'rank @user', 'help', 'leaderboard', 'purge 100'",
             "channel": "string — (opsional) nama channel tujuan jika command perlu dijalankan di channel tertentu. Contoh: '🎶・req-music'. Kosongkan untuk channel saat ini.",
         },
     },
@@ -1797,7 +1797,20 @@ async def _run_command(guild: discord.Guild, args: dict, bot, channel, author) -
                 captured.append(str(content)[:200])
             elif kwargs.get("embed") and kwargs["embed"].description:
                 captured.append(kwargs["embed"].description[:200])
-            return await original_send(content, **kwargs)
+            try:
+                return await original_send(content, **kwargs)
+            except (TypeError, UnicodeEncodeError) as e:
+                if "surrogates" in str(e).lower():
+                    if content:
+                        content = content.encode('utf-8', errors='replace').decode('utf-8')
+                    if kwargs.get("embed"):
+                        embed = kwargs["embed"]
+                        for field in ('title', 'description'):
+                            val = getattr(embed, field, None)
+                            if val:
+                                setattr(embed, field, val.encode('utf-8', errors='replace').decode('utf-8'))
+                    return await original_send(content, **kwargs)
+                raise
         ctx.send = _captured_send
 
         original_reply = ctx.reply
@@ -1806,7 +1819,20 @@ async def _run_command(guild: discord.Guild, args: dict, bot, channel, author) -
                 captured.append(str(content)[:200])
             elif kwargs.get("embed") and kwargs["embed"].description:
                 captured.append(kwargs["embed"].description[:200])
-            return await original_reply(content, **kwargs)
+            try:
+                return await original_reply(content, **kwargs)
+            except (TypeError, UnicodeEncodeError) as e:
+                if "surrogates" in str(e).lower():
+                    if content:
+                        content = content.encode('utf-8', errors='replace').decode('utf-8')
+                    if kwargs.get("embed"):
+                        embed = kwargs["embed"]
+                        for field in ('title', 'description'):
+                            val = getattr(embed, field, None)
+                            if val:
+                                setattr(embed, field, val.encode('utf-8', errors='replace').decode('utf-8'))
+                    return await original_reply(content, **kwargs)
+                raise
         ctx.reply = _captured_reply
 
         await bot.invoke(ctx)
