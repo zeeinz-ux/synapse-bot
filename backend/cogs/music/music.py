@@ -51,18 +51,24 @@ _YT_CLIENTS_FALLBACK = [
     ["web_safari"],
 ]
 
-YOUTUBE_PO_TOKEN_RAW = os.environ.get("YOUTUBE_PO_TOKEN") or os.environ.get("PO_TOKEN", "")
-_YOUTUBE_PO_TOKENS = [t.strip() for t in YOUTUBE_PO_TOKEN_RAW.split(",") if t.strip()] if YOUTUBE_PO_TOKEN_RAW else []
+_PO_TOKEN_RAW = os.environ.get("YOUTUBE_PO_TOKEN") or os.environ.get("PO_TOKEN", "")
 
-def _build_extractor_args(client_list: list[str], use_po_token: bool = False) -> dict:
+def _build_extractor_args(client_list: list[str], use_cookies: bool, use_po: bool) -> dict:
     ea = {"youtube": {"player_client": client_list}}
-    if use_po_token and _YOUTUBE_PO_TOKENS:
-        ea["youtube"]["po_token"] = _YOUTUBE_PO_TOKENS
+    if use_po and _PO_TOKEN_RAW:
+        contexts = ["gvs", "player"]
+        prefixed = []
+        for ctx in contexts:
+            for c in client_list:
+                prefixed.append(f"{c}.{ctx}+{_PO_TOKEN_RAW}")
+        ea["youtube"]["po_token"] = prefixed
+    if not use_cookies:
+        ea["youtube"]["player_skip"] = ["webpage", "configs"]
     return ea
 
 def _yt_fetch(url_or_query: str) -> dict | None:
     cookies_file = _get_cookies_path()
-    has_po = bool(_YOUTUBE_PO_TOKENS)
+    has_po = bool(_PO_TOKEN_RAW)
 
     # Phases: no-cookie -> cookie -> cookie+po_token
     # Preferred clients tried first, fallback clients only if preferred fail
@@ -81,7 +87,7 @@ def _yt_fetch(url_or_query: str) -> dict | None:
             client_groups = _YT_CLIENTS_PREFERRED + _YT_CLIENTS_FALLBACK
         for clients in client_groups:
             for fmt in _YT_FORMATS:
-                ea = _build_extractor_args(clients, use_po)
+                ea = _build_extractor_args(clients, use_cookies, use_po)
                 opts = dict(format=fmt)
                 opts.update(
                     noplaylist=True,
