@@ -44,6 +44,7 @@ def _clean_url(url: str) -> str:
 _YT_FORMATS = ["ba/b", "bestaudio*", "worstaudio/worst"]
 _YT_CLIENTS_PREFERRED = [
     ["tv", "mweb", "android_vr", "visionos"],
+    ["web"],
     ["android"],
 ]
 _YT_CLIENTS_FALLBACK = [
@@ -75,6 +76,9 @@ def _build_extractor_args(client_list: list[str], use_cookies: bool, use_po: boo
 def _yt_fetch(url_or_query: str) -> dict | None:
     cookies_file = _get_cookies_path()
     has_po = bool(_PO_TOKEN_RAW)
+    print(f"[MUSIC DEBUG] _PO_TOKEN_RAW len={len(_PO_TOKEN_RAW)} has_po={has_po}", flush=True)
+    if has_po:
+        print(f"[MUSIC DEBUG] PO_TOKEN prefix: {_PO_TOKEN_RAW[:30]}...", flush=True)
 
     # Phases: no-cookie -> cookie -> cookie+po_token
     # Preferred clients tried first, fallback clients only if preferred fail
@@ -115,30 +119,19 @@ def _yt_fetch(url_or_query: str) -> dict | None:
                             continue
                         if data.get("is_live"):
                             continue
-                        audio_url = data.get("url") or ""
-                        if not audio_url:
-                            rf = data.get("requested_formats") or []
-                            if rf:
-                                audio_url = rf[0].get("url") or ""
-                        if not audio_url:
-                            formats = data.get("formats", [])
-                            print(f"[MUSIC] {tag} (clients={clients}, fmt={fmt}): no url, {len(formats)} formats", flush=True)
-                            for i, f in enumerate(formats[:5]):
-                                fid = f.get("format_id", "?")
-                                ac = f.get("acodec", "?")
-                                abr = f.get("abr", 0)
-                                furll = bool(f.get("url", ""))
-                                print(f"  format[{i}]: {fid} acodec={ac} abr={abr} has_url={furll}", flush=True)
-                            continue
                         title = data.get("title", "Unknown")
                         if isinstance(title, str):
                             title = title.encode("utf-8", errors="replace").decode("utf-8")
-                        print(f"[MUSIC] {tag} (clients={clients}, fmt={fmt}) OK: {title[:60]}", flush=True)
+                        webpage_url = data.get("webpage_url") or data.get("url", "")
+                        if not webpage_url:
+                            formats = data.get("formats", [])
+                            print(f"[MUSIC] {tag} (clients={clients}, fmt={fmt}): no webpage_url, {len(formats)} formats", flush=True)
+                            continue
+                        print(f"[MUSIC] {tag} (clients={clients}, fmt={fmt}) metadata: {title[:60]}", flush=True)
                         return {
-                            "audio_url": audio_url,
+                            "webpage_url": webpage_url,
                             "title": title,
                             "thumbnail": data.get("thumbnail", ""),
-                            "webpage_url": data.get("webpage_url", ""),
                         }
                 except Exception as e:
                     print(f"[MUSIC] {tag} (clients={clients}, fmt={fmt}) exception: {e}", flush=True)
@@ -330,13 +323,22 @@ class MusicCog(commands.Cog, name="Music"):
         try:
             source = None
             if _is_youtube_url(url):
-                info = _yt_fetch(url)
-                if info and info.get("audio_url"):
-                    ffmpeg_opts = {
-                        "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
-                        "options": "-vn",
-                    }
-                    source = discord.FFmpegPCMAudio(info["audio_url"], **ffmpeg_opts)
+                import subprocess as _sp
+                cookies_file = _get_cookies_path()
+                ytdlp_args = [
+                    sys.executable, '-m', 'yt_dlp',
+                    '--format', 'ba/b',
+                    '--output', '-',
+                    '--no-playlist',
+                    '--quiet',
+                    '--no-warnings',
+                    '--extractor-args', 'youtube:player_client=tv,mweb,android_vr,visionos',
+                ]
+                if cookies_file:
+                    ytdlp_args.extend(['--cookies', cookies_file])
+                ytdlp_args.append(url)
+                proc = _sp.Popen(ytdlp_args, stdout=_sp.PIPE, stderr=_sp.DEVNULL)
+                source = discord.FFmpegPCMAudio(proc.stdout, pipe=True)
             else:
                 ffmpeg_opts = {
                     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
@@ -483,19 +485,17 @@ class MusicCog(commands.Cog, name="Music"):
             url = _clean_url(q)
             if _is_youtube_url(url):
                 info = await asyncio.to_thread(_yt_fetch, url)
-                if info and info.get("audio_url"):
+                if info:
                     track = {"url": info["webpage_url"] or url, "title": info.get("title", "Unknown"), "thumbnail": info.get("thumbnail", ""), "requester": str(ctx.author)}
                 else:
-                    embed = discord.Embed(description="\u274c Gagal dapetin info YouTube.", color=0xFF0000)
-                    await ctx.send(embed=embed)
-                    return
+                    track = {"url": url, "title": url[:80], "thumbnail": "", "requester": str(ctx.author)}
             else:
                 track = {"url": url, "title": url[:80], "thumbnail": "", "requester": str(ctx.author)}
         else:
             embed = discord.Embed(description="\U0001F50D Cari **{}** di YouTube...".format(q), color=COLOR)
             msg = await ctx.send(embed=embed)
             info = await asyncio.to_thread(_yt_fetch, f'ytsearch1:{q}')
-            if not info or not info.get("audio_url"):
+            if not info:
                 embed = discord.Embed(description=f"\u274c Gak nemu hasil buat \"{q}\".", color=0xFF0000)
                 await msg.edit(embed=embed)
                 return
@@ -576,7 +576,7 @@ class MusicCog(commands.Cog, name="Music"):
         tracks = []
         for i in range(5):
             info = await asyncio.to_thread(_yt_fetch, f'ytsearch{i+1}:{q}')
-            if info and info.get("audio_url"):
+            if info:
                 tracks.append({"url": info["webpage_url"] or q, "title": info.get("title", "Unknown"), "thumbnail": info.get("thumbnail", ""), "requester": str(ctx.author)})
         if not tracks:
             embed = discord.Embed(description=f"\u274c Gak nemu hasil buat \"{q}\".", color=0xFF0000)
