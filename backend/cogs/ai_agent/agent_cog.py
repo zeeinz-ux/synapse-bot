@@ -828,7 +828,7 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             return
 
         await ctx.defer(ephemeral=False)
-        msg = await ctx.send("🔍 **Mulai scan server...**")
+        await ctx.interaction.edit_original_response(content="🔍 **Mulai scan server...**")
 
         try:
             data = await self._scan_server(ctx.guild)
@@ -851,9 +851,9 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
                 f"AI Agent akan auto-update cache setiap ada perubahan dari tool.\n"
                 f"Gunakan `/scan` lagi hanya jika ingin refresh manual."
             )
-            await msg.edit(content=summary)
+            await ctx.interaction.edit_original_response(content=summary)
         except Exception as e:
-            await msg.edit(content=f"❌ **Gagal scan:** {type(e).__name__}: {str(e)[:200]}")
+            await ctx.interaction.edit_original_response(content=f"❌ **Gagal scan:** {type(e).__name__}: {str(e)[:200]}")
 
     @commands.hybrid_command(
         name="agent",
@@ -868,23 +868,23 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
 
         config = await self._get_agent_config(str(ctx.guild.id))
         if not config.get("agent_enabled", False):
-            await ctx.send(
-                "⚠️ **AI Agent belum diaktifkan** di server ini.\n"
-                "Minta owner untuk mengaktifkannya lewat dashboard atau `/agent-toggle`."
+            await ctx.interaction.edit_original_response(
+                content="⚠️ **AI Agent belum diaktifkan** di server ini.\n"
+                        "Minta owner untuk mengaktifkannya lewat dashboard atau `/agent-toggle`."
             )
             return
 
         if not self._can_use_agent(ctx.author, config):
-            await ctx.send(
-                "❌ **Tidak punya akses.**\n"
-                "AI Agent hanya bisa digunakan oleh **Owner Server** "
-                + ("dan Admin." if config.get("agent_mode") == "admin" else ".")
+            await ctx.interaction.edit_original_response(
+                content="❌ **Tidak punya akses.**\n"
+                        "AI Agent hanya bisa digunakan oleh **Owner Server** "
+                        + ("dan Admin." if config.get("agent_mode") == "admin" else ".")
             )
             return
 
         if ctx.author.id in self._active_sessions:
-            await ctx.send(
-                "⏳ Kamu masih punya sesi agent yang berjalan. Tunggu sampai selesai."
+            await ctx.interaction.edit_original_response(
+                content="⏳ Kamu masih punya sesi agent yang berjalan. Tunggu sampai selesai."
             )
             return
 
@@ -897,7 +897,6 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
         self._active_sessions.add(ctx.author.id)
         try:
             memory = self._get_memory(ctx.author.id)
-            # Kalo RAM kosong, coba load dari Firestore
             if not memory:
                 memory = await self._load_memory_firestore(ctx.author.id, ctx.guild.id)
             result = await asyncio.wait_for(
@@ -907,19 +906,24 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             self._agent_channels[ctx.channel.id] = time_module.time()
             self._save_memory(ctx.author.id, ctx.guild.id, request, result[:1000])
 
+            followups = []
             if len(result) > 1900:
                 chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
                 for i, chunk in enumerate(chunks):
+                    msg = f"🤖 **AI Agent — {ctx.author.display_name}**\n\n{chunk}{scan_hint}" if i == 0 else chunk
                     if i == 0:
-                        await ctx.send(f"🤖 **AI Agent — {ctx.author.display_name}**\n\n{chunk}{scan_hint}")
+                        await ctx.interaction.edit_original_response(content=msg)
                     else:
-                        await ctx.send(chunk)
+                        followups.append(chunk)
             else:
-                await ctx.send(f"🤖 **AI Agent — {ctx.author.display_name}**\n\n{result}{scan_hint}")
+                msg = f"🤖 **AI Agent — {ctx.author.display_name}**\n\n{result}{scan_hint}"
+                await ctx.interaction.edit_original_response(content=msg)
+            for chunk in followups:
+                await ctx.send(chunk)
         except asyncio.TimeoutError:
-            await ctx.send("⏰ **Waktu habis.** Agent butuh waktu terlalu lama. Coba dengan permintaan yang lebih sederhana.")
+            await ctx.interaction.edit_original_response(content="⏰ **Waktu habis.** Agent butuh waktu terlalu lama. Coba dengan permintaan yang lebih sederhana.")
         except Exception as e:
-            await ctx.send(f"❌ **Error:** {type(e).__name__}: {str(e)[:500]}")
+            await ctx.interaction.edit_original_response(content=f"❌ **Error:** {type(e).__name__}: {str(e)[:500]}")
         finally:
             self._active_sessions.discard(ctx.author.id)
 
