@@ -125,8 +125,8 @@ class MusicCog(commands.Cog, name="Music"):
             self._cancel_sleep(gid)
         try:
             ffmpeg_opts = {
-                "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
-                "options": "-vn",
+                "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 10 -reconnect_at_eof 1 -reconnect_on_network_error 1",
+                "options": "-vn -af aresample=async=1:min_hard_comp=0.1",
             }
             source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
             vc.stop()
