@@ -59,6 +59,7 @@ class MusicCog(commands.Cog, name="Music"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._voice_states: dict[int, dict] = {}
+        self._intentional_stop: set[int] = set()
 
     def _save_state(self, guild_id: int, channel_id: int, url: str):
         data = {"guild_id": guild_id, "channel_id": channel_id, "url": url, "updated_at": time.time()}
@@ -159,6 +160,11 @@ class MusicCog(commands.Cog, name="Music"):
             print(f"[MUSIC] _play_looping error: {e}")
 
     def _on_audio_end(self, vc, url: str, error):
+        gid = vc.guild.id if vc and vc.guild else None
+        if gid and gid in self._intentional_stop:
+            self._intentional_stop.discard(gid)
+            print(f"[MUSIC] Intentional stop for guild {gid}, not restarting.")
+            return
         if error:
             print(f"[MUSIC] Audio error: {error}")
         if vc and vc.is_connected():
@@ -178,6 +184,8 @@ class MusicCog(commands.Cog, name="Music"):
             if vc.channel.id == channel.id:
                 await ctx.send(f"Udah di {channel.mention} kok.")
                 return
+            if vc.is_playing():
+                self._intentional_stop.add(ctx.guild.id)
             await vc.disconnect()
             await asyncio.sleep(0.5)
         try:
@@ -206,6 +214,7 @@ class MusicCog(commands.Cog, name="Music"):
             return
         name = vc.channel.name
         if vc.is_playing():
+            self._intentional_stop.add(ctx.guild.id)
             vc.stop()
         await vc.disconnect()
         self._clear_state(ctx.guild.id)
@@ -236,6 +245,7 @@ class MusicCog(commands.Cog, name="Music"):
             raw_url = found
             await msg.edit(content=f"✅ Nemu: {_clean_url(raw_url)[:80]}")
         if vc.is_playing():
+            self._intentional_stop.add(ctx.guild.id)
             vc.stop()
             await asyncio.sleep(0.3)
         try:
@@ -254,6 +264,7 @@ class MusicCog(commands.Cog, name="Music"):
         if not vc or not vc.is_playing():
             await ctx.send("Gak ada audio yang diputar.")
             return
+        self._intentional_stop.add(ctx.guild.id)
         vc.stop()
         await ctx.send("⏹ Audio dihentikan")
 
