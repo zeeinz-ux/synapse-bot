@@ -313,6 +313,7 @@
       }
     })();
   </script>
+  <script>window.CURRENT_GUILD_ID = "{{ guild_id }}";</script>
   <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
   <script>lucide.createIcons();</script>
   {% block extra_js %}{% endblock %}

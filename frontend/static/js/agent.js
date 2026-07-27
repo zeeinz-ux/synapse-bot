@@ -5,14 +5,15 @@
 (function () {
   "use strict";
 
-  const GUILD_ID = window.CURRENT_GUILD_ID;
+  let GUILD_ID = window.CURRENT_GUILD_ID;
 
   if (!GUILD_ID || GUILD_ID === "undefined" || GUILD_ID === "") {
     console.error("[Agent] ❌ CRITICAL: window.CURRENT_GUILD_ID is undefined!");
     const pathMatch = window.location.pathname.match(/\/dashboard\/(\d+)\//);
     if (pathMatch && pathMatch[1]) {
+      GUILD_ID = pathMatch[1];
       window.CURRENT_GUILD_ID = pathMatch[1];
-      console.warn("[Agent] ⚠️ Fallback: extracted guild_id from URL:", pathMatch[1]);
+      console.warn("[Agent] ⚠️ Fallback: extracted guild_id from URL:", GUILD_ID);
     } else {
       document.body.insertAdjacentHTML("afterbegin",
         `<div style="background:#ed4245;color:#fff;padding:1rem;text-align:center;font-weight:bold;">
