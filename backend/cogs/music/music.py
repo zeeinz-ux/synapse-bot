@@ -87,7 +87,9 @@ class MusicCog(commands.Cog, name="Music"):
                 continue
             gid = data.get("guild_id")
             cid = data.get("channel_id")
-            url = data.get("url", self._random_station_url())
+            url = data.get("url", "")
+            if url not in {v["url"] for v in STATIONS.values()}:
+                url = self._random_station_url()
             if not gid or not cid:
                 continue
             guild = self.bot.get_guild(int(gid))
@@ -323,7 +325,9 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.send(embed=embed)
             return
         channel = vc.channel
-        url = self._voice_states.get(ctx.guild.id, {}).get("url", self._random_station_url())
+        url = self._voice_states.get(ctx.guild.id, {}).get("url", "")
+        if url not in {v["url"] for v in STATIONS.values()}:
+            url = self._random_station_url()
         await _safe_stop(vc)
         await vc.disconnect()
         await asyncio.sleep(1)
