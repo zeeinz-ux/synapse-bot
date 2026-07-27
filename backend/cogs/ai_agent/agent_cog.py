@@ -33,7 +33,6 @@ class AIChatAgent(commands.Cog):
         "batch_create_channels", "batch_create_roles", "apply_template",
         "edit_server", "save_snapshot", "rollback", "schedule_task",
         "send_message", "add_reaction",
-        "join_voice", "leave_voice", "play_audio", "stop_audio",
         "run_command",
     }
 

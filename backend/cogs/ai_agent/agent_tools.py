@@ -92,8 +92,6 @@ DISCORD_PERMISSIONS_KNOWLEDGE = """
 5. Gunakan channel-specific overwrites untuk kontrol lebih detail
 """
 
-LOFI_DEFAULT_URL = "https://play.streamafrica.net/lofiradio"
-
 TOOL_DEFINITIONS = [
     {
         "name": "server_info",
@@ -312,31 +310,6 @@ TOOL_DEFINITIONS = [
         },
     },
     {
-        "name": "join_voice",
-        "description": "Bergabung ke voice channel dan mulai memutar aliran LoFi/lagu. Kalau parameter 'channel' dikosongkan, bot akan otomatis join ke voice channel tempat user berada. Gunakan parameter 'stream' untuk URL kustom, atau kosongkan untuk memutar LoFi default.",
-        "parameters": {
-            "channel": "string — (opsional) nama voice channel yang akan dimasuki. Kosongkan untuk otomatis mengikuti user.",
-            "stream": "string — (opsional) URL audio stream untuk diputar. Kosongkan untuk LoFi default.",
-        },
-    },
-    {
-        "name": "leave_voice",
-        "description": "Tinggalkan voice channel tempat bot berada. Otomatis menghentikan audio yang sedang diputar.",
-        "parameters": {},
-    },
-    {
-        "name": "play_audio",
-        "description": "Putar audio/stream di voice channel tempat bot berada. Bisa ganti lagu tanpa harus leave-join.",
-        "parameters": {
-            "stream": "string — URL audio stream yang akan diputar. Kosongkan untuk kembali ke LoFi default.",
-        },
-    },
-    {
-        "name": "stop_audio",
-        "description": "Hentikan audio yang sedang diputar di voice channel tanpa disconnect.",
-        "parameters": {},
-    },
-    {
         "name": "run_command",
         "description": "Jalankan command Synapse Bot (prefix ! atau /). Gunakan untuk perintah Synapse Bot yang tidak ada tool khususnya, seperti ngecek rank, leaderboard, boost status, help, dll. CATATAN: hanya bisa menjalankan command Synapse Bot — TIDAK bisa menjalankan command milik bot lain (Dyno, Carl-bot, MEE6, dll). HATI-HATI: command yang mengubah data server hanya jalan jika authorized.",
         "parameters": {
@@ -350,6 +323,14 @@ TOOL_DESCRIPTION = """
 Kamu adalah AI Agent bawaan dari Synapse Bot — sebuah Discord bot multifungsi yang berjalan di server ini. Kamu BUKAN bot terpisah. Kamu adalah fitur AI yang tertanam langsung di Synapse Bot. Semua command Synapse Bot (!help, !rank, /ask, /scan, dll) bisa dijalankan via tool run_command.
 
 Tool run_command HANYA bisa menjalankan command milik Synapse Bot saja. Command milik bot lain (Dyno, Carl-bot, MEE6, Rythm, dll) TIDAK bisa dijalankan — karena bot Discord tidak bisa mengontrol bot lain. Jika user meminta menjalankan command bot lain, jelaskan bahwa itu tidak bisa dilakukan.
+
+Untuk urusan VOICE CHANNEL (join, leave, play audio, stop), gunakan run_command:
+- `!join [nama channel]` — join voice channel. Kosongkan nama untuk otomatis ikut user.
+- `!leave` — tinggalkan voice channel.
+- `!play [url]` — putar audio. Kosongkan untuk LoFi default. Alias: `!p`.
+- `!stop` — hentikan audio.
+
+Contoh: run_command("join"), run_command("join General"), run_command("play"), run_command("play https://..."), run_command("leave"), run_command("stop").
 
 ATURAN PENTING:
 1. Jangan pernah setuju begitu saja. Beri rekomendasi, saran, atau koreksi jika menurutmu ada yang kurang tepat.
@@ -417,6 +398,8 @@ AGENT_TRIGGER_KEYWORDS = [
     "daftar channel", "list channel", "channel apa aja",
     "daftar role", "list role", "role apa aja",
     "daftar member", "list member",
+    "join voice", "join vc", "voice channel", "putar lagu",
+    "play music", "mainkan musik", "lofi", "stop lagu", "leave vc",
 ]
 
 
@@ -692,14 +675,6 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot, channel=None,
             return await _send_message(guild, args)
         elif fn == "add_reaction":
             return await _add_reaction(guild, args)
-        elif fn == "join_voice":
-            return await _join_voice(guild, args, author=author)
-        elif fn == "leave_voice":
-            return await _leave_voice(guild)
-        elif fn == "play_audio":
-            return await _play_audio(guild, args)
-        elif fn == "stop_audio":
-            return await _stop_audio(guild)
         elif fn == "run_command":
             return await _run_command(guild, args, bot, channel, author)
         else:
@@ -1691,84 +1666,6 @@ async def _add_reaction(guild: discord.Guild, args: dict) -> str:
         return f'{{"success": true, "emoji": "{emoji}", "message_id": "{message_id}", "channel": "{channel_name}"}}'
     except discord.HTTPException as e:
         return f'{{"success": false, "error": "Gagal menambah reaksi: {str(e)[:100]}"}}'
-
-
-async def _join_voice(guild: discord.Guild, args: dict, author: discord.Member | None = None) -> str:
-    channel_name = args.get("channel", "").strip()
-    if not channel_name:
-        if author and author.voice and author.voice.channel:
-            channel = author.voice.channel
-        else:
-            return '{"success": false, "error": "Nama voice channel wajib diisi, atau join voice channel dulu biar bot otomatis ngikut."}'
-    else:
-        channel = find_channel(guild, channel_name, "voice")
-        if not channel:
-            return f'{{"success": false, "error": "Voice channel \\"{channel_name}\\" tidak ditemukan"}}'
-
-    vc = guild.voice_client
-    if vc:
-        if vc.channel.id == channel.id:
-            return f'{{"success": true, "message": "Sudah berada di voice channel \\"{channel.name}\\" dan sedang memutar audio"}}'
-        await vc.disconnect()
-        await asyncio.sleep(0.5)
-
-    try:
-        vc = await channel.connect()
-    except discord.Forbidden:
-        return '{"success": false, "error": "Bot tidak punya izin Connect atau Speak di voice channel tersebut"}'
-    except Exception as e:
-        return f'{{"success": false, "error": "{type(e).__name__}: {str(e)[:150]}"}}'
-
-    stream_url = args.get("stream", "").strip() or LOFI_DEFAULT_URL
-    try:
-        ffmpeg_opts = {
-            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-            "options": "-vn",
-        }
-        source = discord.FFmpegPCMAudio(stream_url, **ffmpeg_opts)
-        vc.play(source)
-        return f'{{"success": true, "joined": "{channel.name}", "stream": "{stream_url}"}}'
-    except Exception as e:
-        return f'{{"success": true, "joined": "{channel.name}", "warning": "Terhubung tanpa audio: {str(e)[:100]}"}}'
-
-
-async def _leave_voice(guild: discord.Guild) -> str:
-    vc = guild.voice_client
-    if not vc:
-        return '{"success": false, "error": "Bot tidak sedang terhubung ke voice channel"}'
-    channel_name = vc.channel.name
-    if vc.is_playing():
-        vc.stop()
-    await vc.disconnect()
-    return f'{{"success": true, "left": "{channel_name}"}}'
-
-
-async def _play_audio(guild: discord.Guild, args: dict) -> str:
-    vc = guild.voice_client
-    if not vc:
-        return '{"success": false, "error": "Bot tidak sedang terhubung ke voice channel. Gunakan join_voice dulu."}'
-    stream_url = args.get("stream", "").strip() or LOFI_DEFAULT_URL
-    vc.stop()
-    try:
-        ffmpeg_opts = {
-            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-            "options": "-vn",
-        }
-        source = discord.FFmpegPCMAudio(stream_url, **ffmpeg_opts)
-        vc.play(source)
-        return f'{{"success": true, "playing": "{stream_url}"}}'
-    except Exception as e:
-        return f'{{"success": false, "error": "Gagal memutar audio: {str(e)[:150]}"}}'
-
-
-async def _stop_audio(guild: discord.Guild) -> str:
-    vc = guild.voice_client
-    if not vc:
-        return '{"success": false, "error": "Bot tidak sedang terhubung ke voice channel"}'
-    if not vc.is_playing():
-        return '{"success": false, "error": "Tidak ada audio yang sedang diputar"}'
-    vc.stop()
-    return '{"success": true, "message": "Audio dihentikan"}'
 
 
 async def _run_command(guild: discord.Guild, args: dict, bot, channel, author) -> str:
