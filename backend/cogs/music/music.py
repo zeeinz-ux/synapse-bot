@@ -42,13 +42,11 @@ def _clean_url(url: str) -> str:
 
 
 _YT_ATTEMPTS = [
+    ({"youtube": {"player_client": ["mweb"], "player_skip": ["webpage", "configs"]}}, None),
+    ({"youtube": {"player_client": ["mweb"]}}, None),
+    ({"youtube": {"player_client": ["web"]}}, None),
+    ({"youtube": {"player_client": ["android"]}}, None),
     ({}, None),
-    ({}, "worst"),
-    ({}, "worstaudio/worst"),
-    ({"youtube": {"player_client": ["tv_downgraded"]}}, "worst"),
-    ({"youtube": {"player_client": ["web"]}}, "worst"),
-    ({"youtube": {"player_client": ["android"]}}, "worst"),
-    ({"youtube": {"player_client": ["ios"]}}, "worst"),
 ]
 
 def _yt_fetch(url_or_query: str) -> dict | None:
@@ -63,6 +61,7 @@ def _yt_fetch(url_or_query: str) -> dict | None:
             extract_flat=False,
             socket_timeout=15,
             extractor_retries=0,
+            ignore_no_formats_error=True,
             extractor_args=extra_args,
         )
         if cookies_file:
