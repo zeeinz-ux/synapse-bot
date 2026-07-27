@@ -122,8 +122,9 @@ class MusicCog(commands.Cog, name="Music"):
             else:
                 await ctx.send("Bot gak di voice. Pake `!connect` dulu atau join voice dulu.")
                 return
-        raw = (stream or "").strip().lower()
-        if not raw or raw in LOFI_KEYWORDS:
+        raw = (stream or "").strip()
+        raw_lower = raw.lower()
+        if not raw or raw_lower in LOFI_KEYWORDS:
             raw_url = LOFI_DEFAULT_URL
         elif raw.startswith("http://") or raw.startswith("https://"):
             raw_url = raw
@@ -135,7 +136,7 @@ class MusicCog(commands.Cog, name="Music"):
             await asyncio.sleep(0.3)
         try:
             self._play_looping(vc, raw_url)
-            label = "LoFi default" if not stream else (raw_url[:60] if _is_youtube_url(raw_url) else raw_url[:60])
+            label = "LoFi default" if not stream else (_clean_url(raw_url)[:60] if _is_youtube_url(raw_url) else raw_url[:60])
             await ctx.send(f"🎵 Putar **{label}** (auto-restart)")
         except discord.ClientException as e:
             await ctx.send(f"❌ Gagal: voice belum siap. Coba `!connect` dulu. ({e})")
