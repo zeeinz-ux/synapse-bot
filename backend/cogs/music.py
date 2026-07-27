@@ -64,7 +64,7 @@ class MusicCog(commands.Cog, name="Music"):
     def _on_audio_end(self, vc, url: str, error):
         if error:
             print(f"[MUSIC] Audio error: {error}")
-        if vc and vc.channel:
+        if vc and vc.is_connected():
             print(f"[MUSIC] Audio ended, restarting...")
             self._play_looping(vc, url)
 
