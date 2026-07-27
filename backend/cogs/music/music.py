@@ -205,13 +205,13 @@ class MusicCog(commands.Cog, name="Music"):
                 vc = await ctx.author.voice.channel.connect()
             else:
                 embed = discord.Embed(description="Bot gak di voice. Pake `!connect` dulu atau join voice dulu.", color=COLOR)
-                await ctx.send(embed=embed)
+                await ctx.interaction.edit_original_response(embed=embed)
                 return
         key = (query or "").strip().lower()
         if key and key not in STATIONS:
             available = ", ".join(STATIONS.keys())
             embed = discord.Embed(description=f"Station `{key}` gak ada. Yang tersedia: {available}", color=COLOR)
-            await ctx.send(embed=embed)
+            await ctx.interaction.edit_original_response(embed=embed)
             return
         if not key:
             key = self._guild_stations.get(ctx.guild.id, "lofi")
@@ -225,7 +225,7 @@ class MusicCog(commands.Cog, name="Music"):
             description=f"**{station['label']}** \ud83c\udfb5",
             color=COLOR
         )
-        await ctx.send(embed=embed)
+        await ctx.interaction.edit_original_response(embed=embed)
 
     @commands.hybrid_command(name="station", description="Ganti station LoFi radio")
     @discord.app_commands.describe(name="Nama station: lofi, jazz, chill, study, sleep")
