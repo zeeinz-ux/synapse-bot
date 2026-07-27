@@ -99,6 +99,7 @@
 
   async function handleSave() {
     const payload = {
+      enabled: els.toggle ? els.toggle.checked : false,
       agent_mode: els.mode ? els.mode.value : "admin",
     };
 

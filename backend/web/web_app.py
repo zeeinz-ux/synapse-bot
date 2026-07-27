@@ -2505,6 +2505,7 @@ def agent_save(guild_id):
         else:
             data = request.form.to_dict()
 
+        agent_enabled = data.get("enabled", None)
         agent_mode = data.get("agent_mode", "admin")
         if agent_mode not in ("admin", "owner"):
             agent_mode = "admin"
@@ -2512,13 +2513,15 @@ def agent_save(guild_id):
         if db is None:
             return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
 
+        agent_data = {
+            "mode": agent_mode,
+            "updated_at": datetime.now(timezone.utc),
+        }
+        if agent_enabled is not None:
+            agent_data["enabled"] = agent_enabled
+
         doc_ref = db.collection("guild_settings").document(str(guild_id))
-        doc_ref.set({
-            "agent": {
-                "mode": agent_mode,
-                "updated_at": datetime.now(timezone.utc),
-            }
-        }, merge=True)
+        doc_ref.set({"agent": agent_data}, merge=True)
 
         import uuid, json
         try:
