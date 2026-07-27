@@ -311,9 +311,10 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "run_command",
-        "description": "Jalankan command Synapse Bot (prefix ! atau /). Gunakan untuk perintah Synapse Bot yang tidak ada tool khususnya, seperti ngecek rank, leaderboard, boost status, help, dll. CATATAN: hanya bisa menjalankan command milik Synapse Bot saja — TIDAK bisa menjalankan command milik bot lain (Dyno, Carl-bot, MEE6, dll). HATI-HATI: command yang mengubah data server hanya jalan jika authorized.",
+        "description": "Jalankan command Synapse Bot (prefix ! atau /). Gunakan untuk perintah Synapse Bot yang tidak ada tool khususnya, seperti ngecek rank, leaderboard, boost status, help, purge, dll. CATATAN: hanya bisa menjalankan command milik Synapse Bot saja — TIDAK bisa menjalankan command milik bot lain (Dyno, Carl-bot, MEE6, dll). HATI-HATI: command yang mengubah data server hanya jalan jika authorized.",
         "parameters": {
-            "command": "string — command Synapse Bot yang ingin dijalankan beserta argumennya. Contoh: 'rank @user', 'help', 'leaderboard', 'cekboost @user'",
+            "command": "string — command Synapse Bot yang ingin dijalankan beserta argumennya. Contoh: 'rank @user', 'help', 'leaderboard', 'cekboost @user', 'purge 100'",
+            "channel": "string — (opsional) nama channel tujuan jika command perlu dijalankan di channel tertentu. Contoh: '🎶・req-music'. Kosongkan untuk channel saat ini.",
         },
     },
     {
@@ -346,6 +347,10 @@ Untuk MODERASI CHAT (hapus/purge pesan), gunakan run_command:
 - `!purge <jumlah> @user` — hapus pesan dari user tertentu saja.
 
 Contoh: run_command("purge 10"), run_command("purge 20 @mawar").
+
+Untuk menjalankan command di CHANNEL LAIN, tambah parameter channel:
+- Contoh: run_command("purge 100", channel="🎶・req-music") — akan hapus 100 pesan di channel req-music.
+- Contoh: run_command("play iwan fals", channel="💬・general-chat") — play lagu di channel general.
 
 ATURAN PENTING:
 
@@ -1739,6 +1744,18 @@ async def _run_command(guild: discord.Guild, args: dict, bot, channel, author) -
     if not cmd:
         return f'{{"success": false, "error": "Command \\"{cmd_name}\\" tidak dikenal. Coba tanpa prefix."}}'
 
+    target = channel
+    target_name = args.get("channel", "").strip()
+    if target_name:
+        target_lower = target_name.lower()
+        for ch in guild.channels:
+            ch_slug = ch.name.lower().strip()
+            if target_lower in ch_slug or ch_slug in target_lower:
+                target = ch
+                break
+        if target == channel:
+            return f'{{"success": false, "error": "Channel \\"{target_name}\\" tidak ditemukan"}}'
+
     try:
         from discord.message import Message
 
@@ -1768,7 +1785,7 @@ async def _run_command(guild: discord.Guild, args: dict, bot, channel, author) -
             "webhook_id": None,
             "nonce": None,
         }
-        msg = Message(state=channel._state, channel=channel, data=msg_data)
+        msg = Message(state=target._state, channel=target, data=msg_data)
         ctx = await bot.get_context(msg)
         if not ctx.valid:
             return f'{{"success": false, "error": "Gagal memproses command \\"{cmd_name}\\"}}"}}'
