@@ -127,22 +127,17 @@ class MusicCog(commands.Cog, name="Music"):
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         if member.id != self.bot.user.id:
             return
-        if before.channel and not after.channel:
+        # Pindah channel manual — update state
+        if before.channel and after.channel and before.channel.id != after.channel.id:
             state = self._voice_states.get(member.guild.id)
             if state:
-                print(f"[MUSIC] Disconnected from {before.channel.name}, reconnecting in 5s...")
-                await asyncio.sleep(5)
-                guild = self.bot.get_guild(member.guild.id)
-                if guild and not guild.voice_client:
-                    channel = guild.get_channel(state["channel_id"])
-                    if channel and isinstance(channel, discord.VoiceChannel):
-                        try:
-                            vc = await channel.connect()
-                            await asyncio.sleep(0.5)
-                            self._play_looping(vc, state["url"])
-                            print(f"[MUSIC] Auto-reconnected to {channel.name}")
-                        except Exception as e:
-                            print(f"[MUSIC] Auto-reconnect failed: {e}")
+                state["channel_id"] = after.channel.id
+                self._save_state(member.guild.id, after.channel.id, state["url"])
+                print(f"[MUSIC] Moved to {after.channel.name}, state updated")
+            return
+        # Disconnect total — gak auto-reconnect, biar state di Firestore aja buat restart nanti
+        if before.channel and not after.channel:
+            print(f"[MUSIC] Disconnected from {before.channel.name}, state preserved for restart auto-resume")
 
     def _play_looping(self, vc, url: str):
         try:

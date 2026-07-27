@@ -556,6 +556,13 @@ class AIChatAgent(commands.Cog):
             scan_data = await self._load_scan_firestore(guild.id)
         scan_context = self._build_scan_context(scan_data) if scan_data else ""
         scan_section_sys = (f"Berikut data hasil scan server terbaru:\n{scan_context}\n\n") if scan_context else ""
+        # Bot voice state
+        vc = guild.voice_client
+        if vc and vc.channel:
+            playing = "lagu sedang diputar" if vc.is_playing() else "lagu dijeda/dihentikan"
+            bot_voice_state = f"Status bot: terhubung ke voice channel **{vc.channel.name}**, {playing}."
+        else:
+            bot_voice_state = "Status bot: tidak terhubung ke voice channel manapun."
         system_prompt = (
             f"{TOOL_DESCRIPTION}\n\n"
             f"Berikut adalah tool yang tersedia:\n{tools_json}\n\n"
@@ -565,6 +572,7 @@ class AIChatAgent(commands.Cog):
             f"Owner: {guild.owner}\n"
             f"User yang ngobrol: {author.name} (ID: {author.id})"
             f"{' — saat ini berada di voice channel: ' + author.voice.channel.name if author.voice and author.voice.channel else ''}\n"
+            f"{bot_voice_state}\n"
             f"{scan_section_sys}"
             f"Kamu adalah AI Agent profesional yang paham seluruh struktur Discord server.\n"
             f"Gunakan pengetahuan permission di atas untuk memberikan saran terbaik ke user.\n"
@@ -580,6 +588,7 @@ Tool yang tersedia:
 Server: {guild.name}
 Owner: {guild.owner}
 User: {author.name}{' — di voice: ' + author.voice.channel.name if author.voice and author.voice.channel else ''}
+{bot_voice_state}
 {scan_section_plan}
 SEKARANG KAMU HARUS MEMBUAT RENCANA DAHULU SEBELUM EKSEKUSI!
 
