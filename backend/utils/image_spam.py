@@ -13,7 +13,7 @@ from PIL import Image
 
 
 class ImageSpamDetector:
-OCR_KEYWORDS = [
+    OCR_KEYWORDS = [
     "mrbeast", "cugamb", "usdt", "withdrawal success",
     "free crypto", "claim now", "free nitro",
     "steamcommunity", "discord-nitro", "login verify",
