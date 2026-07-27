@@ -308,20 +308,6 @@ class MusicCog(commands.Cog, name="Music"):
         embed = discord.Embed(description=f"\U0001f44b Leave **{name}**", color=COLOR)
         await ctx.send(embed=embed)
 
-    @commands.command(name="leave")
-    async def leave(self, ctx: commands.Context):
-        vc = ctx.guild.voice_client
-        if not vc:
-            embed = discord.Embed(description="Gak ada di voice channel.", color=COLOR)
-            await ctx.send(embed=embed)
-            return
-        name = vc.channel.name
-        await _safe_stop(vc)
-        await vc.disconnect()
-        self._clear_state(ctx.guild.id)
-        embed = discord.Embed(description=f"\U0001f44b Leave **{name}**", color=COLOR)
-        await ctx.send(embed=embed)
-
     @commands.hybrid_command(name="fix-voice", description="Fix koneksi voice dengan reconnect")
     async def fix_voice(self, ctx: commands.Context):
         vc = ctx.guild.voice_client
