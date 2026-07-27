@@ -29,7 +29,7 @@
   "features.antinuke.title": "Anti Nuke & Spam",
   "features.antinuke.desc": "Automatic protection from mass-ban, mass-kick, image spam, and other malicious attacks with sliding window detection and AI post-analysis.",
   "features.agent.title": "Smart AI Agent",
-  "features.agent.desc": "ReAct AI Agent with 23 tools: manage channels, roles, bans, timeouts, batch operations, server templates, snapshot & rollback, and automated task scheduling.",
+  "features.agent.desc": "ReAct AI Agent with 32 tools: manage channels, roles, bans, timeouts, messaging, reactions, LoFi voice, run bot commands, batch operations, server templates, snapshot & rollback, and automated task scheduling.",
   "features.autoresponder.title": "Auto Responder & Actions",
   "features.autoresponder.desc": "Create auto-reply rules, keyword triggers, and automated actions. Streamline moderation without extra bots.",
 

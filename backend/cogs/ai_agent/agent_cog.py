@@ -32,6 +32,9 @@ class AIChatAgent(commands.Cog):
         "ban_member", "unban_member", "kick_member", "timeout_member",
         "batch_create_channels", "batch_create_roles", "apply_template",
         "edit_server", "save_snapshot", "rollback", "schedule_task",
+        "send_message", "add_reaction",
+        "join_voice", "leave_voice", "play_audio", "stop_audio",
+        "run_command",
     }
 
     def cog_unload(self):
@@ -539,6 +542,7 @@ class AIChatAgent(commands.Cog):
         user_message: str,
         author: discord.Member,
         memory: list[dict] | None = None,
+        channel: discord.TextChannel | None = None,
     ) -> str:
         ai_cog, provider = self._get_provider()
         if not provider:
@@ -771,7 +775,7 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
                         # Retry sukses, lanjut ke eksekusi
                         pass
 
-                result = await execute_tool(guild, tc, self.bot)
+                result = await execute_tool(guild, tc, self.bot, channel=channel, author=author)
                 conversation.append(("TOOL_RESULT", result[:500]))
 
                 # Auto-update scan cache kalo tool memodifikasi server
@@ -890,7 +894,7 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             if not memory:
                 memory = await self._load_memory_firestore(ctx.author.id, ctx.guild.id)
             result = await asyncio.wait_for(
-                self._agent_react(ctx.guild, request, ctx.author, memory),
+                self._agent_react(ctx.guild, request, ctx.author, memory, ctx.channel),
                 timeout=AGENT_TIMEOUT,
             )
             self._agent_channels[ctx.channel.id] = time_module.time()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import json
 import time
 
@@ -90,6 +91,8 @@ DISCORD_PERMISSIONS_KNOWLEDGE = """
 4. JANGAN pernah kasih Administrator ke sembarang orang
 5. Gunakan channel-specific overwrites untuk kontrol lebih detail
 """
+
+LOFI_DEFAULT_URL = "https://play.streamafrica.net/lofiradio"
 
 TOOL_DEFINITIONS = [
     {
@@ -291,11 +294,62 @@ TOOL_DEFINITIONS = [
             "enabled": "boolean — (optional) true = aktif, false = nonaktif. Default: true",
         },
     },
+    {
+        "name": "send_message",
+        "description": "Kirim pesan ke channel text tertentu. Pesan bisa berupa teks biasa atau embed sederhana.",
+        "parameters": {
+            "channel": "string — nama channel tujuan",
+            "message": "string — isi pesan yang akan dikirim (mendukung markdown Discord)",
+        },
+    },
+    {
+        "name": "add_reaction",
+        "description": "Tambahkan reaksi emoji ke pesan tertentu di channel.",
+        "parameters": {
+            "channel": "string — nama channel tempat pesan berada",
+            "message_id": "string — ID pesan yang akan direaksi",
+            "emoji": "string — emoji yang akan ditambahkan (contoh: '👍', '🎉', '😄')",
+        },
+    },
+    {
+        "name": "join_voice",
+        "description": "Bergabung ke voice channel dan mulai memutar aliran LoFi/lagu. Gunakan parameter 'stream' untuk URL kustom, atau kosongkan untuk memutar LoFi default.",
+        "parameters": {
+            "channel": "string — nama voice channel yang akan dimasuki",
+            "stream": "string — (opsional) URL audio stream untuk diputar. Kosongkan untuk LoFi default.",
+        },
+    },
+    {
+        "name": "leave_voice",
+        "description": "Tinggalkan voice channel tempat bot berada. Otomatis menghentikan audio yang sedang diputar.",
+        "parameters": {},
+    },
+    {
+        "name": "play_audio",
+        "description": "Putar audio/stream di voice channel tempat bot berada. Bisa ganti lagu tanpa harus leave-join.",
+        "parameters": {
+            "stream": "string — URL audio stream yang akan diputar. Kosongkan untuk kembali ke LoFi default.",
+        },
+    },
+    {
+        "name": "stop_audio",
+        "description": "Hentikan audio yang sedang diputar di voice channel tanpa disconnect.",
+        "parameters": {},
+    },
+    {
+        "name": "run_command",
+        "description": "Jalankan command Synapse Bot (prefix ! atau /). Gunakan untuk perintah Synapse Bot yang tidak ada tool khususnya, seperti ngecek rank, leaderboard, boost status, help, dll. CATATAN: hanya bisa menjalankan command Synapse Bot — TIDAK bisa menjalankan command milik bot lain (Dyno, Carl-bot, MEE6, dll). HATI-HATI: command yang mengubah data server hanya jalan jika authorized.",
+        "parameters": {
+            "command": "string — command Synapse Bot yang ingin dijalankan beserta argumennya. Contoh: 'rank @user', 'help', 'leaderboard', 'cekboost @user'",
+        },
+    },
 ]
 
 
 TOOL_DESCRIPTION = """
-Kamu adalah AI Agent untuk server Discord. Kamu bisa membantu owner/admin server mengelola server mereka menggunakan tool-tool di bawah ini.
+Kamu adalah AI Agent bawaan dari Synapse Bot — sebuah Discord bot multifungsi yang berjalan di server ini. Kamu BUKAN bot terpisah. Kamu adalah fitur AI yang tertanam langsung di Synapse Bot. Semua command Synapse Bot (!help, !rank, /ask, /scan, dll) bisa dijalankan via tool run_command.
+
+Tool run_command HANYA bisa menjalankan command milik Synapse Bot saja. Command milik bot lain (Dyno, Carl-bot, MEE6, Rythm, dll) TIDAK bisa dijalankan — karena bot Discord tidak bisa mengontrol bot lain. Jika user meminta menjalankan command bot lain, jelaskan bahwa itu tidak bisa dilakukan.
 
 ATURAN PENTING:
 1. Jangan pernah setuju begitu saja. Beri rekomendasi, saran, atau koreksi jika menurutmu ada yang kurang tepat.
@@ -554,7 +608,7 @@ def validate_tool_call(tool_call: dict) -> str | None:
     return None
 
 
-async def execute_tool(guild: discord.Guild, tool_call: dict, bot) -> str:
+async def execute_tool(guild: discord.Guild, tool_call: dict, bot, channel=None, author=None) -> str:
     fn = tool_call.get("function", "")
     args = tool_call.get("arguments", {})
     try:
@@ -608,6 +662,20 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot) -> str:
             return await _rollback(guild, args)
         elif fn == "schedule_task":
             return await _schedule_task(guild, args)
+        elif fn == "send_message":
+            return await _send_message(guild, args)
+        elif fn == "add_reaction":
+            return await _add_reaction(guild, args)
+        elif fn == "join_voice":
+            return await _join_voice(guild, args)
+        elif fn == "leave_voice":
+            return await _leave_voice(guild)
+        elif fn == "play_audio":
+            return await _play_audio(guild, args)
+        elif fn == "stop_audio":
+            return await _stop_audio(guild)
+        elif fn == "run_command":
+            return await _run_command(guild, args, bot, channel, author)
         else:
             return f"[TOOL_RESULT]\nFunction: {fn}\nResult: {{\"success\": false, \"error\": \"Tool '{fn}' tidak dikenal\"}}"
     except discord.Forbidden:
@@ -1547,3 +1615,181 @@ async def _list_bans(guild: discord.Guild) -> str:
         return f'{{"success": true, "total_bans": {len(bans)}, "bans": {result}}}'
     except discord.Forbidden:
         return '{"success": false, "error": "Bot tidak punya izin View Audit Log untuk melihat ban list"}'
+
+
+# ── New Tools ──
+
+
+async def _send_message(guild: discord.Guild, args: dict) -> str:
+    channel_name = args.get("channel", "").strip()
+    message = args.get("message", "").strip()
+    if not channel_name:
+        return '{"success": false, "error": "Parameter channel wajib diisi"}'
+    if not message:
+        return '{"success": false, "error": "Parameter message wajib diisi"}'
+    channel = find_channel(guild, channel_name, "text")
+    if not channel:
+        return f'{{"success": false, "error": "Channel \\"{channel_name}\\" tidak ditemukan"}}'
+    try:
+        sent = await channel.send(message[:1900])
+        return f'{{"success": true, "channel": "{channel_name}", "message_id": {sent.id}}}'
+    except discord.Forbidden:
+        return '{"success": false, "error": "Bot tidak punya izin kirim pesan di channel tersebut"}'
+
+
+async def _add_reaction(guild: discord.Guild, args: dict) -> str:
+    channel_name = args.get("channel", "").strip()
+    message_id = args.get("message_id", "").strip()
+    emoji = args.get("emoji", "").strip()
+    if not channel_name:
+        return '{"success": false, "error": "Parameter channel wajib diisi"}'
+    if not message_id:
+        return '{"success": false, "error": "Parameter message_id wajib diisi"}'
+    if not emoji:
+        return '{"success": false, "error": "Parameter emoji wajib diisi"}'
+    channel = find_channel(guild, channel_name, "text")
+    if not channel:
+        return f'{{"success": false, "error": "Channel \\"{channel_name}\\" tidak ditemukan"}}'
+    try:
+        mid = int(message_id)
+    except ValueError:
+        return f'{{"success": false, "error": "message_id harus berupa angka"}}'
+    try:
+        message = await channel.fetch_message(mid)
+    except discord.NotFound:
+        return f'{{"success": false, "error": "Pesan dengan ID {message_id} tidak ditemukan di channel {channel_name}"}}'
+    except discord.Forbidden:
+        return '{"success": false, "error": "Bot tidak punya izin membaca pesan di channel tersebut"}'
+    try:
+        await message.add_reaction(emoji)
+        return f'{{"success": true, "emoji": "{emoji}", "message_id": "{message_id}", "channel": "{channel_name}"}}'
+    except discord.HTTPException as e:
+        return f'{{"success": false, "error": "Gagal menambah reaksi: {str(e)[:100]}"}}'
+
+
+async def _join_voice(guild: discord.Guild, args: dict) -> str:
+    channel_name = args.get("channel", "").strip()
+    if not channel_name:
+        return '{"success": false, "error": "Nama voice channel wajib diisi"}'
+    channel = find_channel(guild, channel_name, "voice")
+    if not channel:
+        return f'{{"success": false, "error": "Voice channel \\"{channel_name}\\" tidak ditemukan"}}'
+
+    vc = guild.voice_client
+    if vc:
+        if vc.channel.id == channel.id:
+            return f'{{"success": true, "message": "Sudah berada di voice channel \\"{channel.name}\\" dan sedang memutar audio"}}'
+        await vc.disconnect()
+        await asyncio.sleep(0.5)
+
+    try:
+        vc = await channel.connect(reason="AI Agent: join voice")
+    except discord.Forbidden:
+        return '{"success": false, "error": "Bot tidak punya izin Connect atau Speak di voice channel tersebut"}'
+    except Exception as e:
+        return f'{{"success": false, "error": "{type(e).__name__}: {str(e)[:150]}"}}'
+
+    stream_url = args.get("stream", "").strip() or LOFI_DEFAULT_URL
+    try:
+        ffmpeg_opts = {
+            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+            "options": "-vn",
+        }
+        source = discord.FFmpegPCMAudio(stream_url, **ffmpeg_opts)
+        vc.play(source)
+        return f'{{"success": true, "joined": "{channel.name}", "stream": "{stream_url}"}}'
+    except Exception as e:
+        return f'{{"success": true, "joined": "{channel.name}", "warning": "Terhubung tanpa audio: {str(e)[:100]}"}}'
+
+
+async def _leave_voice(guild: discord.Guild) -> str:
+    vc = guild.voice_client
+    if not vc:
+        return '{"success": false, "error": "Bot tidak sedang terhubung ke voice channel"}'
+    channel_name = vc.channel.name
+    if vc.is_playing():
+        vc.stop()
+    await vc.disconnect()
+    return f'{{"success": true, "left": "{channel_name}"}}'
+
+
+async def _play_audio(guild: discord.Guild, args: dict) -> str:
+    vc = guild.voice_client
+    if not vc:
+        return '{"success": false, "error": "Bot tidak sedang terhubung ke voice channel. Gunakan join_voice dulu."}'
+    stream_url = args.get("stream", "").strip() or LOFI_DEFAULT_URL
+    vc.stop()
+    try:
+        ffmpeg_opts = {
+            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+            "options": "-vn",
+        }
+        source = discord.FFmpegPCMAudio(stream_url, **ffmpeg_opts)
+        vc.play(source)
+        return f'{{"success": true, "playing": "{stream_url}"}}'
+    except Exception as e:
+        return f'{{"success": false, "error": "Gagal memutar audio: {str(e)[:150]}"}}'
+
+
+async def _stop_audio(guild: discord.Guild) -> str:
+    vc = guild.voice_client
+    if not vc:
+        return '{"success": false, "error": "Bot tidak sedang terhubung ke voice channel"}'
+    if not vc.is_playing():
+        return '{"success": false, "error": "Tidak ada audio yang sedang diputar"}'
+    vc.stop()
+    return '{"success": true, "message": "Audio dihentikan"}'
+
+
+async def _run_command(guild: discord.Guild, args: dict, bot, channel, author) -> str:
+    cmd_str = args.get("command", "").strip()
+    if not cmd_str:
+        return '{"success": false, "error": "Parameter command wajib diisi"}'
+
+    if not cmd_str.startswith(bot.command_prefix):
+        cmd_str = f"{bot.command_prefix}{cmd_str}"
+
+    parts = cmd_str[len(bot.command_prefix):].split()
+    cmd_name = parts[0]
+    cmd = bot.get_command(cmd_name)
+    if not cmd:
+        return f'{{"success": false, "error": "Command \\"{cmd_name}\\" tidak dikenal. Coba tanpa prefix."}}'
+
+    try:
+        from discord.message import Message
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        msg_data = {
+            "id": discord.utils.time_snowflake(now),
+            "type": 0,
+            "content": cmd_str,
+            "author": {
+                "id": author.id,
+                "username": author.name,
+                "discriminator": getattr(author, "discriminator", "0"),
+                "avatar": author.display_avatar.key if author.display_avatar else None,
+            },
+            "tts": False,
+            "timestamp": now.isoformat(),
+            "pinned": False,
+            "mention_everyone": False,
+            "mentions": [],
+            "mention_roles": [],
+            "mention_channels": [],
+            "attachments": [],
+            "embeds": [],
+            "reactions": [],
+            "edited_timestamp": None,
+            "flags": 0,
+            "webhook_id": None,
+            "nonce": None,
+        }
+        msg = Message(state=channel._state, channel=channel, data=msg_data)
+        ctx = await bot.get_context(msg)
+        if not ctx.valid:
+            return f'{{"success": false, "error": "Gagal memproses command \\"{cmd_name}\\"}}"}}'
+
+        await bot.invoke(ctx)
+        return f'{{"success": true, "command": "{cmd_name}", "invoked": true}}'
+    except Exception as e:
+        return f'{{"success": false, "error": "{type(e).__name__}: {str(e)[:150]}"}}'

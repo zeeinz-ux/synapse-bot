@@ -29,7 +29,7 @@
   "features.antinuke.title": "Anti Nuke & Spam",
   "features.antinuke.desc": "Perlindungan otomatis dari mass-ban, mass-kick, spam gambar, dan serangan berbahaya lainnya dengan sliding window detection dan AI post-analysis.",
   "features.agent.title": "AI Agent Cerdas",
-  "features.agent.desc": "Agent AI ReAct dengan 23 tools: manage channel, role, ban, timeout, batch operations, server templates, snapshot & rollback, dan penjadwalan tugas otomatis.",
+  "features.agent.desc": "Agent AI ReAct dengan 32 tools: manage channel, role, ban, timeout, kirim pesan, reaksi, voice LoFi, jalanin command bot, batch operations, server templates, snapshot & rollback, dan penjadwalan tugas otomatis.",
   "features.autoresponder.title": "Auto Responder & Actions",
   "features.autoresponder.desc": "Buat aturan auto-reply, trigger kata kunci, dan aksi otomatis. Efisienkan moderasi tanpa bot tambahan.",
 

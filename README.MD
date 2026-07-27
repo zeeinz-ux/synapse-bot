@@ -122,7 +122,7 @@
 | `/agent-mode` | Ubah mode akses AI Agent (owner / admin) |
 | `/agent-status` | Cek status AI Agent |
 
-**Agent Tools (23):** `server_info`, `list_channels`, `list_roles`, `create_channel`, `delete_channel`, `rename_channel`, `create_role`, `edit_role`, `delete_role`, `assign_role`, `remove_role`, `list_members`, `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `edit_channel_permissions`, `list_bans`, `edit_server`, `batch_create_channels`, `batch_create_roles`, `apply_template`, `save_snapshot`, `rollback`, `schedule_task`
+**Agent Tools (32):** `server_info`, `list_channels`, `list_roles`, `create_channel`, `delete_channel`, `rename_channel`, `create_role`, `edit_role`, `delete_role`, `assign_role`, `remove_role`, `list_members`, `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `edit_channel_permissions`, `list_bans`, `edit_server`, `batch_create_channels`, `batch_create_roles`, `apply_template`, `save_snapshot`, `rollback`, `schedule_task`, `send_message`, `add_reaction`, `join_voice`, `leave_voice`, `play_audio`, `stop_audio`, `run_command`
 
 </details>
 
@@ -266,7 +266,7 @@ OpenCode Zen (Tier 1 — Free, priority)
 | **Tool Validation** | Args type-checked before execution |
 | **Auto-Retry** | 3 retry attempts on invalid tool calls |
 | **Provider Fallback** | If primary fails, auto-switches to next provider |
-| **23 Tools** | Roles, channels, members, bans, batch ops, templates, snapshots, scheduler |
+| **32 Tools** | Roles, channels, members, bans, messaging, reactions, voice, commands, batch ops, templates, snapshots, scheduler |
 | **Batch Operations** | `batch_create_channels` / `batch_create_roles` for bulk work |
 | **Server Templates** | 3 templates (gaming, study, community) via `apply_template` |
 | **Snapshot & Rollback** | Auto-snapshot on agent start + manual `rollback` tool |
@@ -319,7 +319,7 @@ OpenCode Zen (Tier 1 — Free, priority)
 | **HTTP** | aiohttp, requests |
 | **Deployment** | Railway + Docker + Honcho (Procfile) |
 | **Templating** | Jinja2 (23 templates) |
-| **AI Agent** | ReAct loop, Plan→Build, 23 tools, tool validation, auto-retry, snapshot, scheduler |
+| **AI Agent** | ReAct loop, Plan→Build, 32 tools, tool validation, auto-retry, snapshot, scheduler |
 
 </div>
 
