@@ -512,6 +512,33 @@ def parse_tool_call(text: str) -> list[dict] | None:
                 args[key] = val
             calls.append({"function": fn_name, "arguments": args})
 
+    # Format 5: <function_name>xxx</function_name> (general XML function call)
+    if not calls:
+        fn_tag_pat = r'<function_name>(\w+)</function_name>'
+        for fn_match in re.finditer(fn_tag_pat, text, re.DOTALL):
+            fn_name = fn_match.group(1)
+            args = {}
+            block_start = fn_match.end()
+            rest = text[block_start:]
+            params_block = re.search(r'<(?:parameters|arguments)>(.*?)</(?:parameters|arguments)>', rest, re.DOTALL)
+            if params_block:
+                inner = params_block.group(1)
+                for kv in re.finditer(r'<(\w+)>(.*?)</\1>', inner, re.DOTALL):
+                    k, v = kv.group(1), kv.group(2).strip()
+                    if v.lower() in ("true", "false"):
+                        v = v.lower() == "true"
+                    else:
+                        try:
+                            num = float(v)
+                            if "." in v or "e" in v.lower():
+                                v = num
+                            else:
+                                v = int(num)
+                        except ValueError:
+                            pass
+                    args[k] = v
+            calls.append({"function": fn_name, "arguments": args})
+
     return calls if calls else None
 
 
