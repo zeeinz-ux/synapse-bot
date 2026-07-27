@@ -1795,6 +1795,8 @@ async def _run_command(guild: discord.Guild, args: dict, bot, channel, author) -
         async def _captured_send(content=None, **kwargs):
             if content:
                 captured.append(str(content)[:200])
+            elif kwargs.get("embed") and kwargs["embed"].description:
+                captured.append(kwargs["embed"].description[:200])
             return await original_send(content, **kwargs)
         ctx.send = _captured_send
 
@@ -1802,6 +1804,8 @@ async def _run_command(guild: discord.Guild, args: dict, bot, channel, author) -
         async def _captured_reply(content=None, **kwargs):
             if content:
                 captured.append(str(content)[:200])
+            elif kwargs.get("embed") and kwargs["embed"].description:
+                captured.append(kwargs["embed"].description[:200])
             return await original_reply(content, **kwargs)
         ctx.reply = _captured_reply
 
