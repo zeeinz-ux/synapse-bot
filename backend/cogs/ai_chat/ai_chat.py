@@ -1118,13 +1118,14 @@ class AIChat(commands.Cog):
             now = time_module.time()
             if is_interaction and msg_obj is None:
                 try:
-                    msg_obj = await ctx.followup.send(full_text)
+                    await ctx.interaction.edit_original_response(content=full_text[:2000])
+                    msg_obj = True
                     last_edit = now
                 except Exception:
                     msg_obj = None
             elif is_interaction and msg_obj and now - last_edit >= 1.0:
                 try:
-                    await msg_obj.edit(content=full_text[:2000])
+                    await ctx.interaction.edit_original_response(content=full_text[:2000])
                     last_edit = now
                 except Exception:
                     pass
@@ -1132,7 +1133,7 @@ class AIChat(commands.Cog):
         if is_interaction and msg_obj:
             try:
                 display = f"<@{user_id}> {full_text}"
-                await msg_obj.edit(content=display[:2000] if len(display) > 2000 else display)
+                await ctx.interaction.edit_original_response(content=display[:2000] if len(display) > 2000 else display)
             except Exception:
                 pass
         elif not is_interaction:
@@ -1236,9 +1237,12 @@ class AIChat(commands.Cog):
                     if len(result) > 1900:
                         chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
                         for i, chunk in enumerate(chunks):
-                            await ctx.send(chunk if i == 0 else chunk)
+                            if i == 0:
+                                await ctx.interaction.edit_original_response(content=chunk)
+                            else:
+                                await ctx.send(chunk)
                     else:
-                        await ctx.send(result)
+                        await ctx.interaction.edit_original_response(content=result)
                     return
             await self._process_ai_chat_stream(
                 ctx=ctx,
