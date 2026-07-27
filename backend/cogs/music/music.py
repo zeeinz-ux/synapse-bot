@@ -205,13 +205,13 @@ class MusicCog(commands.Cog, name="Music"):
                 vc = await ctx.author.voice.channel.connect()
             else:
                 embed = discord.Embed(description="Bot gak di voice. Pake `!connect` dulu atau join voice dulu.", color=COLOR)
-                await ctx.interaction.edit_original_response(embed=embed)
+                await _edit_or_send(ctx, embed=embed)
                 return
         key = (query or "").strip().lower()
         if key and key not in STATIONS:
             available = ", ".join(STATIONS.keys())
             embed = discord.Embed(description=f"Station `{key}` gak ada. Yang tersedia: {available}", color=COLOR)
-            await ctx.interaction.edit_original_response(embed=embed)
+            await _edit_or_send(ctx, embed=embed)
             return
         if not key:
             key = random.choice(list(STATIONS.keys()))
@@ -225,7 +225,7 @@ class MusicCog(commands.Cog, name="Music"):
             description=f"**{station['label']}** \ud83c\udfb5",
             color=COLOR
         )
-        await ctx.interaction.edit_original_response(embed=embed)
+        await _edit_or_send(ctx, embed=embed)
 
     @commands.hybrid_command(name="station", description="Ganti station LoFi radio")
     @discord.app_commands.describe(name="Nama station: lofi, jazz, chill, study, sleep")
@@ -337,6 +337,13 @@ class MusicCog(commands.Cog, name="Music"):
         except Exception as e:
             embed = discord.Embed(description=f"\u274c Gagal reconnect: {e}", color=0xFF0000)
             await ctx.send(embed=embed)
+
+
+async def _edit_or_send(ctx, **kwargs):
+    try:
+        await ctx.interaction.edit_original_response(**kwargs)
+    except Exception:
+        await ctx.send(**kwargs)
 
 
 async def _safe_stop(vc):
