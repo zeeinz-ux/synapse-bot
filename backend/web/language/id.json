@@ -102,7 +102,6 @@
   "commands.desc.antinuke_status": "Cek status Anti-Nuke",
   "commands.desc.purge": "Hapus pesan dalam jumlah banyak (max 100), bisa filter per user",
   "commands.desc.play_slash": "Putar LoFi radio",
-  "commands.desc.stop_slash": "Hentikan audio",
   "commands.desc.connect": "Bot join voice channel",
   "commands.desc.leave": "Bot tinggalkan voice channel",
 

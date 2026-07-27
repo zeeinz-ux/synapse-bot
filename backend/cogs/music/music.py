@@ -201,18 +201,6 @@ class MusicCog(commands.Cog, name="Music"):
         )
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="stop", description="Hentikan audio")
-    async def stop(self, ctx: commands.Context):
-        vc = ctx.guild.voice_client
-        if not vc or not vc.is_playing():
-            embed = discord.Embed(description="Gak ada audio yang diputar.", color=COLOR)
-            await ctx.send(embed=embed)
-            return
-        self._intentional_stop.add(ctx.guild.id)
-        vc.stop()
-        embed = discord.Embed(description="\u23f9 Stopped", color=COLOR)
-        await ctx.send(embed=embed)
-
     @commands.command(name="leave")
     async def leave(self, ctx: commands.Context):
         vc = ctx.guild.voice_client

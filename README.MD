@@ -73,8 +73,7 @@
 - `!connect` / `!joinvc` — join voice (prefix only)
 - `!leave` — leave voice (prefix only)
 - `/play` — play LoFi radio
-- `/stop` — stop audio
-- LoFi radio stream (`play.streamafrica.net/lofiradio`) with auto-restart on EOF
+- LoFi radio stream (`play.streamafrica.net/lofiradio`) auto-restart on EOF
 
 ### 📊 Web Dashboard
 - Discord OAuth2 login (identify + guilds)
@@ -145,7 +144,6 @@
 | Command | Description |
 |---------|-------------|
 | `/play` | Putar LoFi radio |
-| `/stop` | Hentikan audio |
 | `!connect` / `!joinvc` | Bot join voice channel (prefix only) |
 | `!leave` | Bot tinggalkan voice channel (prefix only) |
 

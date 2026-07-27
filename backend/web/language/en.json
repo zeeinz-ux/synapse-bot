@@ -102,7 +102,6 @@
   "commands.desc.antinuke_status": "Check Anti-Nuke status",
   "commands.desc.purge": "Bulk delete messages (max 100), can filter by user",
   "commands.desc.play_slash": "Play LoFi radio",
-  "commands.desc.stop_slash": "Stop audio",
   "commands.desc.connect": "Bot joins a voice channel",
   "commands.desc.leave": "Bot leaves the voice channel",
 
