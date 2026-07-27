@@ -111,7 +111,21 @@ class MusicCog(commands.Cog, name="Music"):
         if member.id != self.bot.user.id:
             return
         if before.channel and not after.channel:
-            self._clear_state(member.guild.id)
+            state = self._voice_states.get(member.guild.id)
+            if state:
+                print(f"[MUSIC] Disconnected from {before.channel.name}, reconnecting in 5s...")
+                await asyncio.sleep(5)
+                guild = self.bot.get_guild(member.guild.id)
+                if guild and not guild.voice_client:
+                    channel = guild.get_channel(state["channel_id"])
+                    if channel and isinstance(channel, discord.VoiceChannel):
+                        try:
+                            vc = await channel.connect()
+                            await asyncio.sleep(0.5)
+                            self._play_looping(vc, state["url"])
+                            print(f"[MUSIC] Auto-reconnected to {channel.name}")
+                        except Exception as e:
+                            print(f"[MUSIC] Auto-reconnect failed: {e}")
 
     def _play_looping(self, vc, url: str):
         try:
