@@ -855,12 +855,13 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             await ctx.send("Command ini hanya bisa digunakan di server.", ephemeral=True)
             return
 
+        await ctx.defer(ephemeral=False)
+
         config = await self._get_agent_config(str(ctx.guild.id))
         if not config.get("agent_enabled", False):
             await ctx.send(
                 "⚠️ **AI Agent belum diaktifkan** di server ini.\n"
-                "Minta owner untuk mengaktifkannya lewat dashboard atau `/agent-toggle`.",
-                ephemeral=True,
+                "Minta owner untuk mengaktifkannya lewat dashboard atau `/agent-toggle`."
             )
             return
 
@@ -868,26 +869,15 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             await ctx.send(
                 "❌ **Tidak punya akses.**\n"
                 "AI Agent hanya bisa digunakan oleh **Owner Server** "
-                + ("dan Admin." if config.get("agent_mode") == "admin" else "."),
-                ephemeral=True,
+                + ("dan Admin." if config.get("agent_mode") == "admin" else ".")
             )
             return
 
         if ctx.author.id in self._active_sessions:
             await ctx.send(
-                "⏳ Kamu masih punya sesi agent yang berjalan. Tunggu sampai selesai.",
-                ephemeral=True,
+                "⏳ Kamu masih punya sesi agent yang berjalan. Tunggu sampai selesai."
             )
             return
-
-        scan_hint = ""
-        if ctx.guild.id not in self._server_scan_cache:
-            # Coba Firestore dulu
-            fs_scan = await self._load_scan_firestore(ctx.guild.id)
-            if not fs_scan:
-                scan_hint = "\n💡 *Server belum pernah di-scan. Gunakan `/scan` dulu biar AI paham kondisi server secara menyeluruh.*"
-
-        defer_msg = await ctx.defer(ephemeral=False)
 
         self._active_sessions.add(ctx.author.id)
         try:
