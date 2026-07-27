@@ -214,7 +214,7 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.interaction.edit_original_response(embed=embed)
             return
         if not key:
-            key = self._guild_stations.get(ctx.guild.id, "lofi")
+            key = self._guild_stations.get(ctx.guild.id) or random.choice(list(STATIONS.keys()))
         station = STATIONS[key]
         await _safe_stop(vc)
         await asyncio.sleep(0.3)
