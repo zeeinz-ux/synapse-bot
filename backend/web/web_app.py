@@ -63,6 +63,14 @@ app = Flask(
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
+@app.after_request
+def _no_cache(resp):
+    if resp.content_type and resp.content_type.startswith("text/html"):
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+    return resp
+
 # Setelah app.secret_key
 app.config["SESSION_TYPE"] = "filesystem"
 app.config["SESSION_FILE_DIR"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "flask_session")
@@ -695,7 +703,7 @@ def api_set_lang(lang):
         session["lang"] = lang
     next_url = request.args.get("next") or request.referrer or "/"
     resp = redirect(next_url)
-    resp.set_cookie("synapse_lang", lang, max_age=365*86400, samesite="Lax")
+    resp.set_cookie("synapse_lang", lang, max_age=365*86400, path="/", samesite="Lax")
     return resp
 
 @app.route("/api/stats")

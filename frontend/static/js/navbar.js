@@ -101,8 +101,8 @@
   document.querySelectorAll(".lang-option[data-lang]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const lang = btn.dataset.lang;
-      const next = encodeURIComponent(location.pathname + location.search);
-      location.href = "/api/lang/" + lang + "?next=" + next;
+      document.cookie = "synapse_lang=" + lang + "; path=/; max-age=31536000; SameSite=Lax";
+      location.reload();
     });
   });
 
