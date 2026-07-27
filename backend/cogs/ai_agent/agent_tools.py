@@ -1740,7 +1740,28 @@ async def _run_command(guild: discord.Guild, args: dict, bot, channel, author) -
         if not ctx.valid:
             return f'{{"success": false, "error": "Gagal memproses command \\"{cmd_name}\\"}}"}}'
 
+        captured = []
+        original_send = ctx.send
+        async def _captured_send(content=None, **kwargs):
+            if content:
+                captured.append(str(content)[:200])
+            return await original_send(content, **kwargs)
+        ctx.send = _captured_send
+
+        original_reply = ctx.reply
+        async def _captured_reply(content=None, **kwargs):
+            if content:
+                captured.append(str(content)[:200])
+            return await original_reply(content, **kwargs)
+        ctx.reply = _captured_reply
+
         await bot.invoke(ctx)
-        return f'{{"success": true, "command": "{cmd_name}", "invoked": true}}'
+
+        result = {
+            "success": True,
+            "command": cmd_name,
+            "response": "; ".join(captured)[:400] if captured else "(command executed, no output captured)",
+        }
+        return json.dumps(result)
     except Exception as e:
         return f'{{"success": false, "error": "{type(e).__name__}: {str(e)[:150]}"}}'

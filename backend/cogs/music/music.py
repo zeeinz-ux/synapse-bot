@@ -39,6 +39,22 @@ def _make_ytdl_source(url: str):
     return discord.FFmpegPCMAudio(proc.stdout, pipe=True)
 
 
+def _yt_search(query: str) -> str | None:
+    """Search YouTube by query, return first video URL or None."""
+    try:
+        result = sp.run(
+            ['yt-dlp', '--no-playlist', '--print', 'url', '-f', 'bestaudio',
+             f'ytsearch1:{query}', '--no-warnings'],
+            capture_output=True, text=True, timeout=30
+        )
+        url = result.stdout.strip()
+        if url and re.search(r'(youtube\.com|youtu\.be)', url):
+            return url
+    except Exception:
+        pass
+    return None
+
+
 class MusicCog(commands.Cog, name="Music"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -212,8 +228,13 @@ class MusicCog(commands.Cog, name="Music"):
         elif raw.startswith("http://") or raw.startswith("https://"):
             raw_url = raw
         else:
-            await ctx.send("Kalo mau LoFi tinggal `!play` aja (tanpa nama). Kalo mau link, kirim URL lengkapnya.")
-            return
+            msg = await ctx.send(f"🔍 Cari **{raw}** di YouTube...")
+            found = await asyncio.to_thread(_yt_search, raw)
+            if not found:
+                await msg.edit(content=f"❌ Gak nemu hasil buat \"{raw}\".")
+                return
+            raw_url = found
+            await msg.edit(content=f"✅ Nemu: {_clean_url(raw_url)[:80]}")
         if vc.is_playing():
             vc.stop()
             await asyncio.sleep(0.3)
