@@ -888,6 +888,12 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             )
             return
 
+        scan_hint = ""
+        if ctx.guild.id not in self._server_scan_cache:
+            fs_scan = await self._load_scan_firestore(ctx.guild.id)
+            if not fs_scan:
+                scan_hint = "\n💡 *Server belum pernah di-scan. Gunakan `/scan` dulu biar AI paham kondisi server secara menyeluruh.*"
+
         self._active_sessions.add(ctx.author.id)
         try:
             memory = self._get_memory(ctx.author.id)
