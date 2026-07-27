@@ -222,6 +222,7 @@ class MusicCog(commands.Cog, name="Music"):
         self._now_playing: dict[int, dict] = {}
         self._last_now_playing_url: dict[int, str] = {}
         self._last_now_playing_at: dict[int, float] = {}
+        self._ytdlp_procs = {}
 
     # --- state persistence ---
     def _save_state(self, guild_id: int, channel_id: int, url: str):
@@ -324,6 +325,7 @@ class MusicCog(commands.Cog, name="Music"):
             source = None
             if _is_youtube_url(url):
                 import subprocess as _sp
+                clean = _clean_url(url)
                 cookies_file = _get_cookies_path()
                 ytdlp_args = [
                     sys.executable, '-m', 'yt_dlp',
@@ -336,9 +338,17 @@ class MusicCog(commands.Cog, name="Music"):
                 ]
                 if cookies_file:
                     ytdlp_args.extend(['--cookies', cookies_file])
-                ytdlp_args.append(url)
-                proc = _sp.Popen(ytdlp_args, stdout=_sp.PIPE, stderr=_sp.DEVNULL)
+                ytdlp_args.append(clean)
+                print(f"[MUSIC] Spawning yt-dlp subprocess for {clean[:60]}...", flush=True)
+                proc = _sp.Popen(ytdlp_args, stdout=_sp.PIPE, stderr=_sp.PIPE)
                 source = discord.FFmpegPCMAudio(proc.stdout, pipe=True)
+                self._ytdlp_procs[gid] = proc
+                def _log_stderr(p):
+                    err = p.stderr.read().decode('utf-8', errors='replace')[:500]
+                    if err:
+                        print(f"[MUSIC] yt-dlp stderr: {err}", flush=True)
+                import threading as _th
+                _th.Thread(target=_log_stderr, args=(proc,), daemon=True).start()
             else:
                 ffmpeg_opts = {
                     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
@@ -352,6 +362,10 @@ class MusicCog(commands.Cog, name="Music"):
 
     def _on_track_end(self, vc, url: str, error):
         gid = vc.guild.id if vc and vc.guild else None
+        if gid:
+            proc = self._ytdlp_procs.pop(gid, None)
+            if proc:
+                proc.kill()
         if gid and gid in self._intentional_stop:
             self._intentional_stop.discard(gid)
             print(f"[MUSIC] Intentional stop for guild {gid}, not restarting.")
