@@ -1818,48 +1818,20 @@ async def _run_command(guild: discord.Guild, args: dict, bot, channel, author) -
             return f'{{"success": false, "error": "Gagal memproses command \\"{cmd_name}\\"}}"}}'
 
         captured = []
-        original_send = ctx.send
         async def _captured_send(content=None, **kwargs):
             if content:
                 captured.append(str(content)[:200])
             elif kwargs.get("embed") and kwargs["embed"].description:
                 captured.append(kwargs["embed"].description[:200])
-            try:
-                return await original_send(content, **kwargs)
-            except (TypeError, UnicodeEncodeError) as e:
-                if "surrogates" in str(e).lower():
-                    if content:
-                        content = content.encode('utf-8', errors='replace').decode('utf-8')
-                    if kwargs.get("embed"):
-                        embed = kwargs["embed"]
-                        for field in ('title', 'description'):
-                            val = getattr(embed, field, None)
-                            if val:
-                                setattr(embed, field, val.encode('utf-8', errors='replace').decode('utf-8'))
-                    return await original_send(content, **kwargs)
-                raise
+            return None
         ctx.send = _captured_send
 
-        original_reply = ctx.reply
         async def _captured_reply(content=None, **kwargs):
             if content:
                 captured.append(str(content)[:200])
             elif kwargs.get("embed") and kwargs["embed"].description:
                 captured.append(kwargs["embed"].description[:200])
-            try:
-                return await original_reply(content, **kwargs)
-            except (TypeError, UnicodeEncodeError) as e:
-                if "surrogates" in str(e).lower():
-                    if content:
-                        content = content.encode('utf-8', errors='replace').decode('utf-8')
-                    if kwargs.get("embed"):
-                        embed = kwargs["embed"]
-                        for field in ('title', 'description'):
-                            val = getattr(embed, field, None)
-                            if val:
-                                setattr(embed, field, val.encode('utf-8', errors='replace').decode('utf-8'))
-                    return await original_reply(content, **kwargs)
-                raise
+            return None
         ctx.reply = _captured_reply
 
         await bot.invoke(ctx)
