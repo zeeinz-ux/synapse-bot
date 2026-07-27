@@ -42,16 +42,18 @@ def _clean_url(url: str) -> str:
 
 
 _YT_ATTEMPTS = [
-    ({"youtube": {"player_client": ["mweb"], "player_skip": ["webpage", "configs"]}}, None),
+    ({}, "worstaudio/worst"),
     ({"youtube": {"player_client": ["mweb"]}}, None),
-    ({"youtube": {"player_client": ["web"]}}, None),
-    ({"youtube": {"player_client": ["android"]}}, None),
-    ({}, None),
+    ({"youtube": {"player_client": ["android"]}}, "bestaudio*"),
+    ({"youtube": {"player_client": ["ios"]}}, "bestaudio*"),
+    ({"youtube": {"player_client": ["web_safari"]}}, "bestaudio*"),
+    ({"youtube": {"player_client": ["android"]}}, "worstaudio/worst"),
 ]
 
 def _yt_fetch(url_or_query: str) -> dict | None:
     cookies_file = _get_cookies_path()
     for idx, (extra_args, fmt) in enumerate(_YT_ATTEMPTS):
+        use_cookies = idx >= 2 if cookies_file else False
         opts = dict(format=fmt) if fmt else {}
         opts.update(
             noplaylist=True,
@@ -64,7 +66,7 @@ def _yt_fetch(url_or_query: str) -> dict | None:
             ignore_no_formats_error=True,
             extractor_args=extra_args,
         )
-        if cookies_file:
+        if use_cookies and cookies_file:
             opts["cookiefile"] = cookies_file
         try:
             with YoutubeDL(opts) as ydl:
