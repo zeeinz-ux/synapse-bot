@@ -14,9 +14,18 @@ def _is_youtube_url(url: str) -> bool:
     return bool(re.search(r'(youtube\.com|youtu\.be)', url, re.IGNORECASE))
 
 
+def _clean_url(url: str) -> str:
+    if "youtube.com/watch?" in url:
+        url = re.sub(r'&list=[^&]*', '', url)
+        url = re.sub(r'&start_radio=[^&]*', '', url)
+        url = re.sub(r'&index=[^&]*', '', url)
+    return url
+
+
 def _resolve_url(url: str) -> str:
     if not _is_youtube_url(url):
         return url
+    url = _clean_url(url)
     ydl_opts = {
         "format": "bestaudio/best",
         "quiet": True,
@@ -24,9 +33,12 @@ def _resolve_url(url: str) -> str:
     }
     if os.path.isfile(COOKIES_PATH):
         ydl_opts["cookiefile"] = COOKIES_PATH
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        return info["url"]
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            return info["url"]
+    except Exception as e:
+        raise Exception(f"yt-dlp: {e}")
 
 
 class MusicCog(commands.Cog, name="Music"):
@@ -56,6 +68,7 @@ class MusicCog(commands.Cog, name="Music"):
         except Exception as e:
             await ctx.send(f"❌ Gagal: {e}")
             return
+        await asyncio.sleep(0.5)
         url = LOFI_DEFAULT_URL
         ffmpeg_opts = {
             "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
@@ -66,6 +79,8 @@ class MusicCog(commands.Cog, name="Music"):
             source = discord.FFmpegPCMAudio(src, **ffmpeg_opts)
             vc.play(source, after=lambda e: print(f"[MUSIC] Stream ended: {e}") if e else None)
             await ctx.send(f"✅ Join **{channel.name}** 🎵 LoFi")
+        except discord.ClientException:
+            await ctx.send(f"✅ Join **{channel.name}** (voice tersambung, tapi audio error — coba `!play` lagi)")
         except Exception:
             await ctx.send(f"✅ Join **{channel.name}**")
 
@@ -103,13 +118,17 @@ class MusicCog(commands.Cog, name="Music"):
             "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
             "options": "-vn",
         }
-        vc.stop()
+        if vc.is_playing():
+            vc.stop()
+            await asyncio.sleep(0.3)
         try:
             url = _resolve_url(raw_url)
             source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
             vc.play(source, after=lambda e: print(f"[MUSIC] Playback ended: {e}") if e else None)
             label = "LoFi default" if not stream else (raw_url[:60] if _is_youtube_url(raw_url) else raw_url[:60])
             await ctx.send(f"🎵 Putar **{label}**")
+        except discord.ClientException as e:
+            await ctx.send(f"❌ Gagal: voice belum siap. Coba `!connect` dulu atau tunggu bentar. ({e})")
         except Exception as e:
             await ctx.send(f"❌ Gagal putar audio: {e}")
 
