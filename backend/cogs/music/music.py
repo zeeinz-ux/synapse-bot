@@ -41,12 +41,16 @@ def _yt_fetch(url_or_query: str) -> dict | None:
             base.extend(['--cookies', COOKIES_PATH])
         args = base + ['-f', 'bestaudio/best', url_or_query]
         r = sp.run(args, capture_output=True, text=True, timeout=30)
+        print(f"[MUSIC] yt-dlp rc={r.returncode}, stdout={len(r.stdout)}b, stderr={r.stderr[:300]}")
         if r.returncode != 0 or not r.stdout.strip():
-            print(f"[MUSIC] yt-dlp failed (rc={r.returncode}): {r.stderr[:200]}")
             return None
         data = json.loads(r.stdout)
+        audio_url = data.get('url') or data.get('webpage_url') or ''
+        if not audio_url:
+            print(f"[MUSIC] yt-dlp JSON has no url field. Keys: {list(data.keys())[:15]}")
+            return None
         return {
-            "audio_url": data.get('url', ''),
+            "audio_url": audio_url,
             "title": data.get('title', 'Unknown'),
             "thumbnail": data.get('thumbnail', ''),
             "webpage_url": data.get('webpage_url', '')
