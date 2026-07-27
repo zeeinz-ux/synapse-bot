@@ -311,9 +311,16 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "run_command",
-        "description": "Jalankan command Synapse Bot (prefix ! atau /). Gunakan untuk perintah Synapse Bot yang tidak ada tool khususnya, seperti ngecek rank, leaderboard, boost status, help, dll. CATATAN: hanya bisa menjalankan command Synapse Bot — TIDAK bisa menjalankan command milik bot lain (Dyno, Carl-bot, MEE6, dll). HATI-HATI: command yang mengubah data server hanya jalan jika authorized.",
+        "description": "Jalankan command Synapse Bot (prefix ! atau /). Gunakan untuk perintah Synapse Bot yang tidak ada tool khususnya, seperti ngecek rank, leaderboard, boost status, help, dll. CATATAN: hanya bisa menjalankan command milik Synapse Bot saja — TIDAK bisa menjalankan command milik bot lain (Dyno, Carl-bot, MEE6, dll). HATI-HATI: command yang mengubah data server hanya jalan jika authorized.",
         "parameters": {
             "command": "string — command Synapse Bot yang ingin dijalankan beserta argumennya. Contoh: 'rank @user', 'help', 'leaderboard', 'cekboost @user'",
+        },
+    },
+    {
+        "name": "web_search",
+        "description": "Cari informasi terbaru di internet pakai DuckDuckGo. Gunakan untuk berita/trend/skor/lirik/ info terkini yang butuh data real-time.",
+        "parameters": {
+            "query": "string — kata kunci pencarian",
         },
     },
 ]
@@ -327,10 +334,14 @@ Tool run_command HANYA bisa menjalankan command milik Synapse Bot saja. Command 
 Untuk urusan VOICE CHANNEL (join, leave, play audio, stop), gunakan run_command:
 - `!connect [nama channel]` — bot join voice channel. Kosongkan nama untuk otomatis ikut user. Alias: `!joinvc`.
 - `!leave` — bot tinggalkan voice channel.
-- `!play [url]` — putar audio. Kosongkan untuk LoFi default. Alias: `!p`.
+- `!play [url atau nama lagu]` — putar audio. Bisa URL YouTube/langsung, atau nama lagu (otomatis search). Kosongkan untuk LoFi default. Alias: `!p`.
 - `!stop` — hentikan audio.
 
-Contoh: run_command("connect"), run_command("connect General"), run_command("play"), run_command("play https://..."), run_command("leave"), run_command("stop").
+Contoh: run_command("connect"), run_command("play lagu viral 2026"), run_command("play https://youtube.com/...").
+
+Jika user minta "putar lagu viral" atau "cari lagu trending", gunakan web_search dulu untuk cari daftar lagu viral/trending terkini, lalu tanya user pilih yang mana, baru jalankan run_command("play ...").
+
+ATURAN PENTING:
 
 ATURAN PENTING:
 1. Jangan pernah setuju begitu saja. Beri rekomendasi, saran, atau koreksi jika menurutmu ada yang kurang tepat.
@@ -385,6 +396,7 @@ Gunakan pengetahuan ini untuk menjawab pertanyaan user tentang cara manual melak
 
 
 import re as _re
+from backend.cogs.ai_chat.web_search import search_web as _web_search_impl
 
 AGENT_TRIGGER_KEYWORDS = [
     "bikin channel", "buat channel", "tambah channel", "hapus channel",
@@ -690,6 +702,8 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot, channel=None,
             return await _add_reaction(guild, args)
         elif fn == "run_command":
             return await _run_command(guild, args, bot, channel, author)
+        elif fn == "web_search":
+            return await _web_search(args)
         else:
             return f"[TOOL_RESULT]\nFunction: {fn}\nResult: {{\"success\": false, \"error\": \"Tool '{fn}' tidak dikenal\"}}"
     except discord.Forbidden:
@@ -1632,6 +1646,19 @@ async def _list_bans(guild: discord.Guild) -> str:
 
 
 # ── New Tools ──
+
+
+async def _web_search(args: dict) -> str:
+    query = args.get("query", "").strip()
+    if not query:
+        return '{"success": false, "error": "Parameter query wajib diisi"}'
+    try:
+        results = await _web_search_impl(query)
+        if not results:
+            return f'[TOOL_RESULT]\nFunction: web_search\nQuery: {query}\nResult: Tidak ada hasil.'
+        return f'[TOOL_RESULT]\nFunction: web_search\nQuery: {query}\nResult:\n{results[:1500]}'
+    except Exception as e:
+        return f'[TOOL_RESULT]\nFunction: web_search\nResult: {{"success": false, "error": "Web search gagal: {str(e)[:100]}"}}'
 
 
 def _resolve_mention(guild: discord.Guild, name: str) -> str:
