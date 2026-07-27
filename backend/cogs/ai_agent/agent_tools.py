@@ -313,9 +313,9 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "join_voice",
-        "description": "Bergabung ke voice channel dan mulai memutar aliran LoFi/lagu. Gunakan parameter 'stream' untuk URL kustom, atau kosongkan untuk memutar LoFi default.",
+        "description": "Bergabung ke voice channel dan mulai memutar aliran LoFi/lagu. Kalau parameter 'channel' dikosongkan, bot akan otomatis join ke voice channel tempat user berada. Gunakan parameter 'stream' untuk URL kustom, atau kosongkan untuk memutar LoFi default.",
         "parameters": {
-            "channel": "string — nama voice channel yang akan dimasuki",
+            "channel": "string — (opsional) nama voice channel yang akan dimasuki. Kosongkan untuk otomatis mengikuti user.",
             "stream": "string — (opsional) URL audio stream untuk diputar. Kosongkan untuk LoFi default.",
         },
     },
@@ -667,7 +667,7 @@ async def execute_tool(guild: discord.Guild, tool_call: dict, bot, channel=None,
         elif fn == "add_reaction":
             return await _add_reaction(guild, args)
         elif fn == "join_voice":
-            return await _join_voice(guild, args)
+            return await _join_voice(guild, args, author=author)
         elif fn == "leave_voice":
             return await _leave_voice(guild)
         elif fn == "play_audio":
@@ -1667,13 +1667,17 @@ async def _add_reaction(guild: discord.Guild, args: dict) -> str:
         return f'{{"success": false, "error": "Gagal menambah reaksi: {str(e)[:100]}"}}'
 
 
-async def _join_voice(guild: discord.Guild, args: dict) -> str:
+async def _join_voice(guild: discord.Guild, args: dict, author: discord.Member | None = None) -> str:
     channel_name = args.get("channel", "").strip()
     if not channel_name:
-        return '{"success": false, "error": "Nama voice channel wajib diisi"}'
-    channel = find_channel(guild, channel_name, "voice")
-    if not channel:
-        return f'{{"success": false, "error": "Voice channel \\"{channel_name}\\" tidak ditemukan"}}'
+        if author and author.voice and author.voice.channel:
+            channel = author.voice.channel
+        else:
+            return '{"success": false, "error": "Nama voice channel wajib diisi, atau join voice channel dulu biar bot otomatis ngikut."}'
+    else:
+        channel = find_channel(guild, channel_name, "voice")
+        if not channel:
+            return f'{{"success": false, "error": "Voice channel \\"{channel_name}\\" tidak ditemukan"}}'
 
     vc = guild.voice_client
     if vc:

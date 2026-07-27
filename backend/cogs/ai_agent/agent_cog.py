@@ -564,6 +564,8 @@ class AIChatAgent(commands.Cog):
             f"{DISCORD_UI_KNOWLEDGE}\n\n"
             f"Server ini: {guild.name} (ID: {guild.id})\n"
             f"Owner: {guild.owner}\n"
+            f"User yang ngobrol: {author.name} (ID: {author.id})"
+            f"{' — saat ini berada di voice channel: ' + author.voice.channel.name if author.voice and author.voice.channel else ''}\n"
             f"{scan_section_sys}"
             f"Kamu adalah AI Agent profesional yang paham seluruh struktur Discord server.\n"
             f"Gunakan pengetahuan permission di atas untuk memberikan saran terbaik ke user.\n"
@@ -578,6 +580,7 @@ Tool yang tersedia:
 
 Server: {guild.name}
 Owner: {guild.owner}
+User: {author.name}{' — di voice: ' + author.voice.channel.name if author.voice and author.voice.channel else ''}
 {scan_section_plan}
 SEKARANG KAMU HARUS MEMBUAT RENCANA DAHULU SEBELUM EKSEKUSI!
 
