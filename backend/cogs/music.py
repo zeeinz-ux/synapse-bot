@@ -57,13 +57,13 @@ class MusicCog(commands.Cog, name="Music"):
             return
         url = LOFI_DEFAULT_URL
         ffmpeg_opts = {
-            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
             "options": "-vn",
         }
         try:
             src = _resolve_url(url)
             source = discord.FFmpegPCMAudio(src, **ffmpeg_opts)
-            vc.play(source)
+            vc.play(source, after=lambda e: print(f"[MUSIC] Stream ended: {e}") if e else None)
             await ctx.send(f"✅ Join **{channel.name}** 🎵 LoFi")
         except Exception:
             await ctx.send(f"✅ Join **{channel.name}**")
@@ -92,14 +92,14 @@ class MusicCog(commands.Cog, name="Music"):
                 return
         raw_url = stream or LOFI_DEFAULT_URL
         ffmpeg_opts = {
-            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
             "options": "-vn",
         }
         vc.stop()
         try:
             url = _resolve_url(raw_url)
             source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
-            vc.play(source)
+            vc.play(source, after=lambda e: print(f"[MUSIC] Playback ended: {e}") if e else None)
             label = "LoFi default" if not stream else (raw_url[:60] if _is_youtube_url(raw_url) else raw_url[:60])
             await ctx.send(f"🎵 Putar **{label}**")
         except Exception as e:
