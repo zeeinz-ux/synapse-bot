@@ -29,7 +29,7 @@
   "features.antinuke.title": "Anti Nuke & Spam",
   "features.antinuke.desc": "Automatic protection from mass-ban, mass-kick, image spam, and other malicious attacks with sliding window detection and AI post-analysis.",
   "features.agent.title": "Smart AI Agent",
-  "features.agent.desc": "ReAct AI Agent with 32 tools: manage channels, roles, bans, timeouts, messaging, reactions, LoFi voice, run bot commands, batch operations, server templates, snapshot & rollback, and automated task scheduling.",
+  "features.agent.desc": "ReAct AI Agent with 32 tools: manage channels, roles, bans, timeouts, messaging, reactions, voice, run bot commands, batch operations, server templates, snapshot & rollback, and automated task scheduling.",
   "features.autoresponder.title": "Auto Responder & Actions",
   "features.autoresponder.desc": "Create auto-reply rules, keyword triggers, and automated actions. Streamline moderation without extra bots.",
 
@@ -101,7 +101,7 @@
   "commands.desc.personality": "Set AI personality per channel",
   "commands.desc.antinuke_status": "Check Anti-Nuke status",
   "commands.desc.purge": "Bulk delete messages (max 100), can filter by user",
-  "commands.desc.play_slash": "Play LoFi radio (pick a station)",
+  "commands.desc.play_slash": "Play Synapse radio (pick a station)",
   "commands.desc.station": "Switch station: lofi, jazz, chill, study, sleep",
   "commands.desc.song": "Show current station",
   "commands.desc.sleep": "Set auto-disconnect timer (minutes)",

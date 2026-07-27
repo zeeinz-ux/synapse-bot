@@ -18,11 +18,11 @@ VOICE_STATE_COLLECTION = "voice_state"
 COLOR = 0x5865F2
 
 STATIONS = {
-    "lofi": {"url": "https://play.streamafrica.net/lofiradio", "label": "LoFi Radio"},
-    "jazz": {"url": "https://stream.zeno.fm/v4kaet5ab1ntv", "label": "LoFi Jazz"},
-    "chill": {"url": "https://radio.loficafe.net/listen/chilling/radio.mp3", "label": "LoFi Chill"},
-    "study": {"url": "https://live.lofiradio.ru/lofi_mp3_128", "label": "LoFi Study"},
-    "sleep": {"url": "https://streaming.hotmixradio.com/hotmix-lofi-en-mp3", "label": "LoFi Sleep"},
+    "lofi":  {"url": "https://play.streamafrica.net/lofiradio", "label": "\U0001f3a7 Synapse Radio"},
+    "jazz":  {"url": "https://radio.loficafe.net/listen/japanese-lofi/radio.mp3", "label": "\U0001f3b7 Synapse Jazz"},
+    "chill": {"url": "https://radio.loficafe.net/listen/chilling/radio.mp3", "label": "\U0001f30a Synapse Chill"},
+    "study": {"url": "https://live.lofiradio.ru/lofi_mp3_128", "label": "\U0001f4da Synapse Study"},
+    "sleep": {"url": "https://streaming.hotmixradio.com/hotmix-lofi-en-mp3", "label": "\U0001f634 Synapse Sleep"},
 }
 
 
@@ -42,6 +42,15 @@ class MusicCog(commands.Cog, name="Music"):
             if v["url"] == url:
                 return k
         return "lofi"
+
+    async def _respond(self, ctx, **kwargs):
+        if ctx.interaction:
+            try:
+                await ctx.interaction.edit_original_response(**kwargs)
+                return
+            except Exception:
+                pass
+        await ctx.send(**kwargs)
 
     def _save_state(self, guild_id: int, channel_id: int, url: str):
         data = {"guild_id": guild_id, "channel_id": channel_id, "url": url, "updated_at": time.time()}
@@ -129,6 +138,10 @@ class MusicCog(commands.Cog, name="Music"):
             print(f"[MUSIC] Audio error: {error}")
         if not vc or not vc.is_connected():
             return
+        gid = vc.guild.id if vc and vc.guild else None
+        if gid and gid in self._guild_stations:
+            key = self._guild_stations[gid]
+            url = STATIONS[key]["url"]
         print(f"[MUSIC] Stream ended, restarting...")
         self._play_looping(vc, url)
 
@@ -197,23 +210,28 @@ class MusicCog(commands.Cog, name="Music"):
             embed = discord.Embed(description=f"\u2705 Join **{channel.name}**", color=COLOR)
             await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="play", aliases=["p"], description="Putar LoFi radio")
-    @discord.app_commands.describe(query="Nama station (lofi, jazz, chill, study, sleep)")
+    @commands.hybrid_command(name="play", aliases=["p"], description="Putar Synapse radio")
+    @discord.app_commands.describe(query="Nama station (kosongin buat random)")
+    @discord.app_commands.choices(query=[
+        discord.app_commands.Choice(name=v["label"], value=k)
+        for k, v in STATIONS.items()
+    ])
     async def play(self, ctx: commands.Context, *, query: str = None):
-        await ctx.defer()
         vc = ctx.guild.voice_client
         if not vc:
             if ctx.author.voice and ctx.author.voice.channel:
+                if ctx.interaction:
+                    await ctx.defer()
                 vc = await ctx.author.voice.channel.connect()
             else:
                 embed = discord.Embed(description="Bot gak di voice. Pake `!connect` dulu atau join voice dulu.", color=COLOR)
-                await _edit_or_send(ctx, embed=embed)
+                await ctx.send(embed=embed)
                 return
         key = (query or "").strip().lower()
         if key and key not in STATIONS:
             available = ", ".join(STATIONS.keys())
             embed = discord.Embed(description=f"Station `{key}` gak ada. Yang tersedia: {available}", color=COLOR)
-            await _edit_or_send(ctx, embed=embed)
+            await ctx.send(embed=embed)
             return
         if not key:
             key = random.choice(list(STATIONS.keys()))
@@ -224,14 +242,28 @@ class MusicCog(commands.Cog, name="Music"):
         self._save_state(ctx.guild.id, vc.channel.id, station["url"])
         embed = discord.Embed(
             title="\u25b6 Now Playing",
-            description=f"**{station['label']}** \ud83c\udfb5",
+            description=f"**{station['label']}**",
             color=COLOR
         )
-        await _edit_or_send(ctx, embed=embed)
+        await self._respond(ctx, embed=embed)
 
-    @commands.hybrid_command(name="station", description="Ganti station LoFi radio")
-    @discord.app_commands.describe(name="Nama station: lofi, jazz, chill, study, sleep")
-    async def station(self, ctx: commands.Context, *, name: str):
+    @commands.hybrid_command(name="station", description="Ganti station atau lihat daftar station")
+    @discord.app_commands.describe(name="Nama station (kosongin buat liat daftar)")
+    @discord.app_commands.choices(name=[
+        discord.app_commands.Choice(name=v["label"], value=k)
+        for k, v in STATIONS.items()
+    ])
+    async def station(self, ctx: commands.Context, *, name: str = None):
+        if not name:
+            lines = "\n".join(f"{v['label']} \u2014 `{k}`" for k, v in STATIONS.items())
+            embed = discord.Embed(
+                title="\U0001f3b5 Synapse Stations",
+                description=lines,
+                color=COLOR
+            )
+            embed.set_footer(text="Gunakan: /station <nama> buat ganti station")
+            await ctx.send(embed=embed)
+            return
         key = name.strip().lower()
         if key not in STATIONS:
             available = ", ".join(STATIONS.keys())
@@ -257,19 +289,21 @@ class MusicCog(commands.Cog, name="Music"):
 
     @commands.hybrid_command(name="song", description="Lihat station yang sedang diputar")
     async def song(self, ctx: commands.Context):
+        if ctx.interaction:
+            await ctx.defer()
         vc = ctx.guild.voice_client
         if not vc or not vc.is_connected() or not vc.is_playing():
             embed = discord.Embed(description="Gak ada audio yang diputar.", color=COLOR)
-            await ctx.send(embed=embed)
+            await self._respond(ctx, embed=embed)
             return
         key = self._guild_stations.get(ctx.guild.id, "lofi")
         station = STATIONS[key]
         embed = discord.Embed(
             title="\u25b6 Now Playing",
-            description=f"**{station['label']}** \ud83c\udfb5",
+            description=f"**{station['label']}**",
             color=COLOR
         )
-        await ctx.send(embed=embed)
+        await self._respond(ctx, embed=embed)
 
     @commands.hybrid_command(name="sleep", description="Set sleep timer untuk auto-disconnect")
     @discord.app_commands.describe(minutes="Menit sampai disconnect (contoh: 15, 30, 60)")
@@ -341,13 +375,6 @@ class MusicCog(commands.Cog, name="Music"):
         except Exception as e:
             embed = discord.Embed(description=f"\u274c Gagal reconnect: {e}", color=0xFF0000)
             await ctx.send(embed=embed)
-
-
-async def _edit_or_send(ctx, **kwargs):
-    try:
-        await ctx.interaction.edit_original_response(**kwargs)
-    except Exception:
-        await ctx.send(**kwargs)
 
 
 async def _safe_stop(vc):
