@@ -57,7 +57,6 @@ class MusicCog(commands.Cog, name="Music"):
 
     def _clear_state(self, guild_id: int):
         self._voice_states.pop(guild_id, None)
-        self._guild_stations.pop(guild_id, None)
         self._cancel_sleep(guild_id)
         if _HAS_FS and db is not None:
             try:
