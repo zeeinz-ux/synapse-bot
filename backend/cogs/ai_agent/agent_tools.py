@@ -480,6 +480,32 @@ def parse_tool_call(text: str) -> list[dict] | None:
             except json.JSONDecodeError:
                 pass
 
+    # Format 4: XML-style — <tool_call><function=name><parameter=key>val</parameter></function></tool_call>
+    if not calls:
+        xml_pattern = r'<tool_call>(.*?)</tool_call>'
+        for block in re.findall(xml_pattern, text, re.DOTALL):
+            fn_match = re.search(r'<function=(\w+)>', block)
+            if not fn_match:
+                continue
+            fn_name = fn_match.group(1)
+            args = {}
+            for param_match in re.finditer(r'<parameter=(\w+)>(.*?)</parameter>', block, re.DOTALL):
+                key = param_match.group(1)
+                val = param_match.group(2).strip()
+                if val.lower() in ("true", "false"):
+                    val = val.lower() == "true"
+                else:
+                    try:
+                        num = float(val)
+                        if "." in val or "e" in val.lower():
+                            val = num
+                        else:
+                            val = int(val)
+                    except ValueError:
+                        pass
+                args[key] = val
+            calls.append({"function": fn_name, "arguments": args})
+
     return calls if calls else None
 
 
