@@ -147,4 +147,4 @@ None. Zero tests, no pytest, no lint, no typecheck, no formatter, no CI. Manual 
 
 ## Deployment
 
-Railway via `railway.json`. Dockerfile: `python:3.11-slim`, installs `curl unzip fonts-dejavu-core`, runs `honcho start -f Procfile`. UptimeRobot health ping every 5 min.
+**Render.com** via Dockerfile. `python:3.11-slim`, installs `curl unzip fonts-dejavu-core ffmpeg`, runs `pip install --upgrade yt-dlp` saat build, lalu `honcho start -f Procfile`. UptimeRobot health ping every 5 min.
