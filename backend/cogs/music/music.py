@@ -354,6 +354,7 @@ class MusicCog(commands.Cog, name="Music"):
     @commands.hybrid_command(name="play", aliases=["p"], description="Putar lagu dari YouTube")
     @discord.app_commands.describe(query="Nama lagu atau URL YouTube")
     async def play(self, ctx: commands.Context, *, query: str = None):
+        await ctx.defer()
         vc = ctx.guild.voice_client
         if not vc:
             if ctx.author.voice and ctx.author.voice.channel:
@@ -441,6 +442,7 @@ class MusicCog(commands.Cog, name="Music"):
     @commands.hybrid_command(name="search", description="Cari dan pilih lagu dari YouTube")
     @discord.app_commands.describe(query="Kata kunci pencarian")
     async def search(self, ctx: commands.Context, *, query: str):
+        await ctx.defer()
         q = query.strip()
         if not q:
             embed = discord.Embed(description="Masukin kata kunci pencarian.", color=COLOR)
