@@ -6,6 +6,7 @@ import re
 import yt_dlp
 
 LOFI_DEFAULT_URL = "https://play.streamafrica.net/lofiradio"
+LOFI_KEYWORDS = {"lofi", "lo-fi", "lo_fi", "lofi radio", "default", "radio"}
 COOKIES_PATH = "cookies/cookies.txt"
 
 
@@ -88,9 +89,16 @@ class MusicCog(commands.Cog, name="Music"):
                 await ctx.author.voice.channel.connect()
                 vc = ctx.guild.voice_client
             else:
-                await ctx.send("Bot gak di voice. Pake `!join` dulu atau join voice dulu.")
+                await ctx.send("Bot gak di voice. Pake `!connect` dulu atau join voice dulu.")
                 return
-        raw_url = stream or LOFI_DEFAULT_URL
+        raw = (stream or "").strip().lower()
+        if not raw or raw in LOFI_KEYWORDS:
+            raw_url = LOFI_DEFAULT_URL
+        elif raw.startswith("http://") or raw.startswith("https://"):
+            raw_url = raw
+        else:
+            await ctx.send("Kalo mau LoFi tinggal `!play` aja (tanpa nama). Kalo mau link, kirim URL lengkapnya.")
+            return
         ffmpeg_opts = {
             "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
             "options": "-vn",
