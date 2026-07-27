@@ -70,7 +70,11 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - Sessions: Flask-Session (filesystem) at `backend/flask_session/` (gitignored).
 - `MAX_CONTENT_LENGTH = 50MB`. Images >400KB auto-compressed to base64 data URLs for Firestore.
 - `PYTHONPATH=/app` set via Dockerfile (required for `backend.` imports in production).
-- i18n: `session["lang"]` defaults to `id`. Template filter `{{ "key" | t }}`. Fallback: requested lang → `id.json` → raw key. Translations in `backend/web/language/` (not `translations/`).
+- i18n: **Cookie-based** (`synapse_lang`), fallback ke session → `"id"`. Template filter `{{ "key" | t }}`. Fallback: requested lang → `id.json` → raw key. Translations in `backend/web/language/`.
+  - **Language toggle di navbar.js**: langsung set cookie lewat `document.cookie` + `location.reload()` — **bukan** redirect ke `/api/lang/<lang>`.
+  - **`_get_lang()`** di `web_app.py:83`: `request.cookies.get("synapse_lang") or session.get("lang", "id")`.
+  - **No-cache headers** di `_no_cache()` for `text/html` responses (`web_app.py:70-75`).
+  - **`landing.js` commands counter**: pake template dari server-rendered text (`data-template`) + `{n}` placeholder, bukan hardcode Indonesia.
 
 ## Moderation (spam, `backend/utils/`)
 
