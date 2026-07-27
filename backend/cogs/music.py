@@ -3,7 +3,7 @@ from discord.ext import commands
 import asyncio
 import os
 import re
-import yt_dlp
+import subprocess as sp
 
 LOFI_DEFAULT_URL = "https://play.streamafrica.net/lofiradio"
 LOFI_KEYWORDS = {"lofi", "lo-fi", "lo_fi", "lofi radio", "default", "radio"}
@@ -22,41 +22,30 @@ def _clean_url(url: str) -> str:
     return url
 
 
-def _resolve_url(url: str) -> str:
-    if not _is_youtube_url(url):
-        return url
-    url = _clean_url(url)
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "quiet": True,
-        "no_warnings": True,
-    }
+def _make_ytdl_source(url: str):
+    args = ['yt-dlp', '-f', 'bestaudio', '-o', '-', '--no-playlist', url]
     if os.path.isfile(COOKIES_PATH):
-        ydl_opts["cookiefile"] = COOKIES_PATH
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            return info["url"]
-    except Exception as e:
-        raise Exception(f"yt-dlp: {e}")
+        args.extend(['--cookies', COOKIES_PATH])
+    proc = sp.Popen(args, stdout=sp.PIPE, stderr=sp.DEVNULL)
+    return discord.FFmpegPCMAudio(proc.stdout, pipe=True)
 
 
 class MusicCog(commands.Cog, name="Music"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    def _get_ffmpeg_opts(self):
-        return {
-            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
-            "options": "-vn",
-        }
-
     def _play_looping(self, vc, url: str):
         """Play with auto-restart on EOF."""
-        ffmpeg_opts = self._get_ffmpeg_opts()
         try:
-            src = _resolve_url(url)
-            source = discord.FFmpegPCMAudio(src, **ffmpeg_opts)
+            if _is_youtube_url(url):
+                url = _clean_url(url)
+                source = _make_ytdl_source(url)
+            else:
+                ffmpeg_opts = {
+                    "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -reconnect_at_eof 1 -reconnect_on_network_error 1",
+                    "options": "-vn",
+                }
+                source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
             vc.play(source, after=lambda e: self._on_audio_end(vc, url, e))
         except Exception as e:
             print(f"[MUSIC] _play_looping error: {e}")
@@ -136,7 +125,7 @@ class MusicCog(commands.Cog, name="Music"):
             await asyncio.sleep(0.3)
         try:
             self._play_looping(vc, raw_url)
-            label = "LoFi default" if not stream else (_clean_url(raw_url)[:60] if _is_youtube_url(raw_url) else raw_url[:60])
+            label = "LoFi default" if not stream else (_clean_url(raw_url)[:80] if _is_youtube_url(raw_url) else raw_url[:80])
             await ctx.send(f"🎵 Putar **{label}** (auto-restart)")
         except discord.ClientException as e:
             await ctx.send(f"❌ Gagal: voice belum siap. Coba `!connect` dulu. ({e})")
