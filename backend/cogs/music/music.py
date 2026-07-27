@@ -35,32 +35,56 @@ def _clean_url(url: str) -> str:
 
 
 def _yt_fetch(url_or_query: str) -> dict | None:
-    try:
-        base = ['yt-dlp', '--no-playlist', '--dump-json', '--no-warnings']
-        if os.path.isfile(COOKIES_PATH):
-            base.extend(['--cookies', COOKIES_PATH])
-        args = base + ['-f', 'bestaudio/best', url_or_query]
-        r = sp.run(args, capture_output=True, text=True, timeout=30)
-        print(f"[MUSIC] yt-dlp rc={r.returncode}, stdout={len(r.stdout)}b, stderr={r.stderr[:300]}")
-        if r.returncode != 0 or not r.stdout.strip():
-            return None
-        data = json.loads(r.stdout)
-        audio_url = data.get('url') or data.get('webpage_url') or ''
-        if not audio_url:
-            print(f"[MUSIC] yt-dlp JSON has no url field. Keys: {list(data.keys())[:15]}")
-            return None
-        title = data.get('title', 'Unknown')
-        if isinstance(title, str):
-            title = title.encode('utf-8', errors='replace').decode('utf-8')
-        return {
-            "audio_url": audio_url,
-            "title": title,
-            "thumbnail": data.get('thumbnail', ''),
-            "webpage_url": data.get('webpage_url', '')
-        }
-    except Exception as e:
-        print(f"[MUSIC] _yt_fetch exception: {e}")
-    return None
+    _TIMEOUT = 20
+
+    def _run(args: list[str]) -> dict | None:
+        try:
+            r = sp.run(args, capture_output=True, text=True, timeout=_TIMEOUT)
+            stderr_snippet = r.stderr[:500] if r.stderr else ""
+            print(f"[MUSIC] yt-dlp rc={r.returncode}, stdout={len(r.stdout)}b, stderr={stderr_snippet}")
+            if r.returncode != 0 or not r.stdout.strip():
+                return None
+            data = json.loads(r.stdout)
+            audio_url = data.get('url') or ''
+            if not audio_url:
+                print(f"[MUSIC] yt-dlp JSON has no url field. Keys: {list(data.keys())[:15]}")
+                return None
+            title = data.get('title', 'Unknown')
+            if isinstance(title, str):
+                title = title.encode('utf-8', errors='replace').decode('utf-8')
+            return {
+                "audio_url": audio_url,
+                "title": title,
+                "thumbnail": data.get('thumbnail', ''),
+                "webpage_url": data.get('webpage_url', '')
+            }
+        except Exception as e:
+            print(f"[MUSIC] _yt_fetch inner error: {e}")
+        return None
+
+    base = ['yt-dlp', '--no-playlist', '--dump-json', '--ignore-errors', '--no-warnings']
+    if os.path.isfile(COOKIES_PATH):
+        base.extend(['--cookies', COOKIES_PATH])
+
+    # Try 1: bestaudio with cookies
+    result = _run(base + ['-f', 'bestaudio/best', url_or_query])
+    if result:
+        return result
+
+    # Try 2: bestaudio without cookies
+    nocookie = ['yt-dlp', '--no-playlist', '--dump-json', '--ignore-errors', '--no-warnings']
+    result = _run(nocookie + ['-f', 'bestaudio/best', url_or_query])
+    if result:
+        return result
+
+    # Try 3: any format without cookies
+    result = _run(nocookie + ['-f', 'best', url_or_query])
+    if result:
+        return result
+
+    # Try 4: no format filter
+    result = _run(nocookie + [url_or_query])
+    return result
 
 
 class SearchSelect(discord.ui.Select):
