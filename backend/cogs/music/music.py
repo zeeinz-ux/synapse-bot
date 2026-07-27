@@ -3,6 +3,7 @@ from discord.ext import commands
 import asyncio
 import os
 import time
+import random
 
 try:
     from backend.cogs.database.firebase_setup import db
@@ -31,6 +32,10 @@ class MusicCog(commands.Cog, name="Music"):
         self._voice_states: dict[int, dict] = {}
         self._guild_stations: dict[int, str] = {}
         self._sleep_timers: dict[int, asyncio.Task] = {}
+
+    def _random_station_url(self) -> str:
+        key = random.choice(list(STATIONS.keys()))
+        return STATIONS[key]["url"]
 
     def _station_key(self, url: str) -> str:
         for k, v in STATIONS.items():
@@ -82,7 +87,7 @@ class MusicCog(commands.Cog, name="Music"):
                 continue
             gid = data.get("guild_id")
             cid = data.get("channel_id")
-            url = data.get("url", LOFI_DEFAULT_URL)
+            url = data.get("url", self._random_station_url())
             if not gid or not cid:
                 continue
             guild = self.bot.get_guild(int(gid))
@@ -172,12 +177,14 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.send(embed=embed)
             return
         await asyncio.sleep(0.5)
+        url = self._random_station_url()
+        station_label = STATIONS[self._station_key(url)]["label"]
         try:
-            self._play_looping(vc, LOFI_DEFAULT_URL)
-            self._save_state(ctx.guild.id, channel.id, LOFI_DEFAULT_URL)
+            self._play_looping(vc, url)
+            self._save_state(ctx.guild.id, channel.id, url)
             embed = discord.Embed(
                 title="\u25b6 Connected",
-                description=f"Join **{channel.name}** — **LoFi Radio**",
+                description=f"Join **{channel.name}** — **{station_label}**",
                 color=COLOR
             )
             await ctx.send(embed=embed)
@@ -316,7 +323,7 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.send(embed=embed)
             return
         channel = vc.channel
-        url = self._voice_states.get(ctx.guild.id, {}).get("url", LOFI_DEFAULT_URL)
+        url = self._voice_states.get(ctx.guild.id, {}).get("url", self._random_station_url())
         await _safe_stop(vc)
         await vc.disconnect()
         await asyncio.sleep(1)
