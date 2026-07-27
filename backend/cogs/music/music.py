@@ -16,7 +16,14 @@ except Exception:
 
 LOFI_DEFAULT_URL = "https://play.streamafrica.net/lofiradio"
 LOFI_KEYWORDS = {"lofi", "lo-fi", "lo_fi", "lofi radio", "default", "radio"}
-COOKIES_PATH = next((p for p in ["cookies/cookies.txt", "cookies.txt", "/etc/secrets/cookies.txt"] if os.path.isfile(p)), "cookies/cookies.txt")
+def _get_cookies_path():
+    for p in ["cookies/cookies.txt", "cookies.txt", "/etc/secrets/cookies.txt"]:
+        if os.path.isfile(p):
+            size = os.path.getsize(p)
+            print(f"[MUSIC] Found cookies file: {p} ({size} bytes)")
+            return p
+    print("[MUSIC] No cookies file found")
+    return None
 VOICE_STATE_COLLECTION = "voice_state"
 COLOR = 0x5865F2
 
@@ -41,6 +48,7 @@ _YT_CLIENTS = [
 ]
 
 def _yt_fetch(url_or_query: str) -> dict | None:
+    cookies_file = _get_cookies_path()
     for idx, extra_args in enumerate(_YT_CLIENTS):
         opts = {
             "format": "bestaudio/best",
@@ -53,8 +61,8 @@ def _yt_fetch(url_or_query: str) -> dict | None:
             "extractor_retries": 2,
             "extractor_args": extra_args,
         }
-        if os.path.isfile(COOKIES_PATH):
-            opts["cookiefile"] = COOKIES_PATH
+        if cookies_file:
+            opts["cookiefile"] = cookies_file
         try:
             with YoutubeDL(opts) as ydl:
                 data = ydl.extract_info(url_or_query, download=False)
