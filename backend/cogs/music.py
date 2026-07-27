@@ -9,8 +9,8 @@ class MusicCog(commands.Cog, name="Music"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(name="join")
-    async def join(self, ctx: commands.Context, *, channel: discord.VoiceChannel = None):
+    @commands.command(name="connect", aliases=["joinvc"])
+    async def connect(self, ctx: commands.Context, *, channel: discord.VoiceChannel = None):
         if not channel:
             if ctx.author.voice and ctx.author.voice.channel:
                 channel = ctx.author.voice.channel
