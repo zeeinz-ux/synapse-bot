@@ -1,8 +1,31 @@
 import discord
 from discord.ext import commands
 import asyncio
+import os
+import re
+import yt_dlp
 
 LOFI_DEFAULT_URL = "https://play.streamafrica.net/lofiradio"
+COOKIES_PATH = "cookies/cookies.txt"
+
+
+def _is_youtube_url(url: str) -> bool:
+    return bool(re.search(r'(youtube\.com|youtu\.be)', url, re.IGNORECASE))
+
+
+def _resolve_url(url: str) -> str:
+    if not _is_youtube_url(url):
+        return url
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "quiet": True,
+        "no_warnings": True,
+    }
+    if os.path.isfile(COOKIES_PATH):
+        ydl_opts["cookiefile"] = COOKIES_PATH
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        return info["url"]
 
 
 class MusicCog(commands.Cog, name="Music"):
@@ -38,7 +61,8 @@ class MusicCog(commands.Cog, name="Music"):
             "options": "-vn",
         }
         try:
-            source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
+            src = _resolve_url(url)
+            source = discord.FFmpegPCMAudio(src, **ffmpeg_opts)
             vc.play(source)
             await ctx.send(f"✅ Join **{channel.name}** 🎵 LoFi")
         except Exception:
@@ -66,16 +90,17 @@ class MusicCog(commands.Cog, name="Music"):
             else:
                 await ctx.send("Bot gak di voice. Pake `!join` dulu atau join voice dulu.")
                 return
-        url = stream or LOFI_DEFAULT_URL
+        raw_url = stream or LOFI_DEFAULT_URL
         ffmpeg_opts = {
             "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
             "options": "-vn",
         }
         vc.stop()
         try:
+            url = _resolve_url(raw_url)
             source = discord.FFmpegPCMAudio(url, **ffmpeg_opts)
             vc.play(source)
-            label = "LoFi default" if not stream else url[:60]
+            label = "LoFi default" if not stream else (raw_url[:60] if _is_youtube_url(raw_url) else raw_url[:60])
             await ctx.send(f"🎵 Putar **{label}**")
         except Exception as e:
             await ctx.send(f"❌ Gagal putar audio: {e}")
