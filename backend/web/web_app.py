@@ -80,9 +80,12 @@ for _f in os.listdir(_trans_dir):
         with open(os.path.join(_trans_dir, _f), "r", encoding="utf-8") as _fp:
             _translations[_lang] = json.load(_fp)
 
+def _get_lang():
+    return request.cookies.get("synapse_lang") or session.get("lang", "id")
+
 @app.template_filter("t")
 def _translate(key):
-    lang = session.get("lang", "id")
+    lang = _get_lang()
     val = _translations.get(lang, {}).get(key, _translations.get("id", {}).get(key, key))
     return val.replace("{year}", str(datetime.now().year))
 
@@ -90,7 +93,7 @@ def _translate(key):
 def _inject_globals():
     user = session.get("user")
     return dict(
-        lang=session.get("lang", "id"),
+        lang=_get_lang(),
         current_year=datetime.now().year,
         avatar_decoration_url=_discord_avatar_decoration_url(user) if user else "",
     )
@@ -691,7 +694,9 @@ def api_set_lang(lang):
     if lang in _translations:
         session["lang"] = lang
     next_url = request.args.get("next") or request.referrer or "/"
-    return redirect(next_url)
+    resp = redirect(next_url)
+    resp.set_cookie("synapse_lang", lang, max_age=365*86400, samesite="Lax")
+    return resp
 
 @app.route("/api/stats")
 def api_stats():
