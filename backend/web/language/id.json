@@ -63,6 +63,7 @@
   "commands.title.autoresponder": "Auto Responder",
   "commands.title.leveling": "Leveling & Boost",
   "commands.title.tools": "Server Tools",
+  "commands.title.music": "Music",
   "commands.desc.ask": "Tanya apa saja ke AI Synapse",
   "commands.desc.rag_upload": "Upload file ke RAG Knowledge Base",
   "commands.desc.rag_list": "Lihat daftar dokumen di RAG",
@@ -99,6 +100,10 @@
   "commands.desc.chat_search": "Cari percakapan AI yang sudah lalu",
   "commands.desc.personality": "Atur kepribadian AI per-channel",
   "commands.desc.antinuke_status": "Cek status Anti-Nuke",
+  "commands.desc.connect": "Bot join voice channel",
+  "commands.desc.leave": "Bot tinggalkan voice channel",
+  "commands.desc.play": "Putar audio (URL atau cari nama lagu)",
+  "commands.desc.stop": "Hentikan audio yang sedang diputar",
 
   "commands.label": "/commands",
   "commands.title": "Commands Reference",

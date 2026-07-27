@@ -20,6 +20,7 @@ _COG_ICONS = {
     "MessageBuilder": "✏️",
     "Templates": "📄",
     "PhotoBox": "🖼️",
+    "Music": "🎵",
     "Settings": "⚙️",
     "Help": "❓",
 }
@@ -41,6 +42,7 @@ _COG_NAMES = {
     "MessageBuilder": "Message Builder",
     "Templates": "Templates",
     "PhotoBox": "PhotoBox",
+    "Music": "Music",
     "Settings": "Settings",
     "Help": "Help",
 }

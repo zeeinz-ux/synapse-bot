@@ -63,6 +63,7 @@
   "commands.title.autoresponder": "Auto Responder",
   "commands.title.leveling": "Leveling & Boost",
   "commands.title.tools": "Server Tools",
+  "commands.title.music": "Music",
   "commands.desc.ask": "Ask Synapse AI anything",
   "commands.desc.rag_upload": "Upload file to RAG Knowledge Base",
   "commands.desc.rag_list": "List documents in RAG",
@@ -99,6 +100,10 @@
   "commands.desc.chat_search": "Search past AI conversations",
   "commands.desc.personality": "Set AI personality per channel",
   "commands.desc.antinuke_status": "Check Anti-Nuke status",
+  "commands.desc.connect": "Bot joins a voice channel",
+  "commands.desc.leave": "Bot leaves the voice channel",
+  "commands.desc.play": "Play audio (URL or search song name)",
+  "commands.desc.stop": "Stop current audio playback",
 
   "commands.label": "/commands",
   "commands.title": "Commands Reference",
