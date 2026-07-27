@@ -41,60 +41,106 @@ def _clean_url(url: str) -> str:
     return url
 
 
-_YT_ATTEMPTS = [
-    ({}, "worstaudio/worst"),
-    ({"youtube": {"player_client": ["mweb"]}}, None),
-    ({"youtube": {"player_client": ["android"]}}, "bestaudio*"),
-    ({"youtube": {"player_client": ["ios"]}}, "bestaudio*"),
-    ({"youtube": {"player_client": ["web_safari"]}}, "bestaudio*"),
-    ({"youtube": {"player_client": ["android"]}}, "worstaudio/worst"),
+_YT_CLIENTS_NOCOOKIE = [
+    {"youtube": {"player_client": ["tv", "mweb", "android_vr", "visionos"]}},
 ]
+_YT_CLIENTS_COOKIE = [
+    {"youtube": {"player_client": ["tv", "mweb", "android_vr", "visionos"]}},
+]
+_YT_FORMATS = ["ba/b", "bestaudio*", "worstaudio/worst"]
 
 def _yt_fetch(url_or_query: str) -> dict | None:
     cookies_file = _get_cookies_path()
-    for idx, (extra_args, fmt) in enumerate(_YT_ATTEMPTS):
-        use_cookies = idx >= 2 if cookies_file else False
-        opts = dict(format=fmt) if fmt else {}
-        opts.update(
-            noplaylist=True,
-            quiet=True,
-            no_warnings=True,
-            ignoreerrors=True,
-            extract_flat=False,
-            socket_timeout=15,
-            extractor_retries=0,
-            ignore_no_formats_error=True,
-            extractor_args=extra_args,
-        )
-        if use_cookies and cookies_file:
-            opts["cookiefile"] = cookies_file
-        try:
-            with YoutubeDL(opts) as ydl:
-                data = ydl.extract_info(url_or_query, download=False)
-                if not data:
-                    print(f"[MUSIC] attempt#{idx} ({fmt}): no data", flush=True)
-                    continue
-                if data.get("is_live"):
-                    print(f"[MUSIC] attempt#{idx} ({fmt}): is live", flush=True)
-                    continue
-                audio_url = data.get("url") or ""
-                if not audio_url:
-                    formats = data.get("formats", [])
-                    print(f"[MUSIC] attempt#{idx} ({fmt}): no url, {len(formats)} formats", flush=True)
-                    continue
-                title = data.get("title", "Unknown")
-                if isinstance(title, str):
-                    title = title.encode("utf-8", errors="replace").decode("utf-8")
-                print(f"[MUSIC] attempt#{idx} ({fmt}) OK: {title[:60]}", flush=True)
-                return {
-                    "audio_url": audio_url,
-                    "title": title,
-                    "thumbnail": data.get("thumbnail", ""),
-                    "webpage_url": data.get("webpage_url", ""),
-                }
-        except Exception as e:
-            print(f"[MUSIC] attempt#{idx} ({fmt}) exception: {e}", flush=True)
-    print(f"[MUSIC] all {len(_YT_ATTEMPTS)} attempts failed for: {url_or_query[:80]}", flush=True)
+
+    # Phase 1: try WITHOUT cookies (HHMusic approach — player_client=tv,mweb,android_vr,visionos
+    # works without cookies; cookies trigger n-challenge that blocks format URLs)
+    for client_cfg in _YT_CLIENTS_NOCOOKIE:
+        for fmt in _YT_FORMATS:
+            opts = dict(format=fmt)
+            opts.update(
+                noplaylist=True,
+                quiet=True,
+                no_warnings=True,
+                ignoreerrors=True,
+                extract_flat=False,
+                socket_timeout=15,
+                extractor_retries=0,
+                ignore_no_formats_error=True,
+                extractor_args=client_cfg,
+            )
+            try:
+                with YoutubeDL(opts) as ydl:
+                    data = ydl.extract_info(url_or_query, download=False)
+                    if not data:
+                        continue
+                    if data.get("is_live"):
+                        continue
+                    audio_url = data.get("url") or data.get("requested_formats", [{}])[0].get("url") or ""
+                    if not audio_url:
+                        formats = data.get("formats", [])
+                        print(f"[MUSIC] no-cookie (client={client_cfg}, fmt={fmt}): no url, {len(formats)} formats", flush=True)
+                        for i, f in enumerate(formats[:3]):
+                            furl = f.get("url", "")
+                            print(f"  format[{i}]: {f.get('format_id')} acodec={f.get('acodec')} abr={f.get('abr')} has_url={bool(furl)}", flush=True)
+                        continue
+                    title = data.get("title", "Unknown")
+                    if isinstance(title, str):
+                        title = title.encode("utf-8", errors="replace").decode("utf-8")
+                    print(f"[MUSIC] no-cookie (fmt={fmt}) OK: {title[:60]}", flush=True)
+                    return {
+                        "audio_url": audio_url,
+                        "title": title,
+                        "thumbnail": data.get("thumbnail", ""),
+                        "webpage_url": data.get("webpage_url", ""),
+                    }
+            except Exception as e:
+                print(f"[MUSIC] no-cookie (client={client_cfg}, fmt={fmt}) exception: {e}", flush=True)
+
+    # Phase 2: try WITH cookies (fallback — some tracks need auth)
+    if cookies_file:
+        for client_cfg in _YT_CLIENTS_COOKIE:
+            for fmt in _YT_FORMATS:
+                opts = dict(format=fmt, cookiefile=cookies_file)
+                opts.update(
+                    noplaylist=True,
+                    quiet=True,
+                    no_warnings=True,
+                    ignoreerrors=True,
+                    extract_flat=False,
+                    socket_timeout=15,
+                    extractor_retries=0,
+                    ignore_no_formats_error=True,
+                    extractor_args=client_cfg,
+                )
+                try:
+                    with YoutubeDL(opts) as ydl:
+                        data = ydl.extract_info(url_or_query, download=False)
+                        if not data:
+                            continue
+                        if data.get("is_live"):
+                            continue
+                        audio_url = data.get("url") or data.get("requested_formats", [{}])[0].get("url") or ""
+                        if not audio_url:
+                            formats = data.get("formats", [])
+                            print(f"[MUSIC] cookie (client={client_cfg}, fmt={fmt}): no url, {len(formats)} formats", flush=True)
+                            for i, f in enumerate(formats[:3]):
+                                furl = f.get("url", "")
+                                print(f"  format[{i}]: {f.get('format_id')} acodec={f.get('acodec')} abr={f.get('abr')} has_url={bool(furl)}", flush=True)
+                            continue
+                        title = data.get("title", "Unknown")
+                        if isinstance(title, str):
+                            title = title.encode("utf-8", errors="replace").decode("utf-8")
+                        print(f"[MUSIC] cookie (fmt={fmt}) OK: {title[:60]}", flush=True)
+                        return {
+                            "audio_url": audio_url,
+                            "title": title,
+                            "thumbnail": data.get("thumbnail", ""),
+                            "webpage_url": data.get("webpage_url", ""),
+                        }
+                except Exception as e:
+                    print(f"[MUSIC] cookie (client={client_cfg}, fmt={fmt}) exception: {e}", flush=True)
+
+    print(f"[MUSIC] all attempts failed for: {url_or_query[:80]}", flush=True)
     return None
 
 
