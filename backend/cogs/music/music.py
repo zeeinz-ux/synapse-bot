@@ -43,40 +43,35 @@ def _yt_fetch(url_or_query: str) -> dict | None:
         "extract_flat": False,
         "socket_timeout": 15,
         "extractor_retries": 3,
+        "extractor_args": {"youtube": {"player_client": ["android"]}},
     }
     if os.path.isfile(COOKIES_PATH):
         opts["cookiefile"] = COOKIES_PATH
-
-    for attempt, fmt in enumerate(["bestaudio/best", "bestaudio", "best", None], 1):
-        if fmt is None:
-            opts.pop("format", None)
-        else:
-            opts["format"] = fmt
-        try:
-            with YoutubeDL(opts) as ydl:
-                data = ydl.extract_info(url_or_query, download=False)
-                if not data:
-                    print(f"[MUSIC] yt-dlp attempt {attempt} (format={fmt}): no data")
-                    continue
-                if data.get("is_live"):
-                    print(f"[MUSIC] yt-dlp attempt {attempt}: is a livestream, skipping")
-                    continue
-                audio_url = data.get("url") or ""
-                if not audio_url:
-                    print(f"[MUSIC] yt-dlp attempt {attempt}: no url field. keys={list(data.keys())[:15]}")
-                    continue
-                title = data.get("title", "Unknown")
-                if isinstance(title, str):
-                    title = title.encode("utf-8", errors="replace").decode("utf-8")
-                print(f"[MUSIC] yt-dlp OK attempt {attempt}: {title[:60]}")
-                return {
-                    "audio_url": audio_url,
-                    "title": title,
-                    "thumbnail": data.get("thumbnail", ""),
-                    "webpage_url": data.get("webpage_url", ""),
-                }
-        except Exception as e:
-            print(f"[MUSIC] yt-dlp attempt {attempt} (format={fmt}) failed: {e}")
+    try:
+        with YoutubeDL(opts) as ydl:
+            data = ydl.extract_info(url_or_query, download=False)
+            if not data:
+                print(f"[MUSIC] yt-dlp android: no data")
+                return None
+            if data.get("is_live"):
+                print(f"[MUSIC] yt-dlp: is a livestream, skipping")
+                return None
+            audio_url = data.get("url") or ""
+            if not audio_url:
+                print(f"[MUSIC] yt-dlp: no url field")
+                return None
+            title = data.get("title", "Unknown")
+            if isinstance(title, str):
+                title = title.encode("utf-8", errors="replace").decode("utf-8")
+            print(f"[MUSIC] yt-dlp OK: {title[:60]}")
+            return {
+                "audio_url": audio_url,
+                "title": title,
+                "thumbnail": data.get("thumbnail", ""),
+                "webpage_url": data.get("webpage_url", ""),
+            }
+    except Exception as e:
+        print(f"[MUSIC] yt-dlp error: {e}")
     return None
 
 
