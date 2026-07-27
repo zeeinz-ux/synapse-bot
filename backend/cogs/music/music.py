@@ -5,6 +5,7 @@ import os
 import re
 import time
 import random
+import sys
 from yt_dlp import YoutubeDL
 
 try:
@@ -20,9 +21,9 @@ def _get_cookies_path():
     for p in ["cookies/cookies.txt", "cookies.txt", "/etc/secrets/cookies.txt"]:
         if os.path.isfile(p):
             size = os.path.getsize(p)
-            print(f"[MUSIC] Found cookies file: {p} ({size} bytes)")
+            print(f"[MUSIC] Found cookies file: {p} ({size} bytes)", flush=True)
             return p
-    print("[MUSIC] No cookies file found")
+    print("[MUSIC] No cookies file found", flush=True)
     return None
 VOICE_STATE_COLLECTION = "voice_state"
 COLOR = 0x5865F2
@@ -41,9 +42,9 @@ def _clean_url(url: str) -> str:
 
 
 _YT_ATTEMPTS = [
+    ({}, None),
     ({}, "worst"),
     ({}, "worstaudio/worst"),
-    ({}, "bestaudio*"),
     ({"youtube": {"player_client": ["tv_downgraded"]}}, "worst"),
     ({"youtube": {"player_client": ["web"]}}, "worst"),
     ({"youtube": {"player_client": ["android"]}}, "worst"),
@@ -53,37 +54,37 @@ _YT_ATTEMPTS = [
 def _yt_fetch(url_or_query: str) -> dict | None:
     cookies_file = _get_cookies_path()
     for idx, (extra_args, fmt) in enumerate(_YT_ATTEMPTS):
-        opts = {
-            "format": fmt,
-            "noplaylist": True,
-            "quiet": True,
-            "no_warnings": True,
-            "ignoreerrors": True,
-            "extract_flat": False,
-            "socket_timeout": 15,
-            "extractor_retries": 0,
-            "extractor_args": extra_args,
-        }
+        opts = dict(format=fmt) if fmt else {}
+        opts.update(
+            noplaylist=True,
+            quiet=True,
+            no_warnings=True,
+            ignoreerrors=True,
+            extract_flat=False,
+            socket_timeout=15,
+            extractor_retries=0,
+            extractor_args=extra_args,
+        )
         if cookies_file:
             opts["cookiefile"] = cookies_file
         try:
             with YoutubeDL(opts) as ydl:
                 data = ydl.extract_info(url_or_query, download=False)
                 if not data:
-                    print(f"[MUSIC] attempt#{idx} ({fmt}): no data")
+                    print(f"[MUSIC] attempt#{idx} ({fmt}): no data", flush=True)
                     continue
                 if data.get("is_live"):
-                    print(f"[MUSIC] attempt#{idx} ({fmt}): is live")
+                    print(f"[MUSIC] attempt#{idx} ({fmt}): is live", flush=True)
                     continue
                 audio_url = data.get("url") or ""
                 if not audio_url:
                     formats = data.get("formats", [])
-                    print(f"[MUSIC] attempt#{idx} ({fmt}): no url, {len(formats)} formats")
+                    print(f"[MUSIC] attempt#{idx} ({fmt}): no url, {len(formats)} formats", flush=True)
                     continue
                 title = data.get("title", "Unknown")
                 if isinstance(title, str):
                     title = title.encode("utf-8", errors="replace").decode("utf-8")
-                print(f"[MUSIC] attempt#{idx} ({fmt}) OK: {title[:60]}")
+                print(f"[MUSIC] attempt#{idx} ({fmt}) OK: {title[:60]}", flush=True)
                 return {
                     "audio_url": audio_url,
                     "title": title,
@@ -91,8 +92,8 @@ def _yt_fetch(url_or_query: str) -> dict | None:
                     "webpage_url": data.get("webpage_url", ""),
                 }
         except Exception as e:
-            print(f"[MUSIC] attempt#{idx} ({fmt}) exception: {e}")
-    print(f"[MUSIC] all {len(_YT_ATTEMPTS)} attempts failed for: {url_or_query[:80]}")
+            print(f"[MUSIC] attempt#{idx} ({fmt}) exception: {e}", flush=True)
+    print(f"[MUSIC] all {len(_YT_ATTEMPTS)} attempts failed for: {url_or_query[:80]}", flush=True)
     return None
 
 
