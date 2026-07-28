@@ -141,3 +141,36 @@ None. Zero tests, no pytest, no lint, no typecheck, no formatter, no CI. Manual 
 ## Deployment
 
 **Render.com** via Dockerfile. `python:3.11-slim`, installs `curl unzip fonts-dejavu-core ffmpeg`, runs `pip install --upgrade yt-dlp` saat build, lalu `honcho start -f Procfile`. UptimeRobot health ping every 5 min.
+
+---
+
+## Session Context (last active: 2026-07-27)
+
+### Music Cog Fixes (`backend/cogs/music/music.py`)
+1. **`/play` thinking stuck** — Hapus `ctx.defer()` global. Pake `self._respond()` via `edit_original_response()` fallback.
+2. **`/station` ga ganti** — `_on_track_end` sekarang pake current station URL dari `_guild_stations`, bukan parameter lama.
+3. **`/song` timeout** — Tambah `defer` + `_respond()`.
+4. **"Already playing audio"** — Tambah `vc.stop()` sebelum `vc.play()` di `_play_looping`.
+5. **Audio patah-patah** — Tambah `-af aresample=async=1:min_hard_comp=0.1` ke ffmpeg options.
+
+### Rebrand: LoFi → Synapse
+- Labels: `"🎧 Synapse Radio"`, `"🎷 Synapse Jazz"`, `"🌊 Synapse Chill"`, `"📚 Synapse Study"`, `"😴 Synapse Sleep"`
+- `/station` tanpa arg → nampilin daftar embed + autocomplete choices
+- `/play` juga ada autocomplete choices
+- Ganti `id.json`, `en.json`, `agent.html` — hapus semua "LoFi" dari user-facing text
+
+### Jazz Stream URL Fix
+- Sebelum: `stream.zeno.fm/v4kaet5ab1ntv` (ada segmen ngomong)
+- Sesudah: `radio.loficafe.net/listen/japanese-lofi/radio.mp3`
+
+### Dashboard Save Bug
+- `window.CURRENT_GUILD_ID` gak pernah di-set di `base.html` → tambah `<script>` inject
+- `agent.js` & `ai_chat.js`: `const GUILD_ID` → `let` biar fallback dari URL berfungsi
+- Save button sekarang kirim `enabled` juga (gak cuma `agent_mode`)
+
+### Plan (`plan.md`)
+- PRD + workflow untuk 6 fitur AI Agent:
+  - P0: Auto-Fix (self-healing pas tool error)
+  - P1: Feedback Loop, Run Code
+  - P2: Web Browsing, Memory Compression
+  - P3: Custom Command Creator
