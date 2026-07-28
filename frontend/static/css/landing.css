@@ -570,8 +570,8 @@ img {
   transition: var(--transition);
   border-radius: var(--radius-lg);
   background: rgba(26, 26, 30, 0.15);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
