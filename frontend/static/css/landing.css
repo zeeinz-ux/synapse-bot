@@ -568,14 +568,14 @@ img {
   text-align: center;
   position: relative;
   border-radius: var(--radius-lg);
-  background: var(--glass-bg);
+  background: rgba(26, 26, 30, 0.15);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
 }
 
 [data-theme="light"] .cta-card {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.25);
   border-color: rgba(0, 0, 0, 0.06);
 }
 
