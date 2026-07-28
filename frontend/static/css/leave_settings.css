@@ -780,14 +780,13 @@
 [data-theme="light"] #leavePage .preview-banner-name,
 [data-theme="light"] #leavePage .style-label strong,
 [data-theme="light"] #leavePage .upload-remove,
-[data-theme="light"] #leavePage .btn-save,
 [data-theme="light"] #leavePage .koya-banner-text span,
 [data-theme="light"] #leavePage .toast-text {
   color: var(--text-primary) !important;
 }
 
-[data-theme="light"] #leavePage .preview-banner {
-  background: linear-gradient(135deg, var(--bg-surface2), var(--bg-surface3)) !important;
+[data-theme="light"] #leavePage .style-preview-banner {
+  background: linear-gradient(135deg, #e8e8ec 0%, #d8d8e0 100%) !important;
 }
 
 [data-theme="light"] #leavePage .preview-mock,
@@ -856,21 +855,6 @@
 
 [data-theme="light"] #leavePage .koya-banner-overlay {
   background: rgba(255, 255, 255, 0.7) !important;
-}
-
-[data-theme="light"] #leavePage .style-option:hover {
-  border-color: var(--accent-purple) !important;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-}
-
-[data-theme="light"] #leavePage .switch-track::before {
-  background: var(--text-primary) !important;
-}
-
-[data-theme="light"] #leavePage .btn-save {
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-purple)) !important;
-  color: #fff !important;
 }
 
 #leavePage .style-option:hover {
