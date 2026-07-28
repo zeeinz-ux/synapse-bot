@@ -539,7 +539,7 @@ body {
 /* Badge */
 .nav-badge {
   background: var(--badge-bg);
-  color: #fff;
+  color: var(--badge-text, #fff);
   font-size: 0.65rem;
   font-weight: 700;
   padding: 1px 6px;
@@ -865,7 +865,7 @@ body {
   padding: 7px 10px;
   font-size: 0.82rem;
   font-weight: 500;
-  color: #d0d0d0 !important;
+  color: var(--text-secondary);
   text-decoration: none;
   border-radius: 6px;
   margin: 0 2px;
@@ -897,7 +897,7 @@ body {
 .ss-sidebar-btn-icon svg {
   width: 100%;
   height: 100%;
-  color: #d0d0d0 !important;
+  color: var(--text-secondary);
 }
 
 /* ---------- TABLET: 481px – 768px ---------- */
@@ -1292,6 +1292,31 @@ body {
 .logout-btn svg {
   flex-shrink: 0;
 }
+
+/* Theme toggle in topbar */
+.topbar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.topbar-toggle:hover {
+  color: var(--text-primary);
+  border-color: var(--sidebar-border);
+  background: var(--hover-bg);
+}
+
+/* Old toggle-wrap in footer — hidden since toggle moved to topbar */
+.theme-toggle-wrap { display: none; }
 
 /* ---------- Mobile: avatar + logout in mobile-header ---------- */
 .mobile-user {

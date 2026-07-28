@@ -123,17 +123,18 @@
       color: var(--text-primary);
       border-color: var(--accent-primary);
     }
+    .logo-light { display: none; }
+    [data-theme="light"] .logo-dark { display: none; }
+    [data-theme="light"] .logo-light { display: block; }
   </style>
 </head>
 <body>
   <nav class="ss-nav">
     <div class="ss-nav-brand">
-      <img src="{{ url_for('static', filename='LOGO-SYNAPSE-WITH-FONT-WHITE-NO-BG.png') }}" alt="Synapse" />
+      <img class="logo-dark" src="{{ url_for('static', filename='LOGO-SYNAPSE-WITH-FONT-WHITE-NO-BG.png') }}" alt="Synapse" />
+      <img class="logo-light" src="{{ url_for('static', filename='LOGO-SYNAPSE-WITH-FONT-BLACK-NO-BG.png') }}" alt="Synapse" />
     </div>
     <div class="ss-nav-right">
-      <button class="theme-toggle" aria-label="Toggle theme" title="Theme">
-        <i data-lucide="monitor" width="16" height="16"></i>
-      </button>
       {% if user %}
       <div class="ss-user">
         <div class="avatar-wrap">
@@ -148,6 +149,9 @@
       <form method="post" action="{{ url_for('logout') }}" style="margin:0">
         <button type="submit" class="ss-logout">Logout</button>
       </form>
+      <button class="theme-toggle" aria-label="Toggle theme" title="Theme">
+        <i data-lucide="monitor" width="16" height="16"></i>
+      </button>
     </div>
   </nav>
 

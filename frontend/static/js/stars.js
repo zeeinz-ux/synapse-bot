@@ -52,6 +52,7 @@
     palette = getColorPalette();
     var warmCount = Math.floor(count * 0.25);
     var violetCount = Math.floor(count * 0.1);
+    var isLight = getTheme() === 'light';
 
     for (var i = 0; i < count; i++) {
       var color = palette.white;
@@ -64,7 +65,7 @@
         x: Math.random() * W,
         y: Math.random() * H,
         r: 0.5 + Math.random() * 1.8,
-        alpha: 0.2 + Math.random() * 0.8,
+        alpha: isLight ? 0.5 + Math.random() * 0.5 : 0.2 + Math.random() * 0.8,
         speed: 0.005 + Math.random() * 0.02,
         phase: Math.random() * Math.PI * 2,
         color: color,

@@ -1,7 +1,8 @@
 <footer class="footer">
   <div class="footer-inner">
     <div class="footer-brand">
-      <img src="{{ url_for('static', filename='LOGO-SYNAPSE-WITH-FONT-WHITE-NO-BG.png') }}" alt="𝓢𝓎𝓃𝒶𝓅𝓈ℯ Logo" />
+      <img class="logo-dark" src="{{ url_for('static', filename='LOGO-SYNAPSE-WITH-FONT-WHITE-NO-BG.png') }}" alt="𝓢𝓎𝓃𝒶𝓅𝓈ℯ Logo" />
+      <img class="logo-light" src="{{ url_for('static', filename='LOGO-SYNAPSE-WITH-FONT-BLACK-NO-BG.png') }}" alt="𝓢𝓎𝓃𝒶𝓅𝓈ℯ Logo" />
     </div>
     <ul class="footer-links">
       <li><a href="#home">{{ "nav.home" | t }}</a></li>
