@@ -342,7 +342,7 @@ def delete_guild_from_map(doc_id: str, guild_id: str) -> None:
         if not db:
             return
         try:
-            from google.cloud.firestore import FieldValue
+            from google.cloud.firestore_v1 import FieldValue
             db.collection(COLLECTION).document(doc_id).update({
                 guild_id: FieldValue.delete()
             })
