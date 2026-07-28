@@ -571,12 +571,12 @@ img {
   background: rgba(26, 26, 30, 0.15);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 [data-theme="light"] .cta-card {
   background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.15);
 }
 
 .cta-card h2 {
