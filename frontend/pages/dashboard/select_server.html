@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Synapse - Pilih Server</title>
+  <script>
+    (function () {
+      var s = localStorage.getItem('synapse_theme') || 'system';
+      var t = s === 'dark' ? 'dark' : s === 'light' ? 'light' : window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
@@ -99,6 +106,23 @@
       border-color: var(--accent-red);
       color: var(--accent-red);
     }
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.35rem 0.5rem;
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--sidebar-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: border-color 0.15s ease, color 0.15s ease;
+      line-height: 1;
+    }
+    .theme-toggle:hover {
+      color: var(--text-primary);
+      border-color: var(--accent-primary);
+    }
   </style>
 </head>
 <body>
@@ -107,6 +131,9 @@
       <img src="{{ url_for('static', filename='LOGO-SYNAPSE-WITH-FONT-WHITE-NO-BG.png') }}" alt="Synapse" />
     </div>
     <div class="ss-nav-right">
+      <button class="theme-toggle" aria-label="Toggle theme" title="Theme">
+        <i data-lucide="monitor" width="16" height="16"></i>
+      </button>
       {% if user %}
       <div class="ss-user">
         <div class="avatar-wrap">
@@ -204,6 +231,7 @@
     {% endif %}
   </div>
 
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   <script>
     lucide.createIcons();
 

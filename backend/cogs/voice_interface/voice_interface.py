@@ -503,7 +503,7 @@ class VoiceInterfaceCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
+        if message.author.bot or not message.guild:
             return
         if message.channel.name == INTERFACE_CHANNEL:
             try:

@@ -3,6 +3,10 @@
   --banner-font-color: #FFFFFF;
 }
 
+[data-theme="light"] {
+  --banner-font-color: #1a1a1e;
+}
+
 /* ── Layout Reset: prevent double padding from .content-wrapper ───── */
 .content-wrapper .page-wrap {
   max-width: none;

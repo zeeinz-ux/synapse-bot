@@ -25,6 +25,31 @@
   --mobile-header-height: 56px;
 }
 
+[data-theme="light"] {
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e0e0e4;
+  --text-primary: #1a1a1e;
+  --text-secondary: #555;
+  --text-muted: #999;
+  --accent: #0099cc;
+  --accent-hover: #6d28d9;
+  --badge-bg: #d32f2f;
+  --tag-bg: #f0f0f2;
+  --tag-new: #2d8a47;
+  --hover-bg: #f0f0f2;
+  --active-bg: rgba(0, 153, 204, 0.1);
+  --active-bar: #0099cc;
+  --guild-bg: #f5f5f7;
+  --search-bg: #f5f5f7;
+}
+
+[data-theme="light"] html,
+[data-theme="light"] body,
+[data-theme="light"] .app-container,
+[data-theme="light"] .main-content {
+  background: var(--bg-deep, #f0f0f2);
+}
+
 /* ---------- Reset & Base ---------- */
 *,
 *::before,
@@ -582,6 +607,17 @@ body {
   flex-shrink: 0;
   margin-top: auto;
   transition: var(--transition);
+}
+
+.theme-toggle-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.sidebar.collapsed .theme-toggle-wrap {
+  display: none;
 }
 
 .footer-info {

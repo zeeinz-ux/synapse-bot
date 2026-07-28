@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>{% block title %}Synapse Dashboard{% endblock %}</title>
+  <script>
+    (function () {
+      var s = localStorage.getItem('synapse_theme') || 'system';
+      var t = s === 'dark' ? 'dark' : s === 'light' ? 'light' : window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 
   <!-- ⚠️ JANGAN TAMBAHKAN <base target="_blank"> - akan buat semua link buka tab baru -->
 
@@ -232,6 +239,12 @@
       </div>
       {% endif %}
       <div class="sidebar-footer">
+        <div class="theme-toggle-wrap">
+          <button class="theme-toggle" id="themeToggleSidebar" aria-label="Toggle theme" title="Theme">
+            <i data-lucide="monitor" width="14" height="14"></i>
+            <span class="tt-label">System</span>
+          </button>
+        </div>
         <div class="footer-info">
           <span class="version">v4.6</span>
           <span class="divider">•</span>
@@ -316,6 +329,7 @@
   <script>window.CURRENT_GUILD_ID = "{{ guild_id }}";</script>
   <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
   <script>lucide.createIcons();</script>
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   {% block extra_js %}{% endblock %}
   {% block scripts %}{% endblock %}
 </body>

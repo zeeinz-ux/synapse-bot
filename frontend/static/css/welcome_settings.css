@@ -5,6 +5,12 @@
   --banner-font-color: #ffffff;
 }
 
+[data-theme="light"] {
+  --welcome-accent: #0099cc;
+  --welcome-accent-rgb: 0, 153, 204;
+  --banner-font-color: #1a1a1e;
+}
+
 /*
   MASTER CSS untuk SEMUA page (Welcome + Placeholder + Form).
   Semua warna pakai var() dari dashboard.css.

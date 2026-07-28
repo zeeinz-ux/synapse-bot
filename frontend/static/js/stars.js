@@ -22,28 +22,57 @@
 
   var count = Math.min(200, Math.floor((W * H) / 5000));
 
-  var warmCount = Math.floor(count * 0.25);
-  var violetCount = Math.floor(count * 0.1);
-
-  for (var i = 0; i < count; i++) {
-    var color = '255,255,255';
-    if (i < warmCount) {
-      var warm = ['255,220,150', '255,200,100', '255,180,80'];
-      color = warm[Math.floor(Math.random() * warm.length)];
-    } else if (i < warmCount + violetCount) {
-      var violet = ['200,180,255', '180,150,255', '160,130,255'];
-      color = violet[Math.floor(Math.random() * violet.length)];
-    }
-    stars.push({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      r: 0.5 + Math.random() * 1.8,
-      alpha: 0.2 + Math.random() * 0.8,
-      speed: 0.005 + Math.random() * 0.02,
-      phase: Math.random() * Math.PI * 2,
-      color: color,
-    });
+  function getTheme() {
+    return document.documentElement.getAttribute('data-theme') || 'dark';
   }
+
+  function getColorPalette() {
+    if (getTheme() === 'light') {
+      return {
+        warm: ['255,80,80', '255,180,50', '255,230,50', '80,220,80', '50,180,255', '180,80,255', '255,100,200'],
+        violet: ['200,150,255', '255,150,200', '150,200,255'],
+        white: '255,255,255',
+        shootingHead: '255,200,100',
+        shootingTail: '0,212,255',
+      };
+    }
+    return {
+      warm: ['255,220,150', '255,200,100', '255,180,80'],
+      violet: ['200,180,255', '180,150,255', '160,130,255'],
+      white: '255,255,255',
+      shootingHead: '255,255,255',
+      shootingTail: '0,212,255',
+    };
+  }
+
+  var palette = getColorPalette();
+
+  function rebuildStars() {
+    stars = [];
+    palette = getColorPalette();
+    var warmCount = Math.floor(count * 0.25);
+    var violetCount = Math.floor(count * 0.1);
+
+    for (var i = 0; i < count; i++) {
+      var color = palette.white;
+      if (i < warmCount) {
+        color = palette.warm[Math.floor(Math.random() * palette.warm.length)];
+      } else if (i < warmCount + violetCount) {
+        color = palette.violet[Math.floor(Math.random() * palette.violet.length)];
+      }
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: 0.5 + Math.random() * 1.8,
+        alpha: 0.2 + Math.random() * 0.8,
+        speed: 0.005 + Math.random() * 0.02,
+        phase: Math.random() * Math.PI * 2,
+        color: color,
+      });
+    }
+  }
+
+  rebuildStars();
 
   function spawnShootingStar() {
     var x = Math.random() * W * 1.2 - W * 0.1;
@@ -62,8 +91,20 @@
   }
 
   var lastShooting = 0;
+  var lastThemeCheck = 0;
 
   function draw(t) {
+    var now = Date.now();
+
+    if (now - lastThemeCheck > 2000) {
+      lastThemeCheck = now;
+      var currentTheme = getTheme();
+      var currentPalette = getColorPalette();
+      if (currentPalette.warm[0] !== palette.warm[0]) {
+        rebuildStars();
+      }
+    }
+
     ctx.clearRect(0, 0, W, H);
 
     for (var i = 0; i < stars.length; i++) {
@@ -87,8 +128,8 @@
       }
 
       var gradient = ctx.createLinearGradient(ss.x, ss.y, ss.x - ss.vx * 2, ss.y - ss.vy * 2);
-      gradient.addColorStop(0, 'rgba(255,255,255,' + (ss.life * 0.9) + ')');
-      gradient.addColorStop(1, 'rgba(0,212,255,0)');
+      gradient.addColorStop(0, 'rgba(' + palette.shootingHead + ',' + (ss.life * 0.9) + ')');
+      gradient.addColorStop(1, 'rgba(' + palette.shootingTail + ',0)');
 
       ctx.beginPath();
       ctx.moveTo(ss.x, ss.y);
@@ -99,14 +140,14 @@
 
       ctx.beginPath();
       ctx.arc(ss.x, ss.y, 2, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,' + (ss.life * 0.9) + ')';
+      ctx.fillStyle = 'rgba(' + palette.shootingHead + ',' + (ss.life * 0.9) + ')';
       ctx.fill();
     }
 
-    var elapsed = Date.now() - lastShooting;
+    var elapsed = now - lastShooting;
     if (elapsed > 4000 + Math.random() * 8000) {
       spawnShootingStar();
-      lastShooting = Date.now();
+      lastShooting = now;
     }
 
     requestAnimationFrame(draw);

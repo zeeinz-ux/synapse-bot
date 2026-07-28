@@ -1,209 +1,200 @@
-# AI Agent — Enhancement Plan
+# Theme Toggle — Dark/Light Mode
 
-## Status: Draft Proposal
-
----
-
-## PRD — Product Requirements Document
-
-### 1. Run Code (Python Sandbox)
-
-| Item | Detail |
-|------|--------|
-| **Purpose** | Agent bisa jalanin Python snippet — kalkulasi, parse data, generate teks, dsb |
-| **User Story** | "Hitung jumlah member yang online dalam 7 hari terakhir" → agent jalanin Python buat hitung |
-| **Constraint** | **Read-only sandbox**: no filesystem write, no network (kecuali API internal), timeout 10s |
-| **Implementation** | `exec()` di sandbox terisolasi + `str` capture stdout |
-| **Tool name** | `run_code` |
-
-### 2. Web Browsing (Deeper)
-
-| Item | Detail |
-|------|--------|
-| **Purpose** | Agent bisa fetch, extract, dan summarize konten web secara lebih dalem |
-| **User Story** | "Cari tau berita terbaru tentang Discord" → agent scrape page + summarize |
-| **Constraint** | Rate limited, max 3 pages per session, 30s timeout |
-| **Implementation** | Extend `web_search.py` + `BeautifulSoup` / readability |
-| **Tool name** | `web_browse` (bedain sama `web_search`) |
-
-### 3. Memory Compression
-
-| Item | Detail |
-|------|--------|
-| **Purpose** | Agent bisa inget >20 turns dengan compress history lama |
-| **User Story** | "Ingetin gue tentang settings yang gue minta 50 message lalu" |
-| **Implementation** | Summarize oldest 10 turns → simpan sebagai 1 merged summary. Trigger otomatis pas turn ke-20 |
-| **Tool name** | N/A (otomatis, internal) |
-
-### 4. Feedback Loop (Preference Learning)
-
-| Item | Detail |
-|------|--------|
-| **Purpose** | Agent inget preferensi user per sesi |
-| **User Story** | "Gua gak suka format panjang" → setelah itu agent pake format pendek |
-| **Constraint** | Hanya per session (gak permanen) atau simpan ke Firestore per user+guild |
-| **Implementation** | Inject preference cue ke prompt dari `_build_context()` |
-| **Tool name** | N/A (otomatis via `_build_context`) |
-
-### 5. Auto-Fix (Self-Healing)
-
-| Item | Detail |
-|------|--------|
-| **Purpose** | Kalo tool return error, agent coba strategi alternatif |
-| **User Story** | "Buat channel #general" → "Channel already exists" → agent pake rename |
-| **Constraint** | Max 2 retries per step |
-| **Implementation** | Di `_execute_step()`: kalo error, append hint ke step prompt dan re-invoke |
-| **Tool name** | N/A (otomatis di `_execute_step`) |
-
-### 6. Custom Command Creator
-
-| Item | Detail |
-|------|--------|
-| **Purpose** | Agent bisa bikin command Discord baru dari deskripsi natural language |
-| **User Story** | "Bikin command /ping yang reply Pong!" → agent bikin slash command |
-| **Complexity** | **High** — butuh dynamic command registration. Firestore-backed. |
-| **Constraint** | Basic commands only (no subcommands). Butuh restart bot buat sync slash. |
-| **Implementation** | Simpan ke Firestore → Cog khusus `dynamic_commands.py` → sync on startup |
-| **Tool name** | `create_command`, `delete_command`, `list_commands` |
+## Status: Planning
 
 ---
 
-## Priority Matrix
+## Overview
 
-| Feature | Effort | Impact | Priority |
-|---------|--------|--------|----------|
-| Auto-Fix | **Low** (1-2h) | High | **P0** |
-| Feedback Loop | **Low** (2-3h) | Medium | **P1** |
-| Run Code | **Medium** (4-6h) | High | **P1** |
-| Web Browsing | **Medium** (4-8h) | Medium | **P2** |
-| Memory Compression | **Low** (2-4h) | High | **P2** |
-| Custom Command Creator | **High** (16-24h) | High | **P3** |
+Tambahkan dark/light mode toggle dengan 3 opsi: **System** (auto deteksi), **Dark**, **Light**. Star animation (`stars.js`) jadi warna-warni di light mode. Preference disimpan di `localStorage`.
 
 ---
 
-## Workflow
-
-### P0: Auto-Fix (Next)
+## Architecture
 
 ```
-User Request
+User clicks toggle (☀️/🌙/🖥️)
     ↓
-Agent selects tool + generates params
+theme.js:
+  1. Set localStorage['synapse_theme'] = 'system' | 'dark' | 'light'
+  2. Evaluate: if 'system' → window.matchMedia('prefers-color-scheme: light')
+  3. Set <html data-theme="dark" | "light">
     ↓
-_execute_step() runs tool
-    ↓  error?
-┌─── yes ──→ Append error + fix hint to step
-│                ↓
-│           Re-invoke LLM with original prompt + error context
-│                ↓
-│           Agent generates new params / different tool
-│                ↓
-│           Retry (max 2x)
-│                ↓
-│           success? → continue, else → respond with error
-│
-└─── no ───→ Continue to next step
+CSS:
+  [data-theme="light"] {
+    --bg-deep: #f5f5f7;
+    --text-primary: #1a1a1e;
+    ...semua light vars override...
+  }
+    ↓
+stars.js:
+  Baca data-theme dari <html>
+  Kalo "light" → pake warna pelangi
+  Kalo "dark" → pake warna original (putih/emas/violet)
 ```
 
-### P1: Feedback Loop
+### Script Loading Order
 
 ```
-User says "gak suka format panjang"
-    ↓
-Parse intent via regex/keywords
-    ↓
-Simpan preference ke session dict
-    ↓
-_build_context() injects preference ke system prompt
-    ↓
-Agent generates response sesuai preference
+<head>
+  1. theme.js (inline, blocking — biar gak flicker)
+  2. CSS files (pakai var yang udah diset data-theme)
+</head>
+<body>
+  3. stars.js (defer — baca data-theme dari html)
+  4. navbar.js / sidebar.js (toggle button handler)
+</body>
 ```
 
-### P1: Run Code
+---
+
+## Phase Breakdown (6 phases)
+
+### Phase 1: `theme.js` + HTML data-theme (2 files)
+**Tujuan**: Theme engine dasar — inject theme.js inline di `<head>`, set `data-theme` di `<html>`.
+
+**Files:**
+| File | Action |
+|------|--------|
+| `frontend/static/js/theme.js` | **NEW** — Logic: baca localStorage → preferensi, fallback ke system prefers-color-scheme, set data-theme, listen system change |
+| `frontend/pages/landing.html` | Inline `<script>` di `<head>` yang load theme.js + set data-theme |
+| `frontend/pages/base.html` | Inline `<script>` di `<head>` yang load theme.js + set data-theme |
+
+**Deliverable**: Buka landing.html → `<html data-theme="dark">` sesuai system. Ganti system ke light → auto update.
+
+---
+
+### Phase 2: Light mode CSS — Dashboard (2 files)
+**Tujuan**: Semua halaman dashboard (extends `base.html`) punya light mode.
+
+**Files:**
+| File | Action |
+|------|--------|
+| `frontend/static/css/dashboard.css` | Tambah blok `[data-theme="light"]` — override semua var (bg-deep, bg-surface, text, border, accent, dll) |
+| `frontend/static/css/sidebar.css` | Tambah blok `[data-theme="light"]` — override sidebar-bg, sidebar-border, text, hover, search, dll |
+
+**Deliverable**: Dashboard page (settings, ai-chat, dll) bisa light mode saat `<html data-theme="light">`.
+
+---
+
+### Phase 3: Light mode CSS — Landing (2 files)
+**Tujuan**: Landing page + navbar + footer bisa light mode.
+
+**Files:**
+| File | Action |
+|------|--------|
+| `frontend/static/css/landing.css` | Tambah blok `[data-theme="light"]` — override body-bg, sidebar-bg, glass-bg, gradient, hero-glow, dll |
+| `frontend/static/css/navbar.css` | Tambah blok `[data-theme="light"]` — override navbar bg, border, dropdown, mobile menu |
+
+**Deliverable**: Landing page + navbar bisa light mode.
+
+---
+
+### Phase 4: Light mode CSS — Remaining pages (5+ files)
+**Tujuan**: Semua halaman dashboard kecil juga punya light mode vars.
+
+**Files:**
+| File | Action |
+|------|--------|
+| `frontend/static/css/agent.css` | Tambah `[data-theme="light"]` |
+| `frontend/static/css/ai_chat.css` | Tambah `[data-theme="light"]` |
+| `frontend/static/css/anti_spam.css` | Tambah `[data-theme="light"]` |
+| `frontend/static/css/auto_responders.css` | Tambah `[data-theme="light"]` |
+| `frontend/static/css/donation_settings.css` | Tambah `[data-theme="light"]` |
+| `frontend/static/css/welcome_settings.css` | Tambah `[data-theme="light"]` |
+| `frontend/static/css/photobox.css` | Tambah `[data-theme="light"]` |
+| `frontend/static/css/landing.css` (footer.css vars) | Cek kalo ada var tambahan |
+
+**Deliverable**: Semua halaman di web bisa light mode konsisten.
+
+---
+
+### Phase 5: Toggle Button UI (3 files)
+**Tujuan**: User bisa ganti mode via tombol. 3 state: System / Dark / Light.
+
+**Files:**
+| File | Action |
+|------|--------|
+| `frontend/pages/partials/navbar.html` | Tambah toggle button di `nav-actions` (sebelah lang switcher). Mobile: tambah di mobile menu section |
+| `frontend/pages/base.html` | Tambah toggle button di `sidebar-footer` (sebelah version info) |
+| `frontend/static/css/navbar.css` | Style untuk theme toggle button (icon, active state, hover) |
+| `frontend/static/css/sidebar.css` | Style untuk theme toggle di sidebar footer |
+
+**Toggle behavior:**
+```
+Click → cycle: System → Dark → Light → System → ...
+Ikon:  🖥️ → 🌙 → ☀️ → 🖥️ → ...
+Label: "System" → "Dark" → "Light" → "System" → ...
+```
+
+**Deliverable**: Toggle berfungsi di landing page (navbar) + dashboard (sidebar). Preference persist.
+
+---
+
+### Phase 6: Stars Warna-warni (1 file)
+**Tujuan**: Pas light mode, stars jadi pelangi. Pas dark mode, tetap putih/emas/violet.
+
+**File:**
+| File | Action |
+|------|--------|
+| `frontend/static/js/stars.js` | Inject deteksi `document.documentElement.dataset.theme`. Kalo "light" → pake array warmColors rainbow (merah, jingga, kuning, hijau, biru, ungu). Kalo "dark" → tetap pake warm (gold/amber) + violet |
+
+**Deliverable**: Refresh landing page → stars warna-warni di light mode, normal di dark mode.
+
+---
+
+## Files Summary
+
+| # | File | Phase | Action |
+|---|------|-------|--------|
+| 1 | `frontend/static/js/theme.js` | P1 | **NEW** |
+| 2 | `frontend/pages/landing.html` | P1 | Edit `<head>` |
+| 3 | `frontend/pages/base.html` | P1 | Edit `<head>` + P5 sidebar toggle |
+| 4 | `frontend/static/css/dashboard.css` | P2 | Edit +light vars |
+| 5 | `frontend/static/css/sidebar.css` | P2 + P5 | Edit +light vars + toggle style |
+| 6 | `frontend/static/css/landing.css` | P3 | Edit +light vars |
+| 7 | `frontend/static/css/navbar.css` | P3 + P5 | Edit +light vars + toggle style |
+| 8 | `frontend/static/css/agent.css` | P4 | Edit +light vars |
+| 9 | `frontend/static/css/ai_chat.css` | P4 | Edit +light vars |
+| 10 | `frontend/static/css/anti_spam.css` | P4 | Edit +light vars |
+| 11 | `frontend/static/css/auto_responders.css` | P4 | Edit +light vars |
+| 12 | `frontend/static/css/donation_settings.css` | P4 | Edit +light vars |
+| 13 | `frontend/static/css/welcome_settings.css` | P4 | Edit +light vars |
+| 14 | `frontend/static/css/photobox.css` | P4 | Edit +light vars |
+| 15 | `frontend/pages/partials/navbar.html` | P5 | Edit +toggle button |
+| 16 | `frontend/static/js/stars.js` | P6 | Edit +light mode colors |
+
+**Total: 16 files (1 new, 15 edits) — 6 phases**
+
+---
+
+## Phase Execution Order
 
 ```
-Agent decides to run code
-    ↓
-Sanitize input: strip dangerous imports (os, subprocess, etc.)
-    ↓
-exec() in isolated namespace
-    ↓
-Capture stdout + stderr (max 4096 chars)
-    ↓
-Return result to LLM
-    ↓
-LLM interprets output and responds
+Phase 1:  theme.js + data-theme di HTML  ──→  (engine core)
+     ↓
+Phase 2:  Dashboard CSS light vars       ──→  (dashboard bisa light)
+     ↓
+Phase 3:  Landing CSS light vars         ──→  (landing bisa light)
+     ↓
+Phase 4:  Remaining CSS light vars       ──→  (semua halaman light)
+     ↓
+Phase 5:  Toggle button UI               ──→  (user bisa milih)
+     ↓
+Phase 6:  Stars warna-warni              ──→  (eye candy light mode)
 ```
 
-### P2: Web Browsing
-
-```
-Agent decides to browse
-    ↓
-Fetch URL via httpx/aiohttp
-    ↓
-Extract readable content via BeautifulSoup
-    ↓
-Truncate to max 10000 chars
-    ↓
-Return content to LLM
-    ↓
-LLM summarizes / answers based on content
-```
-
-### P2: Memory Compression
-
-```
-Conversation reaches turn 18 (2 before limit)
-    ↓
-Summarize oldest 10 turns via LLM
-    ↓
-Store summary as single compressed entry
-    ↓
-Drop oldest 10 raw entries
-    ↓
-Continue with 11 remaining slots
-```
-
-### P3: Custom Command Creator
-
-```
-User: "Bikin command /greet yang reply Halo!"
-    ↓
-Agent validates command name + description
-    ↓
-Store in Firestore collection `custom_commands`
-    ↓
-Signal bot via control_queue untuk reload
-    ↓
-DynamicCommandsCog sync saat startup
-    ↓
-Slash command terdaftar (butuh restart → 5-10s downtime)
-```
+Setiap phase bisa di-commit & push sendiri biar gak overload.
 
 ---
 
 ## Progress Tracking
 
-| Feature | Status | Target |
-|---------|--------|--------|
-| Auto-Fix | ❌ Not started | P0 |
-| Feedback Loop | ❌ Not started | P1 |
-| Run Code | ❌ Not started | P1 |
-| Web Browsing | ❌ Not started | P2 |
-| Memory Compression | ❌ Not started | P2 |
-| Custom Command Creator | ❌ Not started | P3 |
-
----
-
-## Files Terkait
-
-| File | Perubahan |
-|------|-----------|
-| `backend/cogs/ai_agent/agent_cog.py` | `_execute_step()` — auto-retry logic |
-| `backend/cogs/ai_agent/agent_cog.py` | `_build_context()` — inject preference |
-| `backend/cogs/ai_agent/agent_tools.py` | + `run_code`, + `web_browse`, + `create_command` |
-| `backend/cogs/ai_agent/agent_tools.py` | `parse_tool_call()` — update regex |
-| `backend/cogs/ai_chat/` | Web browsing (reuse `web_search.py`) |
-| `backend/cogs/dynamic_commands.py` | **New file** — dinamik slash command cog |
-| `backend/utils/sandbox.py` | **New file** — safe exec sandbox |
+| Phase | Description | Status | Files |
+|-------|-------------|--------|-------|
+| P1 | theme.js + HTML data-theme | ❌ Not started | 3 |
+| P2 | Dashboard CSS light vars | ❌ Not started | 2 |
+| P3 | Landing CSS light vars | ❌ Not started | 2 |
+| P4 | Remaining CSS light vars | ❌ Not started | 7 |
+| P5 | Toggle button UI | ❌ Not started | 4 |
+| P6 | Stars warna-warni | ❌ Not started | 1 |

@@ -95,8 +95,15 @@ class Moderation(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if message.author.bot or message.author.guild_permissions.administrator:
+        if message.author.bot:
             await self.bot.process_commands(message)
+            return
+
+        if message.guild and message.author.guild_permissions.administrator:
+            await self.bot.process_commands(message)
+            return
+
+        if not message.guild:
             return
 
         guild_id = str(message.guild.id)

@@ -1024,3 +1024,50 @@ body {
   .pb-picker-card { min-width: 48px; padding: 0.3rem 0.2rem; }
   .pb-layout-btn { min-width: 54px; padding: 0.25rem 0.4rem; }
 }
+
+/* ── Synapse Theme Toggle ── */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.4rem;
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--pb-text);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: var(--pb-accent);
+  transform: scale(1.1);
+}
+
+/* ── Light Mode Overrides ── */
+[data-theme="light"] .pb-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(200, 200, 200, 0.4);
+}
+
+[data-theme="light"] .pb-subtitle {
+  color: #999;
+}
+
+[data-theme="light"] .pb-footer {
+  color: #ccc;
+}
+
+[data-theme="light"] .theme-toggle {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(200, 200, 200, 0.5);
+  color: var(--pb-text);
+}
+
+[data-theme="light"] .theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--pb-accent);
+}

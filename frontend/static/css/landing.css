@@ -35,6 +35,29 @@
   --font-display: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+[data-theme="light"] {
+  --accent: #0099cc;
+  --accent-hover: #0088b3;
+  --accent-secondary: #6d28d9;
+  --accent-green: #2d8a47;
+  --accent-red: #d32f2f;
+  --accent-yellow: #c9940a;
+  --accent-warm: #d97706;
+  --body-bg: #f5f5f7;
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e0e0e4;
+  --text-primary: #1a1a1e;
+  --text-secondary: #555;
+  --text-muted: #999;
+  --hover-bg: #f0f0f2;
+  --tag-bg: #ebebed;
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(200, 200, 205, 0.6);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --hero-glow-a: rgba(0, 153, 204, 0.1);
+  --hero-glow-b: rgba(109, 40, 217, 0.06);
+}
+
 /* ── Reset ── */
 *,
 *::before,

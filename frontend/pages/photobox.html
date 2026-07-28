@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>📸 Photobox - Synapse</title>
+  <script>
+    (function () {
+      var s = localStorage.getItem('synapse_theme') || 'system';
+      var t = s === 'dark' ? 'dark' : s === 'light' ? 'light' : window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/photobox.css') }}" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📸</text></svg>" />
 </head>
@@ -16,7 +23,12 @@
 
     <!-- Header -->
     <div class="pb-header">
-      <h1 class="pb-title">📸 Photobox</h1>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h1 class="pb-title" style="margin:0">📸 Photobox</h1>
+        <button class="theme-toggle" aria-label="Toggle theme" title="Theme">
+          <i data-lucide="monitor" width="14" height="14"></i>
+        </button>
+      </div>
       <p class="pb-subtitle">senyum dulu, nanti kita liat hasilnya! ✨</p>
     </div>
 
@@ -219,6 +231,8 @@
 
   </div>
 
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   <script src="{{ url_for('static', filename='js/photobox.js') }}"></script>
 </body>
 </html>

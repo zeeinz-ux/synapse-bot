@@ -55,6 +55,10 @@ def setup_logging(name="bot", level=logging.INFO, log_to_file=True):
             logger.warning("Failed to setup file logging: %s", e)
 
     _initialized = True
+
+    # Suppress verbose discord gateway heartbeat warnings
+    logging.getLogger("discord.gateway").setLevel(logging.WARNING)
+
     return logger
 
 def get_logger(name="bot"):
