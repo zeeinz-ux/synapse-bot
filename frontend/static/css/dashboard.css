@@ -53,6 +53,7 @@
   /* Misc */
   --tag-bg: #2a2a2d;
   --accent: #00d4ff;
+  --navbar-height: 68px;
 }
 
 [data-theme="light"] {
