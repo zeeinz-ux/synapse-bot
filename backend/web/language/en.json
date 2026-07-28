@@ -19,7 +19,7 @@
   "features.title": "What Can Synapse Do?",
   "features.subtitle": "From entertainment to server management. Synapse is ready to be the backbone of your community.",
   "features.ai.title": "Advanced AI Chat",
-  "features.ai.desc": "6-tier AI provider chain: OpenCode Zen, Gemini, Groq, Mistral, Cohere, OpenRouter. AI can read and analyze images you send. Customizable personality per channel. Smart intent recognition.",
+  "features.ai.desc": "Synapse AI — smart engine with multi-layer fallback. AI can read and analyze images you send. Customizable personality per channel. Smart intent recognition.",
   "features.welcome.title": "Elegant Welcome System",
   "features.welcome.desc": "Fully customizable welcome banners: member avatar, text, colors, background, embed, all through a visual dashboard.",
   "features.dashboard.title": "Modern Admin Dashboard",
@@ -53,7 +53,7 @@
   "faq.q2": "How do I invite this bot to my server?",
   "faq.a2": "It's easy! Click the <strong>\"Add to Server\"</strong> or <strong>\"Invite Bot\"</strong> button in the navbar, then select your Discord server and grant the required permissions. The bot will be active within seconds. Make sure you have <em>Manage Server</em> permission on that server.",
   "faq.q3": "Is the AI Chat feature safe and privacy-friendly?",
-  "faq.a3": "Very safe. We <strong>do not store</strong> private conversation history permanently. AI Chat uses advanced models (Gemini AI, OpenRouter, Groq) with built-in security filters. You can also configure the bot's personality and limit which channels can use the AI feature.",
+  "faq.a3": "Very safe. We <strong>do not store</strong> private conversation history permanently. AI Chat uses the Synapse AI engine with built-in security filters. You can also configure the bot's personality and limit which channels can use the AI feature.",
   "faq.q4": "How do I set up the welcome banner (welcome system)?",
   "faq.a4": "Login to the <a href=\"/dashboard\">Dashboard</a>, select your server, then go to the <strong>Welcome System</strong> menu. There you can customize: background banner, text color, avatar position, custom message, target channel, and embed styling, all without coding. Changes go live instantly in real-time.",
 

@@ -19,7 +19,7 @@
   "features.title": "Apa yang Bisa Synapse Lakukan?",
   "features.subtitle": "Dari hiburan hingga manajemen server. Synapse siap jadi tulang punggung komunitas kamu.",
   "features.ai.title": "AI Chat Canggih",
-  "features.ai.desc": "6-tier provider AI: OpenCode Zen, Gemini, Groq, Mistral, Cohere, OpenRouter. Bisa baca dan analisis gambar yang kamu kirim. Kepribadian bisa diatur per channel. Intent recognition pintar.",
+  "features.ai.desc": "Synapse AI — engine pintar dengan multi-layer fallback. Bisa baca dan analisis gambar yang kamu kirim. Kepribadian bisa diatur per channel. Intent recognition pintar.",
   "features.welcome.title": "Welcome System Elegan",
   "features.welcome.desc": "Banner selamat datang yang bisa dikustomisasi penuh: avatar member, teks, warna, background, embed, semuanya via dashboard visual.",
   "features.dashboard.title": "Dashboard Admin Modern",
@@ -53,7 +53,7 @@
   "faq.q2": "Bagaimana cara mengundang bot ini ke server?",
   "faq.a2": "Sangat mudah! Klik tombol <strong>\"Tambahkan ke Server\"</strong> atau <strong>\"Invite Bot\"</strong> di navbar, lalu pilih server Discord kamu dan berikan izin yang diperlukan. Bot akan langsung aktif dalam hitungan detik. Pastikan kamu memiliki hak <em>Manage Server</em> di server tersebut.",
   "faq.q3": "Apakah fitur AI Chat-nya aman dan ramah privasi?",
-  "faq.a3": "Sangat aman. Kami <strong>tidak menyimpan</strong> riwayat percakapan pribadi secara permanen. AI Chat menggunakan model canggih (Gemini AI, OpenRouter, Groq) dengan filter keamanan bawaan. Kamu juga bisa mengatur kepribadian bot dan membatasi channel mana saja yang boleh menggunakan fitur AI.",
+  "faq.a3": "Sangat aman. Kami <strong>tidak menyimpan</strong> riwayat percakapan pribadi secara permanen. AI Chat menggunakan Synapse AI engine dengan filter keamanan bawaan. Kamu juga bisa mengatur kepribadian bot dan membatasi channel mana saja yang boleh menggunakan fitur AI.",
   "faq.q4": "Bagaimana cara mengatur banner selamat datang (welcome system)?",
   "faq.a4": "Login ke <a href=\"/dashboard\">Dashboard</a>, pilih server kamu, lalu masuk ke menu <strong>Welcome System</strong>. Di sana kamu bisa mengkustomisasi: background banner, warna teks, posisi avatar, pesan custom, channel tujuan, dan embed styling, semuanya tanpa perlu coding. Perubahan langsung aktif secara real-time.",
 
