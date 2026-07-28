@@ -1313,3 +1313,8 @@ textarea.form-control {
     font-size: 2rem;
   }
 }
+
+/* ── Light Mode ── */
+[data-theme="light"] .page-header h1 {
+  color: var(--text-primary) !important;
+}
