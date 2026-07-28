@@ -771,3 +771,92 @@
 #banPage .gallery-item:hover {
   border-color: var(--welcome-accent);
 }
+
+/* ── Light Mode ── */
+[data-theme="light"] #banPage .page-header h1,
+[data-theme="light"] #banPage .card .section-title,
+[data-theme="light"] #banPage .form-control,
+[data-theme="light"] #banPage select,
+[data-theme="light"] #banPage .toggle-label,
+[data-theme="light"] #banPage .preview-title,
+[data-theme="light"] #banPage .preview-banner-title,
+[data-theme="light"] #banPage .preview-banner-name,
+[data-theme="light"] #banPage .style-label strong,
+[data-theme="light"] #banPage .upload-remove,
+[data-theme="light"] #banPage .btn-save,
+[data-theme="light"] #banPage .koya-banner-text span,
+[data-theme="light"] #banPage .toast-text {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] #banPage .preview-banner {
+  background: linear-gradient(135deg, var(--bg-surface2), var(--bg-surface3)) !important;
+}
+
+[data-theme="light"] #banPage .preview-mock,
+[data-theme="light"] #banPage .style-preview,
+[data-theme="light"] #banPage .koya-banner-preview {
+  background: var(--bg-surface) !important;
+}
+
+[data-theme="light"] #banPage .form-control,
+[data-theme="light"] #banPage #banPage select {
+  background: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] #banPage select option {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] #banPage .status-banner,
+[data-theme="light"] #banPage .card {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="light"] #banPage .section-title {
+  border-bottom-color: var(--border) !important;
+}
+
+[data-theme="light"] #banPage .style-option {
+  border-color: var(--border) !important;
+  background: var(--bg-surface2) !important;
+}
+
+[data-theme="light"] #banPage .switch-track {
+  background: var(--border2) !important;
+}
+
+[data-theme="light"] #banPage .upload-remove {
+  background: var(--bg-surface3) !important;
+}
+
+[data-theme="light"] #banPage .color-swatch,
+[data-theme="light"] #banPage .banner-avatar-ring {
+  border-color: var(--border) !important;
+}
+
+[data-theme="light"] #banPage .upload-zone {
+  border-color: var(--border) !important;
+}
+
+[data-theme="light"] #banPage .preview-embed-image-divider,
+[data-theme="light"] #banPage .url-divider {
+  border-top-color: var(--border) !important;
+}
+
+[data-theme="light"] #banPage .gallery-item {
+  border-color: var(--border) !important;
+}
+
+[data-theme="light"] #banPage .toast {
+  background: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="light"] #banPage .koya-banner-overlay {
+  background: rgba(255, 255, 255, 0.7) !important;
+}

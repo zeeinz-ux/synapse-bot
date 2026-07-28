@@ -861,3 +861,111 @@
   border: 1px solid #5a2a2a;
   color: #df7d7d;
 }
+
+/* ── Light Mode ── */
+[data-theme="light"] #boostPage .page-header h1,
+[data-theme="light"] #boostPage .card .section-title,
+[data-theme="light"] #boostPage .form-label,
+[data-theme="light"] #boostPage .toggle-label,
+[data-theme="light"] #boostPage .preview-title,
+[data-theme="light"] #boostPage .preview-desc,
+[data-theme="light"] #boostPage .preview-banner-title,
+[data-theme="light"] #boostPage .style-label strong,
+[data-theme="light"] #boostPage .style-label span,
+[data-theme="light"] #boostPage .preview-mock-title,
+[data-theme="light"] #boostPage .preview-mock-desc,
+[data-theme="light"] #boostPage .koya-banner-text span,
+[data-theme="light"] #boostPage .code-hint,
+[data-theme="light"] #boostPage .upload-remove {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] #boostPage .card {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="light"] #boostPage .card .section-title {
+  border-bottom-color: var(--border) !important;
+}
+
+[data-theme="light"] #boostPage .form-control {
+  background: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] #boostPage select {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] #boostPage .code-hint {
+  background: var(--bg-surface2) !important;
+}
+
+[data-theme="light"] #boostPage .switch-track {
+  background: var(--border2) !important;
+}
+
+[data-theme="light"] #boostPage .style-option {
+  border-color: var(--border) !important;
+  background: var(--bg-surface2) !important;
+}
+
+[data-theme="light"] #boostPage .style-preview,
+[data-theme="light"] #boostPage .preview-mock,
+[data-theme="light"] #boostPage .koya-banner-preview {
+  background: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="light"] #boostPage .preview-banner {
+  background: linear-gradient(135deg, var(--bg-surface2), var(--bg-surface3)) !important;
+}
+
+[data-theme="light"] #boostPage .embed-panel-inner {
+  background: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="light"] #boostPage .color-swatch {
+  border-color: var(--border) !important;
+}
+
+[data-theme="light"] #boostPage .upload-remove {
+  background: var(--bg-surface3) !important;
+}
+
+[data-theme="light"] #boostPage .koya-banner-overlay {
+  background: rgba(255, 255, 255, 0.7) !important;
+}
+
+[data-theme="light"] #boostPage .koya-avatar {
+  background: var(--bg-surface) !important;
+}
+
+[data-theme="light"] #boostPage .btn-save {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-purple)) !important;
+  color: #fff !important;
+}
+
+[data-theme="light"] #boostPage .status-active {
+  color: var(--accent-green) !important;
+}
+
+[data-theme="light"] #boostPage .status-inactive {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="light"] #boostPage .toast-success {
+  background: var(--bg-surface) !important;
+  border-color: var(--accent-green) !important;
+  color: var(--accent-green) !important;
+}
+
+[data-theme="light"] #boostPage .toast-error {
+  background: var(--bg-surface) !important;
+  border-color: var(--accent-red) !important;
+  color: var(--accent-red) !important;
+}

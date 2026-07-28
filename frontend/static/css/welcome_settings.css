@@ -1313,3 +1313,80 @@ textarea.form-control {
     font-size: 2rem;
   }
 }
+
+/* ── Light Mode ── */
+[data-theme="light"] #welcomePage .page-header h1,
+[data-theme="light"] #welcomePage .card .section-title,
+[data-theme="light"] #welcomePage .toggle-label,
+[data-theme="light"] #welcomePage .preview-title,
+[data-theme="light"] #welcomePage .preview-banner-title,
+[data-theme="light"] #welcomePage .preview-banner-name,
+[data-theme="light"] #welcomePage .btn-save,
+[data-theme="light"] #welcomePage .upload-remove,
+[data-theme="light"] #welcomePage .banner-text h3,
+[data-theme="light"] #welcomePage .banner-text p,
+[data-theme="light"] #welcomePage .koya-banner-text span,
+[data-theme="light"] #welcomePage .placeholder-card h3,
+[data-theme="light"] #welcomePage .embed-badge {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] #welcomePage .card {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="light"] #welcomePage .form-control {
+  background: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] #welcomePage .switch-track {
+  background: var(--border2) !important;
+}
+
+[data-theme="light"] #welcomePage .style-option {
+  border-color: var(--border) !important;
+  background: var(--bg-surface2) !important;
+}
+
+[data-theme="light"] #welcomePage .preview-banner {
+  background: linear-gradient(135deg, var(--bg-surface2), var(--bg-surface3)) !important;
+}
+
+[data-theme="light"] #welcomePage .banner-overlay {
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+[data-theme="light"] #welcomePage .banner-footer {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+[data-theme="light"] #welcomePage .upload-remove {
+  background: var(--bg-surface3) !important;
+}
+
+[data-theme="light"] #welcomePage .toast-success {
+  background: var(--bg-surface) !important;
+  border-color: var(--accent-green) !important;
+  color: var(--accent-green) !important;
+}
+
+[data-theme="light"] #welcomePage .toast-error {
+  background: var(--bg-surface) !important;
+  border-color: var(--accent-red) !important;
+  color: var(--accent-red) !important;
+}
+
+[data-theme="light"] #welcomePage .koya-banner-overlay {
+  background: rgba(255, 255, 255, 0.7) !important;
+}
+
+[data-theme="light"] #welcomePage .banner-avatar-ring {
+  border-color: var(--border) !important;
+}
+
+[data-theme="light"] #welcomePage .style-preview-embed .preview-title {
+  color: var(--text-primary) !important;
+}
