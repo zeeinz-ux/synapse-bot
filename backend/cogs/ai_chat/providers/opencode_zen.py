@@ -24,7 +24,7 @@ ZEN_VISION_MODELS = [
 
 
 class OpenCodeZenProvider(AIProvider):
-    name = "OpenCode Zen"
+    name = "Synapse AI"
 
     def __init__(self, session, api_key: str):
         super().__init__(session, api_key)

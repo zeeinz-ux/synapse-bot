@@ -14,7 +14,7 @@ def return_failure_tuple(retry_state):
 
 
 class MistralProvider(AIProvider):
-    name = "Mistral"
+    name = "Synapse AI"
 
     @tenacity.retry(
         wait=tenacity.wait_exponential(min=1, max=2),

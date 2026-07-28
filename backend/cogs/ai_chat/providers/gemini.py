@@ -24,7 +24,7 @@ def return_failure_tuple(retry_state):
 
 
 class GeminiProvider(AIProvider):
-    name = "Gemini"
+    name = "Synapse AI"
 
     def __init__(self, session, api_key: str):
         super().__init__(session, api_key)

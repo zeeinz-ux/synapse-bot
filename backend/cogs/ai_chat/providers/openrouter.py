@@ -42,7 +42,7 @@ def _is_chat_model(modality: str) -> bool:
 
 
 class OpenRouterProvider(AIProvider):
-    name = "OpenRouter"
+    name = "Synapse AI"
 
     def __init__(self, session, api_key: str):
         super().__init__(session, api_key)

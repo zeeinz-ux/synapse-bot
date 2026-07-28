@@ -96,8 +96,8 @@
     </div>
 
     <div class="form-group">
-      <label for="ai-model-select">Model Gemini</label>
-      <p class="field-hint">Pilih model Gemini yang digunakan untuk AI Chat. Default: gemini-3.6-flash.</p>
+      <label for="ai-model-select">Model AI</label>
+      <p class="field-hint">Pilih model Synapse AI yang digunakan untuk AI Chat.</p>
       <input type="text" id="ai-model-input" class="form-input" value="{{ ai_model }}" placeholder="gemini-3.6-flash">
     </div>
 
@@ -148,18 +148,10 @@
     </div>
 
     <div class="form-group">
-      <label>AI Engine Stack</label>
-      <p class="field-hint">Arsitektur 4-tier fallback di backend. Auto-switch tanpa restart bot.</p>
+      <label>AI Engine</label>
+      <p class="field-hint">Synapse AI — auto-fallback multi-engine, seamless tanpa restart bot.</p>
       <div class="engine-stack-info">
-        <div class="tier-badge tier-1"><i data-lucide="zap"></i> Tier 1: Gemini (Google AI Studio)</div>
-        <div class="tier-arrow">↓</div>
-        <div class="tier-badge tier-2"><i data-lucide="rocket"></i> Tier 2: Llama 3.3 70B (Groq)</div>
-        <div class="tier-arrow">↓</div>
-        <div class="tier-badge tier-3"><i data-lucide="brain"></i> Tier 3: open-mistral-nemo (Mistral)</div>
-        <div class="tier-arrow">↓</div>
-        <div class="tier-badge tier-4"><i data-lucide="refresh-cw"></i> Tier 4: command-a-03-2025 (Cohere)</div>
-        <div class="tier-arrow">↓</div>
-        <div class="tier-badge tier-5"><i data-lucide="globe"></i> Tier 5: OpenRouter (free models)</div>
+        <div class="tier-badge tier-1"><i data-lucide="zap"></i> Synapse AI</div>
       </div>
     </div>
 
@@ -186,79 +178,31 @@
   </div>
 </div>
 
-<!-- Info & Limitasi Card — v4.8 Quad API -->
+<!-- Info & Limitasi -->
 <div class="card">
   <div class="card-header">
     <span class="card-icon"><i data-lucide="info"></i></span>
     <div class="card-title-group">
       <h2>Info & Limitasi</h2>
-      <p>Detail arsitektur AI dan batasan penggunaan.</p>
+      <p>Detail engine AI dan batasan penggunaan.</p>
     </div>
   </div>
   <div class="card-body">
 
-    <!-- Tier 1: Gemini -->
     <div class="tier-info">
       <div class="tier-header">
         <span class="tier-dot tier-1-dot"></span>
-        <strong>Tier 1 — Google AI Studio</strong>
-        <span class="tier-tag primary">PRIMARY</span>
+        <strong>Synapse AI</strong>
+        <span class="tier-tag primary">ACTIVE</span>
       </div>
       <div class="tier-details">
-        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">Gemini (per-guild config)</span></div>
+        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">Synapse AI (per-guild config)</span></div>
         <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">60 req/minute</span></div>
         <div class="detail-row"><span class="detail-label">Daily Quota</span><span class="detail-value">~1,500 requests (tracked)</span></div>
         <div class="detail-row"><span class="detail-label">Circuit Breaker</span><span class="detail-value">Auto-skip 2h setelah 3x fail</span></div>
         <div class="detail-row"><span class="detail-label">Response Cache</span><span class="detail-value">5 menit (pertanyaan sama)</span></div>
-      </div>
-    </div>
-
-    <hr class="tier-divider">
-
-    <!-- Tier 2: Groq -->
-    <div class="tier-info">
-      <div class="tier-header">
-        <span class="tier-dot tier-2-dot"></span>
-        <strong>Tier 2 — Groq</strong>
-        <span class="tier-tag backup">BACKUP</span>
-      </div>
-      <div class="tier-details">
-        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">Llama 3.3 70B Versatile</span></div>
-        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">30 req/min (Free Tier)</span></div>
-        <div class="detail-row"><span class="detail-label">Latency</span><span class="detail-value">~300-800ms (LPU)</span></div>
+        <div class="detail-row"><span class="detail-label">Latency</span><span class="detail-value">~300-1500ms</span></div>
         <div class="detail-row"><span class="detail-label">Timeout</span><span class="detail-value">10 detik</span></div>
-      </div>
-    </div>
-
-    <hr class="tier-divider">
-
-    <!-- Tier 3: Mistral -->
-    <div class="tier-info">
-      <div class="tier-header">
-        <span class="tier-dot tier-3-dot"></span>
-        <strong>Tier 3 — Mistral</strong>
-        <span class="tier-tag backup">BACKUP</span>
-      </div>
-      <div class="tier-details">
-        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">open-mistral-nemo</span></div>
-        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">1 req/min (Free Tier)</span></div>
-        <div class="detail-row"><span class="detail-label">Latency</span><span class="detail-value">~500-1500ms</span></div>
-      </div>
-    </div>
-
-    <hr class="tier-divider">
-
-    <!-- Tier 4: Cohere -->
-    <div class="tier-info">
-      <div class="tier-header">
-        <span class="tier-dot tier-4-dot"></span>
-        <strong>Tier 4 — Cohere</strong>
-        <span class="tier-tag fallback">LAST RESORT</span>
-      </div>
-      <div class="tier-details">
-        <div class="detail-row"><span class="detail-label">Model</span><span class="detail-value">command-a-03-2025</span></div>
-        <div class="detail-row"><span class="detail-label">Rate Limit</span><span class="detail-value">5 req/min (Free Tier)</span></div>
-        <div class="detail-row"><span class="detail-label">Fallback</span><span class="detail-value">Hanya aktif jika T1-T3 down</span></div>
       </div>
     </div>
 
