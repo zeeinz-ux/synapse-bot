@@ -33,10 +33,14 @@
 }
 
 .footer-brand img {
-  width: 130px;
-  height: 130px;
+  width: 150px;
+  height: 150px;
   border-radius: var(--radius-sm);
   object-fit: contain;
+}
+
+[data-theme="light"] .footer-brand .logo-light {
+  transform: scale(1.04);
 }
 
 /* Links */

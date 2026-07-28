@@ -90,8 +90,8 @@
 }
 
 .brand-avatar {
-  width: 130px;
-  height: 130px;
+  width: 150px;
+  height: 150px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -107,9 +107,9 @@
   object-fit: contain;
 }
 
-.logo-light { display: none; }
+.logo-light { display: none; transform: scale(1.04); }
 [data-theme="light"] .logo-dark { display: none; }
-[data-theme="light"] .logo-light { display: block; }
+[data-theme="light"] .logo-light { display: block; transform: scale(1.04); }
 
 .brand-avatar:empty {
   background: var(--gradient-main);
@@ -590,7 +590,7 @@
   }
 
   .brand-avatar {
-    width: 80px;
-    height: 80px;
+    width: 100px;
+    height: 100px;
   }
 }

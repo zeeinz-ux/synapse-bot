@@ -262,7 +262,7 @@
   border: 2px solid #2a2a30;
   border-radius: 10px;
   padding: 0.75rem;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
 #boostPage .style-option.active {
@@ -968,4 +968,37 @@
   background: var(--bg-surface) !important;
   border-color: var(--accent-red) !important;
   color: var(--accent-red) !important;
+}
+
+[data-theme="light"] #boostPage .style-option:hover {
+  border-color: var(--accent-purple) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] #boostPage .switch-track::before {
+  background: var(--text-primary) !important;
+}
+
+[data-theme="light"] #boostPage .form-control::placeholder {
+  color: rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-theme="light"] #boostPage .form-hint {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="light"] #boostPage .form-hint code {
+  background: var(--bg-surface2) !important;
+  color: #9B59B6 !important;
+}
+
+#boostPage .style-option:hover {
+  border-color: #9B59B6;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+#boostPage .form-control::placeholder {
+  color: rgba(255, 255, 255, 0.25);
 }
