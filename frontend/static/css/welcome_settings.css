@@ -5,7 +5,7 @@
   --banner-font-color: #ffffff;
 }
 
-[data-theme="light"] {
+[data-theme="light"]{
   --welcome-accent: #0099cc;
   --welcome-accent-rgb: 0, 153, 204;
   --banner-font-color: #1a1a1e;
@@ -1315,78 +1315,78 @@ textarea.form-control {
 }
 
 /* ── Light Mode ── */
-[data-theme="light"] #welcomePage .page-header h1,
-[data-theme="light"] #welcomePage .card .section-title,
-[data-theme="light"] #welcomePage .toggle-label,
-[data-theme="light"] #welcomePage .preview-title,
-[data-theme="light"] #welcomePage .preview-banner-title,
-[data-theme="light"] #welcomePage .preview-banner-name,
-[data-theme="light"] #welcomePage .btn-save,
-[data-theme="light"] #welcomePage .upload-remove,
-[data-theme="light"] #welcomePage .banner-text h3,
-[data-theme="light"] #welcomePage .banner-text p,
-[data-theme="light"] #welcomePage .koya-banner-text span,
-[data-theme="light"] #welcomePage .placeholder-card h3,
-[data-theme="light"] #welcomePage .embed-badge {
+[data-theme="light"] .page-header h1,
+[data-theme="light"] .card .section-title,
+[data-theme="light"] .toggle-label,
+[data-theme="light"] .preview-title,
+[data-theme="light"] .preview-banner-title,
+[data-theme="light"] .preview-banner-name,
+[data-theme="light"] .btn-save,
+[data-theme="light"] .upload-remove,
+[data-theme="light"] .banner-text h3,
+[data-theme="light"] .banner-text p,
+[data-theme="light"] .koya-banner-text span,
+[data-theme="light"] .placeholder-card h3,
+[data-theme="light"] .embed-badge {
   color: var(--text-primary) !important;
 }
 
-[data-theme="light"] #welcomePage .card {
+[data-theme="light"] .card {
   background: var(--bg-card) !important;
   border-color: var(--border-color) !important;
 }
 
-[data-theme="light"] #welcomePage .form-control {
+[data-theme="light"] .form-control {
   background: var(--bg-surface) !important;
   border-color: var(--border) !important;
   color: var(--text-primary) !important;
 }
 
-[data-theme="light"] #welcomePage .switch-track {
+[data-theme="light"] .switch-track {
   background: var(--border2) !important;
 }
 
-[data-theme="light"] #welcomePage .style-option {
+[data-theme="light"] .style-option {
   border-color: var(--border) !important;
   background: var(--bg-surface2) !important;
 }
 
-[data-theme="light"] #welcomePage .preview-banner {
+[data-theme="light"] .preview-banner {
   background: linear-gradient(135deg, var(--bg-surface2), var(--bg-surface3)) !important;
 }
 
-[data-theme="light"] #welcomePage .banner-overlay {
+[data-theme="light"] .banner-overlay {
   background: rgba(255, 255, 255, 0.85) !important;
 }
 
-[data-theme="light"] #welcomePage .banner-footer {
+[data-theme="light"] .banner-footer {
   background: rgba(255, 255, 255, 0.9) !important;
 }
 
-[data-theme="light"] #welcomePage .upload-remove {
+[data-theme="light"] .upload-remove {
   background: var(--bg-surface3) !important;
 }
 
-[data-theme="light"] #welcomePage .toast-success {
+[data-theme="light"] .toast-success {
   background: var(--bg-surface) !important;
   border-color: var(--accent-green) !important;
   color: var(--accent-green) !important;
 }
 
-[data-theme="light"] #welcomePage .toast-error {
+[data-theme="light"] .toast-error {
   background: var(--bg-surface) !important;
   border-color: var(--accent-red) !important;
   color: var(--accent-red) !important;
 }
 
-[data-theme="light"] #welcomePage .koya-banner-overlay {
+[data-theme="light"] .koya-banner-overlay {
   background: rgba(255, 255, 255, 0.7) !important;
 }
 
-[data-theme="light"] #welcomePage .banner-avatar-ring {
+[data-theme="light"] .banner-avatar-ring {
   border-color: var(--border) !important;
 }
 
-[data-theme="light"] #welcomePage .style-preview-embed .preview-title {
+[data-theme="light"] .style-preview-embed .preview-title {
   color: var(--text-primary) !important;
 }

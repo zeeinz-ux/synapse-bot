@@ -4,7 +4,6 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/welcome_settings.css') }}" />
 {% endblock %}
 {% block content %}
-<div id="welcomePage">
 
 <div class="toast" id="toast" role="alert" aria-live="polite">
   <span id="toastIcon">✅</span>
@@ -456,5 +455,4 @@
   })();
 </script>
 <script src="{{ url_for('static', filename='js/welcome.js') }}"></script>
-</div>
 {% endblock %}
