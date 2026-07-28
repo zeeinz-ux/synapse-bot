@@ -100,6 +100,10 @@
   object-fit: contain;
 }
 
+.logo-light { display: none; }
+[data-theme="light"] .logo-dark { display: none; }
+[data-theme="light"] .logo-light { display: block; }
+
 .brand-avatar:empty {
   background: var(--gradient-main);
   box-shadow: 0 0 14px rgba(88, 101, 242, 0.4);

@@ -4,7 +4,8 @@
     <!-- Brand -->
     <div class="navbar-brand">
       <div class="brand-avatar" aria-hidden="true">
-        <img src="{{ url_for('static', filename='LOGO-SYNAPSE-WITH-FONT-WHITE-NO-BG.png') }}" alt="𝓢𝓎𝓃𝒶𝓅𝓈ℯ Logo" />
+        <img class="logo-dark" src="{{ url_for('static', filename='LOGO-SYNAPSE-WITH-FONT-WHITE-NO-BG.png') }}" alt="𝓢𝓎𝓃𝒶𝓅𝓈ℯ Logo" />
+        <img class="logo-light" src="{{ url_for('static', filename='LOGO-SYNAPSE-WITH-FONT-BLACK-NO-BG.png') }}" alt="𝓢𝓎𝓃𝒶𝓅𝓈ℯ Logo" />
       </div>
     </div>
 
@@ -19,11 +20,6 @@
 
     <!-- Desktop actions -->
     <div class="nav-actions">
-      <!-- Theme toggle -->
-      <button class="theme-toggle" id="themeToggleDesktop" aria-label="Toggle theme" title="Theme">
-        <i data-lucide="monitor" width="16" height="16"></i>
-      </button>
-
       {% if user %}
       <div class="navbar-user">
         <div class="avatar-wrap">
@@ -75,6 +71,11 @@
           <button class="lang-option {% if lang == 'en' %}active{% endif %}" data-lang="en"><span class="lang-flag">🇺🇸</span> {{ "lang.en" | t }}</button>
         </div>
       </div>
+
+      <!-- Theme toggle -->
+      <button class="theme-toggle" id="themeToggleDesktop" aria-label="Toggle theme" title="Theme">
+        <i data-lucide="monitor" width="16" height="16"></i>
+      </button>
     </div><!-- /.nav-actions -->
 
     <!-- Hamburger (mobile) -->
