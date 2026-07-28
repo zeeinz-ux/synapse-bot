@@ -200,7 +200,7 @@ class MusicCog(commands.Cog, name="Music"):
             self._save_state(ctx.guild.id, channel.id, url)
             embed = discord.Embed(
                 title="\u25b6 Connected",
-                description=f"Join **{channel.name}** — **{station_label}**",
+                description=f"Join **{channel.name}** - **{station_label}**",
                 color=COLOR
             )
             await ctx.send(embed=embed)

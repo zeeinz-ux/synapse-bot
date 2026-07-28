@@ -1,5 +1,5 @@
 /* ============================================
-   SIDEBAR CSS — Synapse Dashboard
+   SIDEBAR CSS - Synapse Dashboard
    v3.6 Responsive + Full Width Fix
    ============================================ */
 
@@ -86,7 +86,7 @@ body {
   border-radius: 2px;
 }
 
-/* Collapsed state — DESKTOP ONLY */
+/* Collapsed state - DESKTOP ONLY */
 .sidebar.collapsed {
   width: var(--sidebar-collapsed);
 }
@@ -170,7 +170,7 @@ body {
   color: var(--tag-new);
 }
 
-/* Toggle button — EXPANDED: hamburger in header */
+/* Toggle button - EXPANDED: hamburger in header */
 .sidebar-toggle {
   background: var(--hover-bg);
   border: 1px solid var(--sidebar-border);
@@ -201,7 +201,7 @@ body {
   height: 14px;
 }
 
-/* COLLAPSED: chevron flush with right edge — DESKTOP ONLY */
+/* COLLAPSED: chevron flush with right edge - DESKTOP ONLY */
 .sidebar.collapsed .sidebar-header {
   padding: 14px 8px;
   justify-content: center;
@@ -545,7 +545,7 @@ body {
   color: var(--text-muted);
 }
 
-/* Collapsed nav item — DESKTOP ONLY */
+/* Collapsed nav item - DESKTOP ONLY */
 .sidebar.collapsed .nav-item {
   justify-content: center;
   padding: 10px 8px;
@@ -600,7 +600,7 @@ body {
   display: none;
 }
 
-/* ---------- Main Content — FULL WIDTH FIX ---------- */
+/* ---------- Main Content - FULL WIDTH FIX ---------- */
 .main-content {
   margin-left: var(--sidebar-width);
   min-height: 100vh;
@@ -617,7 +617,7 @@ body {
   width: calc(100% - var(--sidebar-collapsed));
 }
 
-/* Content wrapper — FULL WIDTH */
+/* Content wrapper - FULL WIDTH */
 .content-wrapper {
   flex: 1;
   padding: 24px 32px;
@@ -1141,7 +1141,7 @@ body {
 }
 
 /* ============================================
-   TOPBAR (avatar + logout) — desktop & mobile
+   TOPBAR (avatar + logout) - desktop & mobile
    ============================================ */
 
 /* ---------- Desktop topbar ---------- */

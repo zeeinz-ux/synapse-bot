@@ -111,7 +111,7 @@ async function populateChannelSelects() {
 
     if (channels.length === 0) {
       sel.innerHTML = "<option disabled>⚠️ Belum ada channel terdaftar. Tunggu bot sync.</option>";
-      if (counter) counter.textContent = "Channel belum tersedia — coba refresh.";
+      if (counter) counter.textContent = "Channel belum tersedia - coba refresh.";
       return;
     }
 
@@ -122,7 +122,7 @@ async function populateChannelSelects() {
       .join("");
 
     if (counter) {
-      counter.textContent = `${channels.length} channel — tahan Ctrl/Cmd untuk pilih banyak. Kosongkan = semua channel.`;
+      counter.textContent = `${channels.length} channel - tahan Ctrl/Cmd untuk pilih banyak. Kosongkan = semua channel.`;
       counter.classList.remove("has-selection");
     }
   } catch (err) {
@@ -217,7 +217,7 @@ function renderList(responders) {
         <button class="ar-btn ar-btn-toggle ${ar.enabled ? "" : "off"}" data-action="toggle" data-id="${escapeHtml(id)}" data-extra="${ar.enabled ? "false" : "true"}">
           ${ar.enabled ? "⏸️ Disable" : "▶️ Enable"}
         </button>
-        <button class="ar-btn ar-btn-delete" data-action="delete" data-id="${escapeHtml(id)}">🗑️ Hapus</button>
+        <button class="ar-btn ar-btn-delete" data-action="delete" data-id="${escapeHtml(id)}">-️ Hapus</button>
       </div>
     </div>
   `;
@@ -656,7 +656,7 @@ async function deleteResponder(id) {
   const confirmed = await showConfirm(
     "Hapus Auto-Responder?",
     `Auto-responder untuk keyword "${arName}" akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`,
-    "🗑️ Hapus",
+    "-️ Hapus",
     "Batal",
   );
   if (!confirmed) {

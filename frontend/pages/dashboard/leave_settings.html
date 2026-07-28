@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Leave Settings — Synapse{% endblock %}
+{% block title %}Leave Settings - Synapse{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/leave_settings.css') }}" />
 {% endblock %}
@@ -54,7 +54,7 @@
       <div class="form-group">
         <label class="form-label" for="channel_id">Channel Tujuan <span class="req">*</span></label>
         <select class="form-control" name="channel_id" id="channel_id" required data-current-channel="{{ config.channel_id }}">
-          <option value="" disabled>— Pilih channel —</option>
+          <option value="" disabled>- Pilih channel -</option>
           {% for ch in channels %}
           <option value="{{ ch.id }}"># {{ ch.name }}</option>
           {% endfor %}
@@ -210,7 +210,7 @@
             <div class="upload-icon"><i data-lucide="image"></i></div>
             <p class="upload-text">Drag & drop gambar banner di sini</p>
             <p class="upload-subtext">atau <span class="upload-link">klik untuk browse</span></p>
-            <p class="upload-hint">Rekomendasi: 1200×500px, PNG/JPG</p>
+            <p class="upload-hint">Rekomendasi: 1200-500px, PNG/JPG</p>
           </div>
           <div class="upload-preview" id="bannerUploadPreview">
             <img src="" alt="Preview" id="bannerUploadPreviewImg" />

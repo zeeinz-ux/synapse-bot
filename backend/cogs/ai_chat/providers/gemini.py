@@ -267,7 +267,7 @@ class GeminiProvider(AIProvider):
         if not self.api_key or not self.session:
             return False
         if not self.quota_available:
-            print("[AI VISION] Quota Gemini habis — image spam detection mati")
+            print("[AI VISION] Quota Gemini habis - image spam detection mati")
             return False
 
         try:

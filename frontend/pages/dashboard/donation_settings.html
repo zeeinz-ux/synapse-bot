@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{% if active_page == 'donation_stats' %}Statistik Donasi{% elif active_page == 'donation_settings' %}Pengaturan Donasi{% else %}Donasi{% endif %} — Synapse{% endblock %}
+{% block title %}{% if active_page == 'donation_stats' %}Statistik Donasi{% elif active_page == 'donation_settings' %}Pengaturan Donasi{% else %}Donasi{% endif %} - Synapse{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/donation_settings.css') }}" />
 {% endblock %}
@@ -38,19 +38,19 @@
   {% if active_page == 'donation_stats' %}
   <div class="donation-stats-grid" id="donationStatsGrid">
     <div class="stat-card">
-      <div class="stat-value" id="statTotalCount">—</div>
+      <div class="stat-value" id="statTotalCount">-</div>
       <div class="stat-label">Total Transaksi</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value accent-teal" id="statTotalAmount">—</div>
+      <div class="stat-value accent-teal" id="statTotalAmount">-</div>
       <div class="stat-label">Total Donasi</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value accent-yellow" id="statAverage">—</div>
+      <div class="stat-value accent-yellow" id="statAverage">-</div>
       <div class="stat-label">Rata-rata</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value accent-green" id="statCompleted">—</div>
+      <div class="stat-value accent-green" id="statCompleted">-</div>
       <div class="stat-label">Selesai</div>
     </div>
   </div>
@@ -89,7 +89,7 @@
       <div class="form-group">
         <label class="form-label" for="donation-channel">Log Channel</label>
         <select id="donation-channel" class="form-control">
-          <option value="">— Tidak ada (nonaktif) —</option>
+          <option value="">- Tidak ada (nonaktif) -</option>
         </select>
         <div class="form-hint">Notifikasi donasi masuk & konfirmasi akan dikirim ke channel ini.</div>
       </div>
@@ -115,7 +115,7 @@
 
     <div class="card">
       <h3 class="section-title"><i data-lucide="link"></i> Endpoint Webhook Eksternal</h3>
-      <p class="form-hint" style="margin-bottom:1rem;">Copy URL ini ke dashboard <strong>Saweria</strong> / <strong>Sociabuzz</strong> — donasi otomatis tercatat & masuk ke Discord.</p>
+      <p class="form-hint" style="margin-bottom:1rem;">Copy URL ini ke dashboard <strong>Saweria</strong> / <strong>Sociabuzz</strong> - donasi otomatis tercatat & masuk ke Discord.</p>
       <div class="form-group">
         <label class="form-label">Saweria</label>
         <div class="webhook-url-copy">

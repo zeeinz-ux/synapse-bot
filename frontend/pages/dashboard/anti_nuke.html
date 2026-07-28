@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Anti Nuke — Synapse{% endblock %}
+{% block title %}Anti Nuke - Synapse{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/anti_nuke.css') }}">
@@ -80,7 +80,7 @@
       <p class="card-desc">Channel untuk notifikasi alert & AI analysis hasil serangan.</p>
       <div class="form-group">
         <select id="report-channel" class="form-select">
-          <option value="">— Tidak ada (nonaktif) —</option>
+          <option value="">- Tidak ada (nonaktif) -</option>
         </select>
       </div>
     </div>
@@ -101,10 +101,10 @@
     <!-- Whitelist Roles -->
     <div class="card whitelist-roles-card">
       <h2><i data-lucide="users"></i> Whitelist Roles</h2>
-      <p class="card-desc">Role yang di-whitelist — member dengan role ini tidak akan memicu lockdown.</p>
+      <p class="card-desc">Role yang di-whitelist - member dengan role ini tidak akan memicu lockdown.</p>
       <div class="whitelist-input-row">
         <select id="wl-role-select" class="wl-input">
-          <option value="">— Pilih Role —</option>
+          <option value="">- Pilih Role -</option>
         </select>
         <button id="wl-role-add" class="btn btn-primary btn-sm"><i data-lucide="plus"></i> Tambah</button>
       </div>

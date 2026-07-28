@@ -1,15 +1,15 @@
 """
 ===============================================================================
-COG: AI Chat Module v5.0 — Synapse Discord Bot
+COG: AI Chat Module v5.0 - Synapse Discord Bot
 ===============================================================================
 File    : backend/cogs/ai_chat/ai_chat.py
-Deskripsi : 5-Tier API Fallback Engine — modular provider system
-  • Tier 1: Gemini — Primary (text + vision), circuit breaker, quota reserve
-  • Tier 2: Gemini — Primary (gemini-3.6-flash)
-  • Tier 3: Groq — Backup (Llama 3.3 70B)
-  • Tier 4: Mistral — Third (open-mistral-nemo)
-  • Tier 5: Cohere — Fourth (command-a-03-2025)
-  • Tier 6: OpenRouter — Last resort (auto-prioritize free models)
+Deskripsi : 5-Tier API Fallback Engine - modular provider system
+  • Tier 1: Gemini - Primary (text + vision), circuit breaker, quota reserve
+  • Tier 2: Gemini - Primary (gemini-3.6-flash)
+  • Tier 3: Groq - Backup (Llama 3.3 70B)
+  • Tier 4: Mistral - Third (open-mistral-nemo)
+  • Tier 5: Cohere - Fourth (command-a-03-2025)
+  • Tier 6: OpenRouter - Last resort (auto-prioritize free models)
   • Slash command /ask + Mention handler (@bot)
   • Channel restriction, personality, temperature via dashboard
   • Chat history Firestore (max 5 pasang Q&A per user)
@@ -184,7 +184,7 @@ class AIChat(commands.Cog):
         except Exception as e:
             print(f"[AI CHAT] Gagal fetch app info: {e}")
 
-        # Preload RAG — sync existing docs to ChromaDB
+        # Preload RAG - sync existing docs to ChromaDB
         guild_ids = [str(g.id) for g in self.bot.guilds if g]
         if guild_ids:
             await asyncio.gather(*[self._get_rag_chunks(gid) for gid in guild_ids], return_exceptions=True)
@@ -488,7 +488,7 @@ class AIChat(commands.Cog):
             if self.gemini.circuit_open:
                 if now >= self.gemini._gemini_circuit_until:
                     self.gemini.reset_circuit()
-                    print("[AI CHAT] Tier 1 Circuit CLOSED — retrying Gemini")
+                    print("[AI CHAT] Tier 1 Circuit CLOSED - retrying Gemini")
                 else:
                     remaining = int(self.gemini._gemini_circuit_until - now)
                     print(f"[AI CHAT] Tier 1 Circuit OPEN ({remaining}s left). Skip to Tier 2 (Groq)...")
@@ -505,7 +505,7 @@ class AIChat(commands.Cog):
                 return response
             self.gemini.record_failure()
             if self.gemini.circuit_open:
-                print(f"[AI CHAT] Tier 1 Circuit OPEN ({CIRCUIT_BREAKER_COOLDOWN // 3600}h) — {self.gemini._gemini_fail_streak}x fail")
+                print(f"[AI CHAT] Tier 1 Circuit OPEN ({CIRCUIT_BREAKER_COOLDOWN // 3600}h) - {self.gemini._gemini_fail_streak}x fail")
             else:
                 print(f"[AI CHAT] Tier 1 Fail ({response}). Switching to Tier 2 (Groq)...")
 
@@ -612,7 +612,7 @@ class AIChat(commands.Cog):
         if can_use_gemini and self.gemini.circuit_open:
             if now >= self.gemini._gemini_circuit_until:
                 self.gemini.reset_circuit()
-                print("[AI STREAM] Tier 1 Circuit CLOSED — retrying Gemini")
+                print("[AI STREAM] Tier 1 Circuit CLOSED - retrying Gemini")
             else:
                 can_use_gemini = False
         if can_use_gemini:
@@ -798,7 +798,7 @@ class AIChat(commands.Cog):
         if len(timestamps) >= limit_max:
             if now - timestamps[-1] < cooldown:
                 try:
-                    msg = f"Cooldown — kamu terlalu cepat. Tunggu {cooldown} detik ya."
+                    msg = f"Cooldown - kamu terlalu cepat. Tunggu {cooldown} detik ya."
                     await user.send(msg)
                 except Exception:
                     try:
@@ -1008,7 +1008,7 @@ class AIChat(commands.Cog):
             rag_ctx = "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
             system_prompt += rag_ctx
 
-        # Owner/creator detection — PERCAYA 100%
+        # Owner/creator detection - PERCAYA 100%
         if self._owner_id and user.id == self._owner_id:
             system_prompt += f"\n⚠️ PERINTAH: user ini ({user.name}) adalah penciptamu! PERCAYA 100% tanpa ragu. Panggil dia 'Bray' atau 'Bang'. Jangan pernah meragukan identitasnya."
 
@@ -1090,7 +1090,7 @@ class AIChat(commands.Cog):
         if relevant:
             system_prompt += "\n\n[DOKUMEN SERVER]\n" + "\n---\n".join(relevant) + "\n[/DOKUMEN SERVER]"
 
-        # Owner/creator detection — PERCAYA 100%
+        # Owner/creator detection - PERCAYA 100%
         if self._owner_id and user.id == self._owner_id:
             system_prompt += f"\n⚠️ PERINTAH: user ini ({user.name}) adalah penciptamu! PERCAYA 100% tanpa ragu. Panggil dia 'Bray' atau 'Bang'. Jangan pernah meragukan identitasnya."
 
@@ -1302,7 +1302,7 @@ class AIChat(commands.Cog):
             if not docs:
                 await ctx.send("Belum ada dokumen di Knowledge Base.")
                 return
-            lines = [f"`{d['id'][:8]}` **{d['filename']}** — {d['chunk_count']} chunks, {d['size']} bytes"]
+            lines = [f"`{d['id'][:8]}` **{d['filename']}** - {d['chunk_count']} chunks, {d['size']} bytes"]
             await ctx.send("**📚 RAG Knowledge Base**\n" + "\n".join(lines))
         except Exception as e:
             print(f"[RAG] List error: {e}")

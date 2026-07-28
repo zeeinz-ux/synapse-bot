@@ -67,7 +67,7 @@ select.wl-input { cursor: pointer; }
 
 .save-bar { margin-top: 1.5rem; display: flex; justify-content: flex-end; }
 
-/* Toast notification — pojok kanan atas */
+/* Toast notification - pojok kanan atas */
 .toast-container {
   position: fixed;
   top: 1.5rem;

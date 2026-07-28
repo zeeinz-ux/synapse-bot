@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════
-   PHOTOBOX — multi-theme photobooth strip 🫶
+   PHOTOBOX - multi-theme photobooth strip 🫶
    ══════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
@@ -23,7 +23,7 @@
   --pb-floaties: "🌸" "⭐" "💖" "✨" "🫶" "🌟";
   --pb-deco-top: "💖";
   --pb-deco-bt: "💖";
-  --pb-label: "✨ cuek — cantik — gemas ✨";
+  --pb-label: "✨ cuek - cantik - gemas ✨";
 }
 
 [data-theme="sky-blue"] {
@@ -43,7 +43,7 @@
   --pb-floaties: "☁️" "⭐" "🌸" "✨" "🌼" "🌟";
   --pb-deco-top: "☁️";
   --pb-deco-bt: "⭐";
-  --pb-label: "✨ langit — bintang — bunga ✨";
+  --pb-label: "✨ langit - bintang - bunga ✨";
 }
 
 [data-theme="mint-night"] {
@@ -63,7 +63,7 @@
   --pb-floaties: "🍃" "🌿" "🌸" "✨" "🌙" "🌟";
   --pb-deco-top: "🍃";
   --pb-deco-bt: "🌙";
-  --pb-label: "✨ segar — santai — damai ✨";
+  --pb-label: "✨ segar - santai - damai ✨";
 }
 
 * {
@@ -770,7 +770,7 @@ body {
 }
 
 /* ══════════════════════════════════════════════
-   STATE: Preview — PHOTOBOOTH STRIP
+   STATE: Preview - PHOTOBOOTH STRIP
    ══════════════════════════════════════════════ */
 .pb-strip-wrapper {
   width: 100%;

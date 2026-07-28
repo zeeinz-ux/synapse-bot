@@ -78,7 +78,7 @@
     const dupLeft2 = reversed.map((item) => item.cloneNode(true));
     leftTrack.append(...reversed, ...dupLeft1, ...dupLeft2);
 
-    // RAF-driven marquee — no CSS keyframes, no reset snap
+    // RAF-driven marquee - no CSS keyframes, no reset snap
     const DURATION = Math.max(40000, Math.min(120000, guilds.length * 3000));
     const DISTANCE = 100 / 3;
 

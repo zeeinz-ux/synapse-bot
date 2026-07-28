@@ -50,7 +50,7 @@ from backend.utils.auto_responder_store import (
 from flask_session import Session
 
 # ==========================================================
-# Flask app — static & template folder ke frontend/
+# Flask app - static & template folder ke frontend/
 # ==========================================================
 _base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -195,7 +195,7 @@ def logout():
 
 
 # ==========================================================
-# API — Boost Tracker
+# API - Boost Tracker
 # ==========================================================
 
 @app.route("/api/boosts/<guild_id>/history")
@@ -304,7 +304,7 @@ def api_boost_stats(guild_id: str):
 
 
 # ==========================================================
-# API — Donation Tracker
+# API - Donation Tracker
 # ==========================================================
 
 @app.route("/api/donations/<guild_id>/history")
@@ -456,7 +456,7 @@ def api_donation_note(guild_id: str):
 
 
 # ==========================================================
-# Helper — baca config feature dari Firestore
+# Helper - baca config feature dari Firestore
 # ==========================================================
 def _get_feature_config(guild_id: str, feature_key: str = "welcome") -> dict:
     if db is None:
@@ -488,14 +488,14 @@ def _get_boost_announce_config(guild_id: str) -> dict:
     return _get_feature_config(guild_id, "boost_announce")
 
 # ==========================================================
-# Helper — Auto-compress image
+# Helper - Auto-compress image
 # ==========================================================
 def _compress_image_if_needed(file_data: bytes, max_kb: int = 400) -> bytes:
     size_kb = len(file_data) / 1024
     if size_kb <= max_kb:
         return file_data
 
-    print(f"[COMPRESS] 🗜️ Image {size_kb:.0f}KB > {max_kb}KB, compressing...")
+    print(f"[COMPRESS] -️ Image {size_kb:.0f}KB > {max_kb}KB, compressing...")
 
     try:
         img = Image.open(io.BytesIO(file_data))
@@ -534,7 +534,7 @@ def _compress_image_if_needed(file_data: bytes, max_kb: int = 400) -> bytes:
         return file_data
 
 # ==========================================================
-# Helper — Convert image ke base64 data URL
+# Helper - Convert image ke base64 data URL
 # ==========================================================
 def _image_to_base64_data_url(file_data: bytes, filename: str) -> str | None:
     try:
@@ -558,7 +558,7 @@ def _image_to_base64_data_url(file_data: bytes, filename: str) -> str | None:
         return None
 
 # ==========================================================
-# Helper — bangun URL avatar Discord dari session user
+# Helper - bangun URL avatar Discord dari session user
 # ==========================================================
 def _discord_avatar_url(user: dict, size: int = 64) -> str:
     """Bangun URL avatar Discord. Pakai default avatar jika user tidak set avatar.
@@ -595,7 +595,7 @@ def _discord_avatar_decoration_url(user: dict, size: int = 64) -> str:
 
 
 # ==========================================================
-# Helper — fetch & filter user guilds by permission
+# Helper - fetch & filter user guilds by permission
 # ==========================================================
 ADMIN_PERM = 0x8        # ADMINISTRATOR
 MANAGE_GUILD_PERM = 0x20  # MANAGE_GUILD (formerly MANAGE_SERVER)
@@ -618,7 +618,7 @@ def _fetch_user_guilds(access_token: str) -> list:
     } for g in all_guilds]
 
 # ==========================================================
-# Helper — render template dengan sidebar context
+# Helper - render template dengan sidebar context
 # ==========================================================
 def _get_filtered_stats():
     """Return stats with ALL user guilds, each tagged with card_type."""
@@ -686,7 +686,7 @@ def _render_page(template_name: str, active_page: str, guild_id: str, **kwargs):
     )
 
 # ==========================================================
-# ROUTES — Landing & API
+# ROUTES - Landing & API
 # ==========================================================
 @app.route("/")
 def home():
@@ -726,7 +726,7 @@ def api_firestore_health():
     return jsonify(get_firestore_diagnostics()), 200
 
 # ==========================================================
-# ROUTES — Dashboard
+# ROUTES - Dashboard
 # ==========================================================
 @app.route("/dashboard")
 @login_required
@@ -751,7 +751,7 @@ def dashboard_guild(guild_id: str):
     return _render_page("dashboard/guild.html", active_page="main", guild_id=guild_id)
 
 # ==========================================================
-# API — Settings
+# API - Settings
 # ==========================================================
 
 @app.route("/api/settings/<guild_id>/info")
@@ -866,7 +866,7 @@ def settings_page(guild_id: str):
     return _render_page("dashboard/settings.html", active_page="settings", guild_id=guild_id)
 
 # ==========================================================
-# ROUTES — Welcome / Announcements
+# ROUTES - Welcome / Announcements
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome")
 @login_required
@@ -997,7 +997,7 @@ def welcome_boost(guild_id: str):
     )
 
 # ==========================================================
-# ROUTES — Boost Tracker
+# ROUTES - Boost Tracker
 # ==========================================================
 @app.route("/dashboard/<guild_id>/boost")
 @login_required
@@ -1010,7 +1010,7 @@ def boost_stats(guild_id: str):
     return _render_page("dashboard/boost_settings.html", active_page="boost_stats", guild_id=guild_id)
 
 # ==========================================================
-# ROUTES — Donation
+# ROUTES - Donation
 # ==========================================================
 @app.route("/dashboard/<guild_id>/donation")
 @login_required
@@ -1057,14 +1057,14 @@ def api_donation_save_settings(guild_id: str):
 
 
 # ==========================================================
-# Donation — Helpers
+# Donation - Helpers
 # ==========================================================
 
 def _delete_donation_doc(doc_id: str):
     """Delete a transaction document by ID. Used for test donation cleanup."""
     try:
         db.collection("transactions").document(doc_id).delete()
-        print(f"[DONATION] 🗑️ Deleted test donation {doc_id}")
+        print(f"[DONATION] -️ Deleted test donation {doc_id}")
     except Exception as e:
         print(f"[DONATION] ⚠️ Failed to delete test donation {doc_id}: {e}")
 
@@ -1164,7 +1164,7 @@ def _activate_premium(guild_id: str, amount: int, message: str, source: str):
 
 
 # ==========================================================
-# Webhook — Saweria
+# Webhook - Saweria
 # ==========================================================
 
 @app.route("/api/webhook/saweria/<guild_id>", methods=["POST"])
@@ -1218,7 +1218,7 @@ def webhook_saweria(guild_id: str):
 
         if is_test:
             threading.Timer(60, lambda: _delete_donation_doc(tid)).start()
-            print(f"[WEBHOOK-SAWERIA] 🧪 Test donasi Rp {amount:,} dari {donatur} — ID {tid} (auto-delete 60s)")
+            print(f"[WEBHOOK-SAWERIA] 🧪 Test donasi Rp {amount:,} dari {donatur} - ID {tid} (auto-delete 60s)")
             return jsonify({"success": True, "message": "TEST_OK", "test": True, "id": tid}), 200
 
         # Send DM for premium purchase
@@ -1251,7 +1251,7 @@ def webhook_saweria(guild_id: str):
             embed["fields"].append({"name": "Status", "value": "✅ Completed (auto)", "inline": True})
             _send_donation_webhook(webhook_url, content=ty_msg, embed=embed)
 
-        print(f"[WEBHOOK-SAWERIA] ✅ Donasi Rp {amount:,} dari {donatur} — ID {tid}")
+        print(f"[WEBHOOK-SAWERIA] ✅ Donasi Rp {amount:,} dari {donatur} - ID {tid}")
         return jsonify({"success": True, "message": "OK"}), 200
     except Exception as e:
         print(f"[WEBHOOK-SAWERIA] ❌ Error: {e}")
@@ -1259,7 +1259,7 @@ def webhook_saweria(guild_id: str):
 
 
 # ==========================================================
-# Webhook — Sociabuzz
+# Webhook - Sociabuzz
 # ==========================================================
 
 @app.route("/api/webhook/sociabuzz/<guild_id>", methods=["POST"])
@@ -1314,7 +1314,7 @@ def webhook_sociabuzz(guild_id: str):
 
         if is_test:
             threading.Timer(60, lambda: _delete_donation_doc(tid)).start()
-            print(f"[WEBHOOK-SOCIABUZZ] 🧪 Test donasi Rp {amount:,} dari {donor} — ID {tid} (auto-delete 60s)")
+            print(f"[WEBHOOK-SOCIABUZZ] 🧪 Test donasi Rp {amount:,} dari {donor} - ID {tid} (auto-delete 60s)")
             return jsonify({"success": True, "message": "TEST_OK", "test": True, "id": tid}), 200
 
         # Send DM for premium purchase
@@ -1347,7 +1347,7 @@ def webhook_sociabuzz(guild_id: str):
             embed["fields"].append({"name": "Status", "value": "✅ Completed (auto)", "inline": True})
             _send_donation_webhook(webhook_url, content=ty_msg, embed=embed)
 
-        print(f"[WEBHOOK-SOCIABUZZ] ✅ Donasi Rp {amount:,} dari {donor} — ID {tid}")
+        print(f"[WEBHOOK-SOCIABUZZ] ✅ Donasi Rp {amount:,} dari {donor} - ID {tid}")
         return jsonify({"success": True, "message": "OK"}), 200
     except Exception as e:
         print(f"[WEBHOOK-SOCIABUZZ] ❌ Error: {e}")
@@ -1355,7 +1355,7 @@ def webhook_sociabuzz(guild_id: str):
 
 
 # ==========================================================
-# Control Queue — file-based bridge antara web & bot
+# Control Queue - file-based bridge antara web & bot
 # ==========================================================
 CONTROL_QUEUE_DIR = os.path.join(_project_root, "control_queue")
 
@@ -1363,7 +1363,7 @@ def _ensure_queue_dir():
     os.makedirs(CONTROL_QUEUE_DIR, exist_ok=True)
 
 # ==========================================================
-# API — Message Builder
+# API - Message Builder
 # ==========================================================
 
 @app.route("/api/message-builder/<guild_id>/channels")
@@ -1486,7 +1486,7 @@ def api_mb_upload(guild_id: str):
 
 
 # ==========================================================
-# Gallery — file-based image storage
+# Gallery - file-based image storage
 # ==========================================================
 GALLERY_DIR = os.path.join(_base_dir, "../../frontend/static/gallery")
 
@@ -1558,7 +1558,7 @@ def api_gallery_upload():
 
 
 # ==========================================================
-# ROUTES — Tools
+# ROUTES - Tools
 # ==========================================================
 @app.route("/dashboard/<guild_id>/message-builder")
 @login_required
@@ -1567,7 +1567,7 @@ def message_builder(guild_id: str):
 
 
 # ==========================================================
-# API — Templates (unified: message / announcement / auto_response)
+# API - Templates (unified: message / announcement / auto_response)
 # ==========================================================
 
 @app.route("/api/templates/<guild_id>", methods=["GET"])
@@ -1702,7 +1702,7 @@ def templates_page(guild_id: str):
     return _render_page("dashboard/templates.html", active_page="templates", guild_id=guild_id)
 
 # ==========================================================
-# API — Actions (Level Rewards + Moderation Config)
+# API - Actions (Level Rewards + Moderation Config)
 # ==========================================================
 
 @app.route("/api/actions/<guild_id>/roles")
@@ -1869,7 +1869,7 @@ def _ar_cog():
 def _ar_bridge_response(guild_id: str, coro_factory):
     """Run an async coroutine on a fresh event loop and return its result.
     Flask request handlers are sync, but our store functions are async.
-    We spin up a short-lived loop per request — acceptable for a dashboard
+    We spin up a short-lived loop per request - acceptable for a dashboard
     tool whose traffic is human-paced, not high-throughput.
     """
     loop = asyncio.new_event_loop()
@@ -1921,7 +1921,7 @@ def api_auto_responders_save(guild_id: str):
         return jsonify({"success": False, "error": "circuit_open", "message": f"Database rate-limited. Retry in {retry}s.", "retry_after": retry}), 503
     payload = request.get_json(silent=True) or {}
     responder_id = payload.get("id")
-    # Frontend sends {id: ""} for new responders — generate a stable id from the keyword
+    # Frontend sends {id: ""} for new responders - generate a stable id from the keyword
     if not responder_id:
         keyword = (payload.get("keyword") or "").strip().lower()
         if not keyword:
@@ -1965,8 +1965,8 @@ def api_auto_responders_toggle(guild_id: str):
         return jsonify({"success": False, "error": "circuit_open", "message": f"Database rate-limited. Retry in {retry}s.", "retry_after": retry}), 503
     payload = request.get_json(silent=True) or {}
     # Two modes:
-    #   (A) GLOBAL toggle:   {"enabled": true/false}                 — affects whole feature
-    #   (B) PER-RESPONDER:   {"id": "<rid>", "enable": true/false}    — affects one responder
+    #   (A) GLOBAL toggle:   {"enabled": true/false}                 - affects whole feature
+    #   (B) PER-RESPONDER:   {"id": "<rid>", "enable": true/false}    - affects one responder
     responder_id = payload.get("id")
     enable = payload.get("enable")
     if enable is None:
@@ -2228,7 +2228,7 @@ def api_voice_save(guild_id: str):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# RAG — Knowledge Base
+# RAG - Knowledge Base
 # ============================================================================
 
 @app.route("/dashboard/<guild_id>/rag")
@@ -2297,7 +2297,7 @@ def _signal_rag_refresh(guild_id: str):
         print(f"[RAG] Signal error: {e}")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ROUTES — AI Chat v4.5 (Gemini 2.5 Flash + OpenRouter + Temperature Support)
+# ROUTES - AI Chat v4.5 (Gemini 2.5 Flash + OpenRouter + Temperature Support)
 # ============================================================================
 # Guild channel list endpoint
 # ============================================================================
@@ -2741,7 +2741,7 @@ def get_stats():
 
 
 # ==========================================================
-# ROUTES — Welcome Save (POST)
+# ROUTES - Welcome Save (POST)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/save", methods=["POST"])
 def save_welcome(guild_id: str):
@@ -2832,7 +2832,7 @@ def save_welcome(guild_id: str):
 
 
 # ==========================================================
-# ROUTES — Leave Save (POST)
+# ROUTES - Leave Save (POST)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/leave/save", methods=["POST"])
 def save_welcome_leave(guild_id: str):
@@ -2923,7 +2923,7 @@ def save_welcome_leave(guild_id: str):
 
 
 # ==========================================================
-# ROUTES — Ban Save (POST)
+# ROUTES - Ban Save (POST)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/ban/save", methods=["POST"])
 def save_welcome_ban(guild_id: str):
@@ -3014,7 +3014,7 @@ def save_welcome_ban(guild_id: str):
 
 
 # ==========================================================
-# ROUTES — Boost Announce Save (POST)
+# ROUTES - Boost Announce Save (POST)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/boost/save", methods=["POST"])
 @login_required
@@ -3106,7 +3106,7 @@ def save_welcome_boost(guild_id: str):
 
 
 # ==========================================================
-# Photobox — Camera Frontend (no login needed)
+# Photobox - Camera Frontend (no login needed)
 # ==========================================================
 @app.route("/photobox")
 def photobox():

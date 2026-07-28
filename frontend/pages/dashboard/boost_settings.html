@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{% if active_page == 'boost_stats' %}Boost Statistik{% else %}Riwayat Boost{% endif %} — Synapse{% endblock %}
+{% block title %}{% if active_page == 'boost_stats' %}Boost Statistik{% else %}Riwayat Boost{% endif %} - Synapse{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/boost_settings.css') }}" />
 {% endblock %}
@@ -31,23 +31,23 @@
 {% if active_page == 'boost_stats' %}
   <div class="stats-grid" id="statsGrid">
     <div class="stat-card stat-total">
-      <div class="stat-value" id="statTotal">—</div>
+      <div class="stat-value" id="statTotal">-</div>
       <div class="stat-label">Total Boost</div>
     </div>
     <div class="stat-card stat-active">
-      <div class="stat-value" id="statActive">—</div>
+      <div class="stat-value" id="statActive">-</div>
       <div class="stat-label">Aktif</div>
     </div>
     <div class="stat-card stat-expired">
-      <div class="stat-value" id="statExpired">—</div>
+      <div class="stat-value" id="statExpired">-</div>
       <div class="stat-label">Expired</div>
     </div>
     <div class="stat-card stat-tier">
-      <div class="stat-value" id="statTier">—</div>
+      <div class="stat-value" id="statTier">-</div>
       <div class="stat-label">Tier Server</div>
       <div class="stat-bar-wrap">
         <div class="stat-bar"><div class="stat-bar-fill" id="statBar" style="width:0%"></div></div>
-        <small id="statProgress">—</small>
+        <small id="statProgress">-</small>
       </div>
     </div>
   </div>
@@ -65,7 +65,7 @@
   <div class="card">
     <div class="card-header">
       <h2><i data-lucide="list"></i> Semua Event Boost</h2>
-      <span class="badge" id="boostCount">—</span>
+      <span class="badge" id="boostCount">-</span>
     </div>
     <div class="card-body">
       <table class="boost-table">

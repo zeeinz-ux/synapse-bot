@@ -242,7 +242,7 @@ select[multiple] option:checked {
 .embed-options.visible, .image-options.visible { display: block; }
 
 /* ══════════════════════════════════════════════
-   Toast Notification — pojok kanan atas
+   Toast Notification - pojok kanan atas
    ══════════════════════════════════════════════ */
 .toast-container {
   position: fixed;

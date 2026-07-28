@@ -1,5 +1,5 @@
 /**
- * welcome.js — Synapse Welcome Settings Form Logic v3.7.2
+ * welcome.js - Synapse Welcome Settings Form Logic v3.7.2
  * Features: style toggle (embed/banner), color picker sync, live preview,
  *           drag & drop upload with Catbox hosting + IMAGE RESIZE, banner preview, form submit
  */
@@ -635,8 +635,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
   console.log(
-    "[WELCOME] ✅ Welcome JS v3.7.2 loaded — Image Resize + Catbox Upload",
+    "[WELCOME] ✅ Welcome JS v3.7.2 loaded - Image Resize + Catbox Upload",
   );
 
-  console.log("[WELCOME] ✅ Welcome JS v3.7.2 loaded — Image Resize + Catbox Upload");
+  console.log("[WELCOME] ✅ Welcome JS v3.7.2 loaded - Image Resize + Catbox Upload");
 });

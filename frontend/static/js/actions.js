@@ -30,7 +30,7 @@
         }
         var sel = qs(selId);
         if(!sel) return;
-        sel.innerHTML = '<option value="">— Tidak ada —</option>';
+        sel.innerHTML = '<option value="">- Tidak ada -</option>';
         for(var i=0; i<d.channels.length; i++){
           var ch = d.channels[i];
           var opt = document.createElement('option');
@@ -43,7 +43,7 @@
 
   function populateRoles(sel){
     var currentVal = sel.value;
-    sel.innerHTML = '<option value="">— Pilih role —</option>';
+    sel.innerHTML = '<option value="">- Pilih role -</option>';
     for(var i=0; i<rolesCache.length; i++){
       var r = rolesCache[i];
       var opt = document.createElement('option');

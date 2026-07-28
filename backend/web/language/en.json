@@ -19,7 +19,7 @@
   "features.title": "What Can Synapse Do?",
   "features.subtitle": "From entertainment to server management. Synapse is ready to be the backbone of your community.",
   "features.ai.title": "Advanced AI Chat",
-  "features.ai.desc": "Synapse AI — smart engine with multi-layer fallback. AI can read and analyze images you send. Customizable personality per channel. Smart intent recognition.",
+  "features.ai.desc": "Synapse AI - smart engine with multi-layer fallback. AI can read and analyze images you send. Customizable personality per channel. Smart intent recognition.",
   "features.welcome.title": "Elegant Welcome System",
   "features.welcome.desc": "Fully customizable welcome banners: member avatar, text, colors, background, embed, all through a visual dashboard.",
   "features.dashboard.title": "Modern Admin Dashboard",
@@ -121,7 +121,7 @@
   "about.vision.title": "Vision",
   "about.vision.desc": "Synapse was built with the vision of becoming the <strong>backbone of Discord communities</strong>, providing one versatile bot that combines quality entertainment, artificial intelligence, elegant server management, and a seamless user experience. We believe every Discord server deserves a powerful bot without having to pay or compromise on quality.",
   "about.mission.title": "Mission",
-  "about.mission.desc": "To become the backbone of Discord communities by providing one versatile bot that combines artificial intelligence, elegant server management, and a seamless user experience — completely free and accessible to everyone, no coding required.",
+  "about.mission.desc": "To become the backbone of Discord communities by providing one versatile bot that combines artificial intelligence, elegant server management, and a seamless user experience - completely free and accessible to everyone, no coding required.",
   "about.tech.title": "Tech Stack",
   "about.support": "Join Support Server",
 

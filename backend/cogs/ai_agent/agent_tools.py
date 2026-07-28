@@ -15,74 +15,74 @@ except Exception:
     _HAS_FS = False
 
 DISCORD_PERMISSIONS_KNOWLEDGE = """
-## Discord Permission System — Panduan Lengkap
+## Discord Permission System - Panduan Lengkap
 
 ### General Server Permissions
-- View Channels — Melihat channel (termasuk private jika diizinkan)
-- Manage Channels — Buat/edit/hapus channel
-- Manage Roles — Buat/edit/hapus role (hanya role di bawah role tertinggi)
-- Create Expressions — Tambah emoji/sticker/sound kustom
-- Manage Expressions — Edit/hapus emoji/sticker/sound kustom
-- View Audit Log — Lihat log perubahan di server
-- View Server Insights — Lihat data pertumbuhan server
-- Manage Webhooks — Buat/edit/hapus webhook
-- Manage Server — Ubah nama server, region, invite, tambah app, atur AutoMod
+- View Channels - Melihat channel (termasuk private jika diizinkan)
+- Manage Channels - Buat/edit/hapus channel
+- Manage Roles - Buat/edit/hapus role (hanya role di bawah role tertinggi)
+- Create Expressions - Tambah emoji/sticker/sound kustom
+- Manage Expressions - Edit/hapus emoji/sticker/sound kustom
+- View Audit Log - Lihat log perubahan di server
+- View Server Insights - Lihat data pertumbuhan server
+- Manage Webhooks - Buat/edit/hapus webhook
+- Manage Server - Ubah nama server, region, invite, tambah app, atur AutoMod
 
 ### Membership Permissions
-- Create Invite — Undang orang baru
-- Change Nickname — Ubah nickname sendiri
-- Manage Nicknames — Ubah nickname orang lain
-- Kick Members — Kick anggota
-- Ban Members — Ban permanen + hapus history chat
-- Timeout Members — Nonaktifkan sementara (gak bisa chat/react/voice)
+- Create Invite - Undang orang baru
+- Change Nickname - Ubah nickname sendiri
+- Manage Nicknames - Ubah nickname orang lain
+- Kick Members - Kick anggota
+- Ban Members - Ban permanen + hapus history chat
+- Timeout Members - Nonaktifkan sementara (gak bisa chat/react/voice)
 
 ### Text Channel Permissions
-- Send Messages — Kirim pesan & buat post di forum
-- Send Messages in Threads — Kirim pesan di thread
-- Create Public Threads — Buat thread publik
-- Create Private Threads — Buat thread privat
-- Embed Links — Tampilkan embed dari link
-- Attach Files — Upload file/media
-- Add Reactions — Tambah reaksi emoji
-- Use External Emoji — Pakai emoji dari server lain (Nitro)
-- Use External Stickers — Pakai sticker dari server lain (Nitro)
-- Mention @everyone/@here/All Roles — Mention massal
-- Manage Messages — Hapus/hide embed dari pesan
-- Pin Messages — Pin/unpin pesan
-- Read Message History — Baca pesan lama
-- Send TTS Messages — Kirim pesan text-to-speech
-- Send Voice Messages — Kirim voice message
-- Create Polls — Buat polling
-- Bypass Slowmode — Kirim pesan tanpa kena slowmode
-- Manage Threads — Rename/delete/close thread
+- Send Messages - Kirim pesan & buat post di forum
+- Send Messages in Threads - Kirim pesan di thread
+- Create Public Threads - Buat thread publik
+- Create Private Threads - Buat thread privat
+- Embed Links - Tampilkan embed dari link
+- Attach Files - Upload file/media
+- Add Reactions - Tambah reaksi emoji
+- Use External Emoji - Pakai emoji dari server lain (Nitro)
+- Use External Stickers - Pakai sticker dari server lain (Nitro)
+- Mention @everyone/@here/All Roles - Mention massal
+- Manage Messages - Hapus/hide embed dari pesan
+- Pin Messages - Pin/unpin pesan
+- Read Message History - Baca pesan lama
+- Send TTS Messages - Kirim pesan text-to-speech
+- Send Voice Messages - Kirim voice message
+- Create Polls - Buat polling
+- Bypass Slowmode - Kirim pesan tanpa kena slowmode
+- Manage Threads - Rename/delete/close thread
 
 ### Voice Channel Permissions
-- Connect — Join voice channel
-- Speak — Bicara di voice
-- Video — Share video/screen/stream
-- Use Soundboard — Kirim sound dari soundboard server
-- Use External Sounds — Pakai sound dari server lain (Nitro)
-- Use Voice Activity — Bicara tanpa push-to-talk
-- Priority Speaker — Lebih didengar di voice
-- Mute Members — Mute orang lain
-- Deafen Members — Deaf orang lain
-- Move Members — Pindahin atau disconnect orang dari voice
-- Set Voice Channel Status — Edit status voice channel
+- Connect - Join voice channel
+- Speak - Bicara di voice
+- Video - Share video/screen/stream
+- Use Soundboard - Kirim sound dari soundboard server
+- Use External Sounds - Pakai sound dari server lain (Nitro)
+- Use Voice Activity - Bicara tanpa push-to-talk
+- Priority Speaker - Lebih didengar di voice
+- Mute Members - Mute orang lain
+- Deafen Members - Deaf orang lain
+- Move Members - Pindahin atau disconnect orang dari voice
+- Set Voice Channel Status - Edit status voice channel
 
 ### Apps Permissions
-- Use Application Commands — Pakai slash command & context menu
-- Use Activities — Pakai Activities (games, dll)
-- Use External Apps — App dari member bisa posting
+- Use Application Commands - Pakai slash command & context menu
+- Use Activities - Pakai Activities (games, dll)
+- Use External Apps - App dari member bisa posting
 
 ### Stage Channel Permissions
-- Request to Speak — Minta bicara di Stage
+- Request to Speak - Minta bicara di Stage
 
 ### Events Permissions
-- Create Events — Buat event
-- Manage Events — Edit & cancel event
+- Create Events - Buat event
+- Manage Events - Edit & cancel event
 
 ### Advanced
-- Administrator — Semua permission + bypass semua batasan channel (DANGEROUS)
+- Administrator - Semua permission + bypass semua batasan channel (DANGEROUS)
 
 ### Best Practices:
 1. @everyone: minimal permissions (biasanya cuma View Channels, Send Messages, Read History)
@@ -112,122 +112,122 @@ TOOL_DEFINITIONS = [
         "name": "create_channel",
         "description": "Buat channel baru (text atau voice).",
         "parameters": {
-            "name": "string — nama channel (huruf kecil, tanpa spasi, pakai dash atau emoji)",
-            "type": "string — 'text' atau 'voice' (default: 'text')",
-            "category": "string — nama kategori (optional). Jika tidak ada, kategori akan dibuat otomatis.",
-            "topic": "string — deskripsi/topic channel (optional, hanya untuk text channel)",
+            "name": "string - nama channel (huruf kecil, tanpa spasi, pakai dash atau emoji)",
+            "type": "string - 'text' atau 'voice' (default: 'text')",
+            "category": "string - nama kategori (optional). Jika tidak ada, kategori akan dibuat otomatis.",
+            "topic": "string - deskripsi/topic channel (optional, hanya untuk text channel)",
         },
     },
     {
         "name": "delete_channel",
-        "description": "Hapus channel berdasarkan nama. BERBAHAYA — minta konfirmasi user dulu sebelum eksekusi!",
+        "description": "Hapus channel berdasarkan nama. BERBAHAYA - minta konfirmasi user dulu sebelum eksekusi!",
         "parameters": {
-            "name": "string — nama channel yang akan dihapus",
-            "type": "string — 'text', 'voice', atau 'category' (optional). Default cari semua tipe.",
+            "name": "string - nama channel yang akan dihapus",
+            "type": "string - 'text', 'voice', atau 'category' (optional). Default cari semua tipe.",
         },
     },
     {
         "name": "rename_channel",
         "description": "Ubah nama DAN/ATAU topic/deskripsi channel text. Gunakan ini untuk edit topic channel.",
         "parameters": {
-            "old_name": "string — nama channel/kategori saat ini",
-            "new_name": "string — nama baru (optional, kosongkan jika cuma mau ganti topic)",
-            "topic": "string — topic/deskripsi baru channel (optional, hanya untuk text channel). Kosongkan jika cuma mau ganti nama.",
-            "type": "string — 'text', 'voice', atau 'category' (optional). Default cari semua tipe.",
+            "old_name": "string - nama channel/kategori saat ini",
+            "new_name": "string - nama baru (optional, kosongkan jika cuma mau ganti topic)",
+            "topic": "string - topic/deskripsi baru channel (optional, hanya untuk text channel). Kosongkan jika cuma mau ganti nama.",
+            "type": "string - 'text', 'voice', atau 'category' (optional). Default cari semua tipe.",
         },
     },
     {
         "name": "create_role",
         "description": "Buat role baru dengan nama dan permission tertentu.",
         "parameters": {
-            "name": "string — nama role",
-            "color": "string — warna dalam hex (optional, contoh: '#FF0000'). Default: tidak ada warna.",
-            "permissions": "object — permission apa yang ON. Contoh: {\"administrator\": false, \"kick_members\": true, \"manage_messages\": true}. Lihat DISCORD_PERMISSIONS_KNOWLEDGE untuk daftar permission. (optional)",
+            "name": "string - nama role",
+            "color": "string - warna dalam hex (optional, contoh: '#FF0000'). Default: tidak ada warna.",
+            "permissions": "object - permission apa yang ON. Contoh: {\"administrator\": false, \"kick_members\": true, \"manage_messages\": true}. Lihat DISCORD_PERMISSIONS_KNOWLEDGE untuk daftar permission. (optional)",
         },
     },
     {
         "name": "edit_role",
         "description": "Ubah role yang sudah ada: nama, warna, permission, posisi, hoist, atau mentionable. Cari role berdasarkan nama.",
         "parameters": {
-            "name": "string — nama role yang akan diubah",
-            "new_name": "string — nama baru (optional)",
-            "color": "string — warna hex baru (optional, contoh: '#FFD700')",
-            "permissions": "object — permission yang ingin diubah. Contoh: {\"administrator\": true, \"kick_members\": false}. Hanya permission yang disebut yang diubah. (optional)",
-            "position": "integer — posisi role (0 = paling bawah). Semakin besar angka, semakin atas posisinya. (optional)",
-            "hoist": "boolean — true = tampilkan member role ini terpisah di sidebar (Display role members separately). false = jangan. (optional)",
-            "mentionable": "boolean — true = semua orang bisa @mention role ini. false = cuma yang punya permission. (optional)",
+            "name": "string - nama role yang akan diubah",
+            "new_name": "string - nama baru (optional)",
+            "color": "string - warna hex baru (optional, contoh: '#FFD700')",
+            "permissions": "object - permission yang ingin diubah. Contoh: {\"administrator\": true, \"kick_members\": false}. Hanya permission yang disebut yang diubah. (optional)",
+            "position": "integer - posisi role (0 = paling bawah). Semakin besar angka, semakin atas posisinya. (optional)",
+            "hoist": "boolean - true = tampilkan member role ini terpisah di sidebar (Display role members separately). false = jangan. (optional)",
+            "mentionable": "boolean - true = semua orang bisa @mention role ini. false = cuma yang punya permission. (optional)",
         },
     },
     {
         "name": "delete_role",
-        "description": "Hapus role berdasarkan nama. BERBAHAYA — minta konfirmasi user dulu sebelum eksekusi!",
+        "description": "Hapus role berdasarkan nama. BERBAHAYA - minta konfirmasi user dulu sebelum eksekusi!",
         "parameters": {
-            "name": "string — nama role yang akan dihapus",
+            "name": "string - nama role yang akan dihapus",
         },
     },
     {
         "name": "assign_role",
         "description": "Berikan role ke member. Cari member berdasarkan nama atau mention.",
         "parameters": {
-            "member": "string — nama atau mention member",
-            "role": "string — nama role yang akan diberikan",
+            "member": "string - nama atau mention member",
+            "role": "string - nama role yang akan diberikan",
         },
     },
     {
         "name": "remove_role",
         "description": "Hapus role dari member.",
         "parameters": {
-            "member": "string — nama atau mention member",
-            "role": "string — nama role yang akan dihapus",
+            "member": "string - nama atau mention member",
+            "role": "string - nama role yang akan dihapus",
         },
     },
     {
         "name": "list_members",
         "description": "Lihat daftar member di server. Bisa filter berdasarkan role.",
         "parameters": {
-            "role": "string — nama role (optional). Jika dikosongkan, tampilkan semua member (max 50).",
+            "role": "string - nama role (optional). Jika dikosongkan, tampilkan semua member (max 50).",
         },
     },
     {
         "name": "ban_member",
-        "description": "Ban member dari server. BERBAHAYA — minta konfirmasi user dulu!",
+        "description": "Ban member dari server. BERBAHAYA - minta konfirmasi user dulu!",
         "parameters": {
-            "member": "string — nama atau ID member",
-            "reason": "string — alasan ban (optional)",
+            "member": "string - nama atau ID member",
+            "reason": "string - alasan ban (optional)",
         },
     },
     {
         "name": "unban_member",
         "description": "Unban member yang sudah di-ban sebelumnya.",
         "parameters": {
-            "user_id": "string — ID user yang akan di-unban",
-            "reason": "string — alasan (optional)",
+            "user_id": "string - ID user yang akan di-unban",
+            "reason": "string - alasan (optional)",
         },
     },
     {
         "name": "kick_member",
-        "description": "Kick member dari server. BERBAHAYA — minta konfirmasi user dulu!",
+        "description": "Kick member dari server. BERBAHAYA - minta konfirmasi user dulu!",
         "parameters": {
-            "member": "string — nama atau ID member",
-            "reason": "string — alasan kick (optional)",
+            "member": "string - nama atau ID member",
+            "reason": "string - alasan kick (optional)",
         },
     },
     {
         "name": "timeout_member",
         "description": "Timeout member (disable sementara).",
         "parameters": {
-            "member": "string — nama atau ID member",
-            "duration": "string — durasi (contoh: '10m', '1h', '1d'). Default: '1h'",
-            "reason": "string — alasan (optional)",
+            "member": "string - nama atau ID member",
+            "duration": "string - durasi (contoh: '10m', '1h', '1d'). Default: '1h'",
+            "reason": "string - alasan (optional)",
         },
     },
     {
         "name": "edit_channel_permissions",
         "description": "Ubah permission channel untuk role tertentu. Beri permission name dan nilai true/false.",
         "parameters": {
-            "channel": "string — nama channel",
-            "role": "string — nama role (atau '@everyone')",
-            "permissions": "object — permission Discord beserta nilai true/false. Contoh: {\"send_messages\": false, \"read_messages\": true}",
+            "channel": "string - nama channel",
+            "role": "string - nama role (atau '@everyone')",
+            "permissions": "object - permission Discord beserta nilai true/false. Contoh: {\"send_messages\": false, \"read_messages\": true}",
         },
     },
     {
@@ -239,34 +239,34 @@ TOOL_DEFINITIONS = [
         "name": "batch_create_channels",
         "description": "Bikin banyak channel + kategori sekaligus dalam SATU panggilan. Jauh lebih cepat & hemat token daripada create_channel satu-satu. Kirim array channel, tool akan buat kategori otomatis kalo belum ada.",
         "parameters": {
-            "channels": "array of objects — WAJIB. Daftar channel yang mau dibuat. Format: [{\"name\": \"nama-channel\", \"type\": \"text\"|\"voice\", \"category\": \"Nama Kategori\" (optional, auto-create), \"topic\": \"deskripsi\" (optional)}]",
-            "categories": "array of strings — (optional) Daftar kategori yang mau dibuat duluan. Contoh: [\"📢 Announcements\", \"🤖 Bots\"]",
+            "channels": "array of objects - WAJIB. Daftar channel yang mau dibuat. Format: [{\"name\": \"nama-channel\", \"type\": \"text\"|\"voice\", \"category\": \"Nama Kategori\" (optional, auto-create), \"topic\": \"deskripsi\" (optional)}]",
+            "categories": "array of strings - (optional) Daftar kategori yang mau dibuat duluan. Contoh: [\"📢 Announcements\", \"🤖 Bots\"]",
         },
     },
     {
         "name": "batch_create_roles",
         "description": "Bikin banyak role sekaligus dalam SATU panggilan. Lebih cepat daripada create_role satu-satu.",
         "parameters": {
-            "roles": "array of objects — WAJIB. Daftar role yang mau dibuat. Format: [{\"name\": \"nama-role\", \"color\": \"#HEX\" (optional), \"permissions\": {...} (optional)}]",
+            "roles": "array of objects - WAJIB. Daftar role yang mau dibuat. Format: [{\"name\": \"nama-role\", \"color\": \"#HEX\" (optional), \"permissions\": {...} (optional)}]",
         },
     },
     {
         "name": "apply_template",
-        "description": "Terapkan template server lengkap (kategori, channel, role) untuk berbagai tema. Bikin semua struktur server langsung jadi dalam 1 panggilan — jauh lebih cepat daripada make channel/role satu-satu.",
+        "description": "Terapkan template server lengkap (kategori, channel, role) untuk berbagai tema. Bikin semua struktur server langsung jadi dalam 1 panggilan - jauh lebih cepat daripada make channel/role satu-satu.",
         "parameters": {
-            "template": "string — nama template. Pilihan: 'gaming' (server gaming dengan voice), 'study' (server belajar/akademik), 'community' (server komunitas umum).",
+            "template": "string - nama template. Pilihan: 'gaming' (server gaming dengan voice), 'study' (server belajar/akademik), 'community' (server komunitas umum).",
         },
     },
     {
         "name": "edit_server",
         "description": "Ubah pengaturan server: nama, ikon, deskripsi, verification level, AFK channel, system channel, notifikasi. Hanya isi parameter yang mau diubah.",
         "parameters": {
-            "name": "string — nama baru server (optional). Contoh: 'Server Keren'",
-            "description": "string — deskripsi server (optional). Contoh: 'Server Discord komunitas kami'",
-            "verification_level": "string — level verifikasi: 'none', 'low', 'medium', 'high', 'very_high' (optional)",
-            "afk_channel": "string — nama voice channel untuk AFK (optional). Contoh: 'AFK'",
-            "afk_timeout": "integer — detik timeout AFK: 60, 300, 900, 1800, 3600 (optional)",
-            "system_channel": "string — nama channel untuk welcome messages & tips (optional)",
+            "name": "string - nama baru server (optional). Contoh: 'Server Keren'",
+            "description": "string - deskripsi server (optional). Contoh: 'Server Discord komunitas kami'",
+            "verification_level": "string - level verifikasi: 'none', 'low', 'medium', 'high', 'very_high' (optional)",
+            "afk_channel": "string - nama voice channel untuk AFK (optional). Contoh: 'AFK'",
+            "afk_timeout": "integer - detik timeout AFK: 60, 300, 900, 1800, 3600 (optional)",
+            "system_channel": "string - nama channel untuk welcome messages & tips (optional)",
         },
     },
     {
@@ -278,79 +278,79 @@ TOOL_DEFINITIONS = [
         "name": "rollback",
         "description": "Kembalikan server ke kondisi snapshot terakhir. Cocok kalo perubahan yang dilakukan AI Agent sebelumnya salah atau gak sesuai. Bisa restore: nama role, warna, permission, posisi, nama channel, kategori, topic.",
         "parameters": {
-            "confirm": "boolean — WAJIB true. Konfirmasi bahwa kamu serius mau rollback.",
+            "confirm": "boolean - WAJIB true. Konfirmasi bahwa kamu serius mau rollback.",
         },
     },
     {
         "name": "schedule_task",
         "description": "Jadwalkan tugas otomatis di server. Bot akan jalanin tugas secara background sesuai jadwal. Berguna untuk auto-role, pengumuman rutin, dll.",
         "parameters": {
-            "name": "string — nama unik tugas (untuk referensi & management)",
-            "action": "string — jenis aksi: 'assign_role' (kasih role ke member), 'send_message' (kirim pesan ke channel), 'remove_role' (cabut role dari member)",
-            "params": "object — parameter aksi. assign_role/remove_role: {\"role\": \"nama-role\", \"member\": \"nama-member\"}. send_message: {\"channel\": \"nama-channel\", \"message\": \"teks pesan\"}",
-            "schedule": "string — jadwal eksekusi. Format: 'interval:Xh' (tiap X jam), 'interval:Xm' (tiap X menit). Contoh: 'interval:24h' = tiap 24 jam, 'interval:30m' = tiap 30 menit",
-            "enabled": "boolean — (optional) true = aktif, false = nonaktif. Default: true",
+            "name": "string - nama unik tugas (untuk referensi & management)",
+            "action": "string - jenis aksi: 'assign_role' (kasih role ke member), 'send_message' (kirim pesan ke channel), 'remove_role' (cabut role dari member)",
+            "params": "object - parameter aksi. assign_role/remove_role: {\"role\": \"nama-role\", \"member\": \"nama-member\"}. send_message: {\"channel\": \"nama-channel\", \"message\": \"teks pesan\"}",
+            "schedule": "string - jadwal eksekusi. Format: 'interval:Xh' (tiap X jam), 'interval:Xm' (tiap X menit). Contoh: 'interval:24h' = tiap 24 jam, 'interval:30m' = tiap 30 menit",
+            "enabled": "boolean - (optional) true = aktif, false = nonaktif. Default: true",
         },
     },
     {
         "name": "send_message",
-        "description": "Kirim pesan ke channel text tertentu. Pesan bisa berupa teks biasa atau embed sederhana. Untuk mention user, tulis @Username — otomatis ke-resolve jadi mention beneran.",
+        "description": "Kirim pesan ke channel text tertentu. Pesan bisa berupa teks biasa atau embed sederhana. Untuk mention user, tulis @Username - otomatis ke-resolve jadi mention beneran.",
         "parameters": {
-            "channel": "string — nama channel tujuan",
-            "message": "string — isi pesan yang akan dikirim (mendukung markdown Discord)",
+            "channel": "string - nama channel tujuan",
+            "message": "string - isi pesan yang akan dikirim (mendukung markdown Discord)",
         },
     },
     {
         "name": "add_reaction",
         "description": "Tambahkan reaksi emoji ke pesan tertentu di channel.",
         "parameters": {
-            "channel": "string — nama channel tempat pesan berada",
-            "message_id": "string — ID pesan yang akan direaksi",
-            "emoji": "string — emoji yang akan ditambahkan (contoh: '👍', '🎉', '😄')",
+            "channel": "string - nama channel tempat pesan berada",
+            "message_id": "string - ID pesan yang akan direaksi",
+            "emoji": "string - emoji yang akan ditambahkan (contoh: '👍', '🎉', '😄')",
         },
     },
     {
         "name": "run_command",
-        "description": "Jalankan command Synapse Bot (prefix ! atau /). Gunakan untuk perintah Synapse Bot termasuk VOICE (join/leave/play/stop), MODERASI (purge/clear), dan info (rank/leaderboard/help). Contoh: 'play ...', 'leave', 'connect', 'stop', 'purge 10', 'rank @user'. CATATAN: hanya bisa menjalankan command milik Synapse Bot saja — TIDAK bisa menjalankan command milik bot lain (Dyno, Carl-bot, MEE6, dll). HATI-HATI: command yang mengubah data server hanya jalan jika authorized.",
+        "description": "Jalankan command Synapse Bot (prefix ! atau /). Gunakan untuk perintah Synapse Bot termasuk VOICE (join/leave/play/stop), MODERASI (purge/clear), dan info (rank/leaderboard/help). Contoh: 'play ...', 'leave', 'connect', 'stop', 'purge 10', 'rank @user'. CATATAN: hanya bisa menjalankan command milik Synapse Bot saja - TIDAK bisa menjalankan command milik bot lain (Dyno, Carl-bot, MEE6, dll). HATI-HATI: command yang mengubah data server hanya jalan jika authorized.",
         "parameters": {
-            "command": "string — command Synapse Bot yang ingin dijalankan beserta argumennya. Contoh: 'play iwan fals', 'leave', 'connect', 'stop', 'rank @user', 'help', 'leaderboard', 'purge 100'",
-            "channel": "string — (opsional) nama channel tujuan jika command perlu dijalankan di channel tertentu. Contoh: '🎶・req-music'. Kosongkan untuk channel saat ini.",
+            "command": "string - command Synapse Bot yang ingin dijalankan beserta argumennya. Contoh: 'play iwan fals', 'leave', 'connect', 'stop', 'rank @user', 'help', 'leaderboard', 'purge 100'",
+            "channel": "string - (opsional) nama channel tujuan jika command perlu dijalankan di channel tertentu. Contoh: '🎶・req-music'. Kosongkan untuk channel saat ini.",
         },
     },
     {
         "name": "web_search",
         "description": "Cari informasi terbaru di internet pakai DuckDuckGo. Gunakan untuk berita/trend/skor/lirik/ info terkini yang butuh data real-time.",
         "parameters": {
-            "query": "string — kata kunci pencarian",
+            "query": "string - kata kunci pencarian",
         },
     },
 ]
 
 
 TOOL_DESCRIPTION = """
-Kamu adalah AI Agent bawaan dari Synapse Bot — sebuah Discord bot multifungsi yang berjalan di server ini. Kamu BUKAN bot terpisah. Kamu adalah fitur AI yang tertanam langsung di Synapse Bot. Semua command Synapse Bot (!help, !rank, /ask, /scan, dll) bisa dijalankan via tool run_command.
+Kamu adalah AI Agent bawaan dari Synapse Bot - sebuah Discord bot multifungsi yang berjalan di server ini. Kamu BUKAN bot terpisah. Kamu adalah fitur AI yang tertanam langsung di Synapse Bot. Semua command Synapse Bot (!help, !rank, /ask, /scan, dll) bisa dijalankan via tool run_command.
 
-Tool run_command HANYA bisa menjalankan command milik Synapse Bot saja. Command milik bot lain (Dyno, Carl-bot, MEE6, Rythm, dll) TIDAK bisa dijalankan — karena bot Discord tidak bisa mengontrol bot lain. Jika user meminta menjalankan command bot lain, jelaskan bahwa itu tidak bisa dilakukan.
+Tool run_command HANYA bisa menjalankan command milik Synapse Bot saja. Command milik bot lain (Dyno, Carl-bot, MEE6, Rythm, dll) TIDAK bisa dijalankan - karena bot Discord tidak bisa mengontrol bot lain. Jika user meminta menjalankan command bot lain, jelaskan bahwa itu tidak bisa dilakukan.
 
 Untuk urusan VOICE CHANNEL (join, leave, play audio, stop), gunakan run_command:
-- `!connect [nama channel]` — bot join voice channel. Kosongkan nama untuk otomatis ikut user. Alias: `!joinvc`.
-- `!leave` — bot tinggalkan voice channel.
-- `!play [url atau nama lagu]` — putar audio. Bisa URL YouTube/langsung, atau nama lagu (otomatis search). Kosongkan untuk LoFi default. Alias: `!p`.
-- `!stop` — hentikan audio.
+- `!connect [nama channel]` - bot join voice channel. Kosongkan nama untuk otomatis ikut user. Alias: `!joinvc`.
+- `!leave` - bot tinggalkan voice channel.
+- `!play [url atau nama lagu]` - putar audio. Bisa URL YouTube/langsung, atau nama lagu (otomatis search). Kosongkan untuk LoFi default. Alias: `!p`.
+- `!stop` - hentikan audio.
 
 Contoh: run_command("connect"), run_command("play lagu viral 2026"), run_command("play https://youtube.com/...").
 
 Jika user minta "putar lagu viral" atau "cari lagu trending", gunakan web_search dulu untuk cari daftar lagu viral/trending terkini, lalu tanya user pilih yang mana, baru jalankan run_command("play ...").
 
 Untuk MODERASI CHAT (hapus/purge pesan), gunakan run_command:
-- `!purge <jumlah>` — hapus pesan dalam jumlah banyak (max 100). Butuh izin Manage Messages. Alias: `!clear`.
-- `!purge <jumlah> @user` — hapus pesan dari user tertentu saja.
+- `!purge <jumlah>` - hapus pesan dalam jumlah banyak (max 100). Butuh izin Manage Messages. Alias: `!clear`.
+- `!purge <jumlah> @user` - hapus pesan dari user tertentu saja.
 
 Contoh: run_command("purge 10"), run_command("purge 20 @mawar").
 
 Untuk menjalankan command di CHANNEL LAIN, tambah parameter channel:
-- Contoh: run_command("purge 100", channel="🎶・req-music") — akan hapus 100 pesan di channel req-music.
-- Contoh: run_command("play iwan fals", channel="💬・general-chat") — play lagu di channel general.
+- Contoh: run_command("purge 100", channel="🎶・req-music") - akan hapus 100 pesan di channel req-music.
+- Contoh: run_command("play iwan fals", channel="💬・general-chat") - play lagu di channel general.
 
 ATURAN PENTING:
 
@@ -369,38 +369,38 @@ ATURAN PENTING:
 8. Jika sudah selesai semua, berikan ringkasan apa yang sudah dilakukan.
 9. Saat membuat channel (create_channel), WAJIB tentukan parameter "category" agar channel langsung terkelompok dalam kategori. Jika kategori belum ada, tool akan membuatnya otomatis. Contoh: / create_channel name="📜-rules" category="📢 Announcements"
 10. Untuk bikin banyak channel/role sekaligus, GUNAKAN batch_create_channels / batch_create_roles, bukan create_channel/create_role satu-satu. Batch tool jauh lebih cepat dan hemat token.
-11. Jika user mau setup server dari awal (bikin struktur channel & role), GUNAKAN apply_template — itu tool template server lengkap dengan 3 pilihan: 'gaming', 'study', 'community'.
+11. Jika user mau setup server dari awal (bikin struktur channel & role), GUNAKAN apply_template - itu tool template server lengkap dengan 3 pilihan: 'gaming', 'study', 'community'.
 """
 
 DISCORD_UI_KNOWLEDGE = """
-## Discord UI — Server & Channel Menu (right-click)
+## Discord UI - Server & Channel Menu (right-click)
 
 ### Server Context Menu (klik kanan pada nama server di sidebar)
-- Server Boost — Lihat status & manage Nitro boosts
-- Invite to Server — Buat invite link
-- Server Settings — Buka dashboard pengaturan server
-- Create Channel — Buat channel baru (sama kaya tool create_channel)
-- Create Category — Buat kategori baru
-- Create Event — Buat event server
-- App Directory — Cari & tambah aplikasi Discord
-- Notification Settings — Atur notifikasi per-server
-- Privacy Settings — Atur privacy per-server
-- Edit Per-server Profile — Ubah nickname & avatar di server ini
-- Hide Muted Channels — Sembunyikan channel yang di-mute
-- Copy Server ID — Salin ID server ke clipboard
+- Server Boost - Lihat status & manage Nitro boosts
+- Invite to Server - Buat invite link
+- Server Settings - Buka dashboard pengaturan server
+- Create Channel - Buat channel baru (sama kaya tool create_channel)
+- Create Category - Buat kategori baru
+- Create Event - Buat event server
+- App Directory - Cari & tambah aplikasi Discord
+- Notification Settings - Atur notifikasi per-server
+- Privacy Settings - Atur privacy per-server
+- Edit Per-server Profile - Ubah nickname & avatar di server ini
+- Hide Muted Channels - Sembunyikan channel yang di-mute
+- Copy Server ID - Salin ID server ke clipboard
 
 ### Channel Context Menu (klik kanan pada channel)
-- Mark As Read — Tandai semua pesan sudah dibaca
-- Invite to Channel — Buat invite link ke channel ini
-- Pin Channel to Top — Sematkan channel di atas daftar
-- Copy Link — Salin link channel
-- Mute Channel — Matikan notifikasi channel (15 menit, 1 jam, 3 jam, 8 jam, 24 jam, sampai di-unmute)
-- Notification Settings — Atur notifikasi per-channel (All Messages, Only @mentions, Nothing)
-- Edit Channel — Ubah nama, topic, kategori, dll (sama kaya tool rename_channel)
-- Duplicate Channel — Duplikat channel beserta permission-nya
-- Create Text Channel — Buat text channel baru di dalam kategori yang sama
-- Delete Channel — Hapus channel (BERBAHAYA)
-- Copy Channel ID — Salin ID channel ke clipboard
+- Mark As Read - Tandai semua pesan sudah dibaca
+- Invite to Channel - Buat invite link ke channel ini
+- Pin Channel to Top - Sematkan channel di atas daftar
+- Copy Link - Salin link channel
+- Mute Channel - Matikan notifikasi channel (15 menit, 1 jam, 3 jam, 8 jam, 24 jam, sampai di-unmute)
+- Notification Settings - Atur notifikasi per-channel (All Messages, Only @mentions, Nothing)
+- Edit Channel - Ubah nama, topic, kategori, dll (sama kaya tool rename_channel)
+- Duplicate Channel - Duplikat channel beserta permission-nya
+- Create Text Channel - Buat text channel baru di dalam kategori yang sama
+- Delete Channel - Hapus channel (BERBAHAYA)
+- Copy Channel ID - Salin ID channel ke clipboard
 
 Gunakan pengetahuan ini untuk menjawab pertanyaan user tentang cara manual melakukan sesuatu di Discord.
 """
@@ -476,7 +476,7 @@ def parse_tool_call(text: str) -> list[dict] | None:
             if args_raw and not args_raw.startswith("Arguments"):
                 calls.append(_parse_single_call(fn_name, args_raw))
 
-    # Format 3: Raw JSON — {"function": "xxx", "arguments": {...}}
+    # Format 3: Raw JSON - {"function": "xxx", "arguments": {...}}
     if not calls:
         json_pattern = r'\{[^{]*"function"\s*:\s*"(\w+)"[^}]*"arguments"\s*:\s*(\{.*?\})[^}]*\}'
         for fn_name, args_str in re.findall(json_pattern, text, re.DOTALL):
@@ -486,7 +486,7 @@ def parse_tool_call(text: str) -> list[dict] | None:
             except json.JSONDecodeError:
                 pass
 
-    # Format 4: XML-style — <tool_call><function=name><parameter=key>val</parameter></function></tool_call>
+    # Format 4: XML-style - <tool_call><function=name><parameter=key>val</parameter></function></tool_call>
     if not calls:
         xml_pattern = r'<tool_call>(.*?)</tool_call>'
         for block in re.findall(xml_pattern, text, re.DOTALL):
@@ -550,7 +550,7 @@ def _parse_single_call(fn_name: str, args_raw: str) -> dict:
         try:
             args = json.loads(args_raw)
         except json.JSONDecodeError:
-            # JSON broken — coba fix dengan aggressive repair
+            # JSON broken - coba fix dengan aggressive repair
             try:
                 # Replace single quotes, normalize
                 fixed = args_raw.replace("'", '"')
@@ -655,7 +655,7 @@ def validate_tool_call(tool_call: dict) -> str | None:
             break
 
     if not tdef:
-        # Tool gak dikenal — kasih saran
+        # Tool gak dikenal - kasih saran
         suggestions = [t["name"] for t in TOOL_DEFINITIONS]
         return f"Tool '{fn}' tidak dikenal. Tool yang tersedia: {', '.join(suggestions)}"
 
@@ -1225,7 +1225,7 @@ async def _rollback(guild: discord.Guild, args: dict) -> str:
             except Exception as e:
                 results["errors"].append(f"Role '{r_snap['name']}': {str(e)[:80]}")
         else:
-            # Role udah kehapus — coba bikin ulang
+            # Role udah kehapus - coba bikin ulang
             try:
                 color = discord.Color.default()
                 if r_snap.get("color") and r_snap["color"] != "None":
@@ -1264,7 +1264,7 @@ async def _rollback(guild: discord.Guild, args: dict) -> str:
             except Exception as e:
                 results["errors"].append(f"Channel '{ch_snap['name']}': {str(e)[:80]}")
         else:
-            # Channel udah kehapus — coba bikin ulang
+            # Channel udah kehapus - coba bikin ulang
             try:
                 category = None
                 if ch_snap.get("category"):

@@ -22,7 +22,7 @@
         }
         var sel = qs(selId);
         if(!sel) return;
-        sel.innerHTML = '<option value="">— Tidak ada —</option>';
+        sel.innerHTML = '<option value="">- Tidak ada -</option>';
         for(var i=0; i<d.channels.length; i++){
           var ch = d.channels[i];
           var opt = document.createElement('option');
@@ -75,7 +75,7 @@
         }
         var g = d.guild;
         qs('setServerName').textContent = g.name || 'Unknown';
-        qs('setServerId').textContent = 'ID: ' + (g.id || '—');
+        qs('setServerId').textContent = 'ID: ' + (g.id || '-');
         qs('setMemberCount').textContent = (g.member_count || 0).toLocaleString();
         // Try to get icon
         var iconEl = qs('setServerIcon');

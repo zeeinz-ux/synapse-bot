@@ -1,5 +1,5 @@
 # ============================================================================
-# auto_responder_store.py — Free-function bridge for AutoResponder persistence
+# auto_responder_store.py - Free-function bridge for AutoResponder persistence
 # ============================================================================
 
 import asyncio

@@ -1,5 +1,5 @@
 /* ================================================================================
-   JS: AI Chat Settings v4.7 — Synapse Dashboard
+   JS: AI Chat Settings v4.7 - Synapse Dashboard
    UPDATE: Triple API Tier Stack + Dedicated Channel Toggle
    ================================================================================ */
 
@@ -158,7 +158,7 @@
       var pers = cp[chId];
       html += '<div class="ch-personality-row" data-channel="' + chId + '">';
       html += '<select class="form-select ch-personality-channel" style="flex:1;">';
-      html += '<option value="">— Pilih Channel —</option>';
+      html += '<option value="">- Pilih Channel -</option>';
       channels.forEach(function(ch) {
         html += '<option value="' + ch.id + '"' + (ch.id === chId ? ' selected' : '') + '>' + ch.name + '</option>';
       });
@@ -202,7 +202,7 @@
         chSel.style.flex = "1";
         var blank = document.createElement("option");
         blank.value = "";
-        blank.textContent = "— Pilih Channel —";
+        blank.textContent = "- Pilih Channel -";
         chSel.appendChild(blank);
         var mainChannelSelect = document.getElementById("channel-select");
         if (mainChannelSelect) {

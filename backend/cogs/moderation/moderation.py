@@ -218,7 +218,7 @@ class Moderation(commands.Cog):
                     f"Threshold: {threshold} joins in {window//60} menit\n"
                     f"Action: {action.upper()}"
                 )
-            print(f"[RAID] ⚠️ Raid detected in {member.guild.name} — {len(self._join_timestamps[guild_id])} joins in {window//60}min")
+            print(f"[RAID] ⚠️ Raid detected in {member.guild.name} - {len(self._join_timestamps[guild_id])} joins in {window//60}min")
 
     async def _check_image_spam(self, message, image_urls: list[tuple[str, str]]) -> bool:
         """Check images in message. Returns True if flagged as spam."""
@@ -404,7 +404,7 @@ class Moderation(commands.Cog):
                         f"Alasan: {reason}\n\n"
                         f"🔴 Ini adalah hukuman OTOMATIS karena sistem AI kami mendeteksi kamu mengirim konten "
                         f"BERBAHAYA (scam/phishing/konten penipuan).\n"
-                        f"🛡️ Server ini menggunakan sistem keamanan super ketat — TIDAK ada toleransi bagi pelaku spam berbahaya.\n"
+                        f"🛡️ Server ini menggunakan sistem keamanan super ketat - TIDAK ada toleransi bagi pelaku spam berbahaya.\n"
                         f"❌ Banding TIDAK DITERIMA untuk pelanggaran ini."
                     )
                 else:

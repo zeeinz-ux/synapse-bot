@@ -120,7 +120,7 @@ def _run_math(text: str) -> str:
     if not m:
         return ""
     expr = m.group(1).strip()
-    # Skip bare numbers (e.g. years like "2026") — they're not math
+    # Skip bare numbers (e.g. years like "2026") - they're not math
     if expr.isdigit() or re.match(r"^\d+$", expr):
         return ""
     result = _safe_expr_eval(expr)
@@ -157,7 +157,7 @@ def run_tools(user_message: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════
-# USER PREFERENCES — Firestore
+# USER PREFERENCES - Firestore
 # ═══════════════════════════════════════════════════════
 
 PREFS_COLLECTION = "guild_settings"

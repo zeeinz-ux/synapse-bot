@@ -1,9 +1,9 @@
 """
 ================================================================================
-COG: Photobox Cog — Synapse Discord Bot
+COG: Photobox Cog - Synapse Discord Bot
 ================================================================================
 File    : backend/cogs/photobox/photobox.py
-Deskripsi : Slash command /photobox — bikin webhook, kirim link photobox.
+Deskripsi : Slash command /photobox - bikin webhook, kirim link photobox.
   • User menjalankan /photobox di channel mana pun.
   • Bot membuat webhook Discord untuk channel tersebut.
   • Bot mengirim ephemeral message dengan tombol "Buka Photobox 📸".
@@ -22,7 +22,7 @@ import discord
 from discord.ext import commands
 
 # ── Konstanta ──
-PHOTOBOX_TIMEOUT = 300  # 5 menit — webhook auto-delete
+PHOTOBOX_TIMEOUT = 300  # 5 menit - webhook auto-delete
 
 BASE_URL = os.getenv(
     "PUBLIC_URL",
@@ -31,7 +31,7 @@ BASE_URL = os.getenv(
 
 
 class PhotoboxCog(commands.Cog, name="Photobox"):
-    """Cog untuk photobox — ambil foto langsung dari browser ke Discord."""
+    """Cog untuk photobox - ambil foto langsung dari browser ke Discord."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -76,7 +76,7 @@ class PhotoboxCog(commands.Cog, name="Photobox"):
         view = PhotoboxView(link, webhook, ctx.channel.id)
         await ctx.send(
             "📸 **Photobox siap!** Klik tombol di bawah buka kamera dan "
-            "ambil foto langsung — nanti fotonya muncul di channel ini!",
+            "ambil foto langsung - nanti fotonya muncul di channel ini!",
             view=view,
             ephemeral=True
         )

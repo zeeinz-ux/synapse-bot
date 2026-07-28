@@ -333,7 +333,7 @@ class AntiNuke(commands.Cog):
                         return text
             except Exception:
                 continue
-        print("[ANTI-NUKE] OpenRouter analysis failed — all models exhausted")
+        print("[ANTI-NUKE] OpenRouter analysis failed - all models exhausted")
         return None
 
     def _check_admin_grant(self, before: discord.Member, after: discord.Member) -> bool:

@@ -113,7 +113,7 @@ class ImageSpamDetector:
         self._known_spam_hashes[img_hash] = time.time()
 
     def get_all_hashes(self) -> dict[int, float]:
-        """Return {hash: timestamp} — for saving to Firestore."""
+        """Return {hash: timestamp} - for saving to Firestore."""
         return dict(self._known_spam_hashes)
 
     def load_hashes(self, hashes: dict[int, float]) -> None:

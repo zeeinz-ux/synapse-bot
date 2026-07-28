@@ -1,5 +1,5 @@
 /**
- * Photobox — Multi-theme Photobooth Strip
+ * Photobox - Multi-theme Photobooth Strip
  * Pilih tema & jumlah foto, ganti tema di tengah jalan, kirim via webhook.
  */
 (function () {
@@ -81,7 +81,7 @@
         { bottom: '6px', left: '8px' },
         { bottom: '6px', right: '8px' },
       ],
-      label: '✨ cuek — cantik — gemas ✨',
+      label: '✨ cuek - cantik - gemas ✨',
       betweenEmojis: ['💖', '✨', '⭐', '🫶', '🌸'],
       brand: '💖  Synapse Photobox  💖',
     },
@@ -102,7 +102,7 @@
         { bottom: '4px', left: '6px' },
         { bottom: '4px', right: '6px' },
       ],
-      label: '✨ langit — bintang — bunga ✨',
+      label: '✨ langit - bintang - bunga ✨',
       betweenEmojis: ['⭐', '🌸', '✨', '🌼', '☁️'],
       brand: '☁️  Synapse Photobox  ☁️',
     },
@@ -123,7 +123,7 @@
         { bottom: '4px', left: '6px' },
         { bottom: '4px', right: '6px' },
       ],
-      label: '✨ segar — santai — damai ✨',
+      label: '✨ segar - santai - damai ✨',
       betweenEmojis: ['🍃', '🌸', '✨', '🌙', '🌿'],
       brand: '🌿  Synapse Photobox  🌿',
     },
@@ -362,7 +362,7 @@
     showState('loading');
 
     if (!WEBHOOK_URL) {
-      showError('Link photobox gak valid — coba ulang dari Discord ya!');
+      showError('Link photobox gak valid - coba ulang dari Discord ya!');
       return;
     }
 
@@ -380,7 +380,7 @@
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         showError('Izin kameranya diblokir! Coba izinin dulu di pengaturan browser.');
       } else if (err.name === 'NotFoundError') {
-        showError('Kamera gak ketemu — pastiin perangkat lu punya kamera ya!');
+        showError('Kamera gak ketemu - pastiin perangkat lu punya kamera ya!');
       } else {
         showError('Gagal akses kamera: ' + err.message);
       }
@@ -680,7 +680,7 @@
     ctx.lineTo(photoX + photoW - 6, sigAreaY + Math.round(sigAreaH * 0.35));
     ctx.stroke();
 
-    // Signature text (left) — emoji + sticker label
+    // Signature text (left) - emoji + sticker label
     const badges = ['✨ cute', '💕 oke', '⭐ yes', '🌸 ay', '🌙 nyah'];
     const sigFontSize = Math.round(fw * 0.055);
     ctx.fillStyle = t.textMuted;
@@ -689,7 +689,7 @@
     ctx.textBaseline = 'middle';
     ctx.fillText(badges[index % badges.length], photoX + 8, sigAreaY + Math.round(sigAreaH * 0.7));
 
-    // Signature text (right) — small decorative text
+    // Signature text (right) - small decorative text
     ctx.textAlign = 'right';
     ctx.fillText(t.deco[index % t.deco.length], photoX + photoW - 8, sigAreaY + Math.round(sigAreaH * 0.7));
 
@@ -1016,7 +1016,7 @@
       payload.append('file', blob, `${timestamp()}.jpg`);
       payload.append(
         'payload_json',
-        JSON.stringify({ content: '📸 **Photobooth Strip — hasil jepretan!**' })
+        JSON.stringify({ content: '📸 **Photobooth Strip - hasil jepretan!**' })
       );
 
       const resp = await fetch(WEBHOOK_URL, {
@@ -1080,7 +1080,7 @@
   });
 
   // ═══════════════════════════════════════════════
-  // INIT — populate sub-layout buttons
+  // INIT - populate sub-layout buttons
   // ═══════════════════════════════════════════════
   function initSubLayoutButtons() {
     const subRow = document.getElementById('pbSubLayoutRow');

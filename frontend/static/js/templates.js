@@ -51,7 +51,7 @@
       type: 'auto_response',
       keywords: ['help', 'bantuan', 'faq', 'command'],
       response_type: 'embed',
-      embed: { title: '❓ Butuh Bantuan?', description: 'Gunakan `/help` untuk melihat semua command bot.\\nKunjungi <#channel_support> untuk bertanya ke admin.\\n\\n📚 **Command Populer:**\\n• `/ping` — Cek status bot\\n• `/stats` — Statistik server\\n• `/rank` — Level kamu', color: '00d4ff' },
+      embed: { title: '❓ Butuh Bantuan?', description: 'Gunakan `/help` untuk melihat semua command bot.\\nKunjungi <#channel_support> untuk bertanya ke admin.\\n\\n📚 **Command Populer:**\\n• `/ping` - Cek status bot\\n• `/stats` - Statistik server\\n• `/rank` - Level kamu', color: '00d4ff' },
       content: '',
     },
     {
@@ -288,7 +288,7 @@
       html += '<button class="btn-tpl btn-tpl-add-ar">➕ Add AR</button>';
     }
     if(!isDef && t.id){
-      html += '<button class="btn-tpl btn-tpl-delete">🗑 Hapus</button>';
+      html += '<button class="btn-tpl btn-tpl-delete">- Hapus</button>';
     }
     if(isDef){
       html += '<button class="btn-tpl btn-tpl-edit">✏️ Edit</button>';

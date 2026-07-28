@@ -19,7 +19,7 @@
   "features.title": "Apa yang Bisa Synapse Lakukan?",
   "features.subtitle": "Dari hiburan hingga manajemen server. Synapse siap jadi tulang punggung komunitas kamu.",
   "features.ai.title": "AI Chat Canggih",
-  "features.ai.desc": "Synapse AI — engine pintar dengan multi-layer fallback. Bisa baca dan analisis gambar yang kamu kirim. Kepribadian bisa diatur per channel. Intent recognition pintar.",
+  "features.ai.desc": "Synapse AI - engine pintar dengan multi-layer fallback. Bisa baca dan analisis gambar yang kamu kirim. Kepribadian bisa diatur per channel. Intent recognition pintar.",
   "features.welcome.title": "Welcome System Elegan",
   "features.welcome.desc": "Banner selamat datang yang bisa dikustomisasi penuh: avatar member, teks, warna, background, embed, semuanya via dashboard visual.",
   "features.dashboard.title": "Dashboard Admin Modern",
@@ -121,7 +121,7 @@
   "about.vision.title": "Visi",
   "about.vision.desc": "Synapse dibangun dengan visi menjadi <strong>tulang punggung komunitas Discord</strong>, menyediakan satu bot serbaguna yang menggabungkan hiburan berkualitas, kecerdasan buatan, manajemen server yang elegan, dan pengalaman pengguna yang seamless. Kami percaya setiap server Discord berhak memiliki bot yang powerful tanpa harus membayar atau mengorbankan kualitas.",
   "about.mission.title": "Misi",
-  "about.mission.desc": "Menjadi tulang punggung komunitas Discord dengan menyediakan satu bot serbaguna yang menggabungkan kecerdasan buatan, manajemen server yang elegan, dan pengalaman pengguna yang seamless — tanpa biaya dan tanpa perlu jadi programmer.",
+  "about.mission.desc": "Menjadi tulang punggung komunitas Discord dengan menyediakan satu bot serbaguna yang menggabungkan kecerdasan buatan, manajemen server yang elegan, dan pengalaman pengguna yang seamless - tanpa biaya dan tanpa perlu jadi programmer.",
   "about.tech.title": "Tech Stack",
   "about.support": "Join Support Server",
 

@@ -260,7 +260,7 @@ async def on_guild_remove(guild):
 
     await delete_guild_settings(guild_id)
 
-    log.info("Guild removed: %s (%s) — %d guilds, data cleaned", guild.name, guild_id, len(bot.guilds))
+    log.info("Guild removed: %s (%s) - %d guilds, data cleaned", guild.name, guild_id, len(bot.guilds))
 
 @bot.event
 async def on_guild_join(guild):
@@ -283,7 +283,7 @@ async def on_guild_join(guild):
 
     await create_guild_settings_minimal(guild_id, guild.name)
 
-    log.info("Guild joined: %s (%s) — %d guilds, settings created", guild.name, guild_id, len(bot.guilds))
+    log.info("Guild joined: %s (%s) - %d guilds, settings created", guild.name, guild_id, len(bot.guilds))
 
 set_bot_instance(bot)
 start_time = time.time()
@@ -352,7 +352,7 @@ async def on_ready():
         for cmd in synced:
             log.info("  - /%s", cmd.name)
     except discord.HTTPException as e:
-        log.warning("Sync HTTP %d — %s", e.status, e.text)
+        log.warning("Sync HTTP %d - %s", e.status, e.text)
         if e.status == 429:
             log.warning("Rate limited, using old commands")
     except Exception as e:

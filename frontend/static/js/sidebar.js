@@ -1,5 +1,5 @@
 /* ============================================
-   SIDEBAR JS — Synapse Dashboard
+   SIDEBAR JS - Synapse Dashboard
    ============================================ */
 
 (function () {

@@ -508,7 +508,7 @@ class AIChatAgent(commands.Cog):
                 zen = p
                 if p.is_available:
                     return ai, p
-        # Zen unavailable — coba provider lain
+        # Zen unavailable - coba provider lain
         for p in ai._providers:
             if p and p.is_available and p is not zen:
                 return ai, p
@@ -571,14 +571,14 @@ class AIChatAgent(commands.Cog):
             f"Server ini: {guild.name} (ID: {guild.id})\n"
             f"Owner: {guild.owner}\n"
             f"User yang ngobrol: {author.name} (ID: {author.id})"
-            f"{' — saat ini berada di voice channel: ' + author.voice.channel.name if author.voice and author.voice.channel else ''}\n"
+            f"{' - saat ini berada di voice channel: ' + author.voice.channel.name if author.voice and author.voice.channel else ''}\n"
             f"{bot_voice_state}\n"
             f"{scan_section_sys}"
             f"Kamu adalah AI Agent profesional yang paham seluruh struktur Discord server.\n"
             f"Gunakan pengetahuan permission di atas untuk memberikan saran terbaik ke user.\n"
             f"Ikuti aturan dengan ketat."
         )
-        # Plan prompt — bikin rencana dulu sebelum eksekusi
+        # Plan prompt - bikin rencana dulu sebelum eksekusi
         scan_section_plan = (f"Data hasil scan server:\n{scan_context}\n\n") if scan_context else ""
         plan_prompt = f"""{TOOL_DESCRIPTION}
 
@@ -587,16 +587,16 @@ Tool yang tersedia:
 
 Server: {guild.name}
 Owner: {guild.owner}
-User: {author.name}{' — di voice: ' + author.voice.channel.name if author.voice and author.voice.channel else ''}
+User: {author.name}{' - di voice: ' + author.voice.channel.name if author.voice and author.voice.channel else ''}
 {bot_voice_state}
 {scan_section_plan}
 SEKARANG KAMU HARUS MEMBUAT RENCANA DAHULU SEBELUM EKSEKUSI!
 
 ⚠️ LANGKAH WAJIB SEBELUM BIKIN RENCANA:
 Sebelum membuat rencana dan sebelum menyentuh apapun, PANGGIL DAHULU:
-1. server_info() — lihat statistik server
-2. list_roles() — lihat semua role dan posisinya
-3. list_channels() — lihat semua channel
+1. server_info() - lihat statistik server
+2. list_roles() - lihat semua role dan posisinya
+3. list_channels() - lihat semua channel
 
 Ini penting biar kamu tau kondisi real server, gak asal tebak atau buat sesuatu yang udah ada.
 
@@ -604,8 +604,8 @@ Setelah dapet data server, baru buat rencana:
 
 Format jawaban:
 [PLAN]
-1. Langkah pertama — <tool yang dipakai>
-2. Langkah kedua — <tool yang dipakai>
+1. Langkah pertama - <tool yang dipakai>
+2. Langkah kedua - <tool yang dipakai>
 ...
 [/PLAN]
 
@@ -656,7 +656,7 @@ Arguments: {{"roles": [{{"name": "Admin", "color": "#FF0000", "permissions": {{"
 Function: apply_template
 Arguments: {{"template": "gaming"}}
 
-JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah plan!
+JANGAN cuma bikinin plan doang - langsung kerjakan langkah pertama setelah plan!
 """
         # Prompt ringkas untuk step selanjutnya (tapi tool list tetap disertakan)
         tool_names = "\n".join(f"  - {t['name']}: {t['description']}" for t in TOOL_DEFINITIONS)
@@ -683,7 +683,7 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
                 lambda: db.collection("agent_snapshots").document(str(guild.id)).set(snap)
             )
         except Exception:
-            pass  # snapshot gagal — tetap lanjut
+            pass  # snapshot gagal - tetap lanjut
         # Pesan user saat ini
         current_message = user_message
         step_count = 0
@@ -768,7 +768,7 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
                         # Parse ulang tool call dari respon retry
                         retry_calls = parse_tool_call(retry_resp)
                         if not retry_calls:
-                            # AI gak ngirim tool call — anggep dia nyerah
+                            # AI gak ngirim tool call - anggep dia nyerah
                             conversation.append(("AI", retry_resp))
                             validation_error = None
                             break
@@ -779,7 +779,7 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
                         if not validation_error:
                             conversation.append(("TOOL_CALL", f"Memanggil {fn_name} (retry #{retry_count})..."))
                     if validation_error:
-                        # Abis retry 3x masih error — kirim error ke user
+                        # Abis retry 3x masih error - kirim error ke user
                         conversation.append(("AI", f"❌ Gagal setelah {retry_count}x percobaan: {validation_error}"))
                         continue
                     else:
@@ -815,7 +815,7 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
 
     @commands.hybrid_command(
         name="scan",
-        description="Scan seluruh server — cache data roles, channels, members, bans untuk AI Agent.",
+        description="Scan seluruh server - cache data roles, channels, members, bans untuk AI Agent.",
     )
     async def scan(self, ctx: commands.Context):
         if not ctx.guild:
@@ -910,13 +910,13 @@ JANGAN cuma bikinin plan doang — langsung kerjakan langkah pertama setelah pla
             if len(result) > 1900:
                 chunks = [result[i:i+1900] for i in range(0, len(result), 1900)]
                 for i, chunk in enumerate(chunks):
-                    msg = f"🤖 **AI Agent — {ctx.author.display_name}**\n\n{chunk}{scan_hint}" if i == 0 else chunk
+                    msg = f"🤖 **AI Agent - {ctx.author.display_name}**\n\n{chunk}{scan_hint}" if i == 0 else chunk
                     if i == 0:
                         await ctx.interaction.edit_original_response(content=msg)
                     else:
                         followups.append(chunk)
             else:
-                msg = f"🤖 **AI Agent — {ctx.author.display_name}**\n\n{result}{scan_hint}"
+                msg = f"🤖 **AI Agent - {ctx.author.display_name}**\n\n{result}{scan_hint}"
                 await ctx.interaction.edit_original_response(content=msg)
             for chunk in followups:
                 await ctx.send(chunk)

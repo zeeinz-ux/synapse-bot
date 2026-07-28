@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>{% block title %}Synapse Dashboard{% endblock %}</title>
 
-  <!-- ⚠️ JANGAN TAMBAHKAN <base target="_blank"> — akan buat semua link buka tab baru -->
+  <!-- ⚠️ JANGAN TAMBAHKAN <base target="_blank"> - akan buat semua link buka tab baru -->
 
   <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='LOGO-SYNAPSE-NO-BG.png') }}" />
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='LOGO-SYNAPSE-NO-BG.png') }}" />
@@ -34,7 +34,7 @@
           <div class="bot-info">
             <h1 class="bot-name">Synapse</h1>
             <span class="bot-status {% if s.online %}online{% else %}offline{% endif %}">
-              {% if s.online %}● {{ "base.online" | t }}{% else %}○ {{ "base.offline" | t }}{% endif %}
+              {% if s.online %}- {{ "base.online" | t }}{% else %}- {{ "base.offline" | t }}{% endif %}
             </span>
           </div>
         </div>

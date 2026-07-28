@@ -1,5 +1,5 @@
-# ============================================================================
-# firestore_stats.py — patched for quota-aware, debounced, async writes
+﻿# ============================================================================
+# firestore_stats.py - patched for quota-aware, debounced, async writes
 #
 # ROOT-LEVEL CHANGES vs original:
 #   1. All Firestore writes are dispatched via asyncio.to_thread() so the
@@ -7,10 +7,10 @@
 #   2. Each write path is debounced: many small updates within
 #      WRITE_DEBOUNCE_SECONDS collapse into a single batched write.
 #   3. A dirty-flag compares the new payload against the last successful
-#      write — identical payloads short-circuit the network call.
+#      write - identical payloads short-circuit the network call.
 #   4. A circuit breaker opens on 429 RESOURCE_EXHAUSTED / QUOTA_EXCEEDED
 #      errors and disables all writes for CIRCUIT_OPEN_SECONDS. Writes that
-#      arrive while the breaker is open are dropped (NOT queued — that's how
+#      arrive while the breaker is open are dropped (NOT queued - that's how
 #      we got banned in the first place).
 #   5. Public API surface is preserved: set_stats /
 #      set_guild_channels / get_* functions keep the same signatures so
@@ -45,7 +45,7 @@ except Exception:
 
 
 # ---------------------------------------------------------------------------
-# Tunables — adjust per environment via env vars (no code change required)
+# Tunables - adjust per environment via env vars (no code change required)
 #
 #   FIRESTORE_DEBOUNCE     Seconds to collapse writes (default 30)
 #                          Lower = fresher data, more quota. Higher = staler data, safer.
@@ -150,13 +150,13 @@ class _CircuitBreaker:
     def trip(self) -> None:
         with self._lock:
             self._open_until = time.monotonic() + self.open_seconds
-            print(f"[FIRESTORE STATS] ⚡ Circuit breaker OPEN — writes suspended for "
+            print(f"[FIRESTORE STATS] ⚡ Circuit breaker OPEN - writes suspended for "
                   f"{int(self.open_seconds)}s (Firestore returned 429 Quota exceeded)")
 
     def reset(self) -> None:
         with self._lock:
             if self._open_until != 0.0:
-                print("[FIRESTORE STATS] ✅ Circuit breaker CLOSED — writes resumed")
+                print("[FIRESTORE STATS] ✅ Circuit breaker CLOSED - writes resumed")
                 self._open_until = 0.0
 
     def retry_after(self) -> float:
@@ -195,7 +195,7 @@ def _get_db():
 
 
 # ---------------------------------------------------------------------------
-# Core write — debounced + dirty-checked + circuit-protected
+# Core write - debounced + dirty-checked + circuit-protected
 # ---------------------------------------------------------------------------
 async def _schedule_write(doc_id: str, payload: Dict[str, Any]) -> None:
     """Public entry. Updates the pending payload for `doc_id` and starts
@@ -218,7 +218,7 @@ async def _schedule_write(doc_id: str, payload: Dict[str, Any]) -> None:
             return
         pending.payload = payload
 
-    # Don't restart the timer if one is already ticking — just replace the
+    # Don't restart the timer if one is already ticking - just replace the
     # payload so it gets picked up when the timer fires.
     if pending.debounce_task and not pending.debounce_task.done():
         return
@@ -315,7 +315,7 @@ def _blocking_write(doc_id: str, payload: Dict[str, Any], payload_hash: str) -> 
 
 
 # ---------------------------------------------------------------------------
-# Reads — unchanged from original behavior
+# Reads - unchanged from original behavior
 # ---------------------------------------------------------------------------
 def _read_from_firestore() -> Optional[Dict[str, Any]]:
     db = _get_db()
@@ -331,7 +331,7 @@ def _read_from_firestore() -> Optional[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Public API — synchronous setters translate into scheduled async writes.
+# Public API - synchronous setters translate into scheduled async writes.
 # Callers (main.py, web_app.py) do NOT need to change.
 # ---------------------------------------------------------------------------
 def delete_guild_from_map(doc_id: str, guild_id: str) -> None:
@@ -376,7 +376,7 @@ def set_guild_channels(guild_id: str, channels: list):
     with _guild_channels_lock:
         _local_guild_channels[guild_id] = channels
 
-    # Batched write — collect across all guilds in one document.
+    # Batched write - collect across all guilds in one document.
     with _guild_channels_lock:
         full_snapshot = {gid: chs for gid, chs in _local_guild_channels.items()}
 
@@ -474,7 +474,7 @@ def get_bot_instance():
 
 
 # ---------------------------------------------------------------------------
-# Fire-and-forget helper — works from both sync and async contexts.
+# Fire-and-forget helper - works from both sync and async contexts.
 # ---------------------------------------------------------------------------
 def _fire_and_forget(coro):
     """Schedule a coroutine on the running loop, or run it inline if no loop is active."""
@@ -498,7 +498,7 @@ def _fire_and_forget(coro):
 
 
 # ---------------------------------------------------------------------------
-# Public helpers — reusable by other cogs that talk to Firestore.
+# Public helpers - reusable by other cogs that talk to Firestore.
 # Other cogs (leveling, ai_chat, etc.) can call:
 #
 #   from backend.utils.firestore_stats import firestore_circuit_open, trip_firestore_circuit
@@ -548,7 +548,7 @@ def get_firestore_diagnostics() -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Integrity & Cleanup — Guild Lifecycle Management
+# Integrity & Cleanup - Guild Lifecycle Management
 # ---------------------------------------------------------------------------
 async def _delete_subcollections(db, guild_id: str, subcollections: list) -> None:
     """Recursively delete all documents in subcollections under guild_settings/{guild_id}."""
@@ -625,7 +625,7 @@ async def integrity_sweep(bot) -> None:
         orphaned = stored_guild_ids - active_guild_ids
 
         if not orphaned:
-            print("[FIRESTORE CLEANUP] ✅ Integrity sweep clean — no orphaned guilds")
+            print("[FIRESTORE CLEANUP] ✅ Integrity sweep clean - no orphaned guilds")
             return
 
         print(f"[FIRESTORE CLEANUP] 🔍 Found {len(orphaned)} orphaned guild(s): {orphaned}")
@@ -636,7 +636,7 @@ async def integrity_sweep(bot) -> None:
             # Also clean up bot_status maps
             delete_guild_from_map("guild_channels", guild_id)
 
-        print(f"[FIRESTORE CLEANUP] ✅ Integrity sweep complete — removed {len(orphaned)} orphaned guild(s)")
+        print(f"[FIRESTORE CLEANUP] ✅ Integrity sweep complete - removed {len(orphaned)} orphaned guild(s)")
 
     except Exception as e:
         print(f"[FIRESTORE CLEANUP] ❌ Integrity sweep failed: {e}")

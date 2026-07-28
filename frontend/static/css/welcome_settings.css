@@ -11,7 +11,7 @@
 */
 
 /* ═══════════════════════════════════════════════════════
-   1. LAYOUT — dipakai SEMUA page
+   1. LAYOUT - dipakai SEMUA page
    ═══════════════════════════════════════════════════════ */
 
 /* ── Layout Reset: prevent double padding from .content-wrapper ───── */
@@ -24,11 +24,11 @@
 .page-wrap {
   width: 100%;
   max-width: 100%;
-  /* padding removed — handled by .content-wrapper globally */
+  /* padding removed - handled by .content-wrapper globally */
 }
 
 /* ═══════════════════════════════════════════════════════
-   2. BREADCRUMB — dipakai SEMUA page
+   2. BREADCRUMB - dipakai SEMUA page
    ═══════════════════════════════════════════════════════ */
 .breadcrumb {
   font-size: 0.8rem;
@@ -47,7 +47,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   3. PAGE HEADER — dipakai SEMUA page
+   3. PAGE HEADER - dipakai SEMUA page
    ═══════════════════════════════════════════════════════ */
 .page-header {
   margin-bottom: 1.75rem;
@@ -68,7 +68,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   4. STATUS BANNER — dipakai SEMUA page
+   4. STATUS BANNER - dipakai SEMUA page
    ═══════════════════════════════════════════════════════ */
 .status-banner {
   display: flex;
@@ -113,7 +113,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   5. CARD — dipakai SEMUA page
+   5. CARD - dipakai SEMUA page
    ═══════════════════════════════════════════════════════ */
 .card {
   background: var(--bg-card);
@@ -131,7 +131,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   6. SECTION TITLE — dipakai SEMUA page
+   6. SECTION TITLE - dipakai SEMUA page
    ═══════════════════════════════════════════════════════ */
 .section-title {
   font-size: 0.75rem;
@@ -146,7 +146,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   7. FORM — dipakai page Welcome/Leave/Ban/Boost Welcome
+   7. FORM - dipakai page Welcome/Leave/Ban/Boost Welcome
    ═══════════════════════════════════════════════════════ */
 .form-group {
   margin-bottom: 1.25rem;
@@ -229,7 +229,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   8. TOGGLE SWITCH — dipakai page Welcome/Leave/Ban/Boost
+   8. TOGGLE SWITCH - dipakai page Welcome/Leave/Ban/Boost
    ═══════════════════════════════════════════════════════ */
 .toggle-row {
   display: flex;
@@ -308,7 +308,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   9. EMBED PANEL — dipakai page Welcome/Leave/Ban/Boost
+   9. EMBED PANEL - dipakai page Welcome/Leave/Ban/Boost
    ═══════════════════════════════════════════════════════ */
 .embed-panel {
   max-height: 0;
@@ -336,7 +336,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   10. COLOR PICKER — dipakai page Welcome/Leave/Ban/Boost
+   10. COLOR PICKER - dipakai page Welcome/Leave/Ban/Boost
    ═══════════════════════════════════════════════════════ */
 .color-row {
   display: flex;
@@ -382,7 +382,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   11. EMBED LIVE PREVIEW — dipakai page Welcome/Leave/Ban
+   11. EMBED LIVE PREVIEW - dipakai page Welcome/Leave/Ban
    ═══════════════════════════════════════════════════════ */
 .preview-label {
   font-size: 0.72rem;
@@ -442,7 +442,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   12. BADGE — dipakai page Welcome/Leave/Ban/Boost
+   12. BADGE - dipakai page Welcome/Leave/Ban/Boost
    ═══════════════════════════════════════════════════════ */
 .embed-badge {
   display: inline-flex;
@@ -460,7 +460,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   13. SAVE BUTTON — dipakai page Welcome/Leave/Ban/Boost
+   13. SAVE BUTTON - dipakai page Welcome/Leave/Ban/Boost
    ═══════════════════════════════════════════════════════ */
 .btn-save {
   width: 100%;
@@ -518,7 +518,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   14. TOAST NOTIFICATION — dipakai SEMUA page
+   14. TOAST NOTIFICATION - dipakai SEMUA page
    ═══════════════════════════════════════════════════════ */
 .toast {
   position: fixed;
@@ -554,7 +554,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   15. UPLOAD ZONE — Drag & Drop
+   15. UPLOAD ZONE - Drag & Drop
    ═══════════════════════════════════════════════════════ */
 .upload-zone {
   position: relative;
@@ -691,7 +691,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   16. BANNER PREVIEW — Full-width welcome banner
+   16. BANNER PREVIEW - Full-width welcome banner
    ═══════════════════════════════════════════════════════ */
 .banner-preview {
   position: relative;
@@ -839,7 +839,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   17. STYLE SELECTOR — NEW v3.7 (Embed vs Banner)
+   17. STYLE SELECTOR - NEW v3.7 (Embed vs Banner)
    ═══════════════════════════════════════════════════════ */
 .style-selector {
   display: grid;
@@ -1008,7 +1008,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   18. KOYA BANNER PREVIEW — Dashboard preview (NEW v3.7)
+   18. KOYA BANNER PREVIEW - Dashboard preview (NEW v3.7)
    ═══════════════════════════════════════════════════════ */
 .koya-banner-preview {
   position: relative;
@@ -1099,7 +1099,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   19. SETTINGS CARD VISIBILITY — Show/hide by style
+   19. SETTINGS CARD VISIBILITY - Show/hide by style
    ═══════════════════════════════════════════════════════ */
 .embed-settings-card,
 .banner-settings-card {
@@ -1162,7 +1162,7 @@ textarea.form-control {
 }
 
 /* ═══════════════════════════════════════════════════════
-   21. RESPONSIVE — dipakai SEMUA page
+   21. RESPONSIVE - dipakai SEMUA page
    ═══════════════════════════════════════════════════════ */
 
 /* Mobile: ≤480px */

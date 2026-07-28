@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}AI Chat Settings — Synapse{% endblock %}
+{% block title %}AI Chat Settings - Synapse{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ai_chat.css') }}">
@@ -109,7 +109,7 @@
         {% for ch_id, ch_personality in channel_personalities.items() %}
         <div class="ch-personality-row" data-channel="{{ ch_id }}">
           <select class="form-select ch-personality-channel" style="flex:1;">
-            <option value="">— Pilih Channel —</option>
+            <option value="">- Pilih Channel -</option>
             {% for ch in channels %}
             <option value="{{ ch.id }}" {% if ch.id == ch_id %}selected{% endif %}>{{ ch.name }}</option>
             {% endfor %}
@@ -149,7 +149,7 @@
 
     <div class="form-group">
       <label>AI Engine</label>
-      <p class="field-hint">Synapse AI — auto-fallback multi-engine, seamless tanpa restart bot.</p>
+      <p class="field-hint">Synapse AI - auto-fallback multi-engine, seamless tanpa restart bot.</p>
       <div class="engine-stack-info">
         <div class="tier-badge tier-1"><i data-lucide="zap"></i> Synapse AI</div>
       </div>

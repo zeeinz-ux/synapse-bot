@@ -57,8 +57,8 @@
         if(d.boosts && d.boosts.length){
           for(var i=0; i<d.boosts.length; i++){
             var b = d.boosts[i];
-            var boosted = b.boosted_at ? b.boosted_at.slice(0,19).replace('T',' ') : '—';
-            var unboosted = b.unboosted_at ? b.unboosted_at.slice(0,19).replace('T',' ') : '—';
+            var boosted = b.boosted_at ? b.boosted_at.slice(0,19).replace('T',' ') : '-';
+            var unboosted = b.unboosted_at ? b.unboosted_at.slice(0,19).replace('T',' ') : '-';
             var statusClass = b.status === 'active' ? 'status-active' : 'status-expired';
             var statusLabel = b.status === 'active' ? 'Active' : 'Expired';
             html += '<tr>'
@@ -67,7 +67,7 @@
               + '<td>' + boosted + '</td>'
               + '<td><span class="' + statusClass + '">' + statusLabel + '</span></td>'
               + '<td>' + unboosted + '</td>'
-              + '<td>' + (b.note || '—') + '</td></tr>';
+              + '<td>' + (b.note || '-') + '</td></tr>';
           }
         } else {
           html = '<tr><td colspan="5" class="loading">Belum ada data boost</td></tr>';

@@ -614,7 +614,7 @@ class VoiceInterfaceCog(commands.Cog):
                 status_str = " ".join(status) if status else "\u2705"
                 owner = guild.get_member(room.owner_id)
                 owner_name = owner.display_name[:18] if owner else "Unknown"
-                lines.append(f"\u2022 **{vc.name}** — {len(vc.members)}m {status_str} — {owner_name}")
+                lines.append(f"\u2022 **{vc.name}** - {len(vc.members)}m {status_str} - {owner_name}")
             remaining = len(visible) - 10
             if remaining > 0:
                 lines.append(f"  *\u2026 and {remaining} more*")

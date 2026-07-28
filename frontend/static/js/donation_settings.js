@@ -20,7 +20,7 @@
   function makeNoteCell(tx){
     var note = tx.note || '';
     return '<span class="note-display" data-tx="' + tx.id + '">'
-      + '<span class="note-text">' + (note || '—') + '</span>'
+      + '<span class="note-text">' + (note || '-') + '</span>'
       + '<button class="btn-note-edit" data-tx="' + tx.id + '" title="Edit catatan">✏️</button>'
       + '</span>';
   }
@@ -31,7 +31,7 @@
         var txId = this.dataset.tx;
         var cell = this.closest('.note-display');
         var textEl = cell.querySelector('.note-text');
-        var current = textEl.textContent === '—' ? '' : textEl.textContent;
+        var current = textEl.textContent === '-' ? '' : textEl.textContent;
         var input = document.createElement('input');
         input.type = 'text';
         input.className = 'note-input';
@@ -126,7 +126,7 @@
         if(d.donations && d.donations.length){
           for(var i=0; i<d.donations.length; i++){
             var tx = d.donations[i];
-            var created = tx.created_at ? tx.created_at.slice(0,19).replace('T',' ') : '—';
+            var created = tx.created_at ? tx.created_at.slice(0,19).replace('T',' ') : '-';
             var statusClass = tx.status === 'completed' ? 'status-completed' : 'status-pending';
             var statusLabel = tx.status === 'completed' ? 'Completed' : 'Pending';
             var confirmBtn = tx.status === 'completed'
@@ -136,7 +136,7 @@
               + '<td><code>' + tx.id.slice(0,8) + '…</code></td>'
               + '<td><img class="user-avatar" src="' + userAvatar(tx) + '" loading="lazy"><span class="user-name-cell">' + userName(tx) + '</span></td>'
               + '<td class="amount-col">' + fmtRupiah(tx.amount) + '</td>'
-              + '<td>' + (tx.payment_method || '—').toUpperCase() + '</td>'
+              + '<td>' + (tx.payment_method || '-').toUpperCase() + '</td>'
               + '<td><span class="' + statusClass + '">' + statusLabel + '</span></td>'
               + '<td>' + created + '</td>'
               + '<td class="action-col">' + confirmBtn + '</td>'
@@ -194,7 +194,7 @@
       .then(function(d){
         var sel = document.getElementById('donation-channel');
         if(!sel) return;
-        var html = '<option value="">— Tidak ada (nonaktif) —</option>';
+        var html = '<option value="">- Tidak ada (nonaktif) -</option>';
         if(d.channels && d.channels.length){
           d.channels.sort(function(a,b){ return a.name.localeCompare(b.name); });
           d.channels.forEach(function(ch){

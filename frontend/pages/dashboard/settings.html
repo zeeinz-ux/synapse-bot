@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Bot Settings — Synapse{% endblock %}
+{% block title %}Bot Settings - Synapse{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}" />
 {% endblock %}
@@ -24,14 +24,14 @@
     <div class="set-server-info">
       <div class="set-server-icon" id="setServerIcon"></div>
       <div>
-        <div class="set-server-name" id="setServerName">—</div>
-        <div class="set-server-id" id="setServerId">—</div>
+        <div class="set-server-name" id="setServerName">-</div>
+        <div class="set-server-id" id="setServerId">-</div>
       </div>
     </div>
     <div class="set-info-grid">
       <div class="set-info-item">
         <div class="set-info-label">Member</div>
-        <div class="set-info-value" id="setMemberCount">—</div>
+        <div class="set-info-value" id="setMemberCount">-</div>
       </div>
       <div class="set-info-item">
         <div class="set-info-label">Bot Status</div>
@@ -54,7 +54,7 @@
     <div class="set-field">
       <label>Channel log bot events</label>
       <select id="logChannel">
-        <option value="">— Tidak ada —</option>
+        <option value="">- Tidak ada -</option>
       </select>
     </div>
     <div class="set-field">

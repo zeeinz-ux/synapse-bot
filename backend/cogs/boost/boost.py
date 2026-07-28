@@ -8,7 +8,7 @@ from firebase_admin import firestore
 # Firestore Composite Indexes (wajib bikin manual):
 # Collection: boosts
 #   1. user_id (Asc) + guild_id (Asc) + status (Asc)
-#   2. guild_id (Asc)  — otomatis (single field)
+#   2. guild_id (Asc)  - otomatis (single field)
 # ═══════════════════════════════════════════════════
 
 class BoostCog(commands.Cog):
@@ -43,7 +43,7 @@ class BoostCog(commands.Cog):
     async def _scan_existing_boosters(self):
         await asyncio.sleep(5)
         if not hasattr(self.bot, 'db') or not self.bot.db:
-            print("[BOOST] ⚠️ Scan skipped — Firestore not available.")
+            print("[BOOST] ⚠️ Scan skipped - Firestore not available.")
             return
         for guild in self.bot.guilds:
             try:

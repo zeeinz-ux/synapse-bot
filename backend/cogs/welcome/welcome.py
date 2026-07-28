@@ -1,6 +1,6 @@
 # =============================================================================
-# cogs/welcome.py — Synapse Discord Bot v3.7.6
-# Modul  : Welcome Announcement (Join Message) — Dual Style: Embed + Banner
+# cogs/welcome.py - Synapse Discord Bot v3.7.6
+# Modul  : Welcome Announcement (Join Message) - Dual Style: Embed + Banner
 # Author : zeeinz-ux
 # FIX v3.7.6:
 #   - _download_image() now handles BASE64 data URLs (data:image/png;base64,...)
@@ -32,7 +32,7 @@ class WelcomeCog(commands.Cog, name="Welcome"):
         self._last_welcome = {}
         self._cooldown_seconds = 30  # ← GANTI DI SINI: 0, 30, 60, 300, dll
         self._welcome_locks = {}
-        print(f"[WELCOME] ✅ WelcomeCog v3.7.6 — Cooldown: {self._cooldown_seconds}s")
+        print(f"[WELCOME] ✅ WelcomeCog v3.7.6 - Cooldown: {self._cooldown_seconds}s")
 
     def _get_lock(self, guild_id: str, user_id: str) -> asyncio.Lock:
         key = f"{guild_id}:{user_id}"

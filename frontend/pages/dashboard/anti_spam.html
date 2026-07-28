@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Anti Spam — Synapse{% endblock %}
+{% block title %}Anti Spam - Synapse{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/anti_spam.css') }}">
@@ -76,7 +76,7 @@
       <div class="form-group">
         <label for="report-channel">Channel Laporan</label>
         <select id="report-channel" class="form-select">
-          <option value="">— Tidak ada (nonaktif) —</option>
+          <option value="">- Tidak ada (nonaktif) -</option>
         </select>
       </div>
     </div>
@@ -99,7 +99,7 @@
           </select>
         </div>
         <div class="form-group" id="new-account-duration-group">
-          <label for="new-account-duration">Durasi (jam) — untuk Timeout</label>
+          <label for="new-account-duration">Durasi (jam) - untuk Timeout</label>
           <input type="number" id="new-account-duration" class="form-input" value="1" min="1" max="168">
         </div>
       </div>
@@ -174,7 +174,7 @@
         <h3><i data-lucide="users"></i> Roles</h3>
         <div class="whitelist-input-row">
           <select id="wl-role-select" class="wl-input">
-            <option value="">— Pilih Role —</option>
+            <option value="">- Pilih Role -</option>
           </select>
           <button id="wl-role-add" class="btn btn-primary btn-sm"><i data-lucide="plus"></i> Tambah</button>
         </div>
