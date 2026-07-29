@@ -346,17 +346,42 @@ async def on_ready():
         bot._queue_consumer_task = asyncio.create_task(_control_queue_consumer())
         log.info("Control queue consumer started (5s interval)")
 
-    try:
-        synced = await bot.tree.sync()
-        log.info("%d slash command(s) synced", len(synced))
-        for cmd in synced:
-            log.info("  - /%s", cmd.name)
-    except discord.HTTPException as e:
-        log.warning("Sync HTTP %d - %s", e.status, e.text)
-        if e.status == 429:
-            log.warning("Rate limited, using old commands")
-    except Exception as e:
-        log.error("Failed to sync commands: %s", e)
+    # ── Guild sync (instant) untuk testing ──
+    first_guild = bot.guilds[0] if bot.guilds else None
+    if first_guild:
+        for attempt in range(3):
+            try:
+                guild_synced = await bot.tree.sync(guild=first_guild)
+                log.info("Guild sync for %s: %d command(s)", first_guild.name, len(guild_synced))
+                break
+            except discord.HTTPException as e:
+                if e.status == 429 and attempt < 2:
+                    wait = 5 * (attempt + 1)
+                    log.warning("Guild sync 429, retry in %ds", wait)
+                    await asyncio.sleep(wait)
+                else:
+                    log.warning("Guild sync fail: %d %s", e.status, e.text)
+                    break
+
+    # ── Global sync ──
+    for attempt in range(3):
+        try:
+            synced = await bot.tree.sync()
+            log.info("%d slash command(s) globally synced", len(synced))
+            for cmd in synced:
+                log.info("  - /%s", cmd.name)
+            break
+        except discord.HTTPException as e:
+            if e.status == 429 and attempt < 2:
+                wait = 5 * (attempt + 1)
+                log.warning("Global sync 429, retry in %ds", wait)
+                await asyncio.sleep(wait)
+            else:
+                log.warning("Global sync fail: %d %s", e.status, e.text)
+                break
+        except Exception as e:
+            log.error("Failed to sync commands: %s", e)
+            break
 
     await integrity_sweep(bot)
 

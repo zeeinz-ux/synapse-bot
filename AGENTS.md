@@ -23,7 +23,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 
 ## Key Quirks
 
-- **Hybrid commands**: prefix `!` + slash. Slash sync on `on_ready` (`main.py:349-359`).
+- **Hybrid commands**: prefix `!` + slash. Slash sync on `on_ready` (`main.py:349-379`). First syncs to first guild (instant) then global sync, with 3 retries on 429.
 - **Cog auto-load**: `os.walk` on `backend/cogs/`, skips `__init__.py` and `firebase_setup.py`, loads any `.py` with `async def setup()`. 16 cogs total (verify by grepping `async def setup(bot`).
 - **Intents**: `message_content`, `members`, `moderation`, `voice_states` enabled (`main.py:47-51`). Others default.
 - **Memory monitor**: reads `/proc/*/status` VmRSS every 5 min → `gc.collect()` if >300MB. **Linux-only** — fails silently on Windows (`main.py:218-238`).
