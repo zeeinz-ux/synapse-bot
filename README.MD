@@ -53,6 +53,7 @@
 ### 🛡️ Moderation & Anti‑Nuke
 - 3‑layer image spam detection (rate limit → pHash → AI Vision: OpenCode Zen → Gemini → OpenRouter)
 - AI Vision khusus untuk deteksi spam gambar (scam, phishing, judi, giveaway palsu)
+- **Ban Evasion Detection** — text fingerprinting (URL + scam keywords + mentions → hash) stored to Firestore `ban_patterns` on ban/kick; new accounts <60 days auto-checked against known patterns (exact & partial URL match)
 - 3‑strike system: timeout → kick → ban
 - Anti‑Nuke: sliding window for mass ban/kick/channel/role operations
 - Auto‑lockdown with permission restore

@@ -50,6 +50,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - OpenCode Zen: **Tier 1 — Free priority**. Fetches free models from API at startup; fallback hardcoded list (`opencode_zen.py:10-23`). Vision models: `deepseek-v4-flash-free`, `nemotron-3-ultra-free`.
 - Gemini: model `gemini-3.6-flash`. Circuit breaker (3 consecutive fails → skip 2h) + daily quota reserve for vision (1500/day, reserve 200).
 - **Image analysis is NOT Gemini-only** — OpenRouter and OpenCode Zen also have vision models. Falls back through providers like chat does.
+- **Spam Intelligence Vision**: `analyze_image_spam_intelligence()` uses a merged mega-prompt combining crypto/phishing scam detection + threat intelligence + false positive policy. Returns structured JSON with indicators, action recommendations, and Firestore storage directives.
 - OpenRouter: **Tier 6 — Last resort**. Auto-fetches `:free` models from API on startup, tries all free before paid fallback.
 - Streaming: `/ask` uses progressive message edits (~1s). Mention-based chat uses batch mode.
 - Intent router (`intent_router.py`) + web search (`web_search.py`) integrated in `ai_chat.py`.
@@ -83,13 +84,12 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - Auto-delete: owner leave + empty → immediate; empty 10s → auto-delete.
 - `/setup` command creates the voice infrastructure (7 categories, 21 channels).
 
-## Music Player (`backend/cogs/music/music.py`) — LoFi Only
+## Music Player (`backend/cogs/music/music.py`) — Radio Only
 
-- **Commands**: `/play`, `/station`, `/song`, `/sleep`, `/stop`, `/fix-voice`, `!connect`/`!joinvc`, `!leave`.
-- **YouTube removed**: Render IP diblokir YouTube total. Bot cuma muterin LoFi radio stream.
-- LoFi radio stream (`play.streamafrica.net/lofiradio`) auto-restarts on EOF.
-- Auto-resume: voice state saved to Firestore (`voice_state` collection), restored on cog `on_ready`.
-- AI Agent accesses via `run_command("connect"/"play"/"leave"/"stop")`.
+- **5 stations** (lofi/jazz/chill/study/sleep). `/play` + `/station` auto-complete.
+- `/sleep <minutes>`, `/fix-voice`, prefix `!connect`/`!joinvc`/`!leave`.
+- Auto-restart on EOF, auto-resume via Firestore `voice_state` collection.
+- AI Agent: `run_command("connect"/"play"/"leave"/"stop")`.
 
 ## Dashboard (Flask)
 
@@ -110,7 +110,10 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 
 ## Moderation (spam, `backend/utils/`)
 
-- 3-layer image spam: rate limit (4/10s) → pHash + Hamming → Gemini Vision + Google Cloud Vision OCR.
+- **3-layer image spam**: rate limit (4/10s) → pHash + Hamming → Gemini Vision + Google Cloud Vision OCR.
+- **SpamIntelligence** (`backend/utils/spam_intelligence.py`): AI engine with persistent Firestore `scam_signatures` collection. Pre-checks known scam templates by pHash before other layers. After flagging, runs structured Vision AI analysis → stores signatures if confidence >= 85 with >= 3 indicators.
+- **Ban Evasion Detection** (`spam_intelligence.py:557-714`): Text fingerprinting via `_compute_text_fingerprint()` — extracts scam URLs, keywords, and mentions into a 24-char hash. On ban/kick, `store_ban_pattern()` persists fingerprint to Firestore `ban_patterns` collection with `timesBanned` counter. On each new message from accounts <60 days old (`moderation.py`), `check_ban_pattern()` compares against cache — exact hash match or partial URL domain match triggers evasion ban.
+- **AUTO_BAN** on known threat match OR confidence >= 95 with >= 3 indicators + low false-positive risk. **AUTO_KICK** at >= 90 for image scams.
 - 3-strike: timeout (24h) → kick → ban. Resets after 24h clean.
 
 ## Anti-Nuke (`backend/cogs/anti_nuke/anti_nuke.py`)
@@ -140,37 +143,6 @@ None. Zero tests, no pytest, no lint, no typecheck, no formatter, no CI. Manual 
 
 ## Deployment
 
-**Render.com** via Dockerfile. `python:3.11-slim`, installs `curl unzip fonts-dejavu-core ffmpeg`, runs `pip install --upgrade yt-dlp` saat build, lalu `honcho start -f Procfile`. UptimeRobot health ping every 5 min.
+**Railway** (primary) via `railway.json` + Dockerfile. **Render** also compatible. `python:3.11-slim`, installs `curl unzip fonts-dejavu-core ffmpeg`. Both run `honcho start -f Procfile`.
 
----
 
-## Session Context (last active: 2026-07-27)
-
-### Music Cog Fixes (`backend/cogs/music/music.py`)
-1. **`/play` thinking stuck** — Hapus `ctx.defer()` global. Pake `self._respond()` via `edit_original_response()` fallback.
-2. **`/station` ga ganti** — `_on_track_end` sekarang pake current station URL dari `_guild_stations`, bukan parameter lama.
-3. **`/song` timeout** — Tambah `defer` + `_respond()`.
-4. **"Already playing audio"** — Tambah `vc.stop()` sebelum `vc.play()` di `_play_looping`.
-5. **Audio patah-patah** — Tambah `-af aresample=async=1:min_hard_comp=0.1` ke ffmpeg options.
-
-### Rebrand: LoFi → Synapse
-- Labels: `"🎧 Synapse Radio"`, `"🎷 Synapse Jazz"`, `"🌊 Synapse Chill"`, `"📚 Synapse Study"`, `"😴 Synapse Sleep"`
-- `/station` tanpa arg → nampilin daftar embed + autocomplete choices
-- `/play` juga ada autocomplete choices
-- Ganti `id.json`, `en.json`, `agent.html` — hapus semua "LoFi" dari user-facing text
-
-### Jazz Stream URL Fix
-- Sebelum: `stream.zeno.fm/v4kaet5ab1ntv` (ada segmen ngomong)
-- Sesudah: `radio.loficafe.net/listen/japanese-lofi/radio.mp3`
-
-### Dashboard Save Bug
-- `window.CURRENT_GUILD_ID` gak pernah di-set di `base.html` → tambah `<script>` inject
-- `agent.js` & `ai_chat.js`: `const GUILD_ID` → `let` biar fallback dari URL berfungsi
-- Save button sekarang kirim `enabled` juga (gak cuma `agent_mode`)
-
-### Plan (`plan.md`)
-- PRD + workflow untuk 6 fitur AI Agent:
-  - P0: Auto-Fix (self-healing pas tool error)
-  - P1: Feedback Loop, Run Code
-  - P2: Web Browsing, Memory Compression
-  - P3: Custom Command Creator

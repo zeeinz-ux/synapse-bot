@@ -21,10 +21,11 @@ import os
 import base64
 import hashlib
 import traceback
+import json
 import time as time_module
 import asyncio
 from datetime import datetime, timezone
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import discord
 from discord.ext import commands, tasks
@@ -280,6 +281,142 @@ class AIChat(commands.Cog):
             if not is_safe:
                 return True
         return False
+
+    async def analyze_image_spam_intelligence(self, image_data: bytes, mime_type: str, text_context: str = "") -> dict:
+        prompt = (
+            "# ROLE\n"
+            "You are the AI Spam Intelligence Engine for a Discord Moderation Bot.\n"
+            "Your duty is to detect harmful crypto/phishing scams and build permanent threat memory.\n"
+            "False positives are more harmful than false negatives. Never punish without sufficient evidence.\n\n"
+
+            "# ANALYSIS INPUT\n"
+            "Message context: \"\"\"{text_context}\"\"\"\n"
+            "Analyze all available context. Never rely on only one feature.\n\n"
+
+            "# IMAGE ANALYSIS — Extract ALL of these when present:\n"
+            "- visible text (OCR)\n"
+            "- logos (Binance, Bybit, OKX, Telegram, WhatsApp, etc.)\n"
+            "- QR codes\n"
+            "- wallet addresses (BTC, ETH, USDT, BNB, SOL)\n"
+            "- crypto symbols\n"
+            "- URLs and suspicious domains\n"
+            "- UI layouts (fake dashboards, withdrawal screens)\n"
+            "- repeated templates suggesting mass production\n"
+            "- fake earnings, fake withdrawals, fake profits\n"
+            "- fake testimonials\n"
+            "- fake celebrity endorsements (MrBeast, Elon Musk, crypto figures)\n"
+            "- fake Discord screenshots\n"
+            "- fake Binance/Bybit/OKX UI\n\n"
+
+            "# SCAM INDICATORS — Look for these specific patterns:\n"
+            "Fake Withdrawal Screen, Crypto Balance, USDT Profit, MrBeast Giveaway,\n"
+            "Bonus Code, Referral Bonus, Guaranteed Profit, 100% Safe, Instant Withdrawal,\n"
+            "Deposit Required, Fake Binance UI, Fake Bybit UI, Fake OKX UI,\n"
+            "Telegram Contact, WhatsApp Contact, QR Code, Wallet Address,\n"
+            "Suspicious Domain, Fake Verification, Investment Package,\n"
+            "Limited Time Bonus, Screenshot Manipulation, Repeated Template,\n"
+            "Activate Code for Bonus, Rakeback, Crypto Casino Dashboard\n\n"
+
+            "# TEXT & MENTION CONTEXT\n"
+            "If the message has @everyone/@here but the text is a normal community call "
+            "like '@everyone join dc', '@everyone mabar', '@everyone online guys' — "
+            "it is SAFE. Do NOT flag it.\n"
+            "A mention is ONLY scam if accompanied by: phishing links, "
+            "free Nitro claims, crypto drops, giveaways, or repeated identical flooding.\n\n"
+
+            "# OUTPUT FORMAT — Return ONLY this exact JSON structure:\n"
+            "{\n"
+            '  "isScam": true/false,\n'
+            '  "confidence": 0-100,\n'
+            '  "actionRequired": "BAN" or "TIMEOUT" or "NONE",\n'
+            '  "classification": "confirmed_scam" or "suspicious" or "safe",\n'
+            '  "riskLevel": "CRITICAL" or "HIGH" or "MEDIUM" or "LOW" or "SAFE",\n'
+            '  "threatCategory": "CRYPTO_PHISHING_IMAGE" or "LINK_SCAM" or "FAKE_GIVEAWAY" or "GAMBLING" or "NONE",\n'
+            '  "detectedIndicators": [list of strings matching indicator names above],\n'
+            '  "reasoning": [list of concise reasons],\n'
+            '  "ocrText": "all visible text exactly as seen in image",\n'
+            '  "extractedKeywords": ["list of detected keywords like MrBeast, USDT, etc."],\n'
+            '  "hasQRCode": true/false,\n'
+            '  "hasCryptoAddress": true/false,\n'
+            '  "hasSuspiciousURL": true/false,\n'
+            '  "hasFakeUI": true/false,\n'
+            '  "hasCelebrityImpersonation": true/false,\n'
+            '  "saveToFirestore": true/false\n'
+            "}\n\n"
+
+            "# THREAT SCORING\n"
+            "0-20 Safe | 21-40 Low Risk | 41-60 Suspicious | 61-80 High Risk | 81-100 Confirmed Scam\n\n"
+
+            "# AUTO BAN POLICY\n"
+            "Recommend BAN action only if:\n"
+            "- Known scam pattern exists, OR\n"
+            "- Confidence >= 95 AND multiple indicators AND image matches scam campaign AND no false positive evidence\n\n"
+
+            "# FALSE POSITIVE POLICY — CRITICAL\n"
+            "Never classify as scam ONLY because of: @everyone, @here, Discord Invite, "
+            "Nitro mention, emoji spam, caps lock, short messages, advertising, "
+            "promotions, invite links, friend invitations.\n"
+            "These alone are NEVER scams. Require multiple independent signals."
+        )
+        prompt = prompt.replace("{text_context}", text_context)
+
+        system_prompt = (
+            "You are the AI Spam Intelligence Engine. "
+            "Your output is parsed by automation. Return ONLY valid JSON. "
+            "Protect innocent users first. Never punish without sufficient evidence."
+        )
+
+        image_for_api = [{"type": "image_url", "image_url": self._to_data_url(image_data, mime_type)}]
+
+        try:
+            if self.zen and self.zen.is_available:
+                response, success = await self.zen.call(prompt, [], system_prompt, 0.1, image_for_api)
+                if success:
+                    parsed = self._try_parse_json(response)
+                    if parsed:
+                        return parsed
+
+            if self.gemini and self.gemini.quota_available:
+                response, success = await self.gemini.call(prompt, [], system_prompt, 0.1, image_for_api)
+                if success:
+                    parsed = self._try_parse_json(response)
+                    if parsed:
+                        return parsed
+
+            if self.openrouter and self.openrouter.is_available:
+                response, success = await self.openrouter.call(prompt, [], system_prompt, 0.1, image_for_api)
+                if success:
+                    parsed = self._try_parse_json(response)
+                    if parsed:
+                        return parsed
+        except Exception as e:
+            print(f"[AI INTEL] Vision analysis error: {e}")
+
+        return {"isScam": False, "detectedIndicators": [], "reasoning": ["Vision analysis unavailable"], "ocrText": ""}
+
+    @staticmethod
+    def _try_parse_json(text: str) -> Optional[dict]:
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.strip("`").strip()
+            if text.startswith("json"):
+                text = text[4:].strip()
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1:
+            try:
+                return json.loads(text[start:end+1])
+            except json.JSONDecodeError:
+                pass
+        return None
+
+    @staticmethod
+    def _to_data_url(data: bytes, mime: str) -> str:
+        return f"data:{mime};base64,{base64.b64encode(data).decode()}"
 
     # ── Helpers ──
 

@@ -7,6 +7,7 @@ import time
 import aiohttp
 from ...utils.spam_engine import SpamEngine
 from ...utils.image_spam import ImageSpamDetector
+from ...utils.spam_intelligence import SpamIntelligence
 from ..database.firebase_setup import db
 
 class Moderation(commands.Cog):
@@ -14,6 +15,7 @@ class Moderation(commands.Cog):
         self.bot = bot
         self.engine = SpamEngine()
         self.img_detector = ImageSpamDetector()
+        self.intel: SpamIntelligence | None = None
         self._session: aiohttp.ClientSession | None = None
         self.report_channel_id = 1517948052537868449
         self._join_timestamps: dict[int, list[float]] = {}
@@ -23,6 +25,9 @@ class Moderation(commands.Cog):
     async def cog_load(self):
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
+
+        self.intel = SpamIntelligence(self.bot)
+        await self.intel.ensure_cache_loaded()
 
         # Load persisted spam hashes + OCR counters dari Firestore
         await self._load_spam_hashes()
@@ -120,6 +125,33 @@ class Moderation(commands.Cog):
         if hasattr(message.author, "created_at"):
             account_age = (datetime.datetime.now(timezone.utc) - message.author.created_at).days
 
+        # ── Known threat pre-check ──
+        image_urls = self.img_detector.extract_image_urls(message) if cfg.get("filter_image", True) and self._session else []
+        if self.intel and image_urls:
+            data = await self.img_detector.download_image(image_urls[0][0], self._session)
+            if data:
+                pre_hash = ImageSpamDetector.compute_hash(data)
+                if pre_hash is not None:
+                    pre_result = await self.intel.analyze(
+                        content=message.content or "",
+                        img_hash=pre_hash,
+                        heuristic_score=current_score,
+                        account_age_days=account_age,
+                        author_id=str(message.author.id),
+                        guild_id=guild_id,
+                        channel_id=str(message.channel.id),
+                    )
+                    if pre_result["signatureExists"] and pre_result["confidence"] >= 85:
+                        await self.handle_spam(message, f"Filter Intel: {pre_result['explanation']}")
+                        return
+
+        # ── Ban pattern / evasion check (young accounts only) ──
+        if account_age < 60 and self.intel and message.content:
+            evasion = await self.intel.check_ban_pattern(message.content, account_age_days=account_age)
+            if evasion:
+                await self.handle_spam(message, f"Filter Evasi: Pola scam cocok dengan pengguna yang di-ban sebelumnya ({evasion['matchType']}, bannedUser={evasion['bannedUser']})")
+                return
+
         # ── Heuristic trigger (score >= 5) → skip AI kalo akun <60hr / join <7hr / score >=10 ──
         if cfg.get("filter_heuristic", True) and current_score >= 5:
             # ── Skip AI condition ──
@@ -167,7 +199,7 @@ class Moderation(commands.Cog):
         # ── Image spam check ──
         if cfg.get("filter_image", True) and self._session:
             image_urls = self.img_detector.extract_image_urls(message)
-            if image_urls and await self._check_image_spam(message, image_urls):
+            if image_urls and await self._check_image_spam(message, image_urls, current_score):
                 return
 
         await self.bot.process_commands(message)
@@ -227,12 +259,19 @@ class Moderation(commands.Cog):
                 )
             print(f"[RAID] ⚠️ Raid detected in {member.guild.name} - {len(self._join_timestamps[guild_id])} joins in {window//60}min")
 
-    async def _check_image_spam(self, message, image_urls: list[tuple[str, str]]) -> bool:
+    async def _check_image_spam(self, message, image_urls: list[tuple[str, str]], heuristic_score: int = 0) -> bool:
         """Check images in message. Returns True if flagged as spam."""
         guild_id = str(message.guild.id)
         cfg = await self._get_config(guild_id)
         user_id = str(message.author.id)
         flagged = False
+
+        account_age = 0
+        if hasattr(message.author, "created_at"):
+            account_age = (datetime.datetime.now(timezone.utc) - message.author.created_at).days
+        join_age_days = 999
+        if hasattr(message.author, "joined_at") and message.author.joined_at:
+            join_age_days = (datetime.datetime.now(timezone.utc) - message.author.joined_at).days
 
         for url, mime in image_urls:
             # Layer 1: Rate limit
@@ -262,12 +301,6 @@ class Moderation(commands.Cog):
                 return True
 
             # Layer 3: Gemini Vision (only for suspicious users)
-            account_age = 0
-            if hasattr(message.author, "created_at"):
-                account_age = (datetime.datetime.now(timezone.utc) - message.author.created_at).days
-            join_age_days = 999
-            if hasattr(message.author, "joined_at") and message.author.joined_at:
-                join_age_days = (datetime.datetime.now(timezone.utc) - message.author.joined_at).days
             is_suspicious = account_age < 60 or join_age_days < 7
             is_flooding = self.img_detector.is_sending_images_fast(user_id)
 
@@ -297,7 +330,40 @@ class Moderation(commands.Cog):
         if flagged:
             self.img_detector.flag_as_spam(img_hash)
             await self._save_spam_hash(img_hash)
-            await self.handle_spam(message, "Filter Gambar: Gambar mengandung konten spam/judi/scam")
+
+            vision_reason = "Filter Gambar: Gambar mengandung konten spam/judi/scam"
+            if self.intel and data:
+                intel_result = await self.intel.analyze(
+                    content=message.content or "",
+                    image_data=data,
+                    mime_type=mime,
+                    heuristic_score=heuristic_score,
+                    account_age_days=account_age,
+                    join_age_days=join_age_days,
+                    author_id=str(message.author.id),
+                    img_hash=img_hash,
+                    guild_id=guild_id,
+                    channel_id=str(message.channel.id),
+                )
+                if intel_result["shouldStoreSignature"]:
+                    signature = await self.intel.build_signature(
+                        img_hash=img_hash,
+                        confidence=intel_result["confidence"],
+                        category=intel_result["threatCategory"],
+                        indicators=intel_result["detectedIndicators"],
+                        guild_id=guild_id,
+                        user_id=str(message.author.id),
+                        channel_id=str(message.channel.id),
+                        domains=intel_result.get("domains"),
+                        wallet_addresses=intel_result.get("walletAddresses"),
+                        logos=intel_result.get("logos"),
+                    )
+                    await self.intel.store_threat_signature(signature)
+
+                if intel_result["recommendation"] in ("AUTO_BAN", "AUTO_DELETE", "AUTO_KICK"):
+                    vision_reason = f"Filter Intel: {intel_result['explanation']}"
+
+            await self.handle_spam(message, vision_reason)
             return True
 
         # Periodic cleanup (once every 50 checks)
@@ -324,12 +390,16 @@ class Moderation(commands.Cog):
             is_ai_serious = any(k in reason_lower for k in [
                 "gambar mengandung", "scam", "judi", "phishing", "berbahaya",
                 "diverifikasi sebagai spam oleh ai", "konten mencurigakan oleh llm",
+                "filter intel",
             ])
+
+            was_punished = False
 
             if is_ai_serious:
                 await message.author.ban(reason=f"BAN LANGSUNG (AI): {reason}")
                 punishment_msg = "BAN LANGSUNG ⛔"
                 strikes = "-"
+                was_punished = True
             else:
                 new_account_max_age = cfg.get("new_account_max_age", 60)
                 new_account_action = cfg.get("new_account_action", "ban")
@@ -339,9 +409,11 @@ class Moderation(commands.Cog):
                     if na_action == "ban":
                         await message.author.ban(reason=f"Auto-Ban (akun <{new_account_max_age}hr): {reason}")
                         punishment_msg = f"BAN (akun baru < {new_account_max_age} hari)"
+                        was_punished = True
                     elif na_action == "kick":
                         await message.author.kick(reason=f"Auto-Kick (akun <{new_account_max_age}hr): {reason}")
                         punishment_msg = f"KICK (akun baru < {new_account_max_age} hari)"
+                        was_punished = True
                     elif na_action == "timeout":
                         hours = cfg.get("new_account_timeout_hours", 1)
                         duration = datetime.timedelta(hours=hours)
@@ -373,9 +445,11 @@ class Moderation(commands.Cog):
                     if action == "ban":
                         await message.author.ban(reason=f"Auto-Ban: {reason}")
                         punishment_msg = "BAN permanen"
+                        was_punished = True
                     elif action == "kick":
                         await message.author.kick(reason=f"Auto-Kick: {reason}")
                         punishment_msg = "KICK"
+                        was_punished = True
                     elif action == "timeout":
                         hours = action_cfg.get("duration_hours", 1)
                         duration = datetime.timedelta(hours=hours)
@@ -384,6 +458,16 @@ class Moderation(commands.Cog):
                     else:
                         await message.author.ban(reason=f"Auto-Ban: {reason}")
                         punishment_msg = "BAN permanen"
+                        was_punished = True
+
+            if was_punished and hasattr(self, "spam_intel") and self.spam_intel:
+                await self.spam_intel.store_ban_pattern(
+                    content=message.content,
+                    reason=reason,
+                    guild_id=guild_id,
+                    user_id=str(message.author.id),
+                    user_name=str(message.author),
+                )
 
             report_ch_id = cfg.get("report_channel", "") or str(self.report_channel_id)
             report_channel = self.bot.get_channel(int(report_ch_id))
