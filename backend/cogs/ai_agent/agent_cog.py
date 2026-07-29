@@ -576,7 +576,10 @@ class AIChatAgent(commands.Cog):
             f"{scan_section_sys}"
             f"Kamu adalah AI Agent profesional yang paham seluruh struktur Discord server.\n"
             f"Gunakan pengetahuan permission di atas untuk memberikan saran terbaik ke user.\n"
-            f"Ikuti aturan dengan ketat."
+            f"Ikuti aturan dengan ketat.\n\n"
+            f"🧠 MODERASI OTOMATIS: Bot punya SpamIntelligence engine — 3-layer scam detection (rate limit → pHash → AI Vision). "
+            f"Juga Ban Evasion Detection: pola teks scam disimpan pas ban/kick, akun baru (<60hr) dicek otomatis. "
+            f"Ini semua jalan otomatis, kamu gak perlu intervensi manual kecuali diminta."
         )
         # Plan prompt - bikin rencana dulu sebelum eksekusi
         scan_section_plan = (f"Data hasil scan server:\n{scan_context}\n\n") if scan_context else ""
