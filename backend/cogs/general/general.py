@@ -513,6 +513,26 @@ class GeneralCog(commands.Cog):
         minutes, seconds = divmod(remainder, 60)
         return f"{hours}h {minutes}m {seconds}s"
 
+    @commands.hybrid_command(name="ping", description="Cek latency bot")
+    async def ping(self, ctx: commands.Context):
+        ws_latency = round(self.bot.latency * 1000)
+
+        start = time.time()
+        msg = await ctx.send("🏓 Pong!", ephemeral=True)
+        end = time.time()
+        rt_latency = round((end - start) * 1000)
+
+        embed = discord.Embed(
+            title="🏓 Pong!",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="🌐 WebSocket Latency", value=f"`{ws_latency}ms`", inline=True)
+        embed.add_field(name="📨 Round-Trip Latency", value=f"`{rt_latency}ms`", inline=True)
+        embed.add_field(name="⏱️ Uptime", value=self.get_uptime(), inline=False)
+        embed.set_footer(text=f"Requested by {ctx.author.name}")
+
+        await msg.edit(content=None, embed=embed)
+
 
 
 async def setup(bot):
