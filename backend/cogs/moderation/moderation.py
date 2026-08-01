@@ -172,8 +172,12 @@ class Moderation(commands.Cog):
                     if is_ai_spam:
                         await self.handle_spam(message, "Filter AI: Diverifikasi sebagai spam oleh AI")
                         return
-                    # AI disagrees → masih flag tapi hukuman diturunkan (timeout aja)
-                    await self.handle_spam_light(message, "Filter Dasar: Pesan mencurigakan (dilemahkan oleh AI)")
+                    # AI bilang BUKAN spam → biarkan lewat, KECUALI ada bukti flooding/duplikat
+                    user_id = str(message.author.id)
+                    if self.engine.is_rate_flooding(user_id) or self.engine.is_duplicate_spam(user_id, message.content):
+                        await self.handle_spam_light(message, "Filter Dasar: Pesan berulang/banjir (dilemahkan oleh AI)")
+                        return
+                    await self.bot.process_commands(message)
                     return
             await self.handle_spam(message, "Filter Dasar: Terdeteksi kata kunci/link mencurigakan")
             return
@@ -184,7 +188,9 @@ class Moderation(commands.Cog):
             return
 
         # ── Borderline (score 1-4) → AI decides ──
-        if cfg.get("filter_ai", True) and 0 < current_score < 5 and len(message.content) > 10:
+        # Skip AI kalo pesan cuma @everyone/@here polos dari akun tua (>= 60 hr) → zero risk
+        benign_mention = account_age >= 60 and self.engine.is_benign_mention(message, custom_keywords=custom_kw)
+        if cfg.get("filter_ai", True) and not benign_mention and 0 < current_score < 5 and len(message.content) > 10:
             ai_cog = self.bot.get_cog("AIChat")
             if ai_cog:
                 is_ai_spam = await ai_cog.analyze_spam(

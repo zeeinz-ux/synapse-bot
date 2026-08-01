@@ -186,6 +186,22 @@ class SpamEngine:
         recent = [(t, c) for t, c in self._msg_contents[user_id] if now - t < 30]
         return sum(1 for _, c in recent if c == content) >= threshold
 
+    def is_benign_mention(self, message, custom_keywords: list[str] | None = None) -> bool:
+        """True kalau pesan cuma berisi @everyone/@here biasa — tanpa URL, keyword scam,
+        atau bukti flooding/duplikat. Dipakai buat skip pemeriksaan AI pada mention polos."""
+        content = message.content or ""
+        if not re.search(r"@(everyone|here)", content, re.IGNORECASE):
+            return False
+        all_text = self._extract_text(message)
+        if self._extract_urls(all_text):
+            return False
+        if self._has_keyword(all_text, custom_keywords):
+            return False
+        user_id = str(message.author.id)
+        if self.is_rate_flooding(user_id) or self.is_duplicate_spam(user_id, content):
+            return False
+        return True
+
     def get_risk_score(self, message, custom_keywords: list[str] | None = None) -> int:
         if hasattr(message.author, "guild_permissions") and message.author.guild_permissions.manage_messages:
             return 0
@@ -196,9 +212,9 @@ class SpamEngine:
         urls = self._extract_urls(all_text)
 
         if hasattr(message, "mention_everyone") and message.mention_everyone:
-            score += 5
+            score += 2
         elif re.search(r"@(everyone|here)", content, re.IGNORECASE):
-            score += 5
+            score += 2
 
         if self._has_suspicious_url(all_text):
             score += 5

@@ -45,7 +45,7 @@
 - `/ask` command + mention‑based chat
 - AI dapat membaca & menganalisis gambar yang dikirim user
 - **AI Agent** — ReAct loop with Plan → Build phases
-- 23 server management tools (roles, channels, members, bans, batch ops, templates, snapshots, scheduler)
+- 29 server management tools (roles, channels, members, bans, batch ops, templates, snapshots, scheduler)
 - Permanent conversation memory (Firestore-backed, 20 turns, no TTL)
 - RAG Knowledge Base (ChromaDB vector search)
 - Channel‑specific AI personality (`/personality` command)
@@ -136,7 +136,7 @@
 | `/agent-mode` | Ubah mode akses AI Agent (owner / admin) |
 | `/agent-status` | Cek status AI Agent |
 
-**Agent Tools (31):** `server_info`, `list_channels`, `list_roles`, `create_channel`, `delete_channel`, `rename_channel`, `create_role`, `edit_role`, `delete_role`, `assign_role`, `remove_role`, `list_members`, `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `edit_channel_permissions`, `list_bans`, `edit_server`, `batch_create_channels`, `batch_create_roles`, `apply_template`, `save_snapshot`, `rollback`, `schedule_task`, `send_message`, `add_reaction`, `run_command`, `web_search`
+**Agent Tools (29):** `server_info`, `list_channels`, `list_roles`, `create_channel`, `delete_channel`, `rename_channel`, `create_role`, `edit_role`, `delete_role`, `assign_role`, `remove_role`, `list_members`, `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `edit_channel_permissions`, `list_bans`, `edit_server`, `batch_create_channels`, `batch_create_roles`, `apply_template`, `save_snapshot`, `rollback`, `schedule_task`, `send_message`, `add_reaction`, `run_command`, `web_search`
 
 > Voice tools (`join_voice`, `leave_voice`, `play_audio`, `stop_audio`) removed — use `run_command("connect"/"leave"/"play"/"stop")` instead.
 
@@ -300,7 +300,7 @@ OpenCode Zen (Tier 1 — Free, priority)
 | **Tool Validation** | Args type-checked before execution |
 | **Auto-Retry** | 3 retry attempts on invalid tool calls |
 | **Provider Fallback** | If primary fails, auto-switches to next provider |
-| **31 Tools** | Roles, channels, members, bans, messaging, reactions, commands, web search, batch ops, templates, snapshots, scheduler |
+| **29 Tools** | Roles, channels, members, bans, messaging, reactions, commands, web search, batch ops, templates, snapshots, scheduler |
 | **Batch Operations** | `batch_create_channels` / `batch_create_roles` for bulk work |
 | **Server Templates** | 3 templates (gaming, study, community) via `apply_template` |
 | **Snapshot & Rollback** | Auto-snapshot on agent start + manual `rollback` tool |
@@ -353,7 +353,7 @@ OpenCode Zen (Tier 1 — Free, priority)
 | **HTTP** | aiohttp, requests |
 | **Deployment** | Railway + Docker + Honcho (Procfile) |
 | **Templating** | Jinja2 (23 templates) |
-| **Audio** | yt-dlp, FFmpeg, PyNaCl, davey (DAVE encryption) || **AI Agent** | ReAct loop, Plan→Build, 31 tools, tool validation, auto-retry, snapshot, scheduler |
+| **Audio** | yt-dlp, FFmpeg, PyNaCl, davey (DAVE encryption) || **AI Agent** | ReAct loop, Plan→Build, 29 tools, tool validation, auto-retry, snapshot, scheduler |
 
 </div>
 
@@ -367,12 +367,13 @@ backend/
 ├── cogs/
 │   ├── ai_chat/               # AI Chat (providers, RAG, streaming, personality)
 │   │   └── providers/         # OpenCode Zen, Gemini, Groq, Mistral, Cohere, OpenRouter
-│   ├── ai_agent/              # AI Agent (ReAct loop, 23 tools, memory, scheduler, snapshots)
+│   ├── ai_agent/              # AI Agent (ReAct loop, 29 tools, memory, scheduler, snapshots)
 │   ├── anti_nuke/             # Anti-Nuke protection (sliding window, lockdown, AI analysis)
 │   ├── auto_response/         # Auto-responder system
+│   ├── ban_settings/          # Ban/account-age action settings
 │   ├── boost/                 # Boost tracker
 │   ├── boost_announce/        # Boost announcements
-│   ├── donation/              # Donation tracker (Saweria/Sociabuzz webhooks)
+│   ├── database/              # Firebase setup (not a cog, excluded from auto-load)
 │   ├── general/               # General commands & setup
 │   ├── help/                  # Help command
 │   ├── leave_settings/        # Leave messages
@@ -380,9 +381,8 @@ backend/
 │   ├── moderation/            # Spam detection, image spam (3-layer), word filter
 │   ├── music/                 # Music player (!connect, !play, !stop, yt-search)
 │   ├── photobox/              # PhotoBox booth
-│   ├── settings/              # Server settings
-│   ├── templates/             # Message templates
-│   └── voice_interface/       # Voice room manager (auto-create, control panel, password)
+│   ├── voice_interface/       # Voice room manager (auto-create, control panel, password)
+│   └── welcome/               # Welcome messages
 ├── web/
 │   ├── web_app.py             # Flask app (70+ routes, dashboard, API)
 │   └── language/              # i18n translations (id.json, en.json)
