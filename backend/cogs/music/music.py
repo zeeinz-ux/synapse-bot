@@ -81,6 +81,7 @@ class MusicCog(commands.Cog, name="Music"):
         self._sleep_timers: dict[int, asyncio.Task] = {}
         self._watchdog_tasks: dict[int, asyncio.Task] = {}
         self._fail_counts: dict[int, int] = {}
+        self._play_tokens: dict[int, int] = {}
 
     def _random_station_url(self) -> str:
         key = random.choice(list(STATIONS.keys()))
@@ -156,12 +157,21 @@ class MusicCog(commands.Cog, name="Music"):
     def _cancel_sleep(self, guild_id: int):
         task = self._sleep_timers.pop(guild_id, None)
         if task and not task.done():
-            task.cancel()
+            try:
+                self.bot.loop.call_soon_threadsafe(task.cancel)
+            except Exception:
+                pass
+
+    def _invalidate_play(self, guild_id: int):
+        self._play_tokens[guild_id] = self._play_tokens.get(guild_id, 0) + 1
 
     def _stop_watchdog(self, guild_id: int):
         task = self._watchdog_tasks.pop(guild_id, None)
         if task and not task.done():
-            task.cancel()
+            try:
+                self.bot.loop.call_soon_threadsafe(task.cancel)
+            except Exception:
+                pass
 
     async def _ensure_watchdog(self, guild_id: int):
         task = self._watchdog_tasks.get(guild_id)
@@ -212,6 +222,8 @@ class MusicCog(commands.Cog, name="Music"):
         gid = vc.guild.id if vc and vc.guild else None
         if gid:
             self._cancel_sleep(gid)
+            self._invalidate_play(gid)
+        token = self._play_tokens.get(gid, 0) if gid else 0
         try:
             source = discord.FFmpegPCMAudio(url, before_options=FFMPEG_BEFORE_OPTS, options=FFMPEG_OPTS)
         except Exception as e:
@@ -222,19 +234,23 @@ class MusicCog(commands.Cog, name="Music"):
             raise
         try:
             vc.stop()
-            vc.play(source, after=lambda e: self._on_track_end(vc, url, e))
+            vc.play(source, after=lambda e: self._on_track_end(vc, url, e, token))
         except Exception as e:
             log.warning("[MUSIC] _play_looping error (guild %s): %s", gid, e)
             if gid:
                 self._fail_counts[gid] = self._fail_counts.get(gid, 0) + 1
 
-    def _on_track_end(self, vc, url: str, error):
+    def _on_track_end(self, vc, url: str, error, token: int):
         if error:
             log.warning("[MUSIC] Audio error: %s", error)
         if not vc or not vc.is_connected():
             return
         gid = vc.guild.id if vc and vc.guild else None
         if not gid:
+            return
+        # stale callback from an intentionally stopped stream -> don't restart
+        if token != self._play_tokens.get(gid):
+            log.info("[MUSIC] Ignoring stale track-end (guild %s)", gid)
             return
         state = self._voice_states.get(gid)
         current = state["url"] if state and state.get("url") else url
@@ -254,6 +270,16 @@ class MusicCog(commands.Cog, name="Music"):
             self._fail_counts.pop(gid, None)
         log.info("[MUSIC] Stream ended, restarting (guild %s)", gid)
         self._play_looping(vc, current)
+
+    async def _safe_stop(self, vc):
+        gid = vc.guild.id if vc and vc.guild else None
+        if gid:
+            self._invalidate_play(gid)
+        try:
+            if vc and vc.is_playing():
+                vc.stop()
+        except Exception:
+            pass
 
     async def _watchdog(self, guild_id: int):
         log.info("[MUSIC] Watchdog started for guild %s", guild_id)
@@ -403,7 +429,7 @@ class MusicCog(commands.Cog, name="Music"):
         if not key:
             key = random.choice(list(STATIONS.keys()))
         station = STATIONS[key]
-        await _safe_stop(vc)
+        await self._safe_stop(vc)
         await asyncio.sleep(0.3)
         try:
             self._play_looping(vc, station["url"])
@@ -449,7 +475,7 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.send(embed=embed)
             return
         station = STATIONS[key]
-        await _safe_stop(vc)
+        await self._safe_stop(vc)
         await asyncio.sleep(0.3)
         try:
             self._play_looping(vc, station["url"])
@@ -524,7 +550,7 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.send(embed=embed)
             return
         name = vc.channel.name
-        await _safe_stop(vc)
+        await self._safe_stop(vc)
         await vc.disconnect()
         self._clear_state(ctx.guild.id)
         embed = discord.Embed(description=f"\U0001f44b Leave **{name}**", color=COLOR)
@@ -541,7 +567,7 @@ class MusicCog(commands.Cog, name="Music"):
         url = self._voice_states.get(ctx.guild.id, {}).get("url", "")
         if url not in {v["url"] for v in STATIONS.values()}:
             url = self._random_station_url()
-        await _safe_stop(vc)
+        await self._safe_stop(vc)
         await vc.disconnect()
         await asyncio.sleep(1)
         try:
@@ -555,14 +581,6 @@ class MusicCog(commands.Cog, name="Music"):
         except Exception as e:
             embed = discord.Embed(description=f"\u274c Gagal reconnect: {e}", color=0xFF0000)
             await ctx.send(embed=embed)
-
-
-async def _safe_stop(vc):
-    try:
-        if vc and vc.is_playing():
-            vc.stop()
-    except Exception:
-        pass
 
 
 async def setup(bot: commands.Bot):
