@@ -4,6 +4,8 @@
 
 ## Run
 
+Python 3.11 (Dockerfile `python:3.11-slim`); code uses `X | None` unions, so 3.10+ required locally.
+
 | Mode | Command |
 |------|---------|
 | Both (dev) | `honcho start -f Procfile.dev` |
@@ -24,7 +26,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 ## Key Quirks
 
 - **Hybrid commands**: prefix `!` + slash. Slash sync on `on_ready` (`main.py:349-379`). First syncs to first guild (instant) then global sync, with 3 retries on 429.
-- **Cog auto-load**: `os.walk` on `backend/cogs/`, skips `__init__.py` and `firebase_setup.py`, loads any `.py` with a `setup` attribute (`main.py:58-94`). 16 cogs. Grepping `async def setup` yields 17 matches: `general.py` defines a `/setup` hybrid command method (`general.py:329`) alongside its cog `setup` (`general.py:518`) — the command is unrelated, not an override.
+- **Cog auto-load**: `os.walk` on `backend/cogs/`, skips `__init__.py` and `firebase_setup.py`, loads any `.py` with a `setup` attribute (`main.py:58-94`). 16 cogs. Grepping `async def setup` yields 17 matches: `general.py` defines a `/setup` hybrid command method (`general.py:329`) alongside its cog `setup` (`general.py:538`) — the command is unrelated, not an override.
 - **`help` cog**: single file at `backend/cogs/help/help.py` — no `__init__.py`, loaded as `backend.cogs.help.help` (namespace package).
 - **Intents**: `message_content`, `members`, `moderation`, `voice_states` enabled (`main.py:47-51`). Others default.
 - **Memory monitor**: reads `/proc/*/status` VmRSS every 5 min → `gc.collect()` if >300MB. **Linux-only** — fails silently on Windows (`main.py:218-238`).
@@ -87,9 +89,11 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 
 ## Music Player (`backend/cogs/music/music.py`) — Radio Only
 
-- **5 stations** (lofi/jazz/chill/study/sleep). `/play` + `/station` auto-complete.
+- **5 stations** (lofi/jazz/chill/study/sleep). `/play` + `/station` auto-complete. Each station has a primary `url` + 2 cross-referenced `fallbacks` (all fallbacks are primaries of other stations) rotated after `ROTATE_FAIL_THRESHOLD` (2) consecutive stream failures.
 - `/sleep <minutes>`, `/fix-voice`, prefix `!connect`/`!joinvc`/`!leave`.
 - Auto-restart on EOF, auto-resume via Firestore `voice_state` collection.
+- **Watchdog** (per guild, `WATCHDOG_INTERVAL`=10s): if bot drops from voice → reconnect to saved channel + restart; if connected but silent/idle → `vc.stop()` + restart. Logs to `backend/logs/bot.log` via `logger.py`.
+- ffmpeg flags: `-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 10 -reconnect_at_eof 1 -reconnect_on_network_error 1 -nostdin` + `-vn -af aresample=async=1:min_hard_comp=0.1`.
 - AI Agent: `run_command("connect"/"play"/"leave"/"stop")`.
 
 ## Dashboard (Flask)
@@ -103,7 +107,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
   - No-cache headers on all `text/html` responses via `_no_cache()` (`web_app.py:66-72`).
   - `landing.js` commands counter uses server-rendered `data-template` attribute with `{n}` placeholder.
 
-## Cogs Layout (16 dirs under `backend/cogs/`)
+## Cogs Layout (16 cogs; 17 dirs under `backend/cogs/`)
 
 - **Small/simple cogs** (single file, ~100-500 lines): `ban_settings`, `boost`, `boost_announce`, `help`, `leave_settings`, `leveling`, `music`, `photobox`, `welcome`
 - **Large cogs**: `ai_chat` (~1635 lines + 6 providers + `prompt.py`/`chat_enhancer.py`), `ai_agent` (2 files: `agent_cog.py` + `agent_tools.py`), `anti_nuke`, `auto_response`, `general`, `moderation`, `voice_interface`
