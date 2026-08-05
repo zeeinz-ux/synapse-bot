@@ -159,7 +159,7 @@ class Moderation(commands.Cog):
             if hasattr(message.author, "joined_at") and message.author.joined_at:
                 join_age_days = (datetime.datetime.now(timezone.utc) - message.author.joined_at).days
 
-            skip_ai = account_age < 60 or join_age_days < 7 or current_score >= 10
+            skip_ai = account_age < 60 or current_score >= 10 or (join_age_days < 7 and current_score >= 8)
 
             if not skip_ai and cfg.get("filter_ai", True):
                 ai_cog = self.bot.get_cog("AIChat")
