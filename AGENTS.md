@@ -93,6 +93,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - `/sleep <minutes>`, `/fix-voice`, prefix `!connect`/`!joinvc`/`!leave`.
 - Auto-restart on EOF, auto-resume via Firestore `voice_state` collection.
 - **Watchdog** (per guild, `WATCHDOG_INTERVAL`=10s): if bot drops from voice → reconnect to saved channel + restart; if connected but silent/idle → `vc.stop()` + restart. Logs to `backend/logs/bot.log` via `logger.py`.
+- **Session token guard**: `_play_looping`/`_safe_stop` bump a per-guild `_play_tokens` counter; `_on_track_end` ignores `after` callbacks with a stale token. Prevents the restart storm (intentional `vc.stop()` used to kill the old stream → its `after` restarted → looped ~2s) and the SIGABRT crash. Task cancels (`_cancel_sleep`/`_stop_watchdog`) go through `bot.loop.call_soon_threadsafe` because `_play_looping` runs in discord's audio thread — never call `asyncio.Task.cancel()` directly there.
 - ffmpeg flags: `-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 10 -reconnect_at_eof 1 -reconnect_on_network_error 1 -nostdin` + `-vn -af aresample=async=1:min_hard_comp=0.1`.
 - AI Agent: `run_command("connect"/"play"/"leave"/"stop")`.
 
