@@ -117,13 +117,13 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 
 **Message pipeline** (`on_message`, `moderation.py`) — bots + admins exempt. Per-message:
 1. `SpamEngine.get_risk_score()` sums weighted signals: `@everyone`/`@here` **+2** (was +5 — tuned so casual mentions don't trip), suspicious URL/domain/typosquat/TLD +5, scam keyword +5, account <60d +5, joined recently +2..+5, rate-flooding +5, identical duplicate (3x/30s) +5.
-2. **score >= 5** → heuristic trigger. Account <60d / joined <7d / score >=10 → punish directly (`handle_spam`), skipping AI. Else AI (`ai_chat.analyze_spam`) decides: spam → `handle_spam`; **not spam → message passes** unless flooding/duplicate → `handle_spam_light`.
+2. **score >= 5** → heuristic trigger. Account <60d / score >=10 / (joined <7d **and** score >=8) → punish directly (`handle_spam`), skipping AI. Else AI (`ai_chat.analyze_spam`) decides: spam → `handle_spam`; **not spam → message passes** unless flooding/duplicate → `handle_spam_light`.
 3. **score 1-4** → borderline AI check, **except benign mentions**: `SpamEngine.is_benign_mention()` (plain `@everyone`/`@here`, no URL/keyword/flood) from accounts >=60d skips AI entirely — zero false-positive risk.
 4. Images checked **independently** of text score (`_check_image_spam`): rate limit (4/10s) → known pHash → duplicate → Gemini Vision (only suspicious users: <60d / joined <7d / flooding / dup>=2) → Google Vision OCR fallback → SpamIntelligence intel pre-check (known `scam_signatures` by pHash for ANY user).
 
 **Punishment tiers** (`handle_spam`): reason containing `gambar mengandung` / `scam` / `judi` / `phishing` / `berbahaya` / `diverifikasi sebagai spam oleh ai` / `konten mencurigakan oleh llm` / `filter intel` → **`is_ai_serious` = immediate permanent ban** (no strike; DM says "Banding TIDAK DITERIMA"). Otherwise: account <60d → `new_account_action` (default ban); older accounts → 3-strike (timeout 24h → kick → ban, resets after 24h clean). `handle_spam_light` = delete message + 10-min timeout, no strike.
 
-**Tuning history (2026)**: casual `@everyone` messages (e.g. `@everyone join dc`) were false-positive punished. Fixes: `@everyone` weight 5→2 (`spam_engine.py`), AI-cleared messages now pass unless flooding/duplicate, benign-mention skip for accounts >=60d. Real spam still caught via URL/keyword/young-account signals + image layer.
+**Tuning history (2026)**: casual `@everyone` messages (e.g. `@everyone join dc`) were false-positive punished. Fixes: `@everyone` weight 5→2 (`spam_engine.py`), AI-cleared messages now pass unless flooding/duplicate, benign-mention skip for accounts >=60d. **New-joiner false positives**: `joined <7d` alone was skipping AI, so a first message in `#welcome` from an old account (<1h join = +5 score) was auto-punished → `skip_ai` now requires `score >= 8` when joined <7d, so old accounts get AI verification unless the content is clearly suspicious. Real spam still caught via URL/keyword/young-account signals + image layer.
 
 - **3-layer image spam**: rate limit (4/10s) → pHash + Hamming → Gemini Vision + Google Cloud Vision OCR.
 - **`analyze_spam` quirk** (`ai_chat.py:223`): returns `"YA" in response.upper()` — a verbose free-model reply can contain a stray "YA". Cached by md5 content hash (500 entries, TTL).
@@ -170,6 +170,6 @@ None. Zero tests, no pytest, no lint, no typecheck, no formatter, no CI. Manual 
 
 ## Deployment
 
-**Railway** (primary) via `railway.json` + Dockerfile. **Render** also compatible. `python:3.11-slim`, installs `curl unzip fonts-dejavu-core ffmpeg`. Both run `honcho start -f Procfile`.
+**Render** via Dockerfile. `python:3.11-slim`, installs `curl unzip fonts-dejavu-core ffmpeg`. Runs `honcho start -f Procfile` (web + worker).
 
 

@@ -26,7 +26,7 @@ PHOTOBOX_TIMEOUT = 300  # 5 menit - webhook auto-delete
 
 BASE_URL = os.getenv(
     "PUBLIC_URL",
-    "https://synapse-bot.up.railway.app"
+    "https://synapse-bot-dk9u.onrender.com"
 )
 
 

@@ -1855,7 +1855,7 @@ def auto_responders(guild_id: str):
 
 def _ar_cog():
     """Optional: Fetch the AutoResponderCog instance for in-process sync.
-    The Flask web process on Railway never has access to the bot instance
+    The Flask web process on Render never has access to the bot instance
     (separate process + memory), so most requests will fall back to the
     free-function bridge in auto_responder_store. This helper is retained
     for dev/local where web and bot share a process.

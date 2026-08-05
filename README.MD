@@ -8,7 +8,7 @@
 [![Flask](https://img.shields.io/badge/Flask-3.1.3-000000?logo=flask&logoColor=white&style=for-the-badge)](https://flask.palletsprojects.com/)
 [![Firebase](https://img.shields.io/badge/Firebase_Firestore-FFCA28?logo=firebase&logoColor=black&style=for-the-badge)](https://firebase.google.com/)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB_Vector-6C5CE7?logo=vector&logoColor=white&style=for-the-badge)](https://www.trychroma.com/)
-[![Railway](https://img.shields.io/badge/Deployed_on-Railway-0B0D0E?logo=railway&logoColor=white&style=for-the-badge)](https://railway.app/)
+[![Render](https://img.shields.io/badge/Deployed_on-Render-46E3B7?logo=render&logoColor=white&style=for-the-badge)](https://render.com/)
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white&style=for-the-badge)
 
@@ -351,7 +351,7 @@ OpenCode Zen (Tier 1 — Free, priority)
 | **AI Providers** | Gemini, Groq, Mistral, Cohere, OpenRouter, OpenCode Zen |
 | **Image Processing** | Pillow, easy-pil |
 | **HTTP** | aiohttp, requests |
-| **Deployment** | Railway + Docker + Honcho (Procfile) |
+| **Deployment** | Render + Docker + Honcho (Procfile) |
 | **Templating** | Jinja2 (23 templates) |
 | **Audio** | yt-dlp, FFmpeg, PyNaCl, davey (DAVE encryption) || **AI Agent** | ReAct loop, Plan→Build, 29 tools, tool validation, auto-retry, snapshot, scheduler |
 
@@ -453,7 +453,7 @@ FIREBASE_KEY=<base64/raw JSON/path to firebase key>
 
 ## 🌐 Deployment
 
-The bot deploys on **Railway** via `railway.json`. The Dockerfile uses `python:3.11-slim` and runs both processes (bot + web) via `honcho start -f Procfile`.
+The bot deploys on **Render** (Docker). The Dockerfile uses `python:3.11-slim` and runs both processes (bot + web) via `honcho start -f Procfile`.
 
 ```bash
 # Docker
