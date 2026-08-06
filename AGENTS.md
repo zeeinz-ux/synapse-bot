@@ -89,13 +89,16 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 
 ## Music Player (`backend/cogs/music/music.py`) — Radio Only
 
-- **5 stations** (lofi/jazz/chill/study/sleep). `/play` + `/station` auto-complete. Each station has a primary `url` + 2 cross-referenced `fallbacks` (all fallbacks are primaries of other stations) rotated after `ROTATE_FAIL_THRESHOLD` (2) consecutive stream failures.
+- **5 stations** (lofi/jazz/chill/study/sleep), each a **distinct geo-open genre source** (SomaFM for jazz/chill/sleep; streamafrica/lofiradio.ru for lofi/study) so `/station` matches its name. Do NOT use `streaming.hotmixradio.com` (geo-blocks non-France, incl. the Singapore Render region → "location" error) or `radio.loficafe.net/listen/japanese-lofi` (flaky, repeated EOF). `/play` + `/station` auto-complete. Each station has a primary `url` + 2 cross-referenced `fallbacks` rotated after `ROTATE_FAIL_THRESHOLD` (2) consecutive stream failures.
 - `/sleep <minutes>`, `/fix-voice`, prefix `!connect`/`!joinvc`/`!leave`.
-- Auto-restart on EOF, auto-resume via Firestore `voice_state` collection.
-- **Watchdog** (per guild, `WATCHDOG_INTERVAL`=10s): if bot drops from voice → reconnect to saved channel + restart; if connected but silent/idle → `vc.stop()` + restart. Logs to `backend/logs/bot.log` via `logger.py`.
+- **24/7 auto-resume via Firestore `voice_state`**: `_restore_states` runs on `on_ready`. Stored URL not in current primaries → replaced with a random station (so geo-blocked legacy states self-heal).
+- **Watchdog** (per guild, `WATCHDOG_INTERVAL`=10s): if bot drops from voice → reconnect to saved channel + restart; if connected but silent/idle → restart. Reconnect race is handled: re-checks `is_connected()` before `channel.connect()` (reconnect internal Discord yang kelar duluan → `"Already connected to a voice channel"`) → marks restart instead of counting failure.
+- **24/7 sweep loop** (`_sweep_loop`, `SWEEP_INTERVAL`=30s): safety net for guilds with saved state but no live watchdog/voice → reconnect + play. Started from `on_ready`.
+- **`_needs_restart` set** closes the "silent after voice WS reconnect" gap: set by `on_voice_state_update` drop, by `_on_track_end` firing while disconnected, and by the watchdog's internal-reconnect race; the watchdog's `elif guild_id in self._needs_restart` branch then force-restarts even if `is_playing()` claims healthy (zombie player after an internal reconnect produces no audio). Before this, a transient voice WS drop often left the radio silent until the stream EOF'd.
 - **Session token guard**: `_play_looping`/`_safe_stop` bump a per-guild `_play_tokens` counter; `_on_track_end` ignores `after` callbacks with a stale token. Prevents the restart storm (intentional `vc.stop()` used to kill the old stream → its `after` restarted → looped ~2s) and the SIGABRT crash. Task cancels (`_cancel_sleep`/`_stop_watchdog`) go through `bot.loop.call_soon_threadsafe` because `_play_looping` runs in discord's audio thread — never call `asyncio.Task.cancel()` directly there.
 - ffmpeg flags: `-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 10 -reconnect_at_eof 1 -reconnect_on_network_error 1 -nostdin` + `-vn -af aresample=async=1:min_hard_comp=0.1`.
 - AI Agent: `run_command("connect"/"play"/"leave"/"stop")`.
+- **Testing station URLs**: verify `curl -A <UA> -L <url> --max-time 15` returns `200` + `audio/mpeg`. SomaFM needs a media UA and uses `ice1.somafm.com/<channel>-128-mp3`; channels are geo-open but per-channel content differs (not interchangeable).
 
 ## Dashboard (Flask)
 
