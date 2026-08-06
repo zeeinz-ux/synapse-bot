@@ -25,6 +25,7 @@ FFMPEG_OPTS = "-vn -af aresample=async=1:min_hard_comp=0.1"
 WATCHDOG_INTERVAL = 10
 RECONNECT_LOG_EVERY = 6
 ROTATE_FAIL_THRESHOLD = 2
+SWEEP_INTERVAL = 30
 
 # `url` is the primary source; `fallbacks` are rotated to on repeated stream failures.
 # All fallbacks are cross-references to other (verified) primary URLs so the bot
@@ -82,6 +83,8 @@ class MusicCog(commands.Cog, name="Music"):
         self._watchdog_tasks: dict[int, asyncio.Task] = {}
         self._fail_counts: dict[int, int] = {}
         self._play_tokens: dict[int, int] = {}
+        self._needs_restart: set[int] = set()
+        self._sweep_task: asyncio.Task | None = None
 
     def _random_station_url(self) -> str:
         key = random.choice(list(STATIONS.keys()))
@@ -144,6 +147,7 @@ class MusicCog(commands.Cog, name="Music"):
         self._voice_states.pop(guild_id, None)
         self._guild_stations.pop(guild_id, None)
         self._fail_counts.pop(guild_id, None)
+        self._needs_restart.discard(guild_id)
         self._cancel_sleep(guild_id)
         self._stop_watchdog(guild_id)
         if _HAS_FS and db is not None:
@@ -178,6 +182,49 @@ class MusicCog(commands.Cog, name="Music"):
         if task and not task.done():
             return
         self._watchdog_tasks[guild_id] = asyncio.create_task(self._watchdog(guild_id))
+
+    async def _sweep_loop(self):
+        log.info("[MUSIC] 24/7 sweep loop started")
+        while True:
+            try:
+                for gid in list(self._voice_states.keys()):
+                    try:
+                        await self._sweep_guild(gid)
+                    except Exception as e:
+                        log.warning("[MUSIC] Sweep error guild %s: %s", gid, e)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                log.exception("[MUSIC] Sweep loop error: %s", e)
+            await asyncio.sleep(SWEEP_INTERVAL)
+
+    async def _sweep_guild(self, guild_id: int):
+        state = self._voice_states.get(guild_id)
+        if not state:
+            return
+        guild = self.bot.get_guild(guild_id)
+        if not guild:
+            return
+        task = self._watchdog_tasks.get(guild_id)
+        if task and not task.done():
+            return
+        vc = guild.voice_client
+        if vc and vc.is_connected():
+            await self._ensure_watchdog(guild_id)
+            return
+        channel = guild.get_channel(int(state.get("channel_id", 0)))
+        if not isinstance(channel, discord.VoiceChannel):
+            log.warning("[MUSIC] Sweep: saved channel gone (guild %s), clearing", guild_id)
+            self._clear_state(guild_id)
+            return
+        try:
+            vc = await channel.connect()
+            await asyncio.sleep(0.5)
+            self._play_looping(vc, state.get("url") or self._random_station_url())
+            await self._ensure_watchdog(guild_id)
+            log.warning("[MUSIC] Sweep reconnected (guild %s) -> #%s", guild_id, channel.name)
+        except Exception as e:
+            log.warning("[MUSIC] Sweep reconnect failed (guild %s): %s", guild_id, e)
 
     async def _restore_states(self):
         if not _HAS_FS or db is None:
@@ -223,6 +270,7 @@ class MusicCog(commands.Cog, name="Music"):
         if gid:
             self._cancel_sleep(gid)
             self._invalidate_play(gid)
+            self._needs_restart.discard(gid)
         token = self._play_tokens.get(gid, 0) if gid else 0
         try:
             source = discord.FFmpegPCMAudio(url, before_options=FFMPEG_BEFORE_OPTS, options=FFMPEG_OPTS)
@@ -243,10 +291,12 @@ class MusicCog(commands.Cog, name="Music"):
     def _on_track_end(self, vc, url: str, error, token: int):
         if error:
             log.warning("[MUSIC] Audio error: %s", error)
-        if not vc or not vc.is_connected():
-            return
         gid = vc.guild.id if vc and vc.guild else None
         if not gid:
+            return
+        if not vc or not vc.is_connected():
+            self._needs_restart.add(gid)
+            log.info("[MUSIC] Track ended while disconnected (guild %s), marking restart", gid)
             return
         # stale callback from an intentionally stopped stream -> don't restart
         if token != self._play_tokens.get(gid):
@@ -302,17 +352,28 @@ class MusicCog(commands.Cog, name="Music"):
                             log.warning("[MUSIC] Watchdog: saved channel gone (guild %s), clearing", guild_id)
                             self._clear_state(guild_id)
                             break
-                        reconnect_fails += 1
-                        try:
-                            vc = await channel.connect()
-                            await asyncio.sleep(0.5)
-                            self._play_looping(vc, state["url"])
-                            log.warning("[MUSIC] Watchdog reconnected (guild %s) -> #%s", guild_id, channel.name)
-                            reconnect_fails = 0
-                            silent_ticks = 0
-                        except Exception as e:
-                            if reconnect_fails == 1 or reconnect_fails % RECONNECT_LOG_EVERY == 0:
-                                log.warning("[MUSIC] Watchdog reconnect failed %sx (guild %s): %s", reconnect_fails, guild_id, e)
+                        vc = guild.voice_client
+                        if vc and vc.is_connected():
+                            self._needs_restart.add(guild_id)
+                            log.info("[MUSIC] Watchdog: already reconnected internally (guild %s), marking restart", guild_id)
+                        else:
+                            reconnect_fails += 1
+                            try:
+                                vc = await channel.connect()
+                                await asyncio.sleep(0.5)
+                                self._play_looping(vc, state["url"])
+                                log.warning("[MUSIC] Watchdog reconnected (guild %s) -> #%s", guild_id, channel.name)
+                                reconnect_fails = 0
+                                silent_ticks = 0
+                            except Exception as e:
+                                if reconnect_fails == 1 or reconnect_fails % RECONNECT_LOG_EVERY == 0:
+                                    log.warning("[MUSIC] Watchdog reconnect failed %sx (guild %s): %s", reconnect_fails, guild_id, e)
+                    elif guild_id in self._needs_restart:
+                        self._needs_restart.discard(guild_id)
+                        log.warning("[MUSIC] Watchdog: restarting stream after reconnect (guild %s)", guild_id)
+                        self._play_looping(vc, state.get("url") or self._random_station_url())
+                        silent_ticks = 0
+                        reconnect_fails = 0
                     elif vc.is_playing():
                         silent_ticks = 0
                         reconnect_fails = 0
@@ -334,6 +395,7 @@ class MusicCog(commands.Cog, name="Music"):
     async def on_ready(self):
         await asyncio.sleep(3)
         await self._restore_states()
+        self._sweep_task = asyncio.create_task(self._sweep_loop())
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
@@ -347,7 +409,9 @@ class MusicCog(commands.Cog, name="Music"):
                 log.info("[MUSIC] Moved to %s, state updated", after.channel.name)
             return
         if before.channel and not after.channel:
-            log.info("[MUSIC] Disconnected from %s, state preserved for watchdog auto-resume", before.channel.name)
+            self._invalidate_play(member.guild.id)
+            self._needs_restart.add(member.guild.id)
+            log.info("[MUSIC] Disconnected from %s, marked for watchdog restart", before.channel.name)
 
     @commands.command(name="connect", aliases=["joinvc"])
     async def connect(self, ctx: commands.Context, *, channel: discord.VoiceChannel = None):

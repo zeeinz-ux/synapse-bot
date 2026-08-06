@@ -147,27 +147,17 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - IDR thresholds env-overridable: `PREMIUM_MONTHLY_IDR` (50000) / `PREMIUM_YEARLY_IDR` (400000) (`web_app.py:1096-1097`). Activation is exact-amount match; the donation message must be a numeric Discord user ID to bind premium (`web_app.py:1099-1120`).
 - Premium features: voice room claim/transfer, priority access.
 
-## Firestore Backup
-
-```bash
-python backend/scripts/backup_firestore.py backup       # all collections
-python backend/scripts/backup_firestore.py restore <file> [--dry-run]
-python backend/scripts/backup_firestore.py list
-python backend/scripts/backup_firestore.py info <file>
-```
-
 ## Build / Test / Lint / CI
 
-None. Zero tests, no pytest, no lint, no typecheck, no formatter, no CI. Manual verification only.
+None. Zero tests, no pytest, no lint, no typecheck, no formatter, no CI. Manual verification only. Verify changes by running the bot/web and (for spam/music paths) reasoning through the pipeline by hand.
 
 ## OpenCode Config
 
-- No `opencode.json` — tooling config only in `.opencode/package.json` (plugin dep).
-- `.opencode/plans/dashboard-de-ai-slop.md` — existing plan file for dashboard work.
+- No `opencode.json`, no `.opencode/` tree, no plugins at present. `.gitignore` still carries rules for `AGENTS.md` and `.opencode/`.
 
 ## Docs
 
-5 files in `docs/` — architecture & redesign notes for AI Agent, dashboard, landing page.
+5 files in `docs/` — `AI-AGENT-ARCHITECTURE.md`, `dashboard-de-ai-slop.md`, `dashboard-redesign-plan.md`, `landing-de-ai-slop.md`, `landing-guild-marquee.md`. Architecture & redesign notes for AI Agent, dashboard, and landing page.
 
 ## Deployment
 
