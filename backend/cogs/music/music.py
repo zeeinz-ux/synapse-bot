@@ -28,47 +28,47 @@ ROTATE_FAIL_THRESHOLD = 2
 SWEEP_INTERVAL = 30
 
 # `url` is the primary source; `fallbacks` are rotated to on repeated stream failures.
-# All fallbacks are cross-references to other (verified) primary URLs so the bot
-# keeps emitting audio even if a single radio host blocks/geo-restricts its IP.
+# Each station maps to a distinct, geo-open genre source so /station actually matches its name.
+# Fallbacks cross-reference other verified streams so the bot keeps emitting audio even if a host flaky/geo-restricts.
 STATIONS = {
     "lofi": {
         "url": "https://play.streamafrica.net/lofiradio",
         "label": "\U0001f3a7 Synapse Radio",
         "fallbacks": [
-            "https://radio.loficafe.net/listen/japanese-lofi/radio.mp3",
             "https://live.lofiradio.ru/lofi_mp3_128",
+            "https://ice1.somafm.com/groovesalad-128-mp3",
         ],
     },
     "jazz": {
-        "url": "https://radio.loficafe.net/listen/japanese-lofi/radio.mp3",
+        "url": "https://ice1.somafm.com/sonicuniverse-128-mp3",
         "label": "\U0001f3b7 Synapse Jazz",
         "fallbacks": [
-            "https://play.streamafrica.net/lofiradio",
-            "https://streaming.hotmixradio.com/hotmix-lofi-en-mp3",
+            "https://ice1.somafm.com/secretagent-128-mp3",
+            "https://ice1.somafm.com/groovesalad-128-mp3",
         ],
     },
     "chill": {
-        "url": "https://radio.loficafe.net/listen/chilling/radio.mp3",
+        "url": "https://ice1.somafm.com/groovesalad-128-mp3",
         "label": "\U0001f30a Synapse Chill",
         "fallbacks": [
-            "https://radio.loficafe.net/listen/japanese-lofi/radio.mp3",
-            "https://live.lofiradio.ru/lofi_mp3_128",
+            "https://ice1.somafm.com/deepspaceone-128-mp3",
+            "https://ice1.somafm.com/dronezone-128-mp3",
         ],
     },
     "study": {
         "url": "https://live.lofiradio.ru/lofi_mp3_128",
         "label": "\U0001f4da Synapse Study",
         "fallbacks": [
-            "https://radio.loficafe.net/listen/japanese-lofi/radio.mp3",
             "https://play.streamafrica.net/lofiradio",
+            "https://ice1.somafm.com/groovesalad-128-mp3",
         ],
     },
     "sleep": {
-        "url": "https://streaming.hotmixradio.com/hotmix-lofi-en-mp3",
+        "url": "https://ice1.somafm.com/deepspaceone-128-mp3",
         "label": "\U0001f634 Synapse Sleep",
         "fallbacks": [
-            "https://radio.loficafe.net/listen/chilling/radio.mp3",
-            "https://play.streamafrica.net/lofiradio",
+            "https://ice1.somafm.com/dronezone-128-mp3",
+            "https://ice1.somafm.com/groovesalad-128-mp3",
         ],
     },
 }
