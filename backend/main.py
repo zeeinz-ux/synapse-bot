@@ -398,4 +398,42 @@ if not TOKEN:
     log.critical("TOKEN_BOT not found in .env!")
     exit(1)
 
-bot.run(TOKEN)
+
+def _is_cloudflare_rate_limit(exc):
+    if isinstance(exc, discord.HTTPException) and exc.status == 429:
+        text = (exc.text or "").lower()
+        return any(k in text for k in ("cloudflare", "1015", "access denied", "rate limited"))
+    return False
+
+
+def _run_with_login_retry(token):
+    async def runner():
+        attempt = 0
+        while True:
+            try:
+                await bot.start(token, reconnect=True)
+                break
+            except discord.HTTPException as exc:
+                if not _is_cloudflare_rate_limit(exc):
+                    raise
+                attempt += 1
+                wait = min(60 * (2 ** (attempt - 1)), 600)
+                log.critical(
+                    "Discord login rate-limited by Cloudflare (429 / error 1015). "
+                    "Backing off %ds before retry #%d",
+                    wait, attempt,
+                )
+                try:
+                    await bot.http.close()
+                except Exception:
+                    pass
+                await asyncio.sleep(wait)
+        try:
+            await bot.close()
+        except Exception:
+            pass
+
+    asyncio.run(runner())
+
+
+_run_with_login_retry(TOKEN)
