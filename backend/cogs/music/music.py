@@ -177,6 +177,23 @@ class MusicCog(commands.Cog, name="Music"):
             except Exception:
                 pass
 
+    def _detach_zombie_voice(self, guild):
+        """Force-remove a voice client stuck in discord.py's state cache with a dead WS."""
+        try:
+            existing = guild.voice_client if guild else None
+            if not existing:
+                return
+            try:
+                existing.stop()
+            except Exception:
+                pass
+            try:
+                existing.cleanup()
+            except Exception:
+                pass
+        except Exception:
+            pass
+
     async def _ensure_watchdog(self, guild_id: int):
         task = self._watchdog_tasks.get(guild_id)
         if task and not task.done():
@@ -224,6 +241,16 @@ class MusicCog(commands.Cog, name="Music"):
             await self._ensure_watchdog(guild_id)
             log.warning("[MUSIC] Sweep reconnected (guild %s) -> #%s", guild_id, channel.name)
         except Exception as e:
+            if "Already connected to a voice channel" in str(e):
+                existing = guild.voice_client
+                if existing and existing.is_connected():
+                    self._needs_restart.add(guild_id)
+                    log.info("[MUSIC] Sweep: already reconnected internally (guild %s), marking restart", guild_id)
+                else:
+                    self._detach_zombie_voice(guild)
+                    log.warning("[MUSIC] Sweep: detached zombie voice client (guild %s)", guild_id)
+                await self._ensure_watchdog(guild_id)
+                return
             log.warning("[MUSIC] Sweep reconnect failed (guild %s): %s", guild_id, e)
 
     async def _restore_states(self):
@@ -366,6 +393,19 @@ class MusicCog(commands.Cog, name="Music"):
                                 reconnect_fails = 0
                                 silent_ticks = 0
                             except Exception as e:
+                                msg = str(e)
+                                if "Already connected to a voice channel" in msg:
+                                    existing = guild.voice_client
+                                    if existing and existing.is_connected():
+                                        # internal Discord reconnect won the race -> resume stream
+                                        self._needs_restart.add(guild_id)
+                                        log.info("[MUSIC] Watchdog: already reconnected internally (guild %s), marking restart", guild_id)
+                                    else:
+                                        # zombie voice client stuck in state cache -> detach so connect() can succeed
+                                        self._detach_zombie_voice(guild)
+                                        log.warning("[MUSIC] Watchdog: detached zombie voice client (guild %s)", guild_id)
+                                    reconnect_fails = 0
+                                    continue
                                 if reconnect_fails == 1 or reconnect_fails % RECONNECT_LOG_EVERY == 0:
                                     log.warning("[MUSIC] Watchdog reconnect failed %sx (guild %s): %s", reconnect_fails, guild_id, e)
                     elif guild_id in self._needs_restart:

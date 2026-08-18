@@ -360,7 +360,7 @@ async def on_ready():
                     log.warning("Guild sync 429, retry in %ds", wait)
                     await asyncio.sleep(wait)
                 else:
-                    log.warning("Guild sync fail: %d %s", e.status, e.text)
+                    log.warning("Guild sync fail: %d %s", e.status, (e.text or "")[:300])
                     break
 
     # ── Global sync ──
@@ -377,7 +377,7 @@ async def on_ready():
                 log.warning("Global sync 429, retry in %ds", wait)
                 await asyncio.sleep(wait)
             else:
-                log.warning("Global sync fail: %d %s", e.status, e.text)
+                log.warning("Global sync fail: %d %s", e.status, (e.text or "")[:300])
                 break
         except Exception as e:
             log.error("Failed to sync commands: %s", e)

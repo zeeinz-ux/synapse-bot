@@ -1,6 +1,7 @@
 import time
 import asyncio
 import base64
+import re
 from datetime import datetime, timezone
 from typing import List, Dict
 
@@ -295,7 +296,7 @@ class GeminiProvider(AIProvider):
                 if not candidates:
                     return False
                 text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                return "YA" in text.upper()
+                return bool(re.search(r"\bYA\b", text.upper()))
         except Exception as e:
             print(f"[AI VISION] Error: {e}")
             return False

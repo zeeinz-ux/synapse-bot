@@ -250,7 +250,7 @@ class AIChat(commands.Cog):
                 temperature=0.1,
             )
 
-            result = "YA" in response.upper()
+            result = bool(re.search(r"\bYA\b", response.upper()))
         except Exception as e:
             print(f"[AI MOD] Error saat cek spam: {e}")
             result = False

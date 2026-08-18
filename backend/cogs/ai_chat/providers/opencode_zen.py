@@ -1,4 +1,5 @@
 import asyncio
+import re
 from typing import List, Dict
 
 import aiohttp
@@ -317,7 +318,7 @@ class OpenCodeZenProvider(AIProvider):
                 if not choices:
                     return False
                 text = choices[0].get("message", {}).get("content", "")
-                return "YA" in text.upper()
+                return bool(re.search(r"\bYA\b", text.upper()))
         except Exception as e:
             print(f"[ZEN VISION] Image spam error: {e}")
             return False
