@@ -19,8 +19,9 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 
 ## Procfile
 
-- `Procfile` (prod): `web: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 backend.web.web_app:app` / `worker: python backend/main.py`
-- `Procfile.dev`: `web: python -m backend.web.web_app` / `worker: python backend/main.py`
+- `Procfile` (prod): `web: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 backend.web.web_app:app` / `worker: sh -c 'until python backend/main.py; do echo "worker crashed (rc=$?) - respawn in 5s"; sleep 5; done'`
+- `Procfile.dev`: `web: python -m backend.web.web_app` / `worker: <sama seperti prod>` (simpan sebagai **UTF-8** — jangan Set-Content PS5.1 default yang jadi UTF-16, kemungkinan membuat honcho gagal parse)
+- **Honcho TIDAK respawn**: kalau satu proses mati, honcho matikan semua + exit container (`manager.py` — `_any_stopped()` → `terminate()` → `kill()`). Makanya worker dibungkus `until`-loop di Procfile sendiri: kena crash → respawn ~5s, web tetep hidup. Tanpa wrapper, crash worker = restart seluruh container (lambat, boot + on_ready + slash sync ulang).
 - Flask entry point: `app.run(host="0.0.0.0", port=<PORT|8080>, debug=True, use_reloader=False)` in `web_app.py:3118-3120`.
 
 ## Key Quirks
@@ -34,6 +35,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - **Control queue**: dashboard → bot IPC via JSON files in `control_queue/`. Web auto-creates dir (`_ensure_queue_dir`). Bot skips if absent (`main.py:100-216`). Actions: `send_message`, `refresh_rag_cache`, `refresh_settings_cache`.
 - **Cookies**: `COOKIES_CONTENT` env var auto-written to `cookies/cookies.txt` at startup (`main.py:31-41`). Nothing in the code reads it back — write-only, no behavior depends on it.
 - **Console logs**: Mix of Indonesian + English.
+- **Slash sync error logs**: truncated to 300 chars (`(e.text or "")[:300]` in `main.py:363,380`) — Discord API rate-limit/Cloudflare responses are full HTML pages; don't log the whole thing or logs flood (happened with Cloudflare 1015).
 - **`_project_root`**: set in `main.py` via `sys.path.insert(0, ...)` so module resolution works locally. Dockerfile sets `ENV PYTHONPATH=/app`.
 - **Frontend**: Jinja2 templates in `frontend/pages/`, Flask references them via relative paths from `backend/web/web_app.py`.
 - **`web_app.py` is ~3100 lines** — single Flask file with 70+ routes, API, OAuth2, all dashboards. Largest file in repo.
@@ -92,7 +94,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 - **5 stations** (lofi/jazz/chill/study/sleep), each a **distinct geo-open genre source** (SomaFM for jazz/chill/sleep; streamafrica/lofiradio.ru for lofi/study) so `/station` matches its name. Do NOT use `streaming.hotmixradio.com` (geo-blocks non-France, incl. the Singapore Render region → "location" error) or `radio.loficafe.net/listen/japanese-lofi` (flaky, repeated EOF). `/play` + `/station` auto-complete. Each station has a primary `url` + 2 cross-referenced `fallbacks` rotated after `ROTATE_FAIL_THRESHOLD` (2) consecutive stream failures.
 - `/sleep <minutes>`, `/fix-voice`, prefix `!connect`/`!joinvc`/`!leave`.
 - **24/7 auto-resume via Firestore `voice_state`**: `_restore_states` runs on `on_ready`. Stored URL not in current primaries → replaced with a random station (so geo-blocked legacy states self-heal).
-- **Watchdog** (per guild, `WATCHDOG_INTERVAL`=10s): if bot drops from voice → reconnect to saved channel + restart; if connected but silent/idle → restart. Reconnect race is handled: re-checks `is_connected()` before `channel.connect()` (reconnect internal Discord yang kelar duluan → `"Already connected to a voice channel"`) → marks restart instead of counting failure.
+- **Watchdog** (per guild, `WATCHDOG_INTERVAL`=10s): if bot drops from voice → reconnect to saved channel + restart; if connected but silent/idle → restart. `channel.connect()` can throw `"Already connected to a voice channel"` in TWO cases — (a) internal Discord reconnect won the race, or (b) **zombie voice client** (masih terdaftar di state cache `discord.abc.py` via `state._get_voice_client()`, tapi websocket-nya mati → `is_connected()` False). Fix (`music.py`): both watchdog & sweep loop catch that message → if `guild.voice_client.is_connected()` → mark `_needs_restart` (resume stream); else `_detach_zombie_voice()` (`vc.stop()` + `vc.cleanup()` yang memanggil `_remove_voice_client`) → `connect()` berikutnya sukses. Sebelum fix, zombie client bikin watchdog hitung `reconnect failed 840x+` selama berjam-jam tanpa pernah restart (radio mati).
 - **24/7 sweep loop** (`_sweep_loop`, `SWEEP_INTERVAL`=30s): safety net for guilds with saved state but no live watchdog/voice → reconnect + play. Started from `on_ready`.
 - **`_needs_restart` set** closes the "silent after voice WS reconnect" gap: set by `on_voice_state_update` drop, by `_on_track_end` firing while disconnected, and by the watchdog's internal-reconnect race; the watchdog's `elif guild_id in self._needs_restart` branch then force-restarts even if `is_playing()` claims healthy (zombie player after an internal reconnect produces no audio). Before this, a transient voice WS drop often left the radio silent until the stream EOF'd.
 - **Session token guard**: `_play_looping`/`_safe_stop` bump a per-guild `_play_tokens` counter; `_on_track_end` ignores `after` callbacks with a stale token. Prevents the restart storm (intentional `vc.stop()` used to kill the old stream → its `after` restarted → looped ~2s) and the SIGABRT crash. Task cancels (`_cancel_sleep`/`_stop_watchdog`) go through `bot.loop.call_soon_threadsafe` because `_play_looping` runs in discord's audio thread — never call `asyncio.Task.cancel()` directly there.
@@ -130,7 +132,7 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 **Tuning history (2026)**: casual `@everyone` messages (e.g. `@everyone join dc`) were false-positive punished. Fixes: `@everyone` weight 5→2 (`spam_engine.py`), AI-cleared messages now pass unless flooding/duplicate, benign-mention skip for accounts >=60d. **New-joiner false positives**: `joined <7d` alone was skipping AI, so a first message in `#welcome` from an old account (<1h join = +5 score) was auto-punished → `skip_ai` now requires `score >= 8` when joined <7d, so old accounts get AI verification unless the content is clearly suspicious. Real spam still caught via URL/keyword/young-account signals + image layer.
 
 - **3-layer image spam**: rate limit (4/10s) → pHash + Hamming → Gemini Vision + Google Cloud Vision OCR.
-- **`analyze_spam` quirk** (`ai_chat.py:223`): returns `"YA" in response.upper()` — a verbose free-model reply can contain a stray "YA". Cached by md5 content hash (500 entries, TTL).
+- **`analyze_spam` / vision spam check** (`ai_chat.py:253`, `gemini.py:298`, `opencode_zen.py:320`): pakai regex **`re.search(r"\bYA\b", text.upper())`** — word-boundary, BUKAN substring `"YA" in text.upper()`. Jangan kembalikan ke substring: kata Indonesia "SAYA"/"YAKIN"/"KAYA" mengandung "YA" → jawaban verbose model yang aman bisa salah diancap spam → **ban akun asli (false positive)**. Substring check hanya safe kalau model dijamin jawab singkat "YA"/"TIDAK". Cache spam: md5 content hash (500 entries, TTL).
 - **Vision gap**: Gemini Vision only runs for suspicious users (quota-saving) — a brand-new unknown scam image from an old, non-flooding account can slip through unless Google Vision OCR (`GOOGLE_VISION_API_KEY`) is configured.
 - **SpamIntelligence** (`backend/utils/spam_intelligence.py`): AI engine with persistent Firestore `scam_signatures` collection. Pre-checks known scam templates by pHash before other layers. After flagging, runs structured Vision AI analysis → stores signatures if confidence >= 85 with >= 3 indicators.
 - **Ban Evasion Detection** (`spam_intelligence.py:584-714`): Text fingerprinting via `_compute_text_fingerprint()` — extracts scam URLs, keywords, and mentions into a 24-char hash. On ban/kick, `store_ban_pattern()` persists fingerprint to Firestore `ban_patterns` collection with `timesBanned` counter. On each new message from accounts <60 days old (`moderation.py`), `check_ban_pattern()` compares against cache — exact hash match or partial URL domain match triggers evasion ban.
@@ -165,5 +167,15 @@ None. Zero tests, no pytest, no lint, no typecheck, no formatter, no CI. Manual 
 ## Deployment
 
 **Render** via Dockerfile. `python:3.11-slim`, installs `curl unzip fonts-dejavu-core ffmpeg`. Runs `honcho start -f Procfile` (web + worker).
+
+## Troubleshooting (dari log Render)
+
+Gejala log → akar masalah → tindakan (fix yang sudah dikerjakan, jangan diulang):
+
+- **Halaman HTML Cloudflare/HTML raksasa tumpah ke log** (error 1015 "You are being rate limited" dari `discord.com`) → slash sync kena rate limit Discord; `main.py:363,380` sebelumnya logging `e.text` mentah (full HTML page). Fix: sudah di-truncate 300 char. Kalau muncul lagi: cek apakah sering crash-loops → banyak sync berulang.
+- **`Watchdog reconnect failed Nx (guild ...): Already connected to a voice channel.`** → zombie voice client (client terdaftar di state cache tapi ws mati) atau race internal reconnect. Bukan berarti perlu manual restart — iterate watchdog ~10-20s. Fix: `_detach_zombie_voice()` + mark `_needs_restart` (`music.py`). Jangan kembalikan ke `continue` tanpa handling: dulu ini bikin radio mati berjam-jam (840x+ failure).
+- **Bot tidak kunjung online setelah crash** → honcho TIDAK respawn; kalau sebelumnya worker bare `python backend/main.py` tanpa wrapper, crash = seluruh container restart (lambat). Fix: `until python backend/main.py; do sleep 5; done` di Procfile. Kalau respawn tidak kelihatan, cek log `worker crashed (rc=...) - respawn in 5s`.
+- **Akun asli ke-ban tanpa alasan** (1000+ mention/share broadcast normal) → cek apakah AI spam check pakai substring `"YA" in text.upper()`: kata seperti "SAYA"/"YAKIN"/"KAYA"/"YANG" memicu false positive. Harus regex `\bYA\b`. Sudah di-fix di `ai_chat.py:253`, `gemini.py:298`, `opencode_zen.py:320`.
+- **Startup AI lambat / log `[ZEN]` memuat puluhan model** → normal: OpenCode Zen fetch free models dari API saat boot; fallback hanya kalau API down.
 
 
