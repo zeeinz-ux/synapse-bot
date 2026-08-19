@@ -235,7 +235,7 @@ class MusicCog(commands.Cog, name="Music"):
             self._clear_state(guild_id)
             return
         try:
-            vc = await channel.connect()
+            vc = await channel.connect(self_deaf=True)
             await asyncio.sleep(0.5)
             self._play_looping(vc, state.get("url") or self._random_station_url())
             await self._ensure_watchdog(guild_id)
@@ -283,7 +283,7 @@ class MusicCog(commands.Cog, name="Music"):
             if vc:
                 continue
             try:
-                vc = await channel.connect()
+                vc = await channel.connect(self_deaf=True)
                 await asyncio.sleep(0.5)
                 self._play_looping(vc, url)
                 self._save_state(guild.id, channel.id, url)
@@ -386,7 +386,7 @@ class MusicCog(commands.Cog, name="Music"):
                         else:
                             reconnect_fails += 1
                             try:
-                                vc = await channel.connect()
+                                vc = await channel.connect(self_deaf=True)
                                 await asyncio.sleep(0.5)
                                 self._play_looping(vc, state["url"])
                                 log.warning("[MUSIC] Watchdog reconnected (guild %s) -> #%s", guild_id, channel.name)
@@ -471,7 +471,7 @@ class MusicCog(commands.Cog, name="Music"):
             await vc.disconnect()
             await asyncio.sleep(0.5)
         try:
-            vc = await channel.connect()
+            vc = await channel.connect(self_deaf=True)
         except discord.Forbidden:
             embed = discord.Embed(description="Gak punya izin Connect/Speak di channel itu.", color=0xFF0000)
             await ctx.send(embed=embed)
@@ -514,7 +514,7 @@ class MusicCog(commands.Cog, name="Music"):
                 if ctx.interaction:
                     await ctx.defer()
                 try:
-                    vc = await ctx.author.voice.channel.connect()
+                    vc = await ctx.author.voice.channel.connect(self_deaf=True)
                 except Exception as e:
                     log.warning("[MUSIC] /play connect failed: %s", e)
                     embed = discord.Embed(description=f"\u274c Gagal connect: {e}", color=0xFF0000)
@@ -675,7 +675,7 @@ class MusicCog(commands.Cog, name="Music"):
         await vc.disconnect()
         await asyncio.sleep(1)
         try:
-            vc = await channel.connect()
+            vc = await channel.connect(self_deaf=True)
             await asyncio.sleep(0.5)
             self._play_looping(vc, url)
             self._save_state(ctx.guild.id, channel.id, url)
