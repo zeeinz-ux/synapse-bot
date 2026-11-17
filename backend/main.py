@@ -230,19 +230,31 @@ async def _memory_monitor():
     while True:
         try:
             await asyncio.sleep(300)
-            with open(f"/proc/{_os.getpid()}/status") as f:
-                rss_kb = 0
-                for line in f:
-                    if line.startswith("VmRSS:"):
-                        rss_kb = int(line.split()[1])
-                        break
-            rss_mb = rss_kb / 1024
-            if rss_mb > 300:
-                import gc as _gc
-                collected = _gc.collect()
-                log.warning("Memory %.1fMB RSS (gc freed %d objects)", rss_mb, collected)
+            rss_mb = None
+            proc_path = f"/proc/{os.getpid()}/status"
+
+            if os.path.exists(proc_path):
+                # Linux / Container (Wispbyte, Render, Docker)
+                with open(proc_path) as f:
+                    for line in f:
+                        if line.startswith("VmRSS:"):
+                            rss_mb = int(line.split()[1]) / 1024
+                            break
             else:
-                log.info("Memory %.1fMB RSS", rss_mb)
+                # Windows fallback (tanpa /proc)
+                try:
+                    import psutil
+                    rss_mb = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)
+                except Exception:
+                    pass
+
+            if rss_mb is not None:
+                if rss_mb > 300:
+                    import gc as _gc
+                    collected = _gc.collect()
+                    log.warning("Memory %.1fMB RSS (gc freed %d objects)", rss_mb, collected)
+                else:
+                    log.info("Memory %.1fMB RSS", rss_mb)
         except asyncio.CancelledError:
             break
         except Exception as e:
