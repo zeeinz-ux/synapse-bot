@@ -33,9 +33,26 @@ def init_firebase():
             cred = credentials.Certificate(service_account_info)
 
         # --- MODE 2: RAW JSON STRING (Replit / Env String) ---
-        elif firebase_key.startswith("{"):
+        elif "{" in firebase_key:
             print("[FIREBASE] [FILE] Mendeteksi mode Raw JSON String.")
-            service_account_info = json.loads(firebase_key)
+            raw_clean = firebase_key.strip()
+            if (raw_clean.startswith('"') and raw_clean.endswith('"')) or (raw_clean.startswith("'") and raw_clean.endswith("'")):
+                raw_clean = raw_clean[1:-1].strip()
+
+            service_account_info = None
+            try:
+                service_account_info = json.loads(raw_clean)
+            except Exception:
+                try:
+                    service_account_info = json.loads(raw_clean.replace('\\"', '"'))
+                except Exception:
+                    try:
+                        import ast
+                        service_account_info = ast.literal_eval(raw_clean)
+                    except Exception as parse_err:
+                        print(f"[FIREBASE] [ERROR] Gagal parse JSON string: {parse_err}")
+                        raise
+
             cred = credentials.Certificate(service_account_info)
 
         # --- MODE 3: FILE PATH FALLBACK (VS Code Lokal / Render Secret Files) ---
