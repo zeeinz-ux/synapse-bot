@@ -3,6 +3,7 @@ import os
 import time
 import warnings
 import asyncio
+import glob
 
 os.environ["PYTHONUNBUFFERED"] = "1"
 warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*line buffering.*binary mode.*")
@@ -13,6 +14,11 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*line buffe
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
+
+# Check .local/lib/python*/site-packages for Wispbyte prefix install
+for _p in glob.glob(os.path.join(_project_root, ".local", "lib", "python*", "site-packages")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from backend.utils.logger import setup_logging
 log = setup_logging()
@@ -29,6 +35,8 @@ import json
 import base64
 import io
 
+load_dotenv(os.path.join(_project_root, ".env"))
+load_dotenv(os.path.join(_project_root, "backend", ".env"))
 load_dotenv()
 
 _cookies_raw = os.getenv("COOKIES_CONTENT")
@@ -396,9 +404,9 @@ async def on_ready():
 async def on_close():
     log.info("Bot shutting down")
 
-TOKEN = os.getenv("TOKEN_BOT")
+TOKEN = os.getenv("TOKEN_BOT") or os.getenv("token_bot") or os.getenv("DISCORD_TOKEN") or os.getenv("TOKEN")
 if not TOKEN:
-    log.critical("TOKEN_BOT not found in .env!")
+    log.critical("TOKEN_BOT / DISCORD_TOKEN not found in environment variables or .env!")
     exit(1)
 
 
