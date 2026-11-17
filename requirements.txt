@@ -13,4 +13,5 @@ tenacity==8.3.0
 Flask-Session==0.8.0
 easy-pil==0.6.1
 beautifulsoup4==4.13.3
+imageio-ffmpeg>=0.5.1
 # chromadb==1.5.9  # Opsional/dinonaktifkan untuk cloud hosting 512MB RAM (mencegah crash OOM karena onnxruntime & numpy)

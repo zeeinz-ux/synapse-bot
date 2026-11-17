@@ -4,8 +4,21 @@ import asyncio
 import time
 import random
 import logging
+import shutil
 
 log = logging.getLogger("bot")
+
+def _get_ffmpeg_executable() -> str:
+    """Cari executable ffmpeg dari system PATH atau imageio-ffmpeg fallback."""
+    sys_ffmpeg = shutil.which("ffmpeg")
+    if sys_ffmpeg:
+        return sys_ffmpeg
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        pass
+    return "ffmpeg"
 
 try:
     from backend.cogs.database.firebase_setup import db
@@ -300,7 +313,12 @@ class MusicCog(commands.Cog, name="Music"):
             self._needs_restart.discard(gid)
         token = self._play_tokens.get(gid, 0) if gid else 0
         try:
-            source = discord.FFmpegPCMAudio(url, before_options=FFMPEG_BEFORE_OPTS, options=FFMPEG_OPTS)
+            source = discord.FFmpegPCMAudio(
+                url,
+                executable=_get_ffmpeg_executable(),
+                before_options=FFMPEG_BEFORE_OPTS,
+                options=FFMPEG_OPTS
+            )
         except Exception as e:
             # construction-time failure: ffmpeg missing/broken or Popen failed
             log.error("[MUSIC] Cannot start ffmpeg (guild %s): %s", gid, e)
