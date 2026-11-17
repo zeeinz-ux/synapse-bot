@@ -27,7 +27,7 @@ def start_web_server():
     """Jalankan web server Flask di thread terpisah jika diaktifkan."""
     try:
         from backend.web.web_app import app
-        port = int(os.getenv("PORT", 8080))
+        port = int(os.getenv("PORT") or os.getenv("SERVER_PORT") or 8080)
         host = os.getenv("HOST", "0.0.0.0")
         print(f"[RUNNER] 🌐 Menjalankan Web Dashboard di {host}:{port}...")
         app.run(host=host, port=port, debug=False, use_reloader=False)
@@ -35,8 +35,10 @@ def start_web_server():
         print(f"[RUNNER] [ERROR] Gagal menjalankan Web Dashboard: {e}")
 
 if __name__ == "__main__":
-    # Cek apakah user ingin menjalankan web dashboard juga (ENABLE_WEB=true atau START_WEB=true)
-    run_web = os.getenv("ENABLE_WEB", "").lower() in ("true", "1", "yes") or os.getenv("START_WEB", "").lower() in ("true", "1", "yes")
+    # Cek apakah user ingin menjalankan web dashboard juga (ENABLE_WEB=true atau START_WEB=true atau RUN_WEB=1)
+    run_web = os.getenv("ENABLE_WEB", "").lower() in ("true", "1", "yes") or \
+              os.getenv("START_WEB", "").lower() in ("true", "1", "yes") or \
+              os.getenv("RUN_WEB", "").lower() in ("true", "1", "yes")
     
     if run_web:
         web_thread = threading.Thread(target=start_web_server, daemon=True)
