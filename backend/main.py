@@ -7,12 +7,15 @@ import asyncio
 os.environ["PYTHONUNBUFFERED"] = "1"
 warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*line buffering.*binary mode.*")
 
-from backend.utils.logger import setup_logging
-log = setup_logging()
-
+# Repo root must be importable before any `backend.*` import, so that running this
+# file directly (`python backend/main.py`, `py main.py` from backend/) works the same
+# as `python -m backend.main` and Docker (`PYTHONPATH=/app`).
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
+
+from backend.utils.logger import setup_logging
+log = setup_logging()
 
 import discord
 from discord.ext import commands, tasks
