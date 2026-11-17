@@ -104,6 +104,9 @@ Note: `.env.example` uses lowercase `token_bot` but `main.py` reads `TOKEN_BOT`.
 
 ## Dashboard (Flask)
 
+- **Auth berlapis (WAJIB untuk route baru)**: `login_required` (redirect ke `/login`), `guild_admin_required` (401 kalau belum login, 403 kalau bukan owner/`ADMINISTRATOR`/`MANAGE_GUILD` di guild dari `<guild_id>`), `admin_required` (401/403, allow-list `AUTHORIZED_USERS`). Semua route `/api/**` ber-`<guild_id>` dan semua POST/DELETE `/dashboard/<guild_id>/**` sudah memakai `guild_admin_required` (58 route). GET halaman tetap lewat `_render_page()` (redirect). Jangan tambah route guild tanpa decorator ini.
+- **Webhook donasi**: `_webhook_secret_ok(source)` → `WEBHOOK_SECRET_SAWERIA`/`WEBHOOK_SECRET_SOCIABUZZ`/`WEBHOOK_SECRET`, diterima via header `X-Webhook-Token`/`X-Webhook-Secret` atau `?token=`. Kalau secret kosong → fail open + warning log (supaya donasi lama tidak mati). `_claim_webhook_event()` pakai koleksi `webhook_events` (`document().create()` + `AlreadyExists`) untuk anti-replay; klaim di-release di blok `except` supaya retry provider tetap diproses. `?test=1` early-return **sebelum** `_activate_premium` (dulu test donation bisa mengaktifkan premium permanen).
+- `_parse_donation_amount()` menangani "50.000", "50,000", "Rp 50.000", "50000.0" tanpa mengubah 5000 jadi 50000 (bug lama: separator dibuang semua).
 - Discord OAuth2: `identify` + `guilds`. Guild access filtered to `ADMINISTRATOR` or `MANAGE_GUILD`.
 - Sessions: Flask-Session (filesystem) at `backend/web/flask_session/` (gitignored via the `flask_session/` rule).
 - `MAX_CONTENT_LENGTH = 50MB`. Images >400KB auto-compressed to base64 data URLs for Firestore.

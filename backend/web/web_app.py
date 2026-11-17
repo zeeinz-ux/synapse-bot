@@ -3,6 +3,7 @@ import json
 import time
 import threading
 import base64
+import hmac
 import traceback
 import io
 import asyncio
@@ -126,6 +127,166 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+# ==========================================================
+# Helper - authorization (login + per-guild + admin allow-list)
+# ==========================================================
+def _session_user():
+    """Return the Discord user dict stored in session, or None."""
+    user = session.get("user")
+    return user if isinstance(user, dict) and user.get("id") else None
+
+
+def _user_guild_entry(guild_id: str):
+    """Return the cached session guild entry for guild_id, or None."""
+    for g in session.get("user_guilds") or []:
+        if str(g.get("id")) == str(guild_id):
+            return g
+    return None
+
+
+def _guild_can_manage(guild_id: str) -> bool:
+    """True when the logged-in user owns guild_id or has ADMINISTRATOR/MANAGE_GUILD there."""
+    entry = _user_guild_entry(guild_id)
+    if not entry:
+        return False
+    if entry.get("owner"):
+        return True
+    try:
+        perms = int(entry.get("permissions", 0))
+    except (TypeError, ValueError):
+        perms = 0
+    return bool(perms & ADMIN_PERM) or bool(perms & MANAGE_GUILD_PERM)
+
+
+def guild_admin_required(f):
+    """Require login AND ADMINISTRATOR/MANAGE_GUILD in the <guild_id> URL variable."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not _session_user():
+            return jsonify({"success": False, "message": "Unauthorized"}), 401
+        guild_id = kwargs.get("guild_id")
+        if not guild_id or not _guild_can_manage(str(guild_id)):
+            return jsonify({"success": False, "message": "Forbidden"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def _authorized_admin_ids() -> set:
+    """Discord user IDs allowed to call global-admin endpoints (AUTHORIZED_USERS)."""
+    raw = os.getenv("AUTHORIZED_USERS", "") or ""
+    return {p.strip() for p in raw.replace(";", ",").split(",") if p.strip()}
+
+
+def admin_required(f):
+    """Require login; when AUTHORIZED_USERS is set the user must be on the list."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = _session_user()
+        if not user:
+            return jsonify({"success": False, "message": "Unauthorized"}), 401
+        allowed = _authorized_admin_ids()
+        if allowed and str(user.get("id")) not in allowed:
+            return jsonify({"success": False, "message": "Forbidden"}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# ==========================================================
+# Helper - donation webhook auth & replay protection
+# ==========================================================
+def _webhook_secret_ok(source: str) -> bool:
+    """Validate the shared secret for a donation webhook.
+
+    Reads WEBHOOK_SECRET_<SOURCE> (e.g. WEBHOOK_SECRET_SAWERIA) with a shared
+    WEBHOOK_SECRET fallback. Accepts the secret via the X-Webhook-Token /
+    X-Webhook-Secret header or a ?token= query param. When nothing is
+    configured we fail open (with a warning) so live donations keep working.
+    """
+    expected = (
+        os.getenv(f"WEBHOOK_SECRET_{source.upper()}")
+        or os.getenv("WEBHOOK_SECRET")
+        or ""
+    ).strip()
+    if not expected:
+        print(f"[WEBHOOK] WARNING: {source} has no WEBHOOK_SECRET configured - accepting unauthenticated payload")
+        return True
+    provided = (
+        request.headers.get("X-Webhook-Token")
+        or request.headers.get("X-Webhook-Secret")
+        or request.args.get("token")
+        or ""
+    ).strip()
+    return bool(provided) and hmac.compare_digest(provided, expected)
+
+
+def _claim_webhook_event(source: str, external_id: str) -> bool:
+    """Atomically claim a webhook event id. False when it is a replay."""
+    if db is None:
+        return True
+    external_id = (external_id or "").strip()
+    if not external_id:
+        return True  # nothing to dedupe on
+    doc_id = f"{source}:{external_id}"[:512]
+    try:
+        db.collection("webhook_events").document(doc_id).create({
+            "source": source,
+            "external_id": external_id,
+            "created_at": firestore.SERVER_TIMESTAMP,
+        })
+        return True
+    except Exception as e:
+        if type(e).__name__.endswith("AlreadyExists"):
+            print(f"[WEBHOOK] replay ignored: {doc_id}")
+            return False
+        # Never drop a real donation because dedupe storage failed.
+        print(f"[WEBHOOK] dedupe check failed for {doc_id}: {e}")
+        return True
+
+
+def _release_webhook_event(source: str, external_id: str) -> None:
+    """Undo a claim so a provider retry can be processed after a failure."""
+    if db is None:
+        return
+    external_id = (external_id or "").strip()
+    if not external_id:
+        return
+    try:
+        db.collection("webhook_events").document(f"{source}:{external_id}"[:512]).delete()
+    except Exception as e:
+        print(f"[WEBHOOK] failed to release claim {source}:{external_id}: {e}")
+
+
+def _parse_donation_amount(raw) -> int:
+    """Parse an incoming donation amount into whole rupiah.
+
+    Accepts ints/floats and strings such as "50000", "50,000", "50.000",
+    "Rp 50.000" or "50000.0". A single separator followed by 1-2 digits is
+    treated as a decimal mark; otherwise separators are thousands marks.
+    """
+    if raw is None or isinstance(raw, bool):
+        return 0
+    if isinstance(raw, (int, float)):
+        return int(round(float(raw)))
+    s = str(raw).strip().lower()
+    for junk in ("rp", "idr", " ", "_"):
+        s = s.replace(junk, "")
+    if not s:
+        return 0
+    last_dot = s.rfind(".")
+    last_comma = s.rfind(",")
+    sep = max(last_dot, last_comma)
+    if sep != -1 and len(s) - sep - 1 in (1, 2):
+        # Decimal mark: normalise to '.' and drop every other separator.
+        head = s[:sep].replace(".", "").replace(",", "")
+        s = f"{head}.{s[sep + 1:]}"
+    else:
+        s = s.replace(".", "").replace(",", "")
+    try:
+        return int(round(float(s)))
+    except (TypeError, ValueError):
+        return 0
+
 @app.route("/login")
 def login():
     discord_login_url = (
@@ -199,6 +360,7 @@ def logout():
 # ==========================================================
 
 @app.route("/api/boosts/<guild_id>/history")
+@guild_admin_required
 def api_boost_history(guild_id: str):
     if db is None:
         return jsonify({"success": False, "boosts": [], "message": "Firebase unavailable"}), 200
@@ -241,6 +403,7 @@ def api_boost_history(guild_id: str):
 
 
 @app.route("/api/boosts/<guild_id>/stats")
+@guild_admin_required
 def api_boost_stats(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -308,6 +471,7 @@ def api_boost_stats(guild_id: str):
 # ==========================================================
 
 @app.route("/api/donations/<guild_id>/history")
+@guild_admin_required
 def api_donation_history(guild_id: str):
     if db is None:
         return jsonify({"success": False, "donations": [], "message": "Firebase unavailable"}), 200
@@ -348,6 +512,7 @@ def api_donation_history(guild_id: str):
 
 
 @app.route("/api/donations/<guild_id>/stats")
+@guild_admin_required
 def api_donation_stats(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -408,6 +573,7 @@ def api_donation_stats(guild_id: str):
 
 
 @app.route("/api/donations/<guild_id>/confirm", methods=["POST"])
+@guild_admin_required
 def api_donation_confirm(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -433,6 +599,7 @@ def api_donation_confirm(guild_id: str):
 
 
 @app.route("/api/donations/<guild_id>/note", methods=["POST"])
+@guild_admin_required
 def api_donation_note(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -617,6 +784,7 @@ def _fetch_user_guilds(access_token: str) -> list:
         "permissions": g.get("permissions", "0"),
     } for g in all_guilds]
 
+
 # ==========================================================
 # Helper - render template dengan sidebar context
 # ==========================================================
@@ -755,7 +923,7 @@ def dashboard_guild(guild_id: str):
 # ==========================================================
 
 @app.route("/api/settings/<guild_id>/info")
-@login_required
+@guild_admin_required
 def api_settings_info(guild_id: str):
     try:
         stats = get_stats_snapshot()
@@ -771,7 +939,7 @@ def api_settings_info(guild_id: str):
 
 
 @app.route("/api/settings/<guild_id>/features")
-@login_required
+@guild_admin_required
 def api_settings_features(guild_id: str):
     if db is None:
         return jsonify({"success": True, "features": {}}), 200
@@ -796,7 +964,7 @@ def api_settings_features(guild_id: str):
 
 
 @app.route("/api/settings/<guild_id>/save", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_settings_save(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -816,7 +984,7 @@ def api_settings_save(guild_id: str):
 
 
 @app.route("/api/settings/<guild_id>/config")
-@login_required
+@guild_admin_required
 def api_settings_config(guild_id: str):
     if db is None:
         return jsonify({"success": True, "config": {}}), 200
@@ -836,7 +1004,7 @@ def api_settings_config(guild_id: str):
 
 
 @app.route("/api/settings/<guild_id>/reset", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_settings_reset(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1028,7 +1196,7 @@ def donation_settings_page(guild_id: str):
     return _render_page("dashboard/donation_settings.html", active_page="donation_settings", guild_id=guild_id)
 
 @app.route("/api/donations/<guild_id>/settings", methods=["GET"])
-@login_required
+@guild_admin_required
 def api_donation_get_settings(guild_id: str):
     cfg = _get_feature_config(str(guild_id), "donation_settings")
     defaults = {"enabled": True, "channel_id": "", "min_amount": 0, "webhook_url": "", "thank_you_message": ""}
@@ -1036,7 +1204,7 @@ def api_donation_get_settings(guild_id: str):
 
 
 @app.route("/api/donations/<guild_id>/settings", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_donation_save_settings(guild_id: str):
     payload = request.get_json(silent=True) or {}
     if db is None:
@@ -1171,7 +1339,11 @@ def _activate_premium(guild_id: str, amount: int, message: str, source: str):
 def webhook_saweria(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 503
+    if not _webhook_secret_ok("saweria"):
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
     is_test = request.args.get("test") == "1"
+    event_claimed = False
+    tx_id_ext = ""
     try:
         data = request.get_json(silent=True) or {}
         donatur = data.get("donatur_name", "Anonim")
@@ -1197,6 +1369,20 @@ def webhook_saweria(guild_id: str):
             "created_at": firestore.SERVER_TIMESTAMP,
         }
 
+        # Test donations never touch premium state or the real ledger.
+        if is_test:
+            doc_data["test"] = True
+            doc_ref = db.collection("transactions").add(doc_data)
+            tid = doc_ref[1].id
+            threading.Timer(60, lambda: _delete_donation_doc(tid)).start()
+            print(f"[WEBHOOK-SAWERIA] 🧪 Test donasi Rp {amount:,} dari {donatur} - ID {tid} (auto-delete 60s)")
+            return jsonify({"success": True, "message": "TEST_OK", "test": True, "id": tid}), 200
+
+        # Replay protection: ignore a transaction_id we already processed.
+        if not _claim_webhook_event("saweria", tx_id_ext):
+            return jsonify({"success": True, "message": "DUPLICATE_IGNORED"}), 200
+        event_claimed = True
+
         # Check if this is a premium purchase
         is_premium, tier, premium_user_id, control_data = _activate_premium(
             str(guild_id), amount, message, "saweria"
@@ -1210,16 +1396,8 @@ def webhook_saweria(guild_id: str):
                 # Amount matched premium but no user ID in message
                 doc_data["type"] = "premium_pending"
 
-        if is_test:
-            doc_data["test"] = True
-
         doc_ref = db.collection("transactions").add(doc_data)
         tid = doc_ref[1].id
-
-        if is_test:
-            threading.Timer(60, lambda: _delete_donation_doc(tid)).start()
-            print(f"[WEBHOOK-SAWERIA] 🧪 Test donasi Rp {amount:,} dari {donatur} - ID {tid} (auto-delete 60s)")
-            return jsonify({"success": True, "message": "TEST_OK", "test": True, "id": tid}), 200
 
         # Send DM for premium purchase
         if control_data:
@@ -1255,6 +1433,8 @@ def webhook_saweria(guild_id: str):
         return jsonify({"success": True, "message": "OK"}), 200
     except Exception as e:
         print(f"[WEBHOOK-SAWERIA] ❌ Error: {e}")
+        if event_claimed:
+            _release_webhook_event("saweria", tx_id_ext)
         return jsonify({"success": False, "message": str(e)}), 500
 
 
@@ -1266,12 +1446,15 @@ def webhook_saweria(guild_id: str):
 def webhook_sociabuzz(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 503
+    if not _webhook_secret_ok("sociabuzz"):
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
     is_test = request.args.get("test") == "1"
+    event_claimed = False
+    tx_id_ext = ""
     try:
         data = request.get_json(silent=True) or {}
         donor = data.get("donor_name") or data.get("donor", "Anonim")
-        raw_amount = data.get("amount", "0")
-        amount = int(float(str(raw_amount).replace(",", "").replace(".", "")))
+        amount = _parse_donation_amount(data.get("amount", "0"))
         message = data.get("message", "")
         tx_id_ext = data.get("transaction_id", "")
         payment_method = data.get("payment_method", "Sociabuzz")
@@ -1294,6 +1477,20 @@ def webhook_sociabuzz(guild_id: str):
             "created_at": firestore.SERVER_TIMESTAMP,
         }
 
+        # Test donations never touch premium state or the real ledger.
+        if is_test:
+            doc_data["test"] = True
+            doc_ref = db.collection("transactions").add(doc_data)
+            tid = doc_ref[1].id
+            threading.Timer(60, lambda: _delete_donation_doc(tid)).start()
+            print(f"[WEBHOOK-SOCIABUZZ] 🧪 Test donasi Rp {amount:,} dari {donor} - ID {tid} (auto-delete 60s)")
+            return jsonify({"success": True, "message": "TEST_OK", "test": True, "id": tid}), 200
+
+        # Replay protection: ignore a transaction_id we already processed.
+        if not _claim_webhook_event("sociabuzz", tx_id_ext):
+            return jsonify({"success": True, "message": "DUPLICATE_IGNORED"}), 200
+        event_claimed = True
+
         # Check if this is a premium purchase
         is_premium, tier, premium_user_id, control_data = _activate_premium(
             str(guild_id), amount, message, "sociabuzz"
@@ -1306,16 +1503,8 @@ def webhook_sociabuzz(guild_id: str):
             else:
                 doc_data["type"] = "premium_pending"
 
-        if is_test:
-            doc_data["test"] = True
-
         doc_ref = db.collection("transactions").add(doc_data)
         tid = doc_ref[1].id
-
-        if is_test:
-            threading.Timer(60, lambda: _delete_donation_doc(tid)).start()
-            print(f"[WEBHOOK-SOCIABUZZ] 🧪 Test donasi Rp {amount:,} dari {donor} - ID {tid} (auto-delete 60s)")
-            return jsonify({"success": True, "message": "TEST_OK", "test": True, "id": tid}), 200
 
         # Send DM for premium purchase
         if control_data:
@@ -1351,6 +1540,8 @@ def webhook_sociabuzz(guild_id: str):
         return jsonify({"success": True, "message": "OK"}), 200
     except Exception as e:
         print(f"[WEBHOOK-SOCIABUZZ] ❌ Error: {e}")
+        if event_claimed:
+            _release_webhook_event("sociabuzz", tx_id_ext)
         return jsonify({"success": False, "message": str(e)}), 500
 
 
@@ -1367,14 +1558,14 @@ def _ensure_queue_dir():
 # ==========================================================
 
 @app.route("/api/message-builder/<guild_id>/channels")
-@login_required
+@guild_admin_required
 def api_mb_channels(guild_id: str):
     channels = get_guild_channels(str(guild_id))
     return jsonify({"success": True, "channels": channels or []}), 200
 
 
 @app.route("/api/message-builder/<guild_id>/templates", methods=["GET"])
-@login_required
+@guild_admin_required
 def api_mb_templates_list(guild_id: str):
     if db is None:
         return jsonify({"success": False, "templates": []}), 200
@@ -1393,7 +1584,7 @@ def api_mb_templates_list(guild_id: str):
 
 
 @app.route("/api/message-builder/<guild_id>/templates", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_mb_templates_save(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1416,7 +1607,7 @@ def api_mb_templates_save(guild_id: str):
 
 
 @app.route("/api/message-builder/<guild_id>/templates/<template_id>", methods=["DELETE"])
-@login_required
+@guild_admin_required
 def api_mb_templates_delete(guild_id: str, template_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1431,7 +1622,7 @@ def api_mb_templates_delete(guild_id: str, template_id: str):
 
 
 @app.route("/api/message-builder/<guild_id>/send", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_mb_send(guild_id: str):
     try:
         data = request.get_json() or {}
@@ -1461,7 +1652,7 @@ def api_mb_send(guild_id: str):
 
 
 @app.route("/api/message-builder/<guild_id>/upload", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_mb_upload(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firestore unavailable"}), 200
@@ -1571,6 +1762,7 @@ def message_builder(guild_id: str):
 # ==========================================================
 
 @app.route("/api/templates/<guild_id>", methods=["GET"])
+@guild_admin_required
 def api_templates_list(guild_id: str):
     if db is None:
         return jsonify({"success": False, "templates": []}), 200
@@ -1589,6 +1781,7 @@ def api_templates_list(guild_id: str):
 
 
 @app.route("/api/templates/<guild_id>", methods=["POST"])
+@guild_admin_required
 def api_templates_save(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1614,6 +1807,7 @@ def api_templates_save(guild_id: str):
 
 
 @app.route("/api/templates/<guild_id>/<template_id>", methods=["DELETE"])
+@guild_admin_required
 def api_templates_delete(guild_id: str, template_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1628,6 +1822,7 @@ def api_templates_delete(guild_id: str, template_id: str):
 
 
 @app.route("/api/templates/<guild_id>/apply-announcement", methods=["POST"])
+@guild_admin_required
 def api_templates_apply_announcement(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1658,6 +1853,7 @@ def api_templates_apply_announcement(guild_id: str):
 
 
 @app.route("/api/templates/<guild_id>/add-autoresponder", methods=["POST"])
+@guild_admin_required
 def api_templates_add_autoresponder(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1706,7 +1902,7 @@ def templates_page(guild_id: str):
 # ==========================================================
 
 @app.route("/api/actions/<guild_id>/roles")
-@login_required
+@guild_admin_required
 def api_actions_roles(guild_id: str):
     try:
         roles = get_guild_roles(str(guild_id))
@@ -1718,7 +1914,7 @@ def api_actions_roles(guild_id: str):
 
 
 @app.route("/api/actions/<guild_id>/channels")
-@login_required
+@guild_admin_required
 def api_actions_channels(guild_id: str):
     try:
         chs = get_guild_channels(str(guild_id))
@@ -1729,7 +1925,7 @@ def api_actions_channels(guild_id: str):
 
 
 @app.route("/api/actions/<guild_id>/level-rewards", methods=["GET"])
-@login_required
+@guild_admin_required
 def api_actions_level_rewards_get(guild_id: str):
     if db is None:
         return jsonify({"success": False, "enabled": False, "rewards": [], "notify_channel": ""}), 200
@@ -1752,7 +1948,7 @@ def api_actions_level_rewards_get(guild_id: str):
 
 
 @app.route("/api/actions/<guild_id>/level-rewards", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_actions_level_rewards_save(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1779,7 +1975,7 @@ def api_actions_level_rewards_save(guild_id: str):
 
 
 @app.route("/api/actions/<guild_id>/moderation", methods=["GET"])
-@login_required
+@guild_admin_required
 def api_actions_moderation_get(guild_id: str):
     if db is None:
         return jsonify({"success": False, "enabled": True}), 200
@@ -1803,7 +1999,7 @@ def api_actions_moderation_get(guild_id: str):
 
 
 @app.route("/api/actions/<guild_id>/moderation", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_actions_moderation_save(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase unavailable"}), 200
@@ -1880,6 +2076,7 @@ def _ar_bridge_response(guild_id: str, coro_factory):
 
 
 @app.route("/api/auto-responders/<guild_id>", methods=["GET"])
+@guild_admin_required
 def api_auto_responders_list(guild_id: str):
     # NOTE: This is a READ endpoint. We intentionally do NOT short-circuit on
     # firestore_circuit_open() because that circuit guards WRITES (free tier
@@ -1915,6 +2112,7 @@ def api_auto_responders_list(guild_id: str):
 
 
 @app.route("/api/auto-responders/<guild_id>/save", methods=["POST"])
+@guild_admin_required
 def api_auto_responders_save(guild_id: str):
     if firestore_circuit_open():
         retry = int(firestore_retry_after())
@@ -1959,6 +2157,7 @@ def api_auto_responders_save(guild_id: str):
 
 
 @app.route("/api/auto-responders/<guild_id>/toggle", methods=["POST"])
+@guild_admin_required
 def api_auto_responders_toggle(guild_id: str):
     if firestore_circuit_open():
         retry = int(firestore_retry_after())
@@ -2020,6 +2219,7 @@ def api_auto_responders_toggle(guild_id: str):
 
 
 @app.route("/api/auto-responders/<guild_id>/delete", methods=["POST", "DELETE"])
+@guild_admin_required
 def api_auto_responders_delete(guild_id: str):
     if firestore_circuit_open():
         retry = int(firestore_retry_after())
@@ -2044,6 +2244,7 @@ def api_auto_responders_delete(guild_id: str):
 
 
 @app.route("/api/auto-responders/<guild_id>/reorder", methods=["POST"])
+@guild_admin_required
 def api_auto_responders_reorder(guild_id: str):
     if firestore_circuit_open():
         retry = int(firestore_retry_after())
@@ -2101,7 +2302,7 @@ def anti_spam_page(guild_id: str):
     return _render_page("dashboard/anti_spam.html", active_page="anti_spam", guild_id=guild_id)
 
 @app.route("/api/anti-spam/<guild_id>/config")
-@login_required
+@guild_admin_required
 def api_anti_spam_config(guild_id: str):
     try:
         doc = db.collection("guild_settings").document(guild_id).get()
@@ -2113,7 +2314,7 @@ def api_anti_spam_config(guild_id: str):
         return jsonify({"success": False, "config": _MOD_DEFAULTS}), 200
 
 @app.route("/api/anti-spam/<guild_id>/save", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_anti_spam_save(guild_id: str):
     try:
         payload = request.get_json(silent=True) or {}
@@ -2152,7 +2353,7 @@ def anti_nuke_page(guild_id: str):
 
 
 @app.route("/api/anti-nuke/<guild_id>/config")
-@login_required
+@guild_admin_required
 def api_anti_nuke_config(guild_id: str):
     try:
         doc = db.collection("guild_settings").document(guild_id).get()
@@ -2165,7 +2366,7 @@ def api_anti_nuke_config(guild_id: str):
 
 
 @app.route("/api/anti-nuke/<guild_id>/save", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_anti_nuke_save(guild_id: str):
     try:
         payload = request.get_json(silent=True) or {}
@@ -2195,7 +2396,7 @@ def voice_page(guild_id: str):
 
 
 @app.route("/api/voice/<guild_id>/config", methods=["GET"])
-@login_required
+@guild_admin_required
 def api_voice_config(guild_id: str):
     if db is None:
         return jsonify({"success": False, "config": _VOICE_DEFAULTS, "message": "Firestore tidak tersedia"}), 503
@@ -2214,7 +2415,7 @@ def api_voice_config(guild_id: str):
 
 
 @app.route("/api/voice/<guild_id>/save", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_voice_save(guild_id: str):
     try:
         payload = request.get_json(silent=True) or {}
@@ -2237,7 +2438,7 @@ def rag_page(guild_id: str):
     return _render_page("dashboard/rag.html", active_page="rag", guild_id=guild_id)
 
 @app.route("/api/rag/<guild_id>/documents")
-@login_required
+@guild_admin_required
 def api_rag_documents(guild_id: str):
     import asyncio
     from backend.utils.rag_engine import list_documents
@@ -2248,7 +2449,7 @@ def api_rag_documents(guild_id: str):
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/api/rag/<guild_id>/upload", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_rag_upload(guild_id: str):
     import asyncio, base64
     from backend.utils.rag_engine import extract_text, save_document
@@ -2269,7 +2470,7 @@ def api_rag_upload(guild_id: str):
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/api/rag/<guild_id>/delete", methods=["POST"])
-@login_required
+@guild_admin_required
 def api_rag_delete(guild_id: str):
     import asyncio
     from backend.utils.rag_engine import delete_document
@@ -2311,6 +2512,7 @@ def _signal_rag_refresh(guild_id: str):
 # firestore_stats.py. This endpoint exposes that data via HTTP.
 # ============================================================================
 @app.route("/api/admin/firestore/circuit/reset", methods=["POST"])
+@admin_required
 def api_firestore_circuit_reset():
     """Manually close the Firestore circuit breaker. Useful when the dashboard
     is stuck in 503 because a previous write hit a quota error. Safe to call
@@ -2327,6 +2529,7 @@ def api_firestore_circuit_reset():
 
 
 @app.route("/api/guilds/<guild_id>/channels", methods=["GET"])
+@guild_admin_required
 def api_guild_channels(guild_id: str):
     # get_guild_channels returns [{id, name}, ...] from Firestore.
     # If Firestore is unavailable, returns []. Always return success with
@@ -2336,13 +2539,14 @@ def api_guild_channels(guild_id: str):
 
 
 @app.route("/api/guilds/<guild_id>/categories", methods=["GET"])
+@guild_admin_required
 def api_guild_categories(guild_id: str):
     categories = get_guild_categories(str(guild_id))
     return jsonify({"success": True, "categories": categories or [], "count": len(categories or [])}), 200
 
 
 @app.route("/api/guilds/<guild_id>/images", methods=["GET"])
-@login_required
+@guild_admin_required
 def api_guild_images(guild_id: str):
     images = []
     if db is None:
@@ -2470,7 +2674,7 @@ def agent_page(guild_id: str):
 
 
 @app.route("/dashboard/<guild_id>/ai-agent/toggle", methods=["POST"])
-@login_required
+@guild_admin_required
 def agent_toggle(guild_id):
     try:
         if request.is_json:
@@ -2497,7 +2701,7 @@ def agent_toggle(guild_id):
 
 
 @app.route("/dashboard/<guild_id>/ai-agent/save", methods=["POST"])
-@login_required
+@guild_admin_required
 def agent_save(guild_id):
     try:
         if request.is_json:
@@ -2542,6 +2746,7 @@ def agent_save(guild_id):
 
 
 @app.route("/dashboard/<guild_id>/ai-chat/toggle", methods=["POST"])
+@guild_admin_required
 def ai_chat_toggle(guild_id):
     try:
         if request.is_json:
@@ -2575,6 +2780,7 @@ def ai_chat_toggle(guild_id):
 
 
 @app.route("/dashboard/<guild_id>/ai-chat/save", methods=["POST"])
+@guild_admin_required
 def ai_chat_save(guild_id):
     try:
         if request.is_json:
@@ -2635,6 +2841,7 @@ def ai_chat_save(guild_id):
 
 
 @app.route("/api/ai-chat/settings/<guild_id>")
+@guild_admin_required
 def api_ai_chat_settings(guild_id):
     try:
         defaults = {
@@ -2689,6 +2896,7 @@ def api_ai_chat_settings(guild_id):
 
 
 @app.route("/api/ai-chat/history/<guild_id>")
+@guild_admin_required
 def api_ai_chat_history(guild_id):
     try:
         if db is None:
@@ -2744,6 +2952,7 @@ def get_stats():
 # ROUTES - Welcome Save (POST)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/save", methods=["POST"])
+@guild_admin_required
 def save_welcome(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
@@ -2835,6 +3044,7 @@ def save_welcome(guild_id: str):
 # ROUTES - Leave Save (POST)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/leave/save", methods=["POST"])
+@guild_admin_required
 def save_welcome_leave(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
@@ -2926,6 +3136,7 @@ def save_welcome_leave(guild_id: str):
 # ROUTES - Ban Save (POST)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/ban/save", methods=["POST"])
+@guild_admin_required
 def save_welcome_ban(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
@@ -3017,7 +3228,7 @@ def save_welcome_ban(guild_id: str):
 # ROUTES - Boost Announce Save (POST)
 # ==========================================================
 @app.route("/dashboard/<guild_id>/welcome/boost/save", methods=["POST"])
-@login_required
+@guild_admin_required
 def save_welcome_boost(guild_id: str):
     if db is None:
         return jsonify({"success": False, "message": "Firebase tidak tersedia."}), 500
